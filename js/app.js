@@ -1962,11 +1962,11 @@
      Drawing — engineering symbols
      ============================================================ */
   function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
-  let C = {}, colorsDirty = true;
+  let C = {}, colorsDirty = true, colorGen = 0;
   // kleuren alleen opnieuw uitlezen als het thema verandert, niet bij elk beeld
   function readColors() {
     if (!colorsDirty) return;
-    colorsDirty = false;
+    colorsDirty = false; colorGen++;
     C = {
       ink: css("--ink"), ink2: css("--ink-2"), ink3: css("--ink-3"),
       line: css("--line"), grid: css("--grid"), gridM: css("--grid-major"),
@@ -2055,19 +2055,21 @@
     const x0 = Math.floor(tl.x / gx) * gx, x1 = Math.ceil(br.x / gx) * gx;
     const y0 = Math.floor(br.y / gx) * gx, y1 = Math.ceil(tl.y / gx) * gx;
 
+    // alle lijnen in twee paden (dun en dik) in plaats van honderden losse streken
     ctx.lineWidth = 1;
+    const minor = new Path2D(), majorP = new Path2D();
     for (let x = x0; x <= x1 + 1e-6; x += gx) {
-      const s = toScr({ x, y: 0 });
-      const major = Math.abs(x / (gx * 5) - Math.round(x / (gx * 5))) < 1e-6;
-      ctx.strokeStyle = major ? C.gridM : C.grid;
-      ctx.beginPath(); ctx.moveTo(Math.round(s.x) + .5, 0); ctx.lineTo(Math.round(s.x) + .5, H); ctx.stroke();
+      const s = toScr({ x, y: 0 }), X = Math.round(s.x) + .5;
+      const p = Math.abs(x / (gx * 5) - Math.round(x / (gx * 5))) < 1e-6 ? majorP : minor;
+      p.moveTo(X, 0); p.lineTo(X, H);
     }
     for (let y = y0; y <= y1 + 1e-6; y += gx) {
-      const s = toScr({ x: 0, y });
-      const major = Math.abs(y / (gx * 5) - Math.round(y / (gx * 5))) < 1e-6;
-      ctx.strokeStyle = major ? C.gridM : C.grid;
-      ctx.beginPath(); ctx.moveTo(0, Math.round(s.y) + .5); ctx.lineTo(W, Math.round(s.y) + .5); ctx.stroke();
+      const s = toScr({ x: 0, y }), Y = Math.round(s.y) + .5;
+      const p = Math.abs(y / (gx * 5) - Math.round(y / (gx * 5))) < 1e-6 ? majorP : minor;
+      p.moveTo(0, Y); p.lineTo(W, Y);
     }
+    ctx.strokeStyle = C.grid; ctx.stroke(minor);
+    ctx.strokeStyle = C.gridM; ctx.stroke(majorP);
     // origin cross
     const o = toScr({ x: 0, y: 0 });
     ctx.strokeStyle = C.line; ctx.lineWidth = 1.2;
@@ -2772,7 +2774,8 @@
      gedeelde x-as, crosshair met waarden, en min/max/RMS per meting.
      ============================================================ */
   const plotCv = document.getElementById("plot");
-  const pctx = plotCv.getContext("2d");
+  const plotCtx = plotCv.getContext("2d");
+  let pctx = plotCtx;          // wijst tijdens het opbouwen van de grafiek naar een buffer
   const seriesBox = document.getElementById("series");
   const xSel = document.getElementById("xSel");
   let CH = [], CHM = new Map(), pdata = null, hoverI = null;
@@ -3086,19 +3089,20 @@
     if (!pdata) buildPdata();
     const i = Math.max(0, Math.min(360, hoverI !== null ? hoverI : Math.round(frame)));
     const frf = pdata && pdata.frf;
+    const put = (el, html) => { if (el.__h !== html) { el.__h = html; el.innerHTML = html; } };
     seriesBox.querySelectorAll("[data-v]").forEach(el => {
       const d = pdata && pdata.ss[+el.dataset.v];
-      el.innerHTML = !d ? "–"
+      put(el, !d ? "–"
         : d.err ? '<b style="color:var(--bad)">' + d.err + "</b>"
         : frf ? "<b>" + num(Math.pow(10, d.a[i]), d.u) + "</b> \u00b7 " + (isFinite(d.ph[i]) ? d.ph[i].toFixed(0) + "\u00b0" : "\u2013") +
                 " \u00b7 " + fmtHz(sweep.f[i])
-        : "<b>" + num(d.a[i], d.u) + "</b>";
+        : "<b>" + num(d.a[i], d.u) + "</b>");
     });
     seriesBox.querySelectorAll("[data-s]").forEach(el => {
       const d = pdata && pdata.ss[+el.dataset.s];
-      el.textContent = !(d && d.ok) ? ""
+      put(el, !(d && d.ok) ? ""
         : frf ? "piek " + num(d.peak) + " bij " + fmtHz(sweep.f[d.pk])
-        : "min " + num(d.mn) + " · max " + num(d.mx) + " · rms " + num(d.rms);
+        : "min " + num(d.mn) + " · max " + num(d.mx) + " · rms " + num(d.rms));
     });
   }
 
@@ -3130,6 +3134,7 @@
                mn: n ? mn : NaN, mx: n ? mx : NaN, rms: n ? Math.sqrt(sq / n) : NaN };
     });
     pdata = { xs, ss };
+    pdataGen++;
   }
 
   // FRF: amplitude (als log10) en fase per meting; de fase wordt ontvouwen
@@ -3159,6 +3164,7 @@
                u: (chU(sr.key) || "?") + "/" + sweep.inUnit, mn, mx, pmn, pmx, peak, pk };
     });
     pdata = { xs, ss, frf: true };
+    pdataGen++;
   }
   // exponentiële notatie waar dat leesbaar is
   function fmtPow(v) {
@@ -3178,6 +3184,15 @@
     if (pdata) for (const v of pdata.xs) if (isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
     if (!(hi > lo)) { lo = 0; hi = 1; }
     return [lo, hi];
+  }
+
+  let plotBox = null;
+  function measurePlot() {
+    const wrap = plotCv.parentElement, cs = getComputedStyle(wrap);
+    plotBox = {
+      w: wrap.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
+      h: wrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+    };
   }
 
   function drawPlot() {
@@ -3200,9 +3215,10 @@
       if (Math.abs(cur - want) > 2) { drawer.style.setProperty("--drawerH", want + "px"); return; }
     }
 
-    const wrap = plotCv.parentElement, cs = getComputedStyle(wrap);
-    const innerW = wrap.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-    const innerH = wrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    // de maten van het paneel komen uit de cache: opvragen na een DOM-wijziging
+    // dwingt de browser elk beeld de hele indeling opnieuw te berekenen
+    if (!plotBox) measurePlot();
+    const innerW = plotBox.w, innerH = plotBox.h;
     // eerlijk verdelen; pas als het echt niet past groeit het canvas en scrolt de houder
     const hF = Math.max(64, (innerH - PAD.B) / nF);
     const h = Math.max(80, Math.floor(hF * nF + PAD.B));
@@ -3212,6 +3228,12 @@
       plotCv.style.height = h + "px"; plotCv.style.width = w + "px";
       plotCv.width = bw; plotCv.height = bh;
     }
+    // Alles behalve de meetlijn en de bolletjes verandert niet tijdens het
+    // afspelen: dat deel wordt één keer in een buffer getekend en daarna gekopieerd.
+    const idx = Math.max(0, Math.min(360, hoverI !== null ? hoverI : Math.round(frame)));
+    const key = [pdataGen, colorGen, bw, bh, live.length, sweep && sweep.frf].join();
+    if (live.length && w >= 90 && plotCache && plotCache.key === key) { drawPlotDyn(plotCache, idx); return; }
+    plotCache = null;
     pctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     pctx.clearRect(0, 0, w, h);
     pctx.font = '400 10px "IBM Plex Mono", ui-monospace, monospace';
@@ -3251,11 +3273,18 @@
     const pw = w - PAD.L - PAD.R;
     const [xlo, xhi] = xRange();
     const X = v => PAD.L + ((v - xlo) / (xhi - xlo)) * pw;
-    const idx = Math.max(0, Math.min(360, hoverI !== null ? hoverI : Math.round(frame)));
+    const buf = document.createElement("canvas");
+    buf.width = bw; buf.height = bh;
+    pctx = buf.getContext("2d");
+    pctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    pctx.font = '400 10px "IBM Plex Mono", ui-monospace, monospace';
+    const geom = [];
+    try {
 
     subs.forEach((sb, f) => {
       const top = f * hF, pt = top + PAD.T, ph = hF - PAD.T - 8;
       const Y = v => pt + ph - ((v - sb.lo) / (sb.hi - sb.lo)) * ph;
+      geom.push({ Y, set: sb.set });
 
       // kopregel: eenheid, dan de metingen in hun kleur
       pctx.textBaseline = "middle"; pctx.textAlign = "left";
@@ -3321,12 +3350,6 @@
           px = x;
         }
         pctx.stroke();
-        const xv = pdata.xs[idx], yv = s.a[idx];
-        if (isFinite(xv) && isFinite(yv)) {
-          pctx.fillStyle = col;
-          pctx.beginPath(); pctx.arc(X(xv), Y(yv), 3.4, 0, Math.PI * 2); pctx.fill();
-          pctx.strokeStyle = C.panel; pctx.lineWidth = 1.5; pctx.stroke();
-        }
       }
       pctx.restore();
     });
@@ -3352,12 +3375,32 @@
       pctx.fillText(t, x, ty);
       lastR = x + tw2 / 2;
     }
+    } finally { pctx = plotCtx; }
+    plotCache = { key, buf, X, geom, bottom: nF * hF };
+    drawPlotDyn(plotCache, idx);
+  }
+
+  // per beeld: de bewaarde grafiek kopiëren, dan meetlijn en bolletjes erop
+  let plotCache = null, pdataGen = 0;
+  function drawPlotDyn(c, idx) {
+    const g = plotCtx;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, plotCv.width, plotCv.height);
+    g.drawImage(c.buf, 0, 0);
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
     const xv = pdata.xs[idx];
-    if (isFinite(xv)) {
-      pctx.strokeStyle = hoverI !== null ? C.accent : C.driver;
-      pctx.lineWidth = 1.2;
-      const cx = Math.round(X(xv)) + .5;
-      pctx.beginPath(); pctx.moveTo(cx, PAD.T - 4); pctx.lineTo(cx, nF * hF); pctx.stroke();
+    if (!isFinite(xv)) return;
+    const x = c.X(xv);
+    g.strokeStyle = hoverI !== null ? C.accent : C.driver;
+    g.lineWidth = 1.2;
+    const cx = Math.round(x) + .5;
+    g.beginPath(); g.moveTo(cx, PAD.T - 4); g.lineTo(cx, c.bottom); g.stroke();
+    for (const gm of c.geom) for (const s of gm.set) {
+      const yv = s.a[idx];
+      if (!isFinite(yv)) continue;
+      g.fillStyle = serieColor(s.si);
+      g.beginPath(); g.arc(x, gm.Y(yv), 3.4, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = C.panel; g.lineWidth = 1.5; g.stroke();
     }
   }
 
@@ -4132,7 +4175,7 @@
   const ro = new ResizeObserver(resize);
   ro.observe(cv.parentElement);
   let plotRaf = 0;
-  new ResizeObserver(() => { cancelAnimationFrame(plotRaf); plotRaf = requestAnimationFrame(drawPlot); })
+  new ResizeObserver(() => { plotBox = null; cancelAnimationFrame(plotRaf); plotRaf = requestAnimationFrame(drawPlot); })
     .observe(plotCv.parentElement);
   window.addEventListener("resize", resize);
   onMedia(window.matchMedia("(prefers-color-scheme: dark)"), () => { colorsDirty = true; draw(); drawPlot(); });
