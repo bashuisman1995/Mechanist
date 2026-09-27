@@ -61,12 +61,16 @@
     if (typeof drawPlot === "function") drawPlot();
   }
 
+  // omhullende van het model, inclusief de hele beweging als die bekend is
   function bounds() {
     if (!model.nodes.length) return null;
     let a = { x: Infinity, y: Infinity }, b = { x: -Infinity, y: -Infinity };
+    const add = p => { if (!p) return; a.x = Math.min(a.x, p.x); a.y = Math.min(a.y, p.y);
+                       b.x = Math.max(b.x, p.x); b.y = Math.max(b.y, p.y); };
     for (const n of model.nodes) {
-      a.x = Math.min(a.x, n.x); a.y = Math.min(a.y, n.y);
-      b.x = Math.max(b.x, n.x); b.y = Math.max(b.y, n.y);
+      add(n);
+      if (sweep && sweep.pos[n.id])
+        for (let i = 0; i <= 360; i += 4) if (sweep.ok[i]) add(sweep.pos[n.id][i]);
     }
     return { a, b };
   }
@@ -82,6 +86,23 @@
     view.ox = W / 2 - cx * view.s;
     view.oy = padTop + (H - padTop - padBot) / 2 + cy * view.s;
     draw();
+  }
+
+  // Maak het mechanisme passend binnen een deel van het canvas (schermcoördinaten),
+  // maar alleen als het daar nu niet al in past. Geeft terug of het beeld verschoof.
+  function fitInto(l, t, r, b) {
+    const bb = bounds();
+    if (!bb || r - l < 60 || b - t < 60) return false;
+    const pad = 36;
+    const A = toScr({ x: bb.a.x, y: bb.b.y }), B = toScr({ x: bb.b.x, y: bb.a.y });
+    if (A.x >= l + pad / 2 && B.x <= r - pad / 2 && A.y >= t + pad / 2 && B.y <= b - pad / 2) return false;
+    const w = Math.max(bb.b.x - bb.a.x, 40), h = Math.max(bb.b.y - bb.a.y, 40);
+    view.s = Math.max(0.15, Math.min(view.s, (r - l - 2 * pad) / w, (b - t - 2 * pad) / h));
+    const cx = (bb.a.x + bb.b.x) / 2, cy = (bb.a.y + bb.b.y) / 2;
+    view.ox = (l + r) / 2 - cx * view.s;
+    view.oy = (t + b) / 2 + cy * view.s;
+    draw();
+    return true;
   }
 
   function zoomAt(sx, sy, f) {
@@ -1381,6 +1402,7 @@
     }
     if (edited) changed();
     else { syncInspector(); draw(); }
+    if (!pick.hidden) renderPick();          // de selectie komt bovenaan de keuzelijst
   });
 
   cv.addEventListener("pointermove", ev => {
@@ -1533,6 +1555,8 @@
     const m = L[L.length >> 1];
     return m < 22 ? -1 : m < 45 ? 0 : m < 80 ? 1 : 3;
   }
+  // zolang de metingenkeuze open is, blijven de puntnamen altijd leesbaar
+  const pickOpen = () => !document.getElementById("pick").hidden;
   function flushLabels() {
     const maxPri = labelDetail();
     const placed = [];
@@ -1541,7 +1565,7 @@
     const list = LBL.map((l, i) => Object.assign(l, { i })).sort((a, b) => a.pri - b.pri || a.i - b.i);
     LBL = [];
     for (const l of list) {
-      if (l.pri > maxPri && !l.force) continue;
+      if (l.pri > maxPri && !(l.pri === 0 && pickOpen())) continue;
       const w = ctx.measureText(l.text).width;
       const r = { x0: l.left ? l.x - 2 : l.x - w / 2 - 3, y0: l.y - 7 };
       r.x1 = r.x0 + w + 6; r.y1 = r.y0 + 14;
@@ -2326,16 +2350,28 @@
   const pick = document.getElementById("pick"), pickQ = document.getElementById("pickQ"),
         pickList = document.getElementById("pickList"), pickFxInp = document.getElementById("pickFxInp"),
         pickMsg = document.getElementById("pickMsg"), pickOk = document.getElementById("pickOk");
-  let pickFor = -1, pickMode = "q";
+  let pickFor = -1, pickMode = "q", pickView = null;
   function openPick(idx, mode) {
     refreshChannels();
     pickFor = idx;
     pickQ.value = "";
     setPickMode(mode || "q");
     pick.hidden = false;
+    // het paneel mag het mechanisme niet afdekken: schuif het beeld naar het vrije deel
+    const was = { s: view.s, ox: view.ox, oy: view.oy };
+    const cr = cv.getBoundingClientRect(), pr = pick.querySelector(".card").getBoundingClientRect();
+    let l = 0, t = 0, r = W, b = H - 70;                       // onderaan zit de afspeelbalk
+    if (pr.left > cr.left + W * 0.4) r = Math.min(r, pr.left - cr.left - 8);   // paneel rechts
+    else if (pr.top > cr.top) b = Math.min(b, pr.top - cr.top - 8);           // paneel onderaan
+    pickView = fitInto(l, t + 56, r, b) ? was : null;          // bovenaan staat de hulptekst
+    draw();
     (pickMode === "f" ? pickFxInp : pickQ).focus();
   }
-  function closePick() { pick.hidden = true; }
+  function closePick() {
+    pick.hidden = true; hover = null;
+    if (pickView) { Object.assign(view, pickView); pickView = null; }
+    draw();
+  }
   function setPickMode(m) {
     pickMode = m;
     document.querySelectorAll("#pickMode button").forEach(b =>
@@ -2369,7 +2405,7 @@
     if (!list.length) { pickList.innerHTML = '<div class="g">niets gevonden</div>'; return; }
     let html = "", g = null;
     const mark = pickMode === "q" && pickFor < 0;
-    const rowHtml = r => '<div class="prow' + (r.obj === sid ? " sel" : "") + '"><span class="po">' + r.o +
+    const rowHtml = r => '<div class="prow' + (r.obj === sid ? " sel" : "") + '" data-o="' + r.obj + '"><span class="po">' + r.o +
       '</span><span class="pq">' + r.cs.map(c => chip(c, mark && plotted(c.key))).join("") + "</span></div>";
     const selRow = list.find(r => r.obj === sid);
     if (selRow) html += '<div class="g">Selectie</div>' + rowHtml(selRow);
@@ -2424,7 +2460,13 @@
     closePick();
   });
   document.getElementById("pickCancel").addEventListener("click", closePick);
-  pick.addEventListener("click", ev => { if (ev.target === pick) closePick(); });
+  // met de muis over een regel: dat onderdeel licht op in de tekening
+  pickList.addEventListener("pointerover", ev => {
+    const r = ev.target.closest(".prow");
+    const id = r ? r.dataset.o || null : null;
+    if (id !== hover) { hover = id; draw(); }
+  });
+  pickList.addEventListener("pointerleave", () => { if (hover !== null) { hover = null; draw(); } });
   pick.addEventListener("keydown", ev => { if (ev.key === "Escape") closePick(); });
 
   function setSerie(idx, sr) {
@@ -2738,6 +2780,7 @@
     const a = Math.abs(v);
     if (step > 0) {
       if (a >= 1e5) return v.toExponential(1);
+      if (step < 1e-4) return Math.abs(v) < step / 2 ? "0" : v.toExponential(1);   // heel kleine schaal
       const d = Math.max(0, Math.min(6, Math.ceil(-Math.log10(step)) + 1));
       return v.toFixed(d);
     }
@@ -2774,7 +2817,7 @@
      Bereken drukt. Alleen echte modelwijzigingen maken de oplossing ongeldig;
      selecteren, pannen of zoomen niet.
      ============================================================ */
-  let dynStale = false, job = null, solved = null;
+  let dynStale = false, job = null, solved = null, fitAfterSolve = false;
 
   // alles wat de dynamische uitkomst bepaalt — niet de weergave (namen, sporen)
   function physSig() {
@@ -2837,6 +2880,7 @@
       // de getekende stand én de (geprojecteerde) stand op t = 0 horen bij deze oplossing
       solved = sweep ? { sigs: [done.sig, physSig()], sweep } : null;
       refreshAfterSolve();
+      if (fitAfterSolve) { fitAfterSolve = false; setTimeout(fit, 150); }
     };
     syncTransport();
     job.to = setTimeout(step, 0);
@@ -2948,7 +2992,9 @@
     if (playing) togglePlay();
     cancelJob(); solved = null;
     model.nodes = []; model.elems = []; model.series = []; uid = 1; nameCounter = 0;
-    model.durMode = "fixed";
+    model.durMode = "fixed"; model.xAxis = "time";
+    model.gravity = false; model.jointDamp = false; model.cVisc = 0;
+    document.getElementById("gravChk").checked = false;
     frame = 0; setModeUI("kin");
     const map = {};
     nodes.forEach(spec => {
@@ -2975,6 +3021,8 @@
     if (after) after(nm => model.nodes.find(n => n.name === nm));
     fit(); changed();
     if (model.mode === "dyn") solveNow();
+    // nog eens passend maken zodra de lade zijn hoogte en de beweging bekend is
+    if (job) fitAfterSolve = true; else setTimeout(fit, 150);
   }
 
   const EXAMPLES = {
@@ -3017,6 +3065,63 @@
         document.getElementById("gravChk").checked = true;
         document.getElementById("durInp").value = 3;
         model.series.push({ key: "n|" + g("B").id + "|y" }, { key: "e||E" });
+      }
+    ),
+    // Theo Jansen: de poot van het Strandbeest. De voet H loopt een platte baan onderlangs.
+    jansen: () => build(
+      [["O", 0, 0, "pin"], ["K", 15, 25.981], ["P", -76, -15.6, "pin"], ["U", -76.019, 67.4],
+       ["L", -39.467, -85.194], ["T", -156.031, -10.399], ["R", -112.281, -75.938], ["V", -36.301, -183.143]],
+      [["link", "O", "K", { driver: true, theta0: 60, rpm: 30, cw: true }],
+       ["link", "K", "U"], ["link", "P", "U"], ["link", "K", "L"], ["link", "P", "L"],
+       ["link", "P", "T"], ["link", "U", "T"], ["link", "T", "R"], ["link", "L", "R"],
+       ["link", "L", "V"], ["link", "R", "V"]],
+      g => {
+        g("H").trace = true;
+        model.series.push({ key: "n|" + g("H").id + "|y" });
+        model.xAxis = "ch|n|" + g("H").id + "|x";          // de baan van de voet: y tegen x
+      }
+    ),
+    // Hoeken: kruk-balans waarvan het koppelpunt deels een rechte lijn beschrijft
+    hoeken: () => build(
+      [["A", 0, 0, "pin"], ["B", -37.588, -13.681], ["C", 11.891, 73.22], ["D", 80, 0, "pin"], ["P", 73.253, 152.795]],
+      [["link", "A", "B", { driver: true, theta0: 200, rpm: 30, cw: false }], ["link", "B", "C"], ["link", "C", "D"],
+       ["link", "B", "P"], ["link", "C", "P"]],
+      g => {
+        g("E").trace = true;
+        model.series.push({ key: "n|" + g("E").id + "|y" }, { key: "n|" + g("E").id + "|vx" });
+      }
+    ),
+    compressor: () => build(
+      [["A", 0, 0, "pin"], ["B", 25.71, 30.64], ["C", 141.73, 0, "slider", 0], ["D", 230, 0, "pin"]],
+      [["link", "A", "B", { driver: true, theta0: 50, rpm: 120, cw: false }], ["link", "B", "C"],
+       ["spring", "C", "D", { k: 2, L0: 110 }]],
+      g => {
+        g("C").m = 0.5;
+        model.series.push({ key: "s|" + model.elems.find(e => e.type === "spring").id + "|F" },
+                          { key: "t|" + model.elems.find(e => e.driver).id + "|T" });
+      }
+    ),
+    doublependulum: () => build(
+      [["A", 0, 0, "pin"], ["B", 80, 0], ["C", 160, 0]],
+      [["link", "A", "B"], ["link", "B", "C"]],
+      g => {
+        g("B").m = 0.5; g("C").m = 0.5; g("C").trace = true;
+        model.gravity = true; model.simDur = 4; model.dtStep = 0.1;
+        document.getElementById("gravChk").checked = true;
+        setModeUI("dyn");
+        model.series.push({ key: "n|" + g("C").id + "|y" }, { key: "e||E" });
+      }
+    ),
+    settle: () => build(
+      [["A", 0, 0, "pin"], ["B", 100, 0], ["C", 170, -60], ["D", 0, 110, "pin"]],
+      [["link", "A", "B"], ["link", "B", "C"], ["spring", "D", "B", { k: 0.6, L0: 100 }]],
+      g => {
+        g("C").m = 1; g("B").m = 0.3; g("C").trace = true;
+        model.gravity = true; model.jointDamp = true; model.cJoint = 0.3; model.maxT = 30;
+        document.getElementById("gravChk").checked = true;
+        model.durMode = "equil";
+        setModeUI("dyn");
+        model.series.push({ key: "n|" + g("C").id + "|y" }, { key: "n|" + g("B").id + "|v" });
       }
     ),
     empty: () => build([], [])

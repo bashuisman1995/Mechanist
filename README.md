@@ -44,8 +44,13 @@ python3 -m http.server 8000
   **Formules** zoals `C.x - C.y` of `hypot(C.vx, C.vy)`: klik grootheden aan om
   ze in de formule te zetten; hoofdletters maken niet uit en `c_x` mag ook.
   Elke eenheid krijgt een eigen deelgrafiek; het paneel groeit mee. CSV-export.
+  De keuzelijst is een zijpaneel: de tekening blijft zichtbaar, puntnamen
+  blijven leesbaar en een regel aanwijzen laat het onderdeel oplichten.
 - **Overzichtelijke tekening:** labels die elkaar overlappen vallen weg, en bij
   uitzoomen verdwijnen eerst de details en daarna de namen.
+- **Voorbeelden** (menu Model): vierstang, slinger-kruk, compressor met veer,
+  vijfstang met twee motoren, Hoeken-rechtgeleiding, Jansen-poot
+  (Strandbeest), veerslinger, dubbele slinger en een arm die tot rust komt.
 - **Opslaan en delen:** automatisch in `localStorage`, export/import als JSON en
   een deelbare link (model in de URL); ongedaan maken/opnieuw.
 

@@ -377,7 +377,15 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
 .modal .acts { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 .modal code { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; background: var(--panel-2); padding: 1px 4px; border-radius: 3px; }
 #pickQ { width: 100%; margin-bottom: 8px; font-family: inherit; }
-.pickcard { width: min(640px, 100%); }
+/* de metingenkeuze is een zijpaneel: de tekening blijft zichtbaar en klikbaar */
+#pick { background: transparent; pointer-events: none; place-items: start end; padding: 58px 12px 12px; }
+#pick .card { pointer-events: auto; }
+.pickcard {
+  width: min(460px, 100%); max-height: calc(100% - 8px);
+  display: flex; flex-direction: column; min-height: 0;
+  box-shadow: 0 2px 6px rgba(20,24,26,.12), 0 16px 40px rgba(20,24,26,.18);
+}
+.pickcard .picklist { flex: 1; min-height: 80px; max-height: none; }
 .pickhead { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
 .pickhead h3 { margin: 0; flex: 1; }
 .pickhead .seg { min-width: 220px; }
@@ -386,7 +394,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
 .fxhelp { font-size: 11.5px; margin: 6px 0 0; }
 .picklist { max-height: 52vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 7px; }
 .prow {
-  display: grid; grid-template-columns: 118px 1fr; gap: 8px; align-items: center;
+  display: grid; grid-template-columns: 104px 1fr; gap: 8px; align-items: center;
   padding: 5px 10px; border-top: 1px solid var(--line);
 }
 .picklist .g + .prow { border-top: none; }
@@ -480,6 +488,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   .transport .ang { min-width: 50px; font-size: 11px; }
   .lockbar { left: 8px; bottom: 64px; font-size: 11.5px; max-width: calc(100% - 16px); }
   .prow { grid-template-columns: 1fr; gap: 4px; }
+  #pick { place-items: end stretch; padding: 8px; }
+  .pickcard { width: 100%; max-height: 50vh; padding: 12px; }
+  .fxhelp { display: none; }
   .pickhead .seg { min-width: 0; width: 100%; }
   .statusbar { gap: 10px; font-size: 10.5px; }
   .statusbar span:nth-child(2) { display: none; }
