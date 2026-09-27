@@ -1,3 +1,807 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mechanismeschets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{color-scheme:light dark;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{height:100%}body{margin:0}img{max-width:100%}[hidden]{display:none!important}
+
+:root {
+  --ground: #FCFCFB;
+  --panel: #FFFFFF;
+  --panel-2: #F3F4F1;
+  --ink: #14181A;
+  --ink-2: #4A5257;
+  --ink-3: #79838A;
+  --line: #DCDFD9;
+  --line-2: #C6CBC3;
+  --accent: #1F5FD8;
+  --accent-soft: #E7EEFC;
+  --driver: #D95F02;
+  --driver-soft: #FBEDE2;
+  --spring: #00897B;
+  --force: #C2185B;
+  --bad: #B3261E;
+  --grid: #E6E8E2;
+  --grid-major: #D4D8CF;
+  --hatch: #8D958B;
+  --shadow: 0 1px 2px rgba(20,24,26,.06), 0 6px 18px rgba(20,24,26,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #15181A;
+    --panel: #1B1F21;
+    --panel-2: #23282A;
+    --ink: #EDEFEC;
+    --ink-2: #AFB7BB;
+    --ink-3: #7C858A;
+    --line: #2E3437;
+    --line-2: #3D4548;
+    --accent: #6FA0FF;
+    --accent-soft: #1D2A42;
+    --driver: #F5903C;
+    --driver-soft: #3A2A1B;
+    --spring: #35B7A6;
+    --force: #F06292;
+    --bad: #F2857C;
+    --grid: #232829;
+    --grid-major: #2E3436;
+    --hatch: #737C80;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.28);
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #15181A;
+  --panel: #1B1F21;
+  --panel-2: #23282A;
+  --ink: #EDEFEC;
+  --ink-2: #AFB7BB;
+  --ink-3: #7C858A;
+  --line: #2E3437;
+  --line-2: #3D4548;
+  --accent: #6FA0FF;
+  --accent-soft: #1D2A42;
+  --driver: #F5903C;
+  --driver-soft: #3A2A1B;
+  --spring: #35B7A6;
+  --force: #F06292;
+  --bad: #F2857C;
+  --grid: #232829;
+  --grid-major: #2E3436;
+  --hatch: #737C80;
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.28);
+}
+
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--ground); color: var(--ink);
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px; -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+* { box-sizing: border-box; }
+button, select, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+h1, h2, h3 { text-wrap: balance; }
+
+.app { height: 100%; display: grid; grid-template-rows: auto 1fr auto; min-width: 0; }
+/* nothing may set a min-content floor wider than the screen */
+.main, .main > *, .centre, .stage, .inspector, .panes, .pane,
+.drawer, .drawer > div, .drawer-body, .plotwrap, .serieslist,
+.topbar, .topbar-group, .status { min-width: 0; }
+
+/* ---------- buttons ---------- */
+.btn {
+  background: var(--panel); border: 1px solid var(--line-2); border-radius: 6px;
+  padding: 5px 10px; cursor: pointer; line-height: 1.3; white-space: nowrap;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.btn:hover { background: var(--panel-2); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.ghost:hover { background: var(--panel-2); }
+.btn.ico { padding: 5px 8px; font-size: 14px; line-height: 1.15; min-width: 32px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { background: var(--accent); filter: brightness(1.08); }
+.sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
+
+.seg { display: flex; border: 1px solid var(--line-2); border-radius: 6px; overflow: hidden; }
+.seg button {
+  flex: 1; padding: 5px 8px; border: none; background: var(--panel);
+  cursor: pointer; font-size: 12.5px; border-right: 1px solid var(--line);
+}
+.seg button:last-child { border-right: none; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink); font-weight: 500; }
+
+/* ---------- top bar ---------- */
+.topbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; padding-top: calc(9px + env(safe-area-inset-top, 0px));
+  border-bottom: 1px solid var(--line); background: var(--panel);
+}
+.brand { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.brand h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
+.brand .ver {
+  font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; color: var(--ink-3);
+  border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px;
+}
+.topbar .grow { flex: 1; }
+.topbar-group { display: flex; align-items: center; gap: 5px; }
+
+.modewrap { display: flex; align-items: center; gap: 7px; }
+.modewrap .cap {
+  font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 600;
+}
+#modeSeg { background: var(--panel-2); border-color: var(--line); padding: 2px; gap: 2px; border-radius: 7px; }
+#modeSeg button { border: none; border-radius: 5px; background: transparent; color: var(--ink-3); font-weight: 500; padding: 4px 11px; }
+#modeSeg button:hover { color: var(--ink-2); }
+#modeSeg button[aria-pressed="true"] {
+  background: var(--panel); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(20,24,26,.16);
+}
+
+/* ---------- dropdown ---------- */
+.menuwrap { position: relative; }
+.menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
+  background: var(--panel); border: 1px solid var(--line-2); border-radius: 8px;
+  box-shadow: var(--shadow); padding: 5px; min-width: 232px;
+}
+.menu[hidden] { display: none; }
+.menu button {
+  display: block; width: 100%; text-align: left; border: none; background: transparent;
+  padding: 6px 9px; border-radius: 5px; cursor: pointer; font-size: 13px;
+}
+.menu button:hover { background: var(--panel-2); }
+.menu .menu-lab {
+  font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 600; padding: 7px 9px 4px;
+}
+.menu .menu-sep { height: 1px; background: var(--line); margin: 5px 0; }
+
+/* ---------- main grid ---------- */
+.main { display: grid; grid-template-columns: auto 1fr 304px; min-height: 0; }
+
+/* ---------- tool rail ---------- */
+.rail {
+  width: 138px; border-right: 1px solid var(--line); background: var(--panel);
+  padding: 8px; display: flex; flex-direction: column; gap: 1px; overflow-y: auto;
+}
+.rail.slim { width: 50px; align-items: center; }
+.rail.slim .rail-label { display: none; }
+.rail.slim .tool { width: 34px; justify-content: center; padding: 7px 0; }
+.rail.slim .tool .nm, .rail.slim .tool .kb { display: none; }
+.railtop { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+.rail.slim .railtop { justify-content: center; }
+.rail-label {
+  font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 600; padding: 9px 6px 4px;
+}
+.tool {
+  display: flex; align-items: center; gap: 8px; padding: 6px 7px; border-radius: 6px;
+  border: 1px solid transparent; background: transparent; cursor: pointer;
+  text-align: left; width: 100%;
+}
+.tool:hover { background: var(--panel-2); }
+.tool[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+.tool svg { flex: none; width: 20px; height: 20px; }
+.tool .nm { flex: 1; font-size: 12.5px; }
+.tool .kb { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10px; color: var(--ink-3); }
+
+/* ---------- centre column ---------- */
+.centre { display: grid; grid-template-rows: 1fr auto; min-width: 0; min-height: 0; }
+.stage { position: relative; min-width: 0; min-height: 0; background: var(--ground); }
+canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; }
+
+.hint {
+  position: absolute; left: 50%; transform: translateX(-50%); top: 12px;
+  background: var(--panel); border: 1px solid var(--line-2); border-radius: 7px;
+  padding: 6px 12px; font-size: 12.5px; color: var(--ink-2); box-shadow: var(--shadow);
+  pointer-events: none; max-width: calc(100% - 100px); text-align: center;
+  opacity: 1; transition: opacity .45s;
+}
+.hint.dim { opacity: 0; }
+.hint b { color: var(--ink); font-weight: 500; }
+.zoomer { position: absolute; right: 12px; top: 12px; display: flex; flex-direction: column; gap: 4px; }
+.zoomer button {
+  width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--line-2);
+  background: var(--panel); cursor: pointer; box-shadow: var(--shadow); font-size: 15px; line-height: 1;
+}
+.zoomer button:hover { background: var(--panel-2); }
+
+.transport {
+  position: absolute; left: 12px; right: 12px; bottom: 12px;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--panel); border: 1px solid var(--line-2);
+  border-radius: 9px; padding: 7px 10px; box-shadow: var(--shadow);
+}
+.transport .play {
+  width: 34px; height: 34px; flex: none; border-radius: 7px; border: 1px solid var(--line-2);
+  background: var(--panel); cursor: pointer; display: grid; place-items: center; color: var(--driver);
+}
+.transport .play:hover { background: var(--panel-2); }
+.transport .play:disabled { color: var(--ink-3); cursor: not-allowed; opacity: .55; }
+.transport input[type="range"] { flex: 1; min-width: 40px; }
+.transport .ang {
+  font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px;
+  font-variant-numeric: tabular-nums; color: var(--ink-2); min-width: 62px; text-align: right;
+}
+.transport select { width: auto; padding: 3px 5px; font-size: 11.5px; }
+.transport .msg { font-size: 12px; color: var(--ink-3); flex: 1; }
+.transport progress { flex: 1; height: 6px; accent-color: var(--accent); min-width: 40px; }
+.transport .play.hot { color: #fff; background: var(--driver); border-color: var(--driver); }
+.transport .play.hot:hover { background: var(--driver); filter: brightness(1.08); }
+
+/* bekijken buiten t = 0 */
+.lockbar {
+  position: absolute; left: 12px; bottom: 72px; z-index: 5;
+  display: flex; align-items: center; gap: 10px; max-width: calc(100% - 80px);
+  background: var(--driver-soft); border: 1px solid var(--driver); border-radius: 8px;
+  padding: 5px 6px 5px 11px; font-size: 12.5px; color: var(--ink); box-shadow: var(--shadow);
+}
+.lockbar[hidden] { display: none; }
+.lockbar .btn.primary { background: var(--driver); border-color: var(--driver); padding: 4px 9px; }
+.lockbar.pulse { animation: lockpulse .9s ease-out; }
+@keyframes lockpulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 var(--driver); }
+  30% { transform: scale(1.04); }
+  100% { transform: scale(1); box-shadow: 0 0 0 12px transparent; }
+}
+.locknote {
+  display: flex; flex-direction: column; gap: 7px; align-items: flex-start;
+  background: var(--driver-soft); border: 1px solid var(--driver); border-radius: 7px;
+  padding: 8px 10px; margin-bottom: 12px; font-size: 12px; color: var(--ink-2); line-height: 1.4;
+}
+
+/* ---------- measurement drawer ---------- */
+.drawer {
+  border-top: 1px solid var(--line); background: var(--panel);
+  display: grid; grid-template-rows: auto 1fr; min-height: 0;
+  height: var(--drawerH, 260px);
+}
+.drawer.closed { height: auto; }
+.drawer.closed .drawer-body { display: none; }
+.grip { height: 5px; margin-top: -3px; cursor: ns-resize; background: transparent; }
+.grip:hover { background: var(--accent-soft); }
+.drawer-head {
+  display: flex; align-items: center; gap: 9px; padding: 7px 12px;
+  border-bottom: 1px solid var(--line); flex-wrap: wrap;
+}
+.drawer-head h2 {
+  margin: 0; font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 600;
+}
+.drawer-head label { font-size: 12px; color: var(--ink-2); }
+.drawer-head select { width: auto; max-width: 220px; }
+.drawer-head .grow { flex: 1; }
+.drawer-body { display: grid; grid-template-columns: 1fr 282px; min-height: 0; }
+.plotwrap { position: relative; min-width: 0; min-height: 0; padding: 8px 12px 4px 8px; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; }
+#plot { width: 100%; display: block; cursor: crosshair; }
+.serieslist {
+  border-left: 1px solid var(--line); padding: 10px 12px; overflow-y: auto; min-height: 0;
+}
+
+.serie {
+  display: grid; grid-template-columns: 11px 1fr 18px; gap: 4px 7px;
+  align-items: center; margin-bottom: 9px; font-size: 12px;
+}
+.serie .sw { width: 11px; height: 3px; border-radius: 2px; }
+.serie select { padding: 2px 4px; font-size: 11.5px; }
+.serie .meta {
+  grid-column: 2 / 4; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 10px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10.5px;
+  color: var(--ink-3); font-variant-numeric: tabular-nums;
+}
+.serie .meta b { color: var(--ink); font-weight: 600; }
+.serie .rm { border: none; background: transparent; cursor: pointer; color: var(--ink-3); font-size: 15px; line-height: 1; padding: 0; }
+.serie .rm:hover { color: var(--bad); }
+
+/* ---------- inspector ---------- */
+.inspector {
+  border-left: 1px solid var(--line); background: var(--panel);
+  display: grid; grid-template-rows: auto auto 1fr; min-height: 0;
+}
+.status {
+  display: flex; align-items: baseline; gap: 8px; width: 100%;
+  padding: 9px 14px; border: none; border-bottom: 1px solid var(--line);
+  background: transparent; cursor: pointer; text-align: left;
+  font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums;
+}
+.status:hover { background: var(--panel-2); }
+.status .big { font-size: 17px; font-weight: 600; line-height: 1; }
+.status .big.ok { color: var(--spring); }
+.status .big.warn { color: var(--driver); }
+.status .big.bad { color: var(--bad); }
+.status .of { font-size: 11.5px; color: var(--ink-3); flex: 1; }
+.status .chev { color: var(--ink-3); font-size: 10px; transition: transform .15s; }
+.status[aria-expanded="true"] .chev { transform: rotate(180deg); }
+#statusDetail { padding: 10px 14px 12px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+#statusDetail[hidden] { display: none; }
+.dof-note { font-size: 12px; line-height: 1.45; color: var(--ink-2); }
+.tally {
+  margin-top: 9px; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px;
+  font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums;
+}
+.tally b { color: var(--ink-2); font-weight: 500; font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+.tabs { display: flex; border-bottom: 1px solid var(--line); background: var(--panel); }
+.tabs button {
+  flex: 1; border: none; background: transparent; cursor: pointer; padding: 9px 6px;
+  font-size: 12.5px; color: var(--ink-3); border-bottom: 2px solid transparent;
+}
+.tabs button:hover { color: var(--ink-2); }
+.tabs button[aria-selected="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
+.inspector > div:last-child { display: flex; flex-direction: column; min-height: 0; }
+.panes { overflow-y: auto; min-height: 0; flex: 1; }
+.pane[hidden] { display: none; }
+.sect { border-bottom: 1px solid var(--line); padding: 13px 14px 15px; }
+.sect:last-child { border-bottom: none; }
+.sect h2 {
+  margin: 0 0 10px; font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 600;
+}
+
+.kind {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px;
+  padding: 3px 8px; margin-bottom: 10px;
+}
+.kind .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-2); }
+.row { display: grid; grid-template-columns: 1fr 104px; align-items: center; gap: 8px; margin-bottom: 8px; }
+.row label { font-size: 12.5px; color: var(--ink-2); }
+.row .unit { font-size: 11px; color: var(--ink-3); }
+input[type="number"], input[type="text"], select {
+  width: 100%; padding: 5px 7px; border: 1px solid var(--line-2); border-radius: 5px;
+  background: var(--ground); font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12.5px; font-variant-numeric: tabular-nums;
+}
+select { font-family: inherit; }
+input:disabled, select:disabled { opacity: .45; cursor: not-allowed; }
+input[type="range"] { accent-color: var(--driver); }
+input[type="checkbox"] { accent-color: var(--accent); width: auto; }
+.empty { color: var(--ink-3); font-size: 12.5px; line-height: 1.5; }
+.chk { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2); margin-bottom: 8px; }
+
+/* ---------- modal ---------- */
+.modal[hidden] { display: none; }
+.modal {
+  position: fixed; inset: 0; z-index: 40; background: rgba(10,12,14,.45);
+  display: grid; place-items: center; padding: 20px;
+}
+.modal .card {
+  background: var(--panel); border: 1px solid var(--line-2); border-radius: 11px;
+  padding: 16px; width: min(560px, 100%); box-shadow: var(--shadow);
+}
+.modal h3 { margin: 0 0 10px; font-size: 14px; font-weight: 600; }
+.modal textarea {
+  width: 100%; height: 190px; resize: vertical; border: 1px solid var(--line-2);
+  border-radius: 6px; background: var(--ground);
+  font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px;
+  padding: 8px; color: var(--ink);
+}
+.modal .acts { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.modal code { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; background: var(--panel-2); padding: 1px 4px; border-radius: 3px; }
+#pickQ { width: 100%; margin-bottom: 8px; font-family: inherit; }
+/* de metingenkeuze is een zijpaneel: de tekening blijft zichtbaar en klikbaar */
+#pick { background: transparent; pointer-events: none; place-items: start end; padding: 58px 12px 12px; }
+#pick .card { pointer-events: auto; }
+.pickcard {
+  width: min(460px, 100%); max-height: calc(100% - 8px);
+  display: flex; flex-direction: column; min-height: 0;
+  box-shadow: 0 2px 6px rgba(20,24,26,.12), 0 16px 40px rgba(20,24,26,.18);
+}
+.pickcard .picklist { flex: 1; min-height: 80px; max-height: none; }
+.pickhead { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+.pickhead h3 { margin: 0; flex: 1; }
+.pickhead .seg { min-width: 220px; }
+#pickFxBox { margin-bottom: 10px; }
+#pickFxInp { font-size: 14px; padding: 8px 9px; }
+.fxhelp { font-size: 11.5px; margin: 6px 0 0; }
+.picklist { max-height: 52vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 7px; }
+.prow {
+  display: grid; grid-template-columns: 104px 1fr; gap: 8px; align-items: center;
+  padding: 5px 10px; border-top: 1px solid var(--line);
+}
+.picklist .g + .prow { border-top: none; }
+.prow.sel { background: var(--accent-soft); }
+.prow .po { font-size: 12.5px; color: var(--ink); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pq { display: flex; flex-wrap: wrap; gap: 4px; }
+.picklist button.chip, .chip {
+  display: inline-block; width: auto; text-align: center;
+  font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px; line-height: 1;
+  min-width: 34px; padding: 5px 7px; border-radius: 5px; cursor: pointer;
+  border: 1px solid var(--line-2); background: var(--panel); color: var(--ink-2);
+}
+.picklist button.chip:hover, .chip:hover { background: var(--panel-2); color: var(--ink); }
+.picklist button.chip[aria-pressed="true"], .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.measq { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.measq .lab {
+  font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 600; margin-bottom: 7px;
+}
+.picklist .g {
+  font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-3);
+  font-weight: 600; padding: 8px 10px 4px; position: sticky; top: 0; z-index: 1; background: var(--panel);
+  border-top: 1px solid var(--line);
+}
+.picklist .g:first-child { border-top: none; }
+.picklist button {
+  display: flex; width: 100%; gap: 10px; align-items: baseline; text-align: left;
+  border: none; background: transparent; padding: 6px 10px; cursor: pointer; font-size: 12.5px;
+}
+.picklist button:hover, .picklist button.on { background: var(--accent-soft); }
+.picklist .al {
+  margin-left: auto; font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 10.5px; color: var(--ink-3);
+}
+.serie .lab {
+  text-align: left; border: 1px solid var(--line-2); border-radius: 5px; background: var(--ground);
+  padding: 3px 7px; font-size: 11.5px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.serie .lab:hover { background: var(--panel-2); }
+.serie input.fx {
+  font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px; padding: 3px 6px;
+}
+
+/* ---------- status bar ---------- */
+.statusbar {
+  display: flex; align-items: center; gap: 16px; padding: 5px 14px;
+  padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line); background: var(--panel);
+  font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px;
+  color: var(--ink-3); font-variant-numeric: tabular-nums; flex-wrap: wrap;
+}
+.statusbar .grow { margin-left: auto; }
+.statusbar .k { color: var(--ink-2); }
+
+/* ---------- touch ---------- */
+@media (pointer: coarse) {
+  .btn, .seg button, .menu button, .tabs button { padding-block: 9px; }
+  .tool { padding: 9px 8px; }
+  .zoomer button { width: 40px; height: 40px; }
+  input[type="number"], select { padding: 8px 7px; }
+}
+
+/* ---------- narrow ---------- */
+@media (max-width: 900px) {
+  .topbar { gap: 7px 6px; padding: 7px 10px; padding-top: calc(7px + env(safe-area-inset-top, 0px)); flex-wrap: wrap; }
+  .topbar-group { flex-wrap: wrap; }
+  .brand { flex: 0 1 auto; overflow: hidden; }
+  .brand h1 { overflow: hidden; text-overflow: ellipsis; }
+  .status .of { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .drawer-head select { max-width: 150px; }
+  .brand .ver, .modewrap .cap { display: none; }
+  .brand h1 { font-size: 14px; }
+  #modeSeg button { padding: 4px 8px; font-size: 12px; }
+  .main { grid-template-columns: 1fr; grid-template-rows: auto minmax(42vh, 1fr) auto; }
+  .rail {
+    width: auto; flex-direction: row; border-right: none; border-bottom: 1px solid var(--line);
+    overflow-x: auto; padding: 6px 10px; gap: 3px; align-items: center;
+  }
+  .rail .rail-label, .rail .railtop { display: none; }
+  .tool { width: auto; flex: none; padding: 8px; }
+  .tool .nm, .tool .kb { display: none; }
+  .centre { grid-template-rows: 1fr; }
+  .drawer { display: none; }          /* leeft op mobiel in het tabblad Metingen */
+  .inspector { border-left: none; border-top: 1px solid var(--line); max-height: 46vh; overflow: hidden; }
+  .pane .drawer { display: grid; height: auto; border-top: none; }
+  .drawer-body { grid-template-columns: 1fr; grid-template-rows: 230px auto; }
+  .grip { display: none; }
+  .serieslist { border-left: none; border-top: 1px solid var(--line); }
+  .hint { max-width: 66%; font-size: 11.5px; padding: 5px 9px; }
+  .transport { left: 8px; right: 8px; bottom: 8px; padding: 6px 8px; gap: 7px; }
+  .transport .ang { min-width: 50px; font-size: 11px; }
+  .lockbar { left: 8px; bottom: 64px; font-size: 11.5px; max-width: calc(100% - 16px); }
+  .prow { grid-template-columns: 1fr; gap: 4px; }
+  #pick { place-items: end stretch; padding: 8px; }
+  .pickcard { width: 100%; max-height: 50vh; padding: 12px; }
+  .fxhelp { display: none; }
+  .pickhead .seg { min-width: 0; width: 100%; }
+  .statusbar { gap: 10px; font-size: 10.5px; }
+  .statusbar span:nth-child(2) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+</style>
+<script>
+  // Vangnet: als het script niet laadt of vastloopt, zie je dat in plaats van een lege pagina.
+  (function () {
+    var shown = false;
+    function show(msg) {
+      if (shown || !document.body) return; shown = true;
+      var d = document.createElement("div");
+      d.setAttribute("style", "position:fixed;left:12px;right:12px;bottom:12px;z-index:99;padding:10px 12px;" +
+        "background:#fff3f0;color:#6b1a12;border:1px solid #d9534f;border-radius:8px;font:13px system-ui,sans-serif");
+      d.innerHTML = "<b>Er ging iets mis bij het laden.</b> " + String(msg).replace(/</g, "&lt;") +
+        ' <button style="margin-left:8px">Opnieuw beginnen</button>';
+      d.querySelector("button").onclick = function () {
+        try { localStorage.removeItem("mechschets.r1"); } catch (e) {}
+        location.hash = ""; location.reload();
+      };
+      document.body.appendChild(d);
+    }
+    window.addEventListener("error", function (e) {
+      if (/ResizeObserver/.test(e.message || "")) return;      // onschuldige browsermelding
+      show(e.message || "onbekende fout");
+    });
+    window.addEventListener("load", function () {
+      if (!document.querySelector("#rail .tool")) show("Het programma is niet gestart (verouderde browser?).");
+    });
+  })();
+</script>
+
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <h1>Mechanismeschets</h1>
+      <span class="ver">v0.6</span>
+    </div>
+
+    <div class="modewrap">
+      <span class="cap">Modus</span>
+      <div class="seg" id="modeSeg" role="group" aria-label="Rekenmodus">
+        <button type="button" data-v="kin" aria-pressed="true" title="Exacte oplossing per krukstand">Kinematisch</button>
+        <button type="button" data-v="dyn" aria-pressed="false" title="Tijdintegratie over een vaste duur: veren en dempers sturen de beweging">Dynamisch</button>
+        <button type="button" data-v="equil" aria-pressed="false" title="Dynamisch, tot het mechanisme tot rust komt: de duur volgt uit het evenwicht">Evenwicht</button>
+        <button type="button" data-v="frf" aria-pressed="false" title="Frequentieresponsie: hoe een trilling van een actuator, kruk of kracht doorwerkt, per frequentie">FRF</button>
+      </div>
+    </div>
+
+    <span class="grow"></span>
+
+    <div class="topbar-group">
+      <button class="btn ghost ico" id="undoBtn" title="Ongedaan maken (Ctrl+Z)" aria-label="Ongedaan maken">&#8630;</button>
+      <button class="btn ghost ico" id="redoBtn" title="Opnieuw (Ctrl+Shift+Z)" aria-label="Opnieuw">&#8631;</button>
+      <div class="sep"></div>
+      <div class="menuwrap">
+        <button class="btn" id="menuBtn" aria-haspopup="true" aria-expanded="false">Model</button>
+        <div class="menu" id="menu" hidden role="menu">
+          <div class="menu-lab">Voorbeelden &middot; kinematisch</div>
+          <button role="menuitem" data-ex="fourbar">Vierstangenmechanisme</button>
+          <button role="menuitem" data-ex="slidercrank">Slinger-krukmechanisme</button>
+          <button role="menuitem" data-ex="compressor">Slinger-kruk met veer (compressor)</button>
+          <button role="menuitem" data-ex="fivebar">Vijfstang, twee motoren</button>
+          <button role="menuitem" data-ex="hoeken">Hoeken-rechtgeleiding</button>
+          <button role="menuitem" data-ex="jansen">Jansen-poot (Strandbeest)</button>
+          <button role="menuitem" data-ex="liftarm">Hefarm met actuator</button>
+          <div class="menu-lab">Voorbeelden &middot; dynamisch</div>
+          <button role="menuitem" data-ex="springload">Veerslinger</button>
+          <button role="menuitem" data-ex="doublependulum">Dubbele slinger (chaotisch)</button>
+          <button role="menuitem" data-ex="settle">Arm die tot rust komt (evenwicht)</button>
+          <button role="menuitem" data-ex="shaker">Massa-veer, aangestoten door actuator</button>
+          <div class="menu-lab">Voorbeelden &middot; FRF</div>
+          <button role="menuitem" data-ex="shakerfrf">Massa-veer: overdracht actuator &rarr; massa</button>
+          <button role="menuitem" data-ex="pendfrf">Slinger aan een kracht</button>
+          <div class="menu-sep"></div>
+          <button role="menuitem" data-ex="empty">Leeg canvas</button>
+          <div class="menu-sep"></div>
+          <button role="menuitem" data-a="copy">Kopieer als JSON</button>
+          <button role="menuitem" data-a="paste">Plak een model…</button>
+          <button role="menuitem" data-a="link">Kopieer deelbare link</button>
+        </div>
+      </div>
+      <button class="btn ghost ico" id="fitBtn" title="Passend maken" aria-label="Passend maken">&#10530;</button>
+      <button class="btn ghost ico" id="themeBtn" title="Licht of donker" aria-label="Thema wisselen">&#9681;</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <nav class="rail" id="rail" aria-label="Gereedschap"></nav>
+
+    <div class="centre">
+      <div class="stage">
+        <canvas id="cv"></canvas>
+        <div class="zoomer">
+          <button id="zin" title="Inzoomen" aria-label="Inzoomen">+</button>
+          <button id="zout" title="Uitzoomen" aria-label="Uitzoomen">&minus;</button>
+        </div>
+        <div class="hint" id="hint"></div>
+        <div class="lockbar" id="lockBar" hidden>
+          <span>Alleen bekijken &mdash; bewerken kan op t&nbsp;=&nbsp;0</span>
+          <button class="btn primary" id="lockBtn" title="Terug naar t = 0 (Home)">&#9198; Naar t = 0</button>
+        </div>
+        <div class="transport" id="transport">
+          <button class="play" id="rewBtn" title="Terug naar t = 0 om te bewerken (Home)" aria-label="Terug naar t = 0">
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5h2v11H3zM12 1.5l-7 5.5 7 5.5z" fill="currentColor"/></svg>
+          </button>
+          <button class="play" id="playBtn" title="Afspelen" aria-label="Afspelen">
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path id="playIco" d="M3 1.5l9 5.5-9 5.5z" fill="currentColor"/></svg>
+          </button>
+          <input type="range" id="scrub" min="0" max="360" step="1" value="0" aria-label="Positie in de cyclus">
+          <span class="ang" id="angOut">0</span>
+          <select id="speedSel" aria-label="Snelheid">
+            <option value="0.1">0,1&times;</option>
+            <option value="0.25">0,25&times;</option>
+            <option value="0.5" selected>0,5&times;</option>
+            <option value="1">1&times;</option>
+          </select>
+          <span class="msg" id="tmsg" hidden></span>
+          <progress id="tprog" max="1" hidden></progress>
+          <button class="btn" id="stopBtn" hidden title="Berekening afbreken">Stop</button>
+          <button class="btn primary" id="solveBtn" hidden title="Doorrekenen (F5)">Bereken</button>
+        </div>
+      </div>
+
+      <section class="drawer" id="drawer">
+        <div>
+          <div class="grip" id="grip" title="Sleep om de hoogte aan te passen, dubbelklik voor automatisch"></div>
+          <div class="drawer-head">
+            <button class="btn ghost ico" id="drawerBtn" title="In- of uitklappen" aria-label="Metingen in- of uitklappen">&#9662;</button>
+            <h2>Metingen</h2>
+            <label for="xSel">x-as</label>
+            <select id="xSel" aria-label="Grootheid op de x-as"></select>
+            <span class="grow"></span>
+            <span class="empty" id="serieNote"></span>
+            <button class="btn" id="addSerie">Metingen&hellip;</button>
+            <button class="btn" id="addFx" title="Een formule van metingen plotten, bijv. C.x - C.y">&fnof; Formule</button>
+            <button class="btn" id="csvBtn" title="Alle metingen als CSV naar het klembord">CSV</button>
+          </div>
+        </div>
+        <div class="drawer-body">
+          <div class="plotwrap"><canvas id="plot"></canvas></div>
+          <div class="serieslist" id="series"></div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="inspector">
+      <button class="status" id="statusBtn" aria-expanded="false" title="Details tonen">
+        <span class="big" id="dofVal">&ndash;</span>
+        <span class="of" id="dofOf"></span>
+        <span class="chev" aria-hidden="true">&#9662;</span>
+      </button>
+      <div id="statusDetail" hidden>
+        <div class="dof-note" id="dofNote"></div>
+        <div class="tally" id="tally"></div>
+      </div>
+
+      <div>
+        <div class="tabs" id="tabs" role="tablist">
+          <button role="tab" data-t="props" aria-selected="true">Eigenschappen</button>
+          <button role="tab" data-t="meas" aria-selected="false" hidden>Metingen</button>
+          <button role="tab" data-t="set" aria-selected="false">Instellingen</button>
+        </div>
+        <div class="panes" id="panes">
+          <div class="pane" data-p="props">
+            <div class="sect">
+              <div id="props"><p class="empty">Selecteer een punt of element op het canvas.</p></div>
+            </div>
+          </div>
+
+          <div class="pane" data-p="meas" hidden id="paneMeas"></div>
+
+          <div class="pane" data-p="set" hidden>
+            <div class="sect" id="dynSect" hidden>
+              <div id="frfSect" hidden>
+                <h2>Frequentieresponsie</h2>
+                <div class="row"><label for="frfIn">Ingang</label>
+                  <select id="frfIn"></select></div>
+                <div class="row"><label for="frfMinInp">Van <span class="unit">Hz, 0 = auto</span></label>
+                  <input type="number" id="frfMinInp" min="0" step="0.1" value="0"></div>
+                <div class="row"><label for="frfMaxInp">Tot <span class="unit">Hz, 0 = auto</span></label>
+                  <input type="number" id="frfMaxInp" min="0" step="1" value="0"></div>
+                <p class="empty" style="margin:4px 0 14px" id="frfNote"></p>
+              </div>
+              <h2>Rekenen</h2>
+              <div class="chk">
+                <input type="checkbox" id="autoChk">
+                <label for="autoChk">Na elke wijziging meteen herberekenen</label>
+              </div>
+              <p class="empty" style="margin:-2px 0 10px">Uit: pas je het model aan en druk je daarna op <b>Bereken</b> (F5).</p>
+              <div class="row dynonly"><label for="durMode">Tijdvenster</label>
+                <select id="durMode">
+                  <option value="fixed">vaste duur</option>
+                  <option value="equil">tot evenwicht</option>
+                </select></div>
+              <div class="row" id="durRow"><label for="durInp">Duur <span class="unit">s</span></label>
+                <input type="number" id="durInp" min="0.05" max="60" step="0.5" value="2"></div>
+              <div class="row" id="maxRow" hidden><label for="maxInp">Hoogstens <span class="unit">s</span></label>
+                <input type="number" id="maxInp" min="0.2" max="300" step="5" value="30"></div>
+              <h2 style="margin-top:14px">Demping</h2>
+              <div class="chk">
+                <input type="checkbox" id="jdChk">
+                <label for="jdChk">Demping in scharnieren</label>
+              </div>
+              <div class="row"><label for="cjInp">Per scharnier <span class="unit">N&middot;m&middot;s/rad</span></label>
+                <input type="number" id="cjInp" min="0" step="0.01" value="0.05"></div>
+              <div class="row"><label for="cvInp">Luchtweerstand, per punt <span class="unit">Ns/mm</span></label>
+                <input type="number" id="cvInp" min="0" step="0.005" value="0"></div>
+              <h2 style="margin-top:14px">Nauwkeurigheid</h2>
+              <div class="row dynonly"><label for="dtInp">Tijdstap <span class="unit">ms</span></label>
+                <input type="number" id="dtInp" min="0.001" max="20" step="0.05" value="0.2"></div>
+              <div class="row"><label for="mInp">Standaardmassa <span class="unit">kg</span></label>
+                <input type="number" id="mInp" min="0.001" step="0.05" value="0.1"></div>
+              <p class="empty dynonly" style="margin:8px 0 0" id="dynNote"></p>
+            </div>
+
+            <div class="sect">
+              <h2>Slepen met de muis</h2>
+              <div class="seg" id="dragSeg">
+                <button type="button" data-v="sketch" aria-pressed="true">Schetsen</button>
+                <button type="button" data-v="rigid" aria-pressed="false">Vormvast</button>
+              </div>
+              <p class="empty" style="margin:9px 0 0" id="dragNote">
+                Schetsen: lengtes volgen de muis. Vormvast: lengtes blijven, het mechanisme scharniert.
+              </p>
+            </div>
+
+            <div class="sect">
+              <h2>Weergave en raster</h2>
+              <div class="chk">
+                <input type="checkbox" id="snapChk" checked>
+                <label for="snapChk">Vangen op raster</label>
+              </div>
+              <div class="chk">
+                <input type="checkbox" id="fChk" checked>
+                <label for="fChk">Krachten in de tekening</label>
+              </div>
+              <div class="chk">
+                <input type="checkbox" id="gravChk">
+                <label for="gravChk">Zwaartekracht (9,81 m/s&sup2;)</label>
+              </div>
+              <div class="row">
+                <label for="gridInp">Rastermaat <span class="unit">mm</span></label>
+                <input type="number" id="gridInp" min="1" max="100" step="1" value="10">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="modal" id="pick" hidden>
+    <div class="card pickcard" role="dialog" aria-labelledby="pickTitle">
+      <div class="pickhead">
+        <h3 id="pickTitle">Metingen kiezen</h3>
+        <div class="seg" id="pickMode" role="group" aria-label="Soort meting">
+          <button type="button" data-v="q" aria-pressed="true">Grootheid</button>
+          <button type="button" data-v="f" aria-pressed="false">&fnof; Formule</button>
+        </div>
+      </div>
+      <div id="pickFxBox" hidden>
+        <input type="text" id="pickFxInp" placeholder="bijv. C.x - C.y" autocomplete="off" spellcheck="false">
+        <p class="empty fxhelp">Klik hieronder op een grootheid om hem in de formule te zetten. Hoofdletters maken niet uit, <code>c_x</code> mag ook.
+          Rekenen: <code>+ - * / ^ ( )</code> &middot; functies: <code>sqrt abs sin cos atan2 hypot deg rad min max</code> &middot; <code>t</code> = tijd.</p>
+      </div>
+      <input type="text" id="pickQ" placeholder="Filter, bijv. &ldquo;C&rdquo;, &ldquo;stang&rdquo; of &ldquo;v&rdquo;" autocomplete="off" spellcheck="false">
+      <div class="picklist" id="pickList"></div>
+      <div class="acts">
+        <span class="empty" id="pickMsg" style="flex:1;text-align:left"></span>
+        <button class="btn" id="pickCancel">Sluiten</button>
+        <button class="btn primary" id="pickOk">Klaar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal" hidden>
+    <div class="card">
+      <h3>Model plakken</h3>
+      <textarea id="modalTa" spellcheck="false" placeholder="Plak hier de JSON of een deelbare link"></textarea>
+      <div class="acts">
+        <button class="btn" id="modalCancel">Annuleren</button>
+        <button class="btn primary" id="modalOk">Laden</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="statusbar">
+    <span><span class="k">gereedschap</span> <span id="stTool">&mdash;</span></span>
+    <span><span class="k">cursor</span> <span id="stPos">&mdash;</span></span>
+    <span><span class="k">selectie</span> <span id="stSel">geen</span></span>
+    <span class="grow"><span class="k">mm &middot; N &middot; N/mm &middot; kg</span></span>
+  </footer>
+</div>
+
+<script>
 (function () {
   "use strict";
 
@@ -4161,3 +4965,6 @@
     syncHistoryBtns();
   });
 })();
+</script>
+</body>
+</html>

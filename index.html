@@ -8,6 +8,32 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/style.css">
+<script>
+  // Vangnet: als het script niet laadt of vastloopt, zie je dat in plaats van een lege pagina.
+  (function () {
+    var shown = false;
+    function show(msg) {
+      if (shown || !document.body) return; shown = true;
+      var d = document.createElement("div");
+      d.setAttribute("style", "position:fixed;left:12px;right:12px;bottom:12px;z-index:99;padding:10px 12px;" +
+        "background:#fff3f0;color:#6b1a12;border:1px solid #d9534f;border-radius:8px;font:13px system-ui,sans-serif");
+      d.innerHTML = "<b>Er ging iets mis bij het laden.</b> " + String(msg).replace(/</g, "&lt;") +
+        ' <button style="margin-left:8px">Opnieuw beginnen</button>';
+      d.querySelector("button").onclick = function () {
+        try { localStorage.removeItem("mechschets.r1"); } catch (e) {}
+        location.hash = ""; location.reload();
+      };
+      document.body.appendChild(d);
+    }
+    window.addEventListener("error", function (e) {
+      if (/ResizeObserver/.test(e.message || "")) return;      // onschuldige browsermelding
+      show(e.message || "onbekende fout");
+    });
+    window.addEventListener("load", function () {
+      if (!document.querySelector("#rail .tool")) show("Het programma is niet gestart (verouderde browser?).");
+    });
+  })();
+</script>
 
 </head>
 <body>
@@ -15,7 +41,7 @@
   <header class="topbar">
     <div class="brand">
       <h1>Mechanismeschets</h1>
-      <span class="ver">v0.5</span>
+      <span class="ver">v0.6</span>
     </div>
 
     <div class="modewrap">
@@ -24,6 +50,7 @@
         <button type="button" data-v="kin" aria-pressed="true" title="Exacte oplossing per krukstand">Kinematisch</button>
         <button type="button" data-v="dyn" aria-pressed="false" title="Tijdintegratie over een vaste duur: veren en dempers sturen de beweging">Dynamisch</button>
         <button type="button" data-v="equil" aria-pressed="false" title="Dynamisch, tot het mechanisme tot rust komt: de duur volgt uit het evenwicht">Evenwicht</button>
+        <button type="button" data-v="frf" aria-pressed="false" title="Frequentieresponsie: hoe een trilling van een actuator, kruk of kracht doorwerkt, per frequentie">FRF</button>
       </div>
     </div>
 
@@ -43,10 +70,15 @@
           <button role="menuitem" data-ex="fivebar">Vijfstang, twee motoren</button>
           <button role="menuitem" data-ex="hoeken">Hoeken-rechtgeleiding</button>
           <button role="menuitem" data-ex="jansen">Jansen-poot (Strandbeest)</button>
+          <button role="menuitem" data-ex="liftarm">Hefarm met actuator</button>
           <div class="menu-lab">Voorbeelden &middot; dynamisch</div>
           <button role="menuitem" data-ex="springload">Veerslinger</button>
           <button role="menuitem" data-ex="doublependulum">Dubbele slinger (chaotisch)</button>
           <button role="menuitem" data-ex="settle">Arm die tot rust komt (evenwicht)</button>
+          <button role="menuitem" data-ex="shaker">Massa-veer, aangestoten door actuator</button>
+          <div class="menu-lab">Voorbeelden &middot; FRF</div>
+          <button role="menuitem" data-ex="shakerfrf">Massa-veer: overdracht actuator &rarr; massa</button>
+          <button role="menuitem" data-ex="pendfrf">Slinger aan een kracht</button>
           <div class="menu-sep"></div>
           <button role="menuitem" data-ex="empty">Leeg canvas</button>
           <div class="menu-sep"></div>
@@ -147,13 +179,23 @@
 
           <div class="pane" data-p="set" hidden>
             <div class="sect" id="dynSect" hidden>
-              <h2>Tijdintegratie</h2>
+              <div id="frfSect" hidden>
+                <h2>Frequentieresponsie</h2>
+                <div class="row"><label for="frfIn">Ingang</label>
+                  <select id="frfIn"></select></div>
+                <div class="row"><label for="frfMinInp">Van <span class="unit">Hz, 0 = auto</span></label>
+                  <input type="number" id="frfMinInp" min="0" step="0.1" value="0"></div>
+                <div class="row"><label for="frfMaxInp">Tot <span class="unit">Hz, 0 = auto</span></label>
+                  <input type="number" id="frfMaxInp" min="0" step="1" value="0"></div>
+                <p class="empty" style="margin:4px 0 14px" id="frfNote"></p>
+              </div>
+              <h2>Rekenen</h2>
               <div class="chk">
                 <input type="checkbox" id="autoChk">
                 <label for="autoChk">Na elke wijziging meteen herberekenen</label>
               </div>
               <p class="empty" style="margin:-2px 0 10px">Uit: pas je het model aan en druk je daarna op <b>Bereken</b> (F5).</p>
-              <div class="row"><label for="durMode">Tijdvenster</label>
+              <div class="row dynonly"><label for="durMode">Tijdvenster</label>
                 <select id="durMode">
                   <option value="fixed">vaste duur</option>
                   <option value="equil">tot evenwicht</option>
@@ -172,11 +214,11 @@
               <div class="row"><label for="cvInp">Luchtweerstand, per punt <span class="unit">Ns/mm</span></label>
                 <input type="number" id="cvInp" min="0" step="0.005" value="0"></div>
               <h2 style="margin-top:14px">Nauwkeurigheid</h2>
-              <div class="row"><label for="dtInp">Tijdstap <span class="unit">ms</span></label>
+              <div class="row dynonly"><label for="dtInp">Tijdstap <span class="unit">ms</span></label>
                 <input type="number" id="dtInp" min="0.001" max="20" step="0.05" value="0.2"></div>
               <div class="row"><label for="mInp">Standaardmassa <span class="unit">kg</span></label>
                 <input type="number" id="mInp" min="0.001" step="0.05" value="0.1"></div>
-              <p class="empty" style="margin:8px 0 0" id="dynNote"></p>
+              <p class="empty dynonly" style="margin:8px 0 0" id="dynNote"></p>
             </div>
 
             <div class="sect">
