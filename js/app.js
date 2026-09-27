@@ -1515,7 +1515,7 @@
   // dynamisch en FRF rekenen op de achtergrond, kinematisch direct
   function asyncMode() { return model.mode === "dyn" || model.mode === "frf"; }
   const fmtHz = f => f === undefined ? "\u2013" : (f < 10 ? f.toPrecision(3) : f < 1000 ? f.toFixed(1) : f.toFixed(0)) + " Hz";
-  const fmtNow = i => sweep.frf ? fmtHz(sweep.f[i]) : fmtTime(sweep.t[i]);
+  const fmtNow = i => sweep.frf ? (playing ? odsLabel() : fmtHz(sweep.f[i])) : fmtTime(sweep.t[i]);
   const omega = d => (d.cw ? -1 : 1) * (d.rpm || 0) * Math.PI / 30;   // rad/s
 
   // Put every crank where it is at time t and solve the rest around them.
@@ -2652,13 +2652,30 @@
   // FRF-animatie: het mechanisme trilt rond het evenwicht met de vorm bij de
   // gekozen frequentie, vergroot tot een goed zichtbare uitslag
   let odsKeep = null, odsPh = 0;
+  // De uitslag is voor alle frequenties op dezelfde schaal: groot bij resonantie,
+  // klein ernaast. De grootste uitslag over het hele bereik wordt 7% van het model.
+  function odsScale(S) {
+    if (S.odsSc !== undefined) return S.odsSc;
+    let mx = 0;
+    for (const X of S.X) if (X) for (let j = 0; j < X.re.length; j++) mx = Math.max(mx, Math.hypot(X.re[j], X.im[j]));
+    const bb = bounds(), size = bb ? Math.hypot(bb.b.x - bb.a.x, bb.b.y - bb.a.y) : 100;
+    return (S.odsSc = mx > 0 ? 0.07 * size / mx : 0);
+  }
+  const ODS_MAX = 5;          // Hz: sneller trillen kan een scherm niet netjes laten zien
+  function odsRate() {
+    const f = sweep.f[frame], want = f * parseFloat(speedSel.value);
+    return { fa: Math.min(want, ODS_MAX), slowed: want > ODS_MAX, factor: Math.min(want, ODS_MAX) / f };
+  }
+  function odsLabel() {
+    const r = odsRate(), f = sweep.f[frame];
+    if (!playing) return fmtHz(f);
+    const k = r.factor;
+    return fmtHz(f) + " \u00b7 " + (k >= 0.995 ? "echte tijd" : k >= 0.1 ? (+k.toFixed(2)) + "\u00d7" : "1/" + Math.round(1 / k) + "\u00d7");
+  }
   function applyOds() {
     const S = sweep, X = S.X[frame];
     if (!X) return;
-    let mx = 0;
-    for (let j = 0; j < X.re.length; j++) mx = Math.max(mx, Math.hypot(X.re[j], X.im[j]));
-    const bb = bounds(), size = bb ? Math.hypot(bb.b.x - bb.a.x, bb.b.y - bb.a.y) : 100;
-    const sc = mx > 0 ? 0.07 * size / mx : 0, c = Math.cos(odsPh), sn = Math.sin(odsPh);
+    const sc = odsScale(S), c = Math.cos(odsPh), sn = Math.sin(odsPh);
     for (const n of model.nodes) {
       if (!S.fi.has(n.id)) continue;
       const j = S.fi.get(n.id);
@@ -2673,7 +2690,9 @@
     if (sweep.frf) {
       const dt = Math.min(0.05, (t - lastT) / 1000);
       lastT = t;
-      odsPh += 2 * Math.PI * 2 * parseFloat(speedSel.value) * dt;       // 1 trilling per seconde bij 0,5×
+      odsPh += 2 * Math.PI * odsRate().fa * dt;           // echte frequentie × snelheid, zo nodig vertraagd
+      const lab = odsLabel();
+      if (angOut.textContent !== lab) angOut.textContent = lab;
       applyOds(); draw();
       raf = requestAnimationFrame(tick);
       return;
@@ -2704,6 +2723,8 @@
   }
 
   scrub.addEventListener("input", () => {
+    // FRF: van frequentie wisselen terwijl de trilling doorloopt
+    if (playing && sweep && sweep.frf) { goto(parseFloat(scrub.value)); angOut.textContent = odsLabel(); return; }
     if (playing) togglePlay();
     goto(parseFloat(scrub.value));
     syncLock();
