@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mechanismeschets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/style.css">
+
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <h1>Mechanismeschets</h1>
+      <span class="ver">v0.4</span>
+    </div>
+
+    <div class="modewrap">
+      <span class="cap">Modus</span>
+      <div class="seg" id="modeSeg" role="group" aria-label="Rekenmodus">
+        <button type="button" data-v="kin" aria-pressed="true" title="Exacte oplossing per krukstand">Kinematisch</button>
+        <button type="button" data-v="dyn" aria-pressed="false" title="Tijdintegratie: veren en dempers sturen de beweging">Dynamisch</button>
+      </div>
+    </div>
+
+    <span class="grow"></span>
+
+    <div class="topbar-group">
+      <button class="btn ghost ico" id="undoBtn" title="Ongedaan maken (Ctrl+Z)" aria-label="Ongedaan maken">&#8630;</button>
+      <button class="btn ghost ico" id="redoBtn" title="Opnieuw (Ctrl+Shift+Z)" aria-label="Opnieuw">&#8631;</button>
+      <div class="sep"></div>
+      <div class="menuwrap">
+        <button class="btn" id="menuBtn" aria-haspopup="true" aria-expanded="false">Model</button>
+        <div class="menu" id="menu" hidden role="menu">
+          <div class="menu-lab">Voorbeeld laden</div>
+          <button role="menuitem" data-ex="fourbar">Vierstangenmechanisme</button>
+          <button role="menuitem" data-ex="slidercrank">Slinger-krukmechanisme</button>
+          <button role="menuitem" data-ex="fivebar">Vijfstang, twee motoren</button>
+          <button role="menuitem" data-ex="springload">Veerslinger (dynamisch)</button>
+          <button role="menuitem" data-ex="empty">Leeg canvas</button>
+          <div class="menu-sep"></div>
+          <button role="menuitem" data-a="copy">Kopieer als JSON</button>
+          <button role="menuitem" data-a="paste">Plak een model…</button>
+          <button role="menuitem" data-a="link">Kopieer deelbare link</button>
+        </div>
+      </div>
+      <button class="btn ghost ico" id="fitBtn" title="Passend maken" aria-label="Passend maken">&#10530;</button>
+      <button class="btn ghost ico" id="themeBtn" title="Licht of donker" aria-label="Thema wisselen">&#9681;</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <nav class="rail" id="rail" aria-label="Gereedschap"></nav>
+
+    <div class="centre">
+      <div class="stage">
+        <canvas id="cv"></canvas>
+        <div class="zoomer">
+          <button id="zin" title="Inzoomen" aria-label="Inzoomen">+</button>
+          <button id="zout" title="Uitzoomen" aria-label="Uitzoomen">&minus;</button>
+        </div>
+        <div class="hint" id="hint"></div>
+        <div class="transport" id="transport">
+          <button class="play" id="rewBtn" title="Terug naar t = 0" aria-label="Terug naar t = 0">
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5h2v11H3zM12 1.5l-7 5.5 7 5.5z" fill="currentColor"/></svg>
+          </button>
+          <button class="play" id="playBtn" title="Afspelen" aria-label="Afspelen">
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path id="playIco" d="M3 1.5l9 5.5-9 5.5z" fill="currentColor"/></svg>
+          </button>
+          <input type="range" id="scrub" min="0" max="360" step="1" value="0" aria-label="Positie in de cyclus">
+          <span class="ang" id="angOut">0</span>
+          <select id="speedSel" aria-label="Snelheid">
+            <option value="0.1">0,1&times;</option>
+            <option value="0.25">0,25&times;</option>
+            <option value="0.5" selected>0,5&times;</option>
+            <option value="1">1&times;</option>
+          </select>
+          <button class="btn primary" id="solveBtn" hidden title="Opnieuw doorrekenen (F5)">Bereken</button>
+          <span class="msg" id="tmsg" hidden></span>
+        </div>
+      </div>
+
+      <section class="drawer" id="drawer">
+        <div>
+          <div class="grip" id="grip" title="Sleep om de hoogte aan te passen"></div>
+          <div class="drawer-head">
+            <button class="btn ghost ico" id="drawerBtn" title="In- of uitklappen" aria-label="Metingen in- of uitklappen">&#9662;</button>
+            <h2>Metingen</h2>
+            <label for="xSel">x-as</label>
+            <select id="xSel" aria-label="Grootheid op de x-as"></select>
+            <span class="grow"></span>
+            <span class="empty" id="serieNote"></span>
+            <button class="btn" id="addSerie">Meting toevoegen</button>
+            <button class="btn" id="csvBtn" title="Alle metingen als CSV naar het klembord">CSV</button>
+          </div>
+        </div>
+        <div class="drawer-body">
+          <div class="plotwrap"><canvas id="plot"></canvas></div>
+          <div class="serieslist" id="series"></div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="inspector">
+      <button class="status" id="statusBtn" aria-expanded="false" title="Details tonen">
+        <span class="big" id="dofVal">&ndash;</span>
+        <span class="of" id="dofOf"></span>
+        <span class="chev" aria-hidden="true">&#9662;</span>
+      </button>
+      <div id="statusDetail" hidden>
+        <div class="dof-note" id="dofNote"></div>
+        <div class="tally" id="tally"></div>
+      </div>
+
+      <div>
+        <div class="tabs" id="tabs" role="tablist">
+          <button role="tab" data-t="props" aria-selected="true">Eigenschappen</button>
+          <button role="tab" data-t="meas" aria-selected="false" hidden>Metingen</button>
+          <button role="tab" data-t="set" aria-selected="false">Instellingen</button>
+        </div>
+        <div class="panes" id="panes">
+          <div class="pane" data-p="props">
+            <div class="sect">
+              <div id="props"><p class="empty">Selecteer een punt of element op het canvas.</p></div>
+            </div>
+          </div>
+
+          <div class="pane" data-p="meas" hidden id="paneMeas"></div>
+
+          <div class="pane" data-p="set" hidden>
+            <div class="sect" id="dynSect" hidden>
+              <h2>Tijdintegratie</h2>
+              <div class="chk">
+                <input type="checkbox" id="autoChk">
+                <label for="autoChk">Automatisch herberekenen</label>
+              </div>
+              <div class="row"><label for="durMode">Tijdvenster</label>
+                <select id="durMode">
+                  <option value="fixed">vaste duur</option>
+                  <option value="equil">tot evenwicht</option>
+                </select></div>
+              <div class="row"><label for="durInp">Duur <span class="unit">s</span></label>
+                <input type="number" id="durInp" min="0.05" max="60" step="0.5" value="2"></div>
+              <div class="row"><label for="cvInp">Viskeuze demping <span class="unit">Ns/mm</span></label>
+                <input type="number" id="cvInp" min="0" step="0.005" value="0"></div>
+              <div class="row"><label for="dtInp">Tijdstap <span class="unit">ms</span></label>
+                <input type="number" id="dtInp" min="0.001" max="20" step="0.05" value="0.2"></div>
+              <div class="row"><label for="mInp">Standaardmassa <span class="unit">kg</span></label>
+                <input type="number" id="mInp" min="0.001" step="0.05" value="0.1"></div>
+              <p class="empty" style="margin:8px 0 0" id="dynNote"></p>
+            </div>
+
+            <div class="sect">
+              <h2>Slepen met de muis</h2>
+              <div class="seg" id="dragSeg">
+                <button type="button" data-v="sketch" aria-pressed="true">Schetsen</button>
+                <button type="button" data-v="rigid" aria-pressed="false">Vormvast</button>
+              </div>
+              <p class="empty" style="margin:9px 0 0" id="dragNote">
+                Schetsen: lengtes volgen de muis. Vormvast: lengtes blijven, het mechanisme scharniert.
+              </p>
+            </div>
+
+            <div class="sect">
+              <h2>Weergave en raster</h2>
+              <div class="chk">
+                <input type="checkbox" id="snapChk" checked>
+                <label for="snapChk">Vangen op raster</label>
+              </div>
+              <div class="chk">
+                <input type="checkbox" id="fChk" checked>
+                <label for="fChk">Krachten in de tekening</label>
+              </div>
+              <div class="chk">
+                <input type="checkbox" id="gravChk">
+                <label for="gravChk">Zwaartekracht (9,81 m/s&sup2;)</label>
+              </div>
+              <div class="row">
+                <label for="gridInp">Rastermaat <span class="unit">mm</span></label>
+                <input type="number" id="gridInp" min="1" max="100" step="1" value="10">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="modal" id="pick" hidden>
+    <div class="card">
+      <h3>Meting kiezen</h3>
+      <input type="text" id="pickQ" placeholder="Zoek op punt, stang of grootheid…" autocomplete="off" spellcheck="false">
+      <div class="picklist" id="pickList"></div>
+      <div class="acts">
+        <span class="empty" style="flex:1;text-align:left">Of typ een formule, bijv. <code>C.x - C.y</code></span>
+        <button class="btn" id="pickCancel">Annuleren</button>
+        <button class="btn primary" id="pickFx">&fnof; Formule</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal" hidden>
+    <div class="card">
+      <h3>Model plakken</h3>
+      <textarea id="modalTa" spellcheck="false" placeholder="Plak hier de JSON of een deelbare link"></textarea>
+      <div class="acts">
+        <button class="btn" id="modalCancel">Annuleren</button>
+        <button class="btn primary" id="modalOk">Laden</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="statusbar">
+    <span><span class="k">gereedschap</span> <span id="stTool">&mdash;</span></span>
+    <span><span class="k">cursor</span> <span id="stPos">&mdash;</span></span>
+    <span><span class="k">selectie</span> <span id="stSel">geen</span></span>
+    <span class="grow"><span class="k">mm &middot; N &middot; N/mm &middot; kg</span></span>
+  </footer>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
