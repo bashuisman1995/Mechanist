@@ -15,14 +15,15 @@
   <header class="topbar">
     <div class="brand">
       <h1>Mechanismeschets</h1>
-      <span class="ver">v0.4</span>
+      <span class="ver">v0.5</span>
     </div>
 
     <div class="modewrap">
       <span class="cap">Modus</span>
       <div class="seg" id="modeSeg" role="group" aria-label="Rekenmodus">
         <button type="button" data-v="kin" aria-pressed="true" title="Exacte oplossing per krukstand">Kinematisch</button>
-        <button type="button" data-v="dyn" aria-pressed="false" title="Tijdintegratie: veren en dempers sturen de beweging">Dynamisch</button>
+        <button type="button" data-v="dyn" aria-pressed="false" title="Tijdintegratie over een vaste duur: veren en dempers sturen de beweging">Dynamisch</button>
+        <button type="button" data-v="equil" aria-pressed="false" title="Dynamisch, tot het mechanisme tot rust komt: de duur volgt uit het evenwicht">Evenwicht</button>
       </div>
     </div>
 
@@ -63,8 +64,12 @@
           <button id="zout" title="Uitzoomen" aria-label="Uitzoomen">&minus;</button>
         </div>
         <div class="hint" id="hint"></div>
+        <div class="lockbar" id="lockBar" hidden>
+          <span>Alleen bekijken &mdash; bewerken kan op t&nbsp;=&nbsp;0</span>
+          <button class="btn primary" id="lockBtn" title="Terug naar t = 0 (Home)">&#9198; Naar t = 0</button>
+        </div>
         <div class="transport" id="transport">
-          <button class="play" id="rewBtn" title="Terug naar t = 0" aria-label="Terug naar t = 0">
+          <button class="play" id="rewBtn" title="Terug naar t = 0 om te bewerken (Home)" aria-label="Terug naar t = 0">
             <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5h2v11H3zM12 1.5l-7 5.5 7 5.5z" fill="currentColor"/></svg>
           </button>
           <button class="play" id="playBtn" title="Afspelen" aria-label="Afspelen">
@@ -78,14 +83,16 @@
             <option value="0.5" selected>0,5&times;</option>
             <option value="1">1&times;</option>
           </select>
-          <button class="btn primary" id="solveBtn" hidden title="Opnieuw doorrekenen (F5)">Bereken</button>
           <span class="msg" id="tmsg" hidden></span>
+          <progress id="tprog" max="1" hidden></progress>
+          <button class="btn" id="stopBtn" hidden title="Berekening afbreken">Stop</button>
+          <button class="btn primary" id="solveBtn" hidden title="Doorrekenen (F5)">Bereken</button>
         </div>
       </div>
 
       <section class="drawer" id="drawer">
         <div>
-          <div class="grip" id="grip" title="Sleep om de hoogte aan te passen"></div>
+          <div class="grip" id="grip" title="Sleep om de hoogte aan te passen, dubbelklik voor automatisch"></div>
           <div class="drawer-head">
             <button class="btn ghost ico" id="drawerBtn" title="In- of uitklappen" aria-label="Metingen in- of uitklappen">&#9662;</button>
             <h2>Metingen</h2>
@@ -93,7 +100,8 @@
             <select id="xSel" aria-label="Grootheid op de x-as"></select>
             <span class="grow"></span>
             <span class="empty" id="serieNote"></span>
-            <button class="btn" id="addSerie">Meting toevoegen</button>
+            <button class="btn" id="addSerie">Metingen&hellip;</button>
+            <button class="btn" id="addFx" title="Een formule van metingen plotten, bijv. C.x - C.y">&fnof; Formule</button>
             <button class="btn" id="csvBtn" title="Alle metingen als CSV naar het klembord">CSV</button>
           </div>
         </div>
@@ -135,17 +143,28 @@
               <h2>Tijdintegratie</h2>
               <div class="chk">
                 <input type="checkbox" id="autoChk">
-                <label for="autoChk">Automatisch herberekenen</label>
+                <label for="autoChk">Na elke wijziging meteen herberekenen</label>
               </div>
+              <p class="empty" style="margin:-2px 0 10px">Uit: pas je het model aan en druk je daarna op <b>Bereken</b> (F5).</p>
               <div class="row"><label for="durMode">Tijdvenster</label>
                 <select id="durMode">
                   <option value="fixed">vaste duur</option>
                   <option value="equil">tot evenwicht</option>
                 </select></div>
-              <div class="row"><label for="durInp">Duur <span class="unit">s</span></label>
+              <div class="row" id="durRow"><label for="durInp">Duur <span class="unit">s</span></label>
                 <input type="number" id="durInp" min="0.05" max="60" step="0.5" value="2"></div>
-              <div class="row"><label for="cvInp">Viskeuze demping <span class="unit">Ns/mm</span></label>
+              <div class="row" id="maxRow" hidden><label for="maxInp">Hoogstens <span class="unit">s</span></label>
+                <input type="number" id="maxInp" min="0.2" max="300" step="5" value="30"></div>
+              <h2 style="margin-top:14px">Demping</h2>
+              <div class="chk">
+                <input type="checkbox" id="jdChk">
+                <label for="jdChk">Demping in scharnieren</label>
+              </div>
+              <div class="row"><label for="cjInp">Per scharnier <span class="unit">N&middot;m&middot;s/rad</span></label>
+                <input type="number" id="cjInp" min="0" step="0.01" value="0.05"></div>
+              <div class="row"><label for="cvInp">Luchtweerstand, per punt <span class="unit">Ns/mm</span></label>
                 <input type="number" id="cvInp" min="0" step="0.005" value="0"></div>
+              <h2 style="margin-top:14px">Nauwkeurigheid</h2>
               <div class="row"><label for="dtInp">Tijdstap <span class="unit">ms</span></label>
                 <input type="number" id="dtInp" min="0.001" max="20" step="0.05" value="0.2"></div>
               <div class="row"><label for="mInp">Standaardmassa <span class="unit">kg</span></label>
@@ -190,14 +209,25 @@
   </div>
 
   <div class="modal" id="pick" hidden>
-    <div class="card">
-      <h3>Meting kiezen</h3>
-      <input type="text" id="pickQ" placeholder="Zoek op punt, stang of grootheid…" autocomplete="off" spellcheck="false">
+    <div class="card pickcard" role="dialog" aria-labelledby="pickTitle">
+      <div class="pickhead">
+        <h3 id="pickTitle">Metingen kiezen</h3>
+        <div class="seg" id="pickMode" role="group" aria-label="Soort meting">
+          <button type="button" data-v="q" aria-pressed="true">Grootheid</button>
+          <button type="button" data-v="f" aria-pressed="false">&fnof; Formule</button>
+        </div>
+      </div>
+      <div id="pickFxBox" hidden>
+        <input type="text" id="pickFxInp" placeholder="bijv. C.x - C.y" autocomplete="off" spellcheck="false">
+        <p class="empty fxhelp">Klik hieronder op een grootheid om hem in de formule te zetten. Hoofdletters maken niet uit, <code>c_x</code> mag ook.
+          Rekenen: <code>+ - * / ^ ( )</code> &middot; functies: <code>sqrt abs sin cos atan2 hypot deg rad min max</code> &middot; <code>t</code> = tijd.</p>
+      </div>
+      <input type="text" id="pickQ" placeholder="Filter, bijv. &ldquo;C&rdquo;, &ldquo;stang&rdquo; of &ldquo;v&rdquo;" autocomplete="off" spellcheck="false">
       <div class="picklist" id="pickList"></div>
       <div class="acts">
-        <span class="empty" style="flex:1;text-align:left">Of typ een formule, bijv. <code>C.x - C.y</code></span>
-        <button class="btn" id="pickCancel">Annuleren</button>
-        <button class="btn primary" id="pickFx">&fnof; Formule</button>
+        <span class="empty" id="pickMsg" style="flex:1;text-align:left"></span>
+        <button class="btn" id="pickCancel">Sluiten</button>
+        <button class="btn primary" id="pickOk">Klaar</button>
       </div>
     </div>
   </div>

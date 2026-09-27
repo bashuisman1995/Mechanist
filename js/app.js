@@ -17,7 +17,8 @@
     series: [], gravity: false, showForces: true,
     mode: "kin", simDur: 2, dtStep: 0.2, defMass: 0.1, xAxis: "time",
     railSlim: false, drawerOpen: true, drawerH: 232, tab: "props",
-    autoSolve: false, durMode: "fixed", cVisc: 0, maxT: 30
+    autoSolve: false, durMode: "fixed", cVisc: 0, maxT: 30,
+    jointDamp: false, cJoint: 0.05
   };
 
   const N = id => model.nodes.find(n => n.id === id);
@@ -48,8 +49,11 @@
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 2.5);
     const r = cv.getBoundingClientRect();
+    const W0 = W, H0 = H;
     W = Math.max(1, Math.round(r.width));
     H = Math.max(1, Math.round(r.height));
+    // bij groter of kleiner worden blijft het midden van het beeld op zijn plaats
+    if (W0 > 1 && H0 > 1) { view.ox += (W - W0) / 2; view.oy += (H - H0) / 2; }
     cv.width = Math.round(W * DPR);
     cv.height = Math.round(H * DPR);
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -184,10 +188,15 @@
     const k = e.key.toLowerCase();
     const map = { v: "select", n: "node", l: "link", p: "pin", s: "slider", d: "driver", r: "spring", c: "damper", f: "force", m: "mass", t: "trace", x: "del" };
     if (map[k]) { setTool(map[k]); e.preventDefault(); return; }
-    if (e.key === " ") { togglePlay(); e.preventDefault(); return; }
+    if (e.key === " ") {
+      // een knop met focus zou anders zelf nog eens "klikken" en het afspelen meteen weer stoppen
+      if (e.target.tagName === "BUTTON") e.target.blur();
+      togglePlay(); e.preventDefault(); return;
+    }
     if (e.key === "Escape") { pending = null; sel = null; syncInspector(); draw(); }
+    if (e.key === "Home") { toT0(); e.preventDefault(); return; }
     if (e.key === "Delete" || e.key === "Backspace") {
-      if (sel) { removeSel(); e.preventDefault(); }
+      if (sel) { e.preventDefault(); if (atT0()) { cancelJob(); removeSel(); } else lockNudge(); }
     }
   });
 
@@ -477,7 +486,7 @@
      ============================================================ */
   const BA = 20, BB = 20;   // Baumgarte, 1/s
 
-  function computeDyn() {
+  function* computeDyn() {
     const fr = model.nodes.filter(n => n.support !== "pin");
     const nq = fr.length * 2;
     if (!nq) return null;
@@ -497,6 +506,38 @@
 
     const pos = (q, id) => fi.has(id) ? { x: q[2 * fi.get(id)], y: q[2 * fi.get(id) + 1] } : fixed[id];
     const vel = (v, id) => fi.has(id) ? { x: v[2 * fi.get(id)], y: v[2 * fi.get(id) + 1] } : { x: 0, y: 0 };
+
+    // Demping in scharnieren: een rotatiedemper tussen elk paar lichamen dat in
+    // een knooppunt samenkomt (stangen, en de vaste wereld bij een oplegging).
+    // Een moment τ op een stang wordt een krachtenkoppel op zijn uiteinden.
+    const cj = model.jointDamp ? Math.max(0, model.cJoint || 0) * 1000 : 0;   // N·m·s -> N·mm·s
+    const joints = [];
+    if (cj > 0) for (const n of model.nodes) {
+      const ls = model.elems.filter(e => e.type === "link" && (e.a === n.id || e.b === n.id) && N(e.a) && N(e.b));
+      const ground = n.support !== "free";
+      if (ls.length + (ground ? 1 : 0) >= 2) joints.push({ ls, ground });
+    }
+    function jointLoads(q, v, add) {
+      for (const j of joints) {
+        const bodies = j.ls.map(e => {
+          const P = pos(q, e.a), Q = pos(q, e.b), vP = vel(v, e.a), vQ = vel(v, e.b);
+          const rx = Q.x - P.x, ry = Q.y - P.y, L2 = rx * rx + ry * ry || 1;
+          return { e, rx, ry, L2, w: (rx * (vQ.y - vP.y) - ry * (vQ.x - vP.x)) / L2 };
+        });
+        if (j.ground) bodies.push({ e: null, w: 0 });
+        for (let a = 0; a < bodies.length; a++)
+          for (let b = a + 1; b < bodies.length; b++) {
+            const tau = -cj * (bodies[a].w - bodies[b].w);
+            torque(bodies[a], tau); torque(bodies[b], -tau);
+          }
+      }
+      function torque(B, tau) {
+        if (!B.e) return;
+        const k = tau / B.L2;
+        add(B.e.b, -k * B.ry, k * B.rx);
+        add(B.e.a, k * B.ry, -k * B.rx);
+      }
+    }
 
     // crank pose prescribed by the clock
     function crankAt(d, t) {
@@ -563,6 +604,10 @@
           F[2 * i] += e.mag * Math.cos(th); F[2 * i + 1] += e.mag * Math.sin(th);
         }
       }
+      if (cj > 0) jointLoads(q, v, (id, fx, fy) => {
+        if (!fi.has(id)) return;
+        const i = fi.get(id); F[2 * i] += fx; F[2 * i + 1] += fy;
+      });
       return { F, EF };
     }
 
@@ -602,6 +647,7 @@
       while (t < maxT) {
         if (!rk4(t, q, v, h0)) break;
         t += h0;
+        if ((k % 250) === 0) yield { phase: "equil", t, maxT };
         if ((++k % 10) === 0) {
           project(t, q, v);
           let mv = 0;
@@ -637,6 +683,7 @@
     let Rmax = 0, Nmax = 0, bad = false;
     for (let f = 0; f <= 360; f++) {
       const t = f * dtF;
+      yield { phase: "rec", f };
       const d0 = deriv(t, q, v);
       if (!d0) { bad = true; break; }
       record(f, t, q, v, d0);
@@ -708,8 +755,9 @@
       for (const id in S.EF) S.EF[id][f] = D.EF[id];
 
       // constraint multipliers -> bar forces, reactions, torques
-      const onPin = {};
-      for (const n of model.nodes) if (n.support === "pin") onPin[n.id] = { x: 0, y: 0 };
+      const onPin = {}, jPin = {};
+      for (const n of model.nodes) if (n.support === "pin") { onPin[n.id] = { x: 0, y: 0 }; jPin[n.id] = { x: 0, y: 0 }; }
+      if (cj > 0) jointLoads(q, v, (id, fx, fy) => { if (jPin[id]) { jPin[id].x += fx; jPin[id].y += fy; } });
       let rm = 0, nm2 = 0;
       D.J.kind.forEach((k, j) => {
         const lam = D.lam[j];
@@ -739,7 +787,7 @@
       for (const n of model.nodes) {
         if (n.support !== "pin") continue;
         const o = onPin[n.id];
-        let fx = o.x, fy = o.y;
+        let fx = o.x + jPin[n.id].x, fy = o.y + jPin[n.id].y;
         for (const e of model.elems) {
           if (e.type === "spring" || e.type === "damper") {
             const sgn = e.a === n.id ? 1 : e.b === n.id ? -1 : 0;
@@ -777,11 +825,6 @@
 
   function computeSweep() {
     sweep = null;
-    if (model.mode === "dyn") {
-      if (mobility().dof < 0) return;
-      sweep = computeDyn();
-      return;
-    }
     const ds = drivers();
     if (!ds.length) return;
     if (mobility().dofDriven !== 0) return;
@@ -832,17 +875,27 @@
     sweep = S.ok.some(Boolean) ? S : null;
   }
 
+  // k mag een gebroken beeldnummer zijn: de standen worden dan lineair
+  // tussen twee opgeslagen beelden geïnterpoleerd, zodat afspelen vloeiend blijft.
   function applyFrame(k) {
     if (!sweep) return;
-    const i = Math.max(0, Math.min(360, Math.round(k)));
+    const kk = Math.max(0, Math.min(360, k));
+    const i = Math.round(kk);
     frame = i;                       // de klok loopt door, ook over een blokkade heen
     if (!sweep.ok[i]) return;
+    const i0 = Math.floor(kk), i1 = Math.min(360, i0 + 1), f = kk - i0;
+    const mix = f > 1e-9 && sweep.ok[i0] && sweep.ok[i1];
     for (const n of model.nodes) {
-      const p = sweep.pos[n.id][i];
-      if (p) { n.x = p.x; n.y = p.y; }
+      const P = sweep.pos[n.id];
+      if (!P) continue;
+      const p = mix ? P[i0] : P[i];
+      if (!p) continue;
+      if (mix) { n.x = p.x + (P[i1].x - p.x) * f; n.y = p.y + (P[i1].y - p.y) * f; }
+      else { n.x = p.x; n.y = p.y; }
     }
+    const t = mix ? sweep.t[i0] + (sweep.t[i1] - sweep.t[i0]) * f : sweep.t[i];
     for (const d of drivers())
-      d.theta = ((((d.theta0 || 0) + omega(d) * sweep.t[i] * 180 / Math.PI) % 360) + 360) % 360;
+      d.theta = ((((d.theta0 || 0) + omega(d) * t * 180 / Math.PI) % 360) + 360) % 360;
   }
 
   /* ============================================================
@@ -949,29 +1002,38 @@
   const QLAB = { x: "x", y: "y", vx: "vₓ", vy: "v_y", v: "|v|", ax: "aₓ", ay: "a_y", a: "|a|" };
   const QU = { x: "mm", y: "mm", vx: "mm/s", vy: "mm/s", v: "mm/s", ax: "mm/s²", ay: "mm/s²", a: "mm/s²" };
 
+  // Elk kanaal hoort bij één onderdeel (o, obj) en heeft een korte naam (q),
+  // zodat de keuzelijst per onderdeel één regel met knopjes kan tonen.
   function channels() {
     const out = [];
     const pair = e => (N(e.a) ? N(e.a).name : "?") + (N(e.b) ? N(e.b).name : "?");
-    for (const n of model.nodes)
-      for (const k in QLAB) out.push({ key: "n|" + n.id + "|" + k, lab: n.name + " · " + QLAB[k],
-                                       u: QU[k], al: n.name + "." + k, g: "Punt " + n.name });
-    for (const e of model.elems) {
-      if (e.type === "link") out.push({ key: "l|" + e.id + "|N", lab: "stang " + pair(e) + " · N", u: "N", al: "N_" + pair(e), g: "Stangen" });
-      if (e.type === "spring") out.push({ key: "s|" + e.id + "|F", lab: "veer " + pair(e) + " · F", u: "N", al: "F_" + pair(e), g: "Krachtelementen" });
-      if (e.type === "damper") out.push({ key: "s|" + e.id + "|F", lab: "demper " + pair(e) + " · F", u: "N", al: "Fd_" + pair(e), g: "Krachtelementen" });
-    }
     for (const n of model.nodes) {
-      if (n.support === "pin") ["Rx", "Ry", "R"].forEach(k =>
-        out.push({ key: "r|" + n.id + "|" + k, lab: "reactie " + n.name + " · " + k, u: "N",
-                   al: k + "_" + n.name, g: "Reacties" }));
+      const o = (n.support === "pin" ? "Scharnier " : n.support === "slider" ? "Glijder " : "Punt ") + n.name;
+      // een scharnier beweegt niet: zijn x, v en a blijven bruikbaar in formules, maar niet in de lijst
+      for (const k in QLAB) out.push({ key: "n|" + n.id + "|" + k, lab: n.name + " · " + QLAB[k], q: QLAB[k],
+                                       u: QU[k], al: n.name + "." + k, g: "Punten", o, obj: n.id, hide: n.support === "pin" });
+      if (n.support === "pin") [["Rx", "Rₓ"], ["Ry", "R_y"], ["R", "|R|"]].forEach(([k, q]) =>
+        out.push({ key: "r|" + n.id + "|" + k, lab: "reactie " + n.name + " · " + q, q, u: "N",
+                   al: k + "_" + n.name, g: "Punten", o, obj: n.id }));
       if (n.support === "slider")
-        out.push({ key: "r|" + n.id + "|Rn", lab: "reactie " + n.name + " · Rₙ", u: "N",
-                   al: "Rn_" + n.name, g: "Reacties" });
+        out.push({ key: "r|" + n.id + "|Rn", lab: "reactie " + n.name + " · Rₙ", q: "Rₙ", u: "N",
+                   al: "Rn_" + n.name, g: "Punten", o, obj: n.id });
     }
-    for (const e of drivers())
-      out.push({ key: "t|" + e.id + "|T", lab: "krukmoment " + pair(e) + " · T", u: "N·m",
-                 al: "T_" + pair(e), g: "Aandrijving" });
-    if (model.mode === "dyn") out.push({ key: "e||E", lab: "totale energie E", u: "J", al: "E", g: "Overig" });
+    for (const e of model.elems) {
+      if (e.type === "link") {
+        const o = (e.driver ? "Kruk " : "Stang ") + pair(e);
+        out.push({ key: "l|" + e.id + "|N", lab: (e.driver ? "kruk " : "stang ") + pair(e) + " · N", q: "N", u: "N",
+                   al: "N_" + pair(e), g: "Stangen", o, obj: e.id });
+        if (e.driver) out.push({ key: "t|" + e.id + "|T", lab: "krukmoment " + pair(e) + " · T", q: "T", u: "N·m",
+                                 al: "T_" + pair(e), g: "Stangen", o, obj: e.id });
+      }
+      if (e.type === "spring") out.push({ key: "s|" + e.id + "|F", lab: "veer " + pair(e) + " · F", q: "F", u: "N",
+                                          al: "F_" + pair(e), g: "Krachtelementen", o: "Veer " + pair(e), obj: e.id });
+      if (e.type === "damper") out.push({ key: "s|" + e.id + "|F", lab: "demper " + pair(e) + " · F", q: "F", u: "N",
+                                          al: "Fd_" + pair(e), g: "Krachtelementen", o: "Demper " + pair(e), obj: e.id });
+    }
+    if (model.mode === "dyn") out.push({ key: "e||E", lab: "totale energie E", q: "E", u: "J", al: "E",
+                                         g: "Systeem", o: "Systeem", obj: "" });
     return out;
   }
 
@@ -1088,9 +1150,16 @@
   function syncDynInputs() {
     const a = document.getElementById("autoChk"); if (!a) return;
     a.checked = !!model.autoSolve;
-    document.getElementById("durMode").value = model.durMode || "fixed";
+    const eq = model.durMode === "equil";
+    document.getElementById("durMode").value = eq ? "equil" : "fixed";
     document.getElementById("cvInp").value = model.cVisc || 0;
-    document.getElementById("durInp").disabled = model.durMode === "equil";
+    document.getElementById("jdChk").checked = !!model.jointDamp;
+    document.getElementById("cjInp").value = model.cJoint || 0;
+    document.getElementById("cjInp").disabled = !model.jointDamp;
+    document.getElementById("durInp").value = model.simDur;
+    document.getElementById("maxInp").value = model.maxT || 30;
+    document.getElementById("durRow").hidden = eq;
+    document.getElementById("maxRow").hidden = !eq;
   }
 
   function syncDof() {
@@ -1221,13 +1290,24 @@
       return;
     }
 
-    if (tool !== "trace" && (tool !== "select" || hitN || hitE)) ensureT0();
+    // Buiten t = 0 is het model alleen te bekijken: selecteren en sporen mag,
+    // al het andere wacht tot je terug bent op t = 0.
+    const editing = tool !== "select" && tool !== "trace";
+    if (editing && !atT0()) {
+      if (hitN) sel = { kind: "node", id: hitN.id };
+      else if (hitE) sel = { kind: "elem", id: hitE.id };
+      syncInspector(); draw(); lockNudge();
+      return;
+    }
+    if (editing) cancelJob();
 
+    let edited = false;          // alleen echte modelwijzigingen rekenen opnieuw
     switch (tool) {
       case "select":
         if (hitN) {
           sel = { kind: "node", id: hitN.id };
-          drag = { mode: "node", id: hitN.id, dx: hitN.x - wp.x, dy: hitN.y - wp.y };
+          if (atT0()) { cancelJob(); drag = { mode: "node", id: hitN.id, dx: hitN.x - wp.x, dy: hitN.y - wp.y, moved: false }; }
+          else lockNudge();
         } else if (hitE) {
           sel = { kind: "elem", id: hitE.id };
         }
@@ -1236,17 +1316,19 @@
       case "node": {
         const n = addNode(snapPt(wp));
         sel = { kind: "node", id: n.id };
+        edited = true;
         break;
       }
 
       case "link": case "spring": case "damper": {
         const n = hitN || addNode(snapPt(wp));
+        edited = !hitN;
         if (!pending) { pending = n.id; }
         else if (pending === n.id) { pending = null; }
         else {
           const e = addTwoNode(tool, pending, n.id);
           pending = null;
-          if (e) sel = { kind: "elem", id: e.id };
+          if (e) { sel = { kind: "elem", id: e.id }; edited = true; }
         }
         break;
       }
@@ -1256,6 +1338,7 @@
         n.support = n.support === "pin" ? "free" : "pin";
         anchorHere(n);
         sel = { kind: "node", id: n.id };
+        edited = true;
         break;
       }
 
@@ -1264,11 +1347,13 @@
         n.support = n.support === "slider" ? "free" : "slider";
         anchorHere(n);
         sel = { kind: "node", id: n.id };
+        edited = true;
         break;
       }
 
       case "driver":
-        if (hitE && hitE.type === "link") { setDriver(hitE.id); sel = { kind: "elem", id: hitE.id }; }
+        // setDriver rekent zelf door
+        if (hitE && hitE.type === "link") { sel = { kind: "elem", id: hitE.id }; setDriver(hitE.id); }
         else flash("Klik op een schakel, niet op een punt.");
         break;
 
@@ -1276,24 +1361,26 @@
         if (hitN) {
           const e = { id: eid(), type: "force", node: hitN.id, mag: 100, ang: -90 };
           model.elems.push(e); sel = { kind: "elem", id: e.id };
+          edited = true;
         }
         break;
 
       case "mass":
-        if (hitN) { if (!hitN.m) hitN.m = 1; sel = { kind: "node", id: hitN.id }; }
+        if (hitN) { if (!hitN.m) hitN.m = 1; sel = { kind: "node", id: hitN.id }; edited = true; }
         break;
 
       case "trace":
-        if (hitN) { hitN.trace = !hitN.trace; sel = { kind: "node", id: hitN.id }; }
+        if (hitN) { hitN.trace = !hitN.trace; sel = { kind: "node", id: hitN.id }; touched(); }
         break;
 
       case "del":
-        if (hitN) removeNode(hitN.id);
-        else if (hitE) removeElem(hitE.id);
+        if (hitN) { removeNode(hitN.id); edited = true; }
+        else if (hitE) { removeElem(hitE.id); edited = true; }
         sel = null;
         break;
     }
-    changed();
+    if (edited) changed();
+    else { syncInspector(); draw(); }
   });
 
   cv.addEventListener("pointermove", ev => {
@@ -1323,7 +1410,8 @@
     if (drag && drag.mode === "node") {
       const n = N(drag.id);
       const p = snapPt({ x: wp.x + drag.dx, y: wp.y + drag.dy });
-      n.x = p.x; n.y = p.y;
+      if (p.x === n.x && p.y === n.y) return;
+      n.x = p.x; n.y = p.y; drag.moved = true;
       if (model.rigidDrag) {
         relax(new Set([n.id]));
         for (const d of drivers()) { d.theta = crankAngle(d); d.theta0 = d.theta; }
@@ -1342,7 +1430,11 @@
   function endDrag(ev) {
     if (ev && ev.pointerId !== undefined) ptrs.delete(ev.pointerId);
     if (ptrs.size < 2) pinch = null;
-    if (drag) { drag = null; cv.style.cursor = cursorFor(tool); changed(); }
+    if (drag) {
+      const moved = drag.mode === "node" && drag.moved;
+      drag = null; cv.style.cursor = cursorFor(tool);
+      if (moved) changed();
+    }
   }
   cv.addEventListener("pointerup", endDrag);
   cv.addEventListener("pointercancel", endDrag);
@@ -1353,19 +1445,31 @@
     zoomAt(sp.x, sp.y, ev.deltaY < 0 ? 1.12 : 1 / 1.12);
   }, { passive: false });
 
-  document.getElementById("rewBtn").addEventListener("click", () => {
-    if (playing) togglePlay();
-    goto(0);
-  });
+  document.getElementById("rewBtn").addEventListener("click", toT0);
+  document.getElementById("lockBtn").addEventListener("click", toT0);
   document.getElementById("solveBtn").addEventListener("click", solveNow);
+  document.getElementById("stopBtn").addEventListener("click", () => { cancelJob(); dynStale = true; syncTransport(); });
 
-  // het model is alleen op t = 0 te bewerken
-  function ensureT0() {
-    if (!sweep || frame === 0) return false;
+  /* ---- het model is alleen op t = 0 te bewerken ---- */
+  function atT0() { return !sweep || (!playing && frame === 0); }
+  function toT0() {
     if (playing) togglePlay();
-    goto(0);
-    toast("Terug naar t = 0 — daar bewerk je het model.");
-    return true;
+    if (sweep && frame !== 0) goto(0);
+    syncLock();
+  }
+  function lockNudge() {
+    flash("Bewerken kan alleen op t = 0. Klik op \u23EE om terug te gaan.");
+    const b = document.getElementById("lockBar");
+    b.classList.remove("pulse"); void b.offsetWidth; b.classList.add("pulse");
+  }
+  let lockedShown = null;
+  function syncLock() {
+    const locked = !atT0();
+    if (locked === lockedShown) return;
+    lockedShown = locked;
+    document.getElementById("lockBar").hidden = !locked;
+    document.getElementById("rewBtn").classList.toggle("hot", locked);
+    syncInspector();
   }
 
   document.getElementById("zin").onclick = () => zoomAt(W / 2, H / 2, 1.25);
@@ -1407,6 +1511,50 @@
     if (model.showForces) drawLiveForces();
 
     if (pending) drawRubber();
+    flushLabels();
+  }
+
+  /* ---- labels ----
+     Eerst verzamelen, dan tekenen op volgorde van belang (0 = puntnaam,
+     1 = krachten en momenten, 2 = maten en veerwaarden, 3 = bijzaken).
+     Een label dat een eerder label raakt valt weg, en hoe verder je
+     uitzoomt hoe minder soorten er getekend worden. */
+  let LBL = [];
+  function labelDetail() {
+    // typische schermlengte van een schakel; zonder schakels de zoomfactor
+    const L = [];
+    for (const e of model.elems) {
+      if (e.type !== "link" && e.type !== "spring" && e.type !== "damper") continue;
+      const A = N(e.a), B = N(e.b);
+      if (A && B) L.push(dist(A, B) * view.s);
+    }
+    if (!L.length) return view.s < 0.3 ? 0 : 3;
+    L.sort((a, b) => a - b);
+    const m = L[L.length >> 1];
+    return m < 22 ? -1 : m < 45 ? 0 : m < 80 ? 1 : 3;
+  }
+  function flushLabels() {
+    const maxPri = labelDetail();
+    const placed = [];
+    ctx.font = '500 11px "IBM Plex Mono", ui-monospace, monospace';
+    ctx.textBaseline = "middle";
+    const list = LBL.map((l, i) => Object.assign(l, { i })).sort((a, b) => a.pri - b.pri || a.i - b.i);
+    LBL = [];
+    for (const l of list) {
+      if (l.pri > maxPri && !l.force) continue;
+      const w = ctx.measureText(l.text).width;
+      const r = { x0: l.left ? l.x - 2 : l.x - w / 2 - 3, y0: l.y - 7 };
+      r.x1 = r.x0 + w + 6; r.y1 = r.y0 + 14;
+      if (placed.some(q => r.x0 < q.x1 + 2 && r.x1 > q.x0 - 2 && r.y0 < q.y1 + 1 && r.y1 > q.y0 - 1)) continue;
+      placed.push(r);
+      ctx.textAlign = l.left ? "left" : "center";
+      ctx.fillStyle = C.ground;
+      ctx.globalAlpha = .85;
+      ctx.fillRect(r.x0, r.y0, r.x1 - r.x0, 14);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = l.color;
+      ctx.fillText(l.text, l.x, l.y);
+    }
   }
 
   function drawGrid() {
@@ -1484,7 +1632,7 @@
       ctx.lineTo(tip.x - ux * 9 + px * 4.8, tip.y - uy * 9 + py * 4.8);
       ctx.lineTo(tip.x - ux * 9 - px * 4.8, tip.y - uy * 9 - py * 4.8);
       ctx.closePath(); ctx.fill();
-      label(tip.x + ux * 14, tip.y + uy * 14, fmt(mag) + " N", C.accent);
+      label(tip.x + ux * 14, tip.y + uy * 14, fmt(mag) + " N", C.accent, false, 1);
     }
 
     for (const e of model.elems) {
@@ -1493,14 +1641,14 @@
       if (!isFinite(v)) continue;
       const A = toScr(N(e.a)), B = toScr(N(e.b));
       label((A.x + B.x) / 2, (A.y + B.y) / 2 + 13,
-        (v >= 0 ? "+" : "") + fmt(v) + " N", v >= 0 ? C.spring : C.force);
+        (v >= 0 ? "+" : "") + fmt(v) + " N", v >= 0 ? C.spring : C.force, false, 1);
     }
 
     for (const d of drivers()) {
       const T = sweep.T[d.id] ? sweep.T[d.id][i] : NaN;
       if (!isFinite(T)) continue;
       const p = toScr(N(d.a));
-      label(p.x, p.y - 34, "T = " + T.toFixed(3) + " N·m", C.driver);
+      label(p.x, p.y - 34, "T = " + T.toFixed(3) + " N·m", C.driver, false, 1);
     }
   }
 
@@ -1547,7 +1695,7 @@
     ctx.lineTo(px - tx * 2.5 + Math.cos(ae) * 2, py - ty * 2.5 + Math.sin(ae) * 2);
     ctx.lineTo(px - tx * 2.5 - Math.cos(ae) * 5, py - ty * 2.5 - Math.sin(ae) * 5);
     ctx.closePath(); ctx.fill();
-    label(pivot.x + Math.cos(a0 - .65) * (r + 13), pivot.y + Math.sin(a0 - .65) * (r + 13), "ω", C.driver, true);
+    label(pivot.x + Math.cos(a0 - .65) * (r + 13), pivot.y + Math.sin(a0 - .65) * (r + 13), "ω", C.driver, true, 3);
   }
 
   function drawSpring(e) {
@@ -1629,7 +1777,7 @@
     ctx.lineTo(tail.x + ux * 11 + pxv * 4.6, tail.y + uy * 11 + pyv * 4.6);
     ctx.lineTo(tail.x + ux * 11 - pxv * 4.6, tail.y + uy * 11 - pyv * 4.6);
     ctx.closePath(); ctx.fill();
-    label(tip.x + ux * 12, tip.y + uy * 12, fmt(e.mag) + " N", C.force);
+    label(tip.x + ux * 12, tip.y + uy * 12, fmt(e.mag) + " N", C.force, false, 1);
   }
 
   function drawSupport(n) {
@@ -1716,19 +1864,9 @@
     label(s.x + 11, s.y - 11, n.name + (n.m > 0 ? "  " + fmt(n.m) + " kg" : ""), C.ink2, true, 0);
   }
 
-  // tier 0 = puntnaam, tier 1 = detail (lengte, kracht, moment)
-  function label(x, y, text, color, left, tier) {
-    if (view.s < ((tier === 0) ? 0.42 : 0.85)) return;
-    ctx.font = '500 11px "IBM Plex Mono", ui-monospace, monospace';
-    ctx.textAlign = left ? "left" : "center";
-    ctx.textBaseline = "middle";
-    const w = ctx.measureText(text).width;
-    ctx.fillStyle = C.ground;
-    ctx.globalAlpha = .82;
-    ctx.fillRect(left ? x - 2 : x - w / 2 - 3, y - 7, w + 6, 14);
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = color;
-    ctx.fillText(text, x, y);
+  // pri: 0 = puntnaam, 1 = kracht/moment, 2 = maat/veerwaarde, 3 = bijzaak
+  function label(x, y, text, color, left, pri) {
+    LBL.push({ x, y, text, color, left: !!left, pri: pri === undefined ? 2 : pri });
   }
 
   function drawRubber() {
@@ -1754,6 +1892,35 @@
   const props = document.getElementById("props");
 
   function syncInspector() {
+    buildInspector();
+    if (!sel) return;
+    // snelknoppen: grootheden van dit onderdeel direct in de grafiek zetten
+    refreshChannels();
+    const cs = CH.filter(c => c.obj === sel.id && !c.hide);
+    if (cs.length) {
+      const box = document.createElement("div");
+      box.className = "measq";
+      box.innerHTML = '<div class="lab">In de grafiek</div><div class="pq">' +
+        cs.map(c => chip(c, plotted(c.key))).join("") + "</div>";
+      box.addEventListener("click", ev => {
+        const b = ev.target.closest("button.chip"); if (!b) return;
+        toggleSerie(b.dataset.k);
+        b.setAttribute("aria-pressed", String(plotted(b.dataset.k)));
+      });
+      props.appendChild(box);
+    }
+    if (!atT0()) {
+      props.querySelectorAll("input, select, .seg button, #drvBtn").forEach(el => { el.disabled = true; });
+      const note = document.createElement("div");
+      note.className = "locknote";
+      note.innerHTML = "<span>Je kijkt naar t = " + fmtTime(sweep.t[frame]) + ". Waarden aanpassen kan op t = 0.</span>" +
+        '<button class="btn" type="button">\u23EE Naar t = 0</button>';
+      note.querySelector("button").addEventListener("click", toT0);
+      props.prepend(note);
+    }
+  }
+
+  function buildInspector() {
     const stSel = document.getElementById("stSel");
     if (!sel) {
       props.innerHTML = '<p class="empty">Selecteer een punt of element op het canvas.</p>';
@@ -1761,7 +1928,7 @@
     }
     if (sel.kind === "node") {
       const n = N(sel.id);
-      if (!n) { sel = null; return syncInspector(); }
+      if (!n) { sel = null; return buildInspector(); }
       stSel.textContent = "punt " + n.name;
       props.innerHTML =
         kind(C.ink, "Punt " + n.name) +
@@ -1798,7 +1965,7 @@
     }
 
     const e = E(sel.id);
-    if (!e) { sel = null; return syncInspector(); }
+    if (!e) { sel = null; return buildInspector(); }
 
     if (e.type === "link") {
       stSel.textContent = "schakel";
@@ -1896,8 +2063,11 @@
     const commit = () => {
       const v = parseFloat(el.value);
       if (!isFinite(v)) { el.value = el.dataset.last || el.value; return; }
+      if (!atT0()) { el.value = el.dataset.last; lockNudge(); return; }
       el.dataset.last = v;
-      fn(v); rebuild(); syncDof(); draw(); save();
+      cancelJob();
+      fn(v); if (model.mode !== "dyn") frame = 0;
+      rebuild(); syncDof(); draw(); save(); pushHistory();
     };
     el.dataset.last = el.value;
     el.addEventListener("change", commit);
@@ -1915,25 +2085,36 @@
   const angOut = document.getElementById("angOut");
   const speedSel = document.getElementById("speedSel");
 
+  // De afspeelkop loopt als gebroken getal door. Vroeger werd hij elk beeld
+  // afgerond, waardoor hij bij lage snelheid of een lange simulatie op 0 bleef staan.
+  let playPos = 0;
   function togglePlay() {
-    if (!sweep) return;
+    if (!sweep && !playing) return;
     playing = !playing;
     playIco.setAttribute("d", playing ? "M3 1.5h3.4v11H3zM7.6 1.5H11v11H7.6z" : "M3 1.5l9 5.5-9 5.5z");
-    playBtn.title = playing ? "Pauzeren" : "Afspelen";
-    if (playing) { lastT = performance.now(); raf = requestAnimationFrame(tick); }
-    else cancelAnimationFrame(raf);
+    playBtn.title = playing ? "Pauzeren (spatie)" : "Afspelen (spatie)";
+    if (playing) {
+      if (sweep.dyn && frame >= 360) frame = 0;      // aan het eind: opnieuw vanaf het begin
+      playPos = frame; lastT = performance.now(); raf = requestAnimationFrame(tick);
+    } else {
+      cancelAnimationFrame(raf);
+      if (sweep) goto(frame);                          // op een echt beeld stilstaan
+    }
+    syncLock();
   }
   playBtn.addEventListener("click", togglePlay);
 
   function tick(t) {
     if (!playing || !sweep) return;
-    const fps = (360 / sweep.dur) * parseFloat(speedSel.value);   // frames per second
+    const fps = (360 / sweep.dur) * parseFloat(speedSel.value);   // beelden per seconde
     const dt = Math.min(0.05, (t - lastT) / 1000);
     lastT = t;
-    let f = frame + fps * dt;
-    while (f > 360) f -= 360;
-    while (f < 0) f += 360;
-    goto(f);
+    playPos += fps * dt;
+    if (playPos >= 360) {
+      if (sweep.dyn) { playPos = 360; goto(360); togglePlay(); return; }   // niet periodiek: stoppen
+      playPos %= 360;
+    }
+    goto(playPos);
     raf = requestAnimationFrame(tick);
   }
 
@@ -1953,26 +2134,44 @@
   scrub.addEventListener("input", () => {
     if (playing) togglePlay();
     goto(parseFloat(scrub.value));
+    syncLock();
   });
 
   function syncTransport() {
-    const on = !!sweep;
+    const on = !!sweep, busy = !!job;
     playBtn.disabled = !on;
     scrub.disabled = !on;
     document.getElementById("rewBtn").disabled = !on;
-    document.getElementById("solveBtn").hidden = !dynStale;
+    const sb = document.getElementById("solveBtn");
+    sb.hidden = busy || !(dynStale || (model.mode === "dyn" && !on && model.nodes.length));
+    document.getElementById("stopBtn").hidden = !busy;
+    document.getElementById("tprog").hidden = !busy;
     if (!on && playing) togglePlay();
     const msg = document.getElementById("tmsg");
     scrub.hidden = !on; angOut.hidden = !on; speedSel.hidden = !on;
     msg.hidden = on;
     if (on) angOut.textContent = fmtTime(sweep.t[Math.round(frame)]);
+    else if (busy) showProgress(job.p);
     else msg.textContent = sweepReason();
+    syncLock();
+  }
+
+  function showProgress(p) {
+    const msg = document.getElementById("tmsg"), bar = document.getElementById("tprog");
+    if (!p) { msg.textContent = "Rekenen…"; bar.removeAttribute("value"); return; }
+    if (p.phase === "equil") {
+      msg.textContent = "Evenwicht zoeken… t = " + p.t.toFixed(2) + " s";
+      bar.value = model.durMode === "equil" ? 0.5 * p.t / p.maxT : p.t / p.maxT;
+    } else {
+      msg.textContent = "Rekenen… " + Math.round(p.f / 3.6) + " %";
+      bar.value = model.durMode === "equil" ? 0.5 + 0.5 * p.f / 360 : p.f / 360;
+    }
   }
 
   function sweepReason() {
     const m = mobility();
     if (!model.nodes.length) return "Leeg canvas — plaats punten en verbind ze.";
-    if (dynStale) return "Model gewijzigd — druk op Bereken.";
+    if (dynStale) return "Model gewijzigd — druk op Bereken (F5) als je klaar bent.";
     if (model.mode === "dyn") {
       if (m.dof < 0) return "Overbepaald met " + (-m.dof) + " — haal een schakel of oplegging weg.";
       return "Integratie liep vast — probeer een kleinere tijdstap.";
@@ -2001,16 +2200,20 @@
   const xSel = document.getElementById("xSel");
   let CH = [], CHM = new Map(), pdata = null, hoverI = null;
 
-  let ALIAS = new Map();
+  // Formulenamen: exact (C.x, N_BC) of los geschreven (c_x, n.bc)
+  let ALIAS = new Map(), ALIASN = new Map();
+  const normAl = s => s.toLowerCase().replace(/_/g, ".");
+  const alias = nm => ALIAS.get(nm) || ALIASN.get(normAl(nm));
   function refreshChannels() {
     CH = channels();
     CHM = new Map(CH.map(c => [c.key, c]));
-    ALIAS = new Map();
+    ALIAS = new Map(); ALIASN = new Map();
     for (const c of CH) if (c.al && !ALIAS.has(c.al)) ALIAS.set(c.al, c);
+    for (const c of CH) if (c.al && !ALIASN.has(normAl(c.al))) ALIASN.set(normAl(c.al), c);
     const opts = [{ v: "time", lab: "tijd (s)" }];
     for (const d of drivers())
       opts.push({ v: "ang|" + d.id, lab: "krukhoek " + (N(d.a) ? N(d.a).name : "") + (N(d.b) ? N(d.b).name : "") + " (°)" });
-    for (const c of CH) opts.push({ v: "ch|" + c.key, lab: c.lab + " (" + c.u + ")" });
+    for (const c of CH) if (!c.hide) opts.push({ v: "ch|" + c.key, lab: c.lab + " (" + c.u + ")" });
     if (!opts.some(o => o.v === model.xAxis)) model.xAxis = "time";
     xSel.innerHTML = opts.map(o =>
       '<option value="' + o.v + '"' + (o.v === model.xAxis ? " selected" : "") + ">" + o.lab + "</option>").join("");
@@ -2099,7 +2302,7 @@
         return g => fn.apply(null, args.map(a => a(g)));
       }
       if (nm === "pi") return () => Math.PI;
-      if (nm !== "t" && !ALIAS.has(nm)) throw new Error("onbekende grootheid " + nm);
+      if (nm !== "t" && !alias(nm)) throw new Error("onbekende grootheid " + nm);
       used.push(nm);
       return g => g(nm);
     }
@@ -2111,60 +2314,131 @@
 
   function exprUnit(used, src) {
     if (/[*/^]/.test(src)) return "";
-    const us = new Set(used.filter(u => u !== "t").map(u => (ALIAS.get(u) || {}).u));
+    const us = new Set(used.filter(u => u !== "t").map(u => (alias(u) || {}).u));
     return us.size === 1 ? [...us][0] : "";
   }
   const serieLab = sr => sr.expr ? sr.expr : chLab(sr.key);
 
-  /* ---------- meting kiezen ---------- */
+  /* ---------- meting kiezen ----------
+     Eén regel per onderdeel met knopjes voor de grootheden. In de stand
+     "Grootheid" zet een klik de meting aan of uit; in de stand "Formule"
+     komt de naam in de formule te staan. */
   const pick = document.getElementById("pick"), pickQ = document.getElementById("pickQ"),
-        pickList = document.getElementById("pickList");
-  let pickFor = -1;
-  function openPick(idx) {
+        pickList = document.getElementById("pickList"), pickFxInp = document.getElementById("pickFxInp"),
+        pickMsg = document.getElementById("pickMsg"), pickOk = document.getElementById("pickOk");
+  let pickFor = -1, pickMode = "q";
+  function openPick(idx, mode) {
     refreshChannels();
     pickFor = idx;
-    pickQ.value = ""; renderPick();
-    pick.hidden = false; pickQ.focus();
+    pickQ.value = "";
+    setPickMode(mode || "q");
+    pick.hidden = false;
+    (pickMode === "f" ? pickFxInp : pickQ).focus();
   }
   function closePick() { pick.hidden = true; }
+  function setPickMode(m) {
+    pickMode = m;
+    document.querySelectorAll("#pickMode button").forEach(b =>
+      b.setAttribute("aria-pressed", String(b.dataset.v === m)));
+    document.getElementById("pickFxBox").hidden = m !== "f";
+    document.getElementById("pickTitle").textContent = pickFor >= 0 ? "Meting vervangen" : "Metingen kiezen";
+    pickOk.textContent = m === "f" ? "Formule toevoegen" : "Klaar";
+    renderPick(); checkFx();
+  }
+  document.getElementById("pickMode").addEventListener("click", ev => {
+    const b = ev.target.closest("button"); if (b) setPickMode(b.dataset.v);
+  });
+
+  function plotted(key) { return model.series.some(s => s.key === key); }
+  function chip(c, on) {
+    return '<button type="button" class="chip" data-k="' + c.key + '" aria-pressed="' + !!on + '" title="' +
+      c.lab + " [" + c.u + "] \u2014 in formules: " + c.al + '">' + c.q + "</button>";
+  }
   function renderPick() {
-    const q = pickQ.value.trim().toLowerCase();
-    const hit = CH.filter(c => !q || (c.lab + " " + (c.al || "")).toLowerCase().includes(q));
-    if (!hit.length) { pickList.innerHTML = '<div class="g">niets gevonden</div>'; return; }
+    const words = pickQ.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const rows = new Map();
+    for (const c of CH) {
+      if (c.hide) continue;
+      const hay = (c.o + " " + c.q + " " + c.al + " " + c.lab).toLowerCase();
+      if (!words.every(w => hay.includes(w))) continue;
+      if (!rows.has(c.o)) rows.set(c.o, { o: c.o, g: c.g, obj: c.obj, cs: [] });
+      rows.get(c.o).cs.push(c);
+    }
+    const sid = sel ? sel.id : null;
+    const list = [...rows.values()];
+    if (!list.length) { pickList.innerHTML = '<div class="g">niets gevonden</div>'; return; }
     let html = "", g = null;
-    for (const c of hit.slice(0, 220)) {
-      if (c.g !== g) { g = c.g; html += '<div class="g">' + g + "</div>"; }
-      html += '<button data-k="' + c.key + '">' + c.lab +
-        '<span class="al">' + (c.al || "") + " · " + c.u + "</span></button>";
+    const mark = pickMode === "q" && pickFor < 0;
+    const rowHtml = r => '<div class="prow' + (r.obj === sid ? " sel" : "") + '"><span class="po">' + r.o +
+      '</span><span class="pq">' + r.cs.map(c => chip(c, mark && plotted(c.key))).join("") + "</span></div>";
+    const selRow = list.find(r => r.obj === sid);
+    if (selRow) html += '<div class="g">Selectie</div>' + rowHtml(selRow);
+    for (const r of list) {
+      if (r === selRow) continue;
+      if (r.g !== g) { g = r.g; html += '<div class="g">' + g + "</div>"; }
+      html += rowHtml(r);
     }
     pickList.innerHTML = html;
   }
   pickQ.addEventListener("input", renderPick);
-  pickQ.addEventListener("keydown", ev => {
-    if (ev.key !== "Enter") return;
-    const b = pickList.querySelector("button");
-    if (b) b.click();
-  });
   pickList.addEventListener("click", ev => {
-    const b = ev.target.closest("button"); if (!b) return;
-    setSerie(pickFor, { key: b.dataset.k });
+    const b = ev.target.closest("button.chip"); if (!b) return;
+    const c = CHM.get(b.dataset.k); if (!c) return;
+    if (pickMode === "f") { insertFx(c.al); return; }
+    if (pickFor >= 0) { setSerie(pickFor, { key: c.key }); closePick(); return; }
+    toggleSerie(c.key);
+    b.setAttribute("aria-pressed", String(plotted(c.key)));
+  });
+
+  function insertFx(txt) {
+    const el = pickFxInp, a = el.selectionStart ?? el.value.length, b = el.selectionEnd ?? a;
+    const before = el.value.slice(0, a), after = el.value.slice(b);
+    const pad = before && !/[\s(+\-*/^,]$/.test(before) ? " " : "";
+    el.value = before + pad + txt + after;
+    const p = (before + pad + txt).length;
+    el.focus(); el.setSelectionRange(p, p);
+    checkFx();
+  }
+  function checkFx() {
+    if (pickMode !== "f") { pickMsg.textContent = pickFor < 0 ? "Klik een grootheid om hem aan of uit te zetten." : ""; return true; }
+    const src = pickFxInp.value.trim();
+    if (!src) { pickMsg.textContent = "Typ een formule, of klik hieronder grootheden aan."; return false; }
+    try {
+      const c = compile(src);
+      const u = exprUnit(c.used, src);
+      pickMsg.innerHTML = '<span style="color:var(--spring)">\u2713 geldig</span>' + (u ? " \u00b7 eenheid " + u : "");
+      return true;
+    } catch (e) {
+      pickMsg.innerHTML = '<span style="color:var(--bad)">' + e.message + "</span>";
+      return false;
+    }
+  }
+  pickFxInp.addEventListener("input", checkFx);
+  pickFxInp.addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); pickOk.click(); } });
+  pickOk.addEventListener("click", () => {
+    if (pickMode === "f") {
+      if (!checkFx()) return;
+      setSerie(pickFor, { expr: pickFxInp.value.trim() });
+      pickFxInp.value = "";
+    }
     closePick();
   });
   document.getElementById("pickCancel").addEventListener("click", closePick);
   pick.addEventListener("click", ev => { if (ev.target === pick) closePick(); });
-  document.getElementById("pickFx").addEventListener("click", () => {
-    const seed = pickQ.value.trim() || "C.x - C.y";
-    setSerie(pickFor, { expr: seed });
-    closePick();
-  });
+  pick.addEventListener("keydown", ev => { if (ev.key === "Escape") closePick(); });
+
   function setSerie(idx, sr) {
     if (idx < 0) model.series.push(sr); else model.series[idx] = sr;
     pdata = null; renderSeries(); drawPlot(); save();
   }
+  function toggleSerie(key) {
+    const i = model.series.findIndex(s => s.key === key);
+    if (i >= 0) model.series.splice(i, 1); else model.series.push({ key });
+    pdata = null; renderSeries(); drawPlot(); save();
+  }
 
-  document.getElementById("addSerie").addEventListener("click", () => {
-    openPick(-1);
-  });
+  document.getElementById("addSerie").addEventListener("click", () => openPick(-1, "q"));
+  document.getElementById("addFx").addEventListener("click", () => openPick(-1, "f"));
 
   function renderSeries() {
     refreshChannels();
@@ -2172,8 +2446,8 @@
     if (!model.series.length) {
       seriesBox.innerHTML = "";
       note.textContent = sweep
-        ? "Selecteer een punt of element en klik Meting toevoegen."
-        : "Nog geen oplossing — zie de melding onder het canvas.";
+        ? "Klik op Metingen\u2026, of selecteer een onderdeel en kies hoe je het meet."
+        : "Nog geen oplossing \u2014 zie de melding onder het canvas.";
       return;
     }
     note.textContent = sweep && !sweep.stat
@@ -2239,7 +2513,7 @@
         try {
           const c = compile(sr.expr);
           u = exprUnit(c.used, sr.expr);
-          get = i => c.f(nm => nm === "t" ? sweep.t[i] : chVal(sweep, ALIAS.get(nm).key, i));
+          get = i => c.f(nm => nm === "t" ? sweep.t[i] : chVal(sweep, alias(nm).key, i));
         } catch (e) { err = e.message; }
       } else { u = chU(sr.key); get = i => chVal(sweep, sr.key, i); }
       let mn = Infinity, mx = -Infinity, sq = 0, n = 0;
@@ -2256,7 +2530,9 @@
     pdata = { xs, ss };
   }
 
-  const PAD = { L: 46, R: 8, T: 8, B: 18 };
+  // Eén deelgrafiek per eenheid. Elke deelgrafiek heeft een kopregel met de
+  // eenheid en de namen van de metingen, zodat niets over de assen heen valt.
+  const PAD = { L: 46, R: 12, T: 20, B: 22 };
   function xRange() {
     let lo = Infinity, hi = -Infinity;
     if (pdata) for (const v of pdata.xs) if (isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
@@ -2271,14 +2547,24 @@
     const units = [];
     for (const s of live) if (units.indexOf(s.u) < 0) units.push(s.u);
     const nF = Math.max(1, units.length);
-    const box = plotCv.parentElement.getBoundingClientRect();
-    const avail = Math.max(90, Math.round(box.height) - 8);
-    // elke deelgrafiek krijgt een eerlijk deel; pas als het echt niet past groeit
-    // het canvas en mag de houder scrollen
-    const hF = Math.max(66, (avail - PAD.B) / nF);
-    const cssH = Math.round(hF * nF + PAD.B);
-    plotCv.style.height = cssH + "px";
-    const w = Math.max(1, Math.round(box.width) - 20), h = cssH;
+
+    // de lade groeit mee met het aantal deelgrafieken, tot de helft van het scherm;
+    // wie de lade zelf versleept houdt zijn eigen hoogte
+    if (model.drawerAuto !== false && !narrow.matches && !drawer.classList.contains("closed")) {
+      const want = Math.round(Math.max(210, Math.min(window.innerHeight * 0.5, 64 + nF * 92 + PAD.B)));
+      const cur = parseFloat(drawer.style.getPropertyValue("--drawerH")) || 0;
+      if (Math.abs(cur - want) > 2) { drawer.style.setProperty("--drawerH", want + "px"); return; }
+    }
+
+    const wrap = plotCv.parentElement, cs = getComputedStyle(wrap);
+    const innerW = wrap.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const innerH = wrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    // eerlijk verdelen; pas als het echt niet past groeit het canvas en scrolt de houder
+    const hF = Math.max(64, (innerH - PAD.B) / nF);
+    const h = Math.max(80, Math.floor(hF * nF + PAD.B));
+    const w = Math.max(1, Math.floor(innerW));
+    plotCv.style.height = h + "px";
+    plotCv.style.width = w + "px";
     plotCv.width = Math.round(w * DPR); plotCv.height = Math.round(h * DPR);
     pctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     pctx.clearRect(0, 0, w, h);
@@ -2286,18 +2572,14 @@
     pctx.fillStyle = C.ink3;
     if (!live.length || w < 90) {
       pctx.textAlign = "center"; pctx.textBaseline = "middle";
-      pctx.fillText(sweep ? "geen metingen" : "geen oplossing", w / 2, h / 2);
+      pctx.font = '400 12px "IBM Plex Sans", ui-sans-serif, sans-serif';
+      pctx.fillText(job ? "rekenen…" : !sweep ? (dynStale ? "druk op Bereken om de grafieken te vullen" : "geen oplossing")
+        : "nog geen metingen \u2014 klik op Metingen\u2026", w / 2, Math.min(h, innerH) / 2);
       return;
     }
 
-    const pw = w - PAD.L - PAD.R;
-    const [xlo, xhi] = xRange();
-    const X = v => PAD.L + ((v - xlo) / (xhi - xlo)) * pw;
-    const idx = Math.max(0, Math.min(360, hoverI !== null ? hoverI : Math.round(frame)));
-    const ci = s => s.si;
-
-    units.forEach((u, f) => {
-      const top = f * hF + PAD.T, ph = hF - PAD.T - 10;
+    // bereik en maatstreepjes per deelgrafiek, dan de linkermarge op de breedste waarde
+    const subs = units.map(u => {
       const set = live.filter(s => s.u === u);
       let lo = Infinity, hi = -Infinity;
       for (const s of set) { if (s.mn < lo) lo = s.mn; if (s.mx > hi) hi = s.mx; }
@@ -2306,29 +2588,61 @@
         const e = Math.max(Math.abs(mid) * 0.05, 1e-9);   // constant: toon hem vlak
         lo = mid - e; hi = mid + e;
       }
-      const pad = (hi - lo) * 0.12; lo -= pad; hi += pad;
-      const Y = v => top + ph - ((v - lo) / (hi - lo)) * ph;
+      const pad = (hi - lo) * 0.1; lo -= pad; hi += pad;
+      const tk = niceTicks(lo, hi, hF > 110 ? 4 : 3).filter(v => v >= lo && v <= hi);
+      const tstep = tk.length > 1 ? tk[1] - tk[0] : (hi - lo) / 3;
+      return { u, set, lo, hi, tk, labs: tk.map(v => fmtTick(v, tstep)) };
+    });
+    let tw = 0;
+    for (const sb of subs) for (const t of sb.labs) tw = Math.max(tw, pctx.measureText(t).width);
+    PAD.L = Math.max(34, Math.ceil(tw) + 12);
 
+    const pw = w - PAD.L - PAD.R;
+    const [xlo, xhi] = xRange();
+    const X = v => PAD.L + ((v - xlo) / (xhi - xlo)) * pw;
+    const idx = Math.max(0, Math.min(360, hoverI !== null ? hoverI : Math.round(frame)));
+
+    subs.forEach((sb, f) => {
+      const top = f * hF, pt = top + PAD.T, ph = hF - PAD.T - 8;
+      const Y = v => pt + ph - ((v - sb.lo) / (sb.hi - sb.lo)) * ph;
+
+      // kopregel: eenheid, dan de metingen in hun kleur
+      pctx.textBaseline = "middle"; pctx.textAlign = "left";
+      let hx = PAD.L;
+      pctx.font = '600 10px "IBM Plex Mono", ui-monospace, monospace';
+      pctx.fillStyle = C.ink2; pctx.fillText("[" + (sb.u || "\u2013") + "]", hx, top + 9);
+      hx += pctx.measureText("[" + (sb.u || "\u2013") + "]").width + 10;
+      pctx.font = '400 10.5px "IBM Plex Sans", ui-sans-serif, sans-serif';
+      for (const s of sb.set) {
+        const nm = serieLab(model.series[s.si]);
+        const nw = pctx.measureText(nm).width;
+        if (hx + 14 + nw > w - PAD.R) { pctx.fillStyle = C.ink3; pctx.fillText("\u2026", hx, top + 9); break; }
+        pctx.fillStyle = serieColor(s.si); pctx.fillRect(hx, top + 8, 9, 2.5);
+        pctx.fillStyle = C.ink2; pctx.fillText(nm, hx + 13, top + 9);
+        hx += 13 + nw + 12;
+      }
+
+      // raster en y-as
+      pctx.font = '400 10px "IBM Plex Mono", ui-monospace, monospace';
       pctx.strokeStyle = C.line; pctx.lineWidth = 1;
       pctx.textAlign = "right"; pctx.textBaseline = "middle";
-      const tk = niceTicks(lo, hi, 3);
-      const tstep = tk.length > 1 ? tk[1] - tk[0] : (hi - lo) / 3;
-      for (const tv of tk) {
-        if (tv < lo || tv > hi) continue;
+      sb.tk.forEach((tv, k) => {
         const y = Math.round(Y(tv)) + .5;
         pctx.beginPath(); pctx.moveTo(PAD.L, y); pctx.lineTo(PAD.L + pw, y); pctx.stroke();
-        pctx.fillStyle = C.ink3; pctx.fillText(fmtTick(tv, tstep), PAD.L - 5, y);
-      }
-      if (lo < 0 && hi > 0) {
-        pctx.strokeStyle = C.line2; pctx.lineWidth = 1.3;
+        pctx.fillStyle = C.ink3; pctx.fillText(sb.labs[k], PAD.L - 6, y);
+      });
+      if (sb.lo < 0 && sb.hi > 0) {
+        pctx.strokeStyle = C.ink3; pctx.lineWidth = 1;
         const y = Math.round(Y(0)) + .5;
         pctx.beginPath(); pctx.moveTo(PAD.L, y); pctx.lineTo(PAD.L + pw, y); pctx.stroke();
       }
-      pctx.textAlign = "left"; pctx.textBaseline = "top";
-      pctx.fillStyle = C.ink3; pctx.fillText(u, PAD.L + 3, top - 5);
+      pctx.strokeStyle = C.line; pctx.lineWidth = 1;
+      pctx.strokeRect(PAD.L + .5, Math.round(pt) + .5, Math.round(pw) - 1, Math.round(ph));
 
-      for (const s of set) {
-        const col = serieColor(ci(s));
+      pctx.save();
+      pctx.beginPath(); pctx.rect(PAD.L, pt - 2, pw, ph + 4); pctx.clip();
+      for (const s of sb.set) {
+        const col = serieColor(s.si);
         pctx.strokeStyle = col; pctx.lineWidth = 2;
         pctx.lineJoin = "round"; pctx.lineCap = "round";
         pctx.beginPath();
@@ -2349,32 +2663,36 @@
           pctx.strokeStyle = C.panel; pctx.lineWidth = 1.5; pctx.stroke();
         }
       }
+      pctx.restore();
     });
 
-    // one unit for the whole axis, and never two labels on top of each other
+    // x-as: één eenheid, en nooit twee getallen over elkaar
     xUnit = (model.xAxis || "time") === "time" && xhi < 1 ? "ms" : "s";
+    pctx.font = '400 10px "IBM Plex Mono", ui-monospace, monospace';
     pctx.textBaseline = "top"; pctx.fillStyle = C.ink3;
     const axU = (model.xAxis || "time") === "time" ? xUnit
       : (model.xAxis.slice(0, 4) === "ang|" ? "°" : chU(model.xAxis.slice(3)));
+    const ty = nF * hF + 5;
     pctx.textAlign = "right";
     const uw = pctx.measureText(axU).width;
-    pctx.fillText(axU, w - PAD.R, h - 13);
+    pctx.fillText(axU, w - PAD.R, ty);
     pctx.textAlign = "center";
     let lastR = -1e9;
-    for (let k = 0; k <= 4; k++) {
-      const v = xlo + (xhi - xlo) * k / 4;
-      const t = fmtX(v), tw = pctx.measureText(t).width;
-      const x = Math.max(PAD.L + tw / 2, Math.min(w - PAD.R - uw - 8 - tw / 2, X(v)));
-      if (x - tw / 2 < lastR + 8) continue;
-      pctx.fillText(t, x, h - 13);
-      lastR = x + tw / 2;
+    const nx = pw > 420 ? 6 : 4;
+    for (let k = 0; k <= nx; k++) {
+      const v = xlo + (xhi - xlo) * k / nx;
+      const t = fmtX(v), tw2 = pctx.measureText(t).width;
+      const x = Math.max(PAD.L + tw2 / 2, Math.min(w - PAD.R - uw - 8 - tw2 / 2, X(v)));
+      if (x - tw2 / 2 < lastR + 8) continue;
+      pctx.fillText(t, x, ty);
+      lastR = x + tw2 / 2;
     }
     const xv = pdata.xs[idx];
     if (isFinite(xv)) {
       pctx.strokeStyle = hoverI !== null ? C.accent : C.driver;
       pctx.lineWidth = 1.2;
       const cx = Math.round(X(xv)) + .5;
-      pctx.beginPath(); pctx.moveTo(cx, 2); pctx.lineTo(cx, h - PAD.B); pctx.stroke();
+      pctx.beginPath(); pctx.moveTo(cx, PAD.T - 4); pctx.lineTo(cx, nF * hF); pctx.stroke();
     }
   }
 
@@ -2449,38 +2767,102 @@
     );
   });
 
-  let dynStale = false;
-  function rebuild(force) {
-    const manual = model.mode === "dyn" && !model.autoSolve;
-    if (manual && !force) {
-      if (playing) togglePlay();
-      sweep = null; dynStale = true; frame = 0;
-      pdata = null; hoverI = null;
-      syncTransport(); renderSeries(); drawPlot();
-      return;
-    }
-    dynStale = false;
-    computeSweep();
+  /* ============================================================
+     Herberekenen
+     Kinematisch is snel en gebeurt meteen. Dynamisch rekent in stukjes op
+     de achtergrond (met voortgangsbalk en Stop), en standaard pas als je op
+     Bereken drukt. Alleen echte modelwijzigingen maken de oplossing ongeldig;
+     selecteren, pannen of zoomen niet.
+     ============================================================ */
+  let dynStale = false, job = null, solved = null;
+
+  // alles wat de dynamische uitkomst bepaalt — niet de weergave (namen, sporen)
+  function physSig() {
+    return JSON.stringify([
+      model.nodes.map(n => [n.id, n.x, n.y, n.support, n.dir, n.m, n.ax, n.ay]),
+      model.elems, model.gravity, model.simDur, model.dtStep, model.defMass,
+      model.durMode, model.cVisc, model.maxT, model.jointDamp, model.cJoint
+    ], (k, v) => k === "theta" ? undefined : v);
+  }
+
+  function refreshAfterSolve() {
     pdata = null; hoverI = null;
     syncTransport();
     if (sweep) applyFrame(frame);
-    renderSeries();
-    drawPlot();
+    renderSeries(); drawPlot(); syncDof(); syncInspector(); draw();
   }
+
+  function rebuild(force) {
+    if (model.mode === "dyn") {
+      if (playing) togglePlay();
+      frame = 0; pdata = null; hoverI = null;
+      const sig = physSig();
+      if (!force && solved && solved.sigs.indexOf(sig) >= 0) {        // niets wezenlijks veranderd
+        cancelJob(); sweep = solved.sweep; dynStale = false;
+        refreshAfterSolve(); return;
+      }
+      cancelJob();
+      sweep = null;
+      if (mobility().dof < 0) { dynStale = false; solveOK = true; }
+      else if (force || model.autoSolve) { dynStale = false; startDyn(); }
+      else dynStale = true;
+      syncTransport(); renderSeries(); drawPlot();
+      return;
+    }
+    cancelJob();
+    dynStale = false;
+    computeSweep();
+    refreshAfterSolve();
+  }
+
+  function startDyn() {
+    const gen = computeDyn();
+    job = { gen, p: null, to: 0, sig: physSig() };
+    const step = () => {
+      if (!job || job.gen !== gen) return;
+      // de rekenstap verschuift punten tijdelijk; tussen de stukjes door staat
+      // het model weer precies zoals je het getekend hebt
+      const keep = model.nodes.map(n => [n, n.x, n.y]);
+      const t0 = performance.now();
+      let r;
+      try {
+        do { r = gen.next(); } while (!r.done && performance.now() - t0 < 30);
+      } catch (err) { console.error(err); r = { done: true, value: null }; }
+      keep.forEach(([n, x, y]) => { n.x = x; n.y = y; });
+      if (!r.done) { job.p = r.value; showProgress(r.value); job.to = setTimeout(step, 0); return; }
+      const done = job; job = null;
+      sweep = r.value || null;
+      frame = 0;
+      if (sweep) applyFrame(0);
+      // de getekende stand én de (geprojecteerde) stand op t = 0 horen bij deze oplossing
+      solved = sweep ? { sigs: [done.sig, physSig()], sweep } : null;
+      refreshAfterSolve();
+    };
+    syncTransport();
+    job.to = setTimeout(step, 0);
+  }
+
+  function cancelJob() {
+    if (!job) return;
+    clearTimeout(job.to);
+    try { job.gen.return(); } catch (_) {}
+    job = null;
+  }
+
   function solveNow() {
-    const btn = document.getElementById("solveBtn");
-    btn.textContent = "Rekenen…"; btn.disabled = true;
-    requestAnimationFrame(() => {
-      rebuild(true); syncDof(); syncInspector(); draw();
-      btn.textContent = "Bereken"; btn.disabled = false;
-    });
+    if (model.mode !== "dyn") return;
+    toT0();
+    rebuild(true);
   }
 
   function changed() {
-    if (model.mode === "dyn") { if (playing) togglePlay(); frame = 0; }
+    if (playing) togglePlay();
+    if (model.mode !== "dyn") frame = 0;
     if (sel && narrow && narrow.matches && model.tab === "meas") setTab("props");
     rebuild(); syncDof(); syncInspector(); draw(); save(); pushHistory();
   }
+  // alleen weergave veranderd (bijv. een spoor aan of uit): niet herberekenen
+  function touched() { draw(); save(); pushHistory(); }
 
   /* ============================================================
      Grid controls / theme
@@ -2493,40 +2875,56 @@
     save();
   });
   document.getElementById("snapChk").addEventListener("change", e => { model.snap = e.target.checked; save(); });
-  document.getElementById("gravChk").addEventListener("change", e => { model.gravity = e.target.checked; changed(); });
+  document.getElementById("gravChk").addEventListener("change", e => { toT0(); model.gravity = e.target.checked; changed(); });
   document.getElementById("fChk").addEventListener("change", e => { model.showForces = e.target.checked; draw(); save(); });
 
   document.getElementById("modeSeg").addEventListener("click", ev => {
     const b = ev.target.closest("button"); if (!b) return;
     setMode(b.dataset.v);
   });
+  // De knoppen Kinematisch / Dynamisch / Evenwicht. "Evenwicht" is dynamisch
+  // rekenen waarbij de duur volgt uit het moment dat alles stil ligt.
   function setModeUI(m) {
     model.mode = m;
-    document.querySelectorAll("#modeSeg button").forEach(x =>
-      x.setAttribute("aria-pressed", String(x.dataset.v === m)));
-    document.getElementById("dynSect").hidden = m !== "dyn";
+    syncModeSeg();
   }
-  function setMode(m) { setModeUI(m); if (playing) togglePlay(); frame = 0; changed(); }
+  function syncModeSeg() {
+    const v = model.mode !== "dyn" ? "kin" : model.durMode === "equil" ? "equil" : "dyn";
+    document.querySelectorAll("#modeSeg button").forEach(x =>
+      x.setAttribute("aria-pressed", String(x.dataset.v === v)));
+    document.getElementById("dynSect").hidden = model.mode !== "dyn";
+    syncDynInputs();
+  }
+  function setMode(v) {
+    toT0();
+    if (v === "kin") model.mode = "kin";
+    else { model.mode = "dyn"; model.durMode = v === "equil" ? "equil" : "fixed"; }
+    syncModeSeg();
+    frame = 0; changed();
+  }
   const bindOpt = (id, key, min, fn) => {
     const el = document.getElementById(id);
     el.addEventListener("change", () => {
       const v = parseFloat(el.value);
-      if (isFinite(v) && v >= min) { model[key] = fn ? fn(v) : v; frame = 0; changed(); }
+      if (isFinite(v) && v >= min) { toT0(); model[key] = fn ? fn(v) : v; frame = 0; changed(); }
+      else el.value = model[key];
     });
   };
   document.getElementById("autoChk").addEventListener("change", e => {
-    model.autoSolve = e.target.checked; changed();
+    toT0(); model.autoSolve = e.target.checked; changed();
   });
   document.getElementById("durMode").addEventListener("change", e => {
-    model.durMode = e.target.value;
-    document.getElementById("durInp").disabled = model.durMode === "equil";
+    toT0(); model.durMode = e.target.value;
+    syncModeSeg();
     frame = 0; changed();
   });
-  document.getElementById("cvInp").addEventListener("change", e => {
-    const v = parseFloat(e.target.value);
-    if (isFinite(v) && v >= 0) { model.cVisc = v; frame = 0; changed(); }
+  document.getElementById("jdChk").addEventListener("change", e => {
+    toT0(); model.jointDamp = e.target.checked; syncDynInputs(); changed();
   });
+  bindOpt("cvInp", "cVisc", 0);
+  bindOpt("cjInp", "cJoint", 0);
   bindOpt("durInp", "simDur", 0.05);
+  bindOpt("maxInp", "maxT", 0.2);
   bindOpt("dtInp", "dtStep", 0.001);
   bindOpt("mInp", "defMass", 0.001);
   document.getElementById("gridInp").addEventListener("input", e => {
@@ -2547,7 +2945,10 @@
      Examples
      ============================================================ */
   function build(nodes, elems, after) {
+    if (playing) togglePlay();
+    cancelJob(); solved = null;
     model.nodes = []; model.elems = []; model.series = []; uid = 1; nameCounter = 0;
+    model.durMode = "fixed";
     frame = 0; setModeUI("kin");
     const map = {};
     nodes.forEach(spec => {
@@ -2651,8 +3052,9 @@
         rigidDrag: model.rigidDrag, series: model.series, gravity: model.gravity, showForces: model.showForces, mode: model.mode,
         simDur: model.simDur, dtStep: model.dtStep, defMass: model.defMass,
         xAxis: model.xAxis, railSlim: model.railSlim, drawerOpen: model.drawerOpen,
-        drawerH: model.drawerH, tab: model.tab, autoSolve: model.autoSolve,
-        durMode: model.durMode, cVisc: model.cVisc, uid, nameCounter
+        drawerH: model.drawerH, drawerAuto: model.drawerAuto, tab: model.tab, autoSolve: model.autoSolve,
+        durMode: model.durMode, cVisc: model.cVisc, maxT: model.maxT,
+        jointDamp: model.jointDamp, cJoint: model.cJoint, uid, nameCounter
       }));
     } catch (_) {}
   }
@@ -2665,7 +3067,7 @@
       model.nodes = d.nodes; model.elems = d.elems || [];
       model.snap = d.snap !== false; model.grid = d.grid || 10;
       model.rigidDrag = !!d.rigidDrag;
-      model.series = Array.isArray(d.series) ? d.series.filter(s => s && s.key) : [];
+      model.series = Array.isArray(d.series) ? d.series.filter(s => s && (s.key || s.expr)) : [];
       model.gravity = !!d.gravity;
       model.showForces = d.showForces !== false;
       document.getElementById("gravChk").checked = model.gravity;
@@ -2678,10 +3080,14 @@
       model.railSlim = !!d.railSlim;
       model.drawerOpen = d.drawerOpen !== false;
       model.drawerH = d.drawerH || 232;
+      model.drawerAuto = d.drawerAuto !== false;
       model.tab = d.tab || "props";
       model.autoSolve = !!d.autoSolve;
       model.durMode = d.durMode || "fixed";
       model.cVisc = d.cVisc || 0;
+      model.maxT = d.maxT || 30;
+      model.jointDamp = !!d.jointDamp;
+      model.cJoint = d.cJoint !== undefined ? d.cJoint : 0.05;
       setModeUI(d.mode === "dyn" ? "dyn" : "kin");
       for (const e of model.elems) if (e.driver && e.theta0 === undefined) e.theta0 = e.theta || 0;
       uid = d.uid || 1; nameCounter = d.nameCounter || 0;
@@ -2699,7 +3105,7 @@
      ============================================================ */
   const DOC_KEYS = ["nodes", "elems", "series", "mode", "gravity", "showForces",
                     "simDur", "dtStep", "defMass", "xAxis", "grid", "snap", "rigidDrag",
-                    "autoSolve", "durMode", "cVisc", "maxT"];
+                    "autoSolve", "durMode", "cVisc", "maxT", "jointDamp", "cJoint"];
   function doc() {
     const o = {};
     for (const k of DOC_KEYS) o[k] = model[k];
@@ -2710,7 +3116,7 @@
     for (const k of DOC_KEYS) if (d[k] !== undefined) model[k] = d[k];
     for (const n of model.nodes) if (n.ax === undefined) { n.ax = n.x; n.ay = n.y; }
     for (const e of model.elems) if (e.driver && e.theta0 === undefined) e.theta0 = e.theta || 0;
-    model.series = (model.series || []).filter(x => x && x.key);
+    model.series = (model.series || []).filter(x => x && (x.key || x.expr));
     for (const e of model.elems) {
       if (e.type !== "link" || !e.driver) continue;
       const A = model.nodes.find(n => n.id === e.a), B = model.nodes.find(n => n.id === e.b);
@@ -2752,6 +3158,8 @@
     document.getElementById("redoBtn").disabled = !redoStack.length;
   }
   function restore(snap) {
+    if (playing) togglePlay();
+    cancelJob();
     restoring = true;
     try { loadDoc(JSON.parse(snap)); lastSnap = snap; changed(); }
     catch (_) { flash("Kon die stap niet herstellen."); }
@@ -2818,6 +3226,8 @@
     const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[ev.key];
     if (!d) return;
     ev.preventDefault();
+    if (!atT0()) { lockNudge(); return; }
+    cancelJob();
     const n = N(sel.id), st = (model.grid || 1) * (ev.shiftKey ? 5 : 1);
     n.x = round2(n.x + d[0] * st); n.y = round2(n.y + d[1] * st);
     anchorHere(n);
@@ -2889,12 +3299,13 @@
     grip.addEventListener("pointermove", ev => {
       if (!g) return;
       const h = Math.max(120, Math.min(window.innerHeight * 0.62, g.h - (ev.clientY - g.y)));
-      model.drawerH = Math.round(h);
+      model.drawerH = Math.round(h); model.drawerAuto = false;
       drawer.style.setProperty("--drawerH", h + "px");
       resize(); drawPlot();
     });
     const stop = () => { if (g) { g = null; save(); } };
     grip.addEventListener("pointerup", stop);
+    grip.addEventListener("dblclick", () => { model.drawerAuto = true; drawPlot(); save(); });
     grip.addEventListener("pointercancel", stop);
   })();
 
@@ -2908,7 +3319,7 @@
   function applyLayout() {
     rail.classList.toggle("slim", !!model.railSlim);
     drawer.classList.toggle("closed", model.drawerOpen === false);
-    if (model.drawerH) drawer.style.setProperty("--drawerH", model.drawerH + "px");
+    if (model.drawerH && model.drawerAuto === false) drawer.style.setProperty("--drawerH", model.drawerH + "px");
     let t = model.tab;
     try { t = t || localStorage.getItem("mechschets.tab") || "props"; } catch (_) { t = t || "props"; }
     if (t === "meas" && !narrow.matches) t = "props";
@@ -2921,6 +3332,9 @@
      ============================================================ */
   const ro = new ResizeObserver(resize);
   ro.observe(cv.parentElement);
+  let plotRaf = 0;
+  new ResizeObserver(() => { cancelAnimationFrame(plotRaf); plotRaf = requestAnimationFrame(drawPlot); })
+    .observe(plotCv.parentElement);
   window.addEventListener("resize", resize);
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
 
