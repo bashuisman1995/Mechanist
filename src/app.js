@@ -4104,15 +4104,28 @@
   window.addEventListener("beforeunload", ev => { if (unsaved) { ev.preventDefault(); ev.returnValue = ""; } });
 
   const fileNameOf = nm => (String(nm || "").replace(/[\\/:*?"<>|]+/g, "").trim() || "mechanisme") + ".mech.json";
+  // Binnen de claude.ai-viewer mag een pagina zelf niets downloaden; daar loopt
+  // opslaan via de downloads-functie van de viewer (die vraagt eerst toestemming).
+  // Op een gewone website bestaat die niet en is het een normale download.
+  let dlCap = null;
+  if (window.claude && typeof window.claude.use === "function")
+    window.claude.use("downloads").then(d => { dlCap = d; }, () => {});
   function downloadModel(nm) {
     const data = { app: "mechanismeschets", versie: 1, naam: nm, opgeslagen: new Date().toISOString(), model: doc() };
-    const blob = new Blob([JSON.stringify(data, null, 1)], { type: "application/json" });
-    const url = URL.createObjectURL(blob), a = document.createElement("a");
-    a.href = url; a.download = fileNameOf(nm);
+    const text = JSON.stringify(data, null, 1), fname = fileNameOf(nm);
+    const done = () => { markClean(); toast("Opgeslagen als " + fname + " (in je map Downloads)."); };
+    if (dlCap) {
+      dlCap.save({ filename: fname, data: text }).then(done, err => {
+        if (err && err.code === "declined") toast("Niet opgeslagen.");
+        else flash("Opslaan lukt hier niet" + (err && err.message ? ": " + err.message : "") + ".");
+      });
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([text], { type: "application/json" })), a = document.createElement("a");
+    a.href = url; a.download = fname;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
-    markClean();
-    toast("Opgeslagen als " + fileNameOf(nm) + " (in je map Downloads).");
+    done();
   }
   const saveModal = document.getElementById("saveModal"), saveName = document.getElementById("saveName");
   function openSave() {
