@@ -116,6 +116,19 @@ h1, h2, h3 { text-wrap: balance; }
 }
 .brand { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .brand h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
+.brand .docname {
+  font-size: 12.5px; color: var(--ink-2); max-width: 220px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.brand .docname::before { content: "\00b7"; margin-right: 8px; color: var(--ink-3); }
+.menu .kbd { float: right; margin-left: 14px; font-size: 11px; color: var(--ink-3); font-family: "IBM Plex Mono", ui-monospace, monospace; }
+#saveName { font-family: inherit; font-size: 14px; padding: 8px 9px; }
+body.dropping::after {
+  content: "Laat los om dit model te openen"; position: fixed; inset: 12px; z-index: 80;
+  display: grid; place-items: center; border: 2px dashed var(--accent); border-radius: 14px;
+  background: color-mix(in srgb, var(--accent-soft) 85%, transparent); color: var(--ink);
+  font-size: 16px; font-weight: 600; pointer-events: none;
+}
 .brand .ver {
   font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; color: var(--ink-3);
   border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px;
@@ -465,7 +478,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   .brand h1 { overflow: hidden; text-overflow: ellipsis; }
   .status .of { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .drawer-head select { max-width: 150px; }
-  .brand .ver, .modewrap .cap { display: none; }
+  .brand .ver, .modewrap .cap, .brand .docname { display: none; }
   .brand h1 { font-size: 14px; }
   #modeSeg button { padding: 4px 8px; font-size: 12px; }
   .main { grid-template-columns: 1fr; grid-template-rows: auto minmax(42vh, 1fr) auto; }

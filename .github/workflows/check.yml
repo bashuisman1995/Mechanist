@@ -1,0 +1,11 @@
+name: controle
+on: [push, pull_request]
+jobs:
+  index-actueel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: index.html moet gebouwd zijn uit src/
+        run: python3 tools/build.py --check
+      - name: JavaScript-syntax
+        run: node --check src/app.js

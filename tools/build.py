@@ -1,26 +1,38 @@
 #!/usr/bin/env python3
-"""Bundel index.html, css/style.css en js/app.js tot één HTML-bestand.
+"""Bouw index.html: de complete app in één bestand.
 
-  dist/mechanismeschets.html   zelfstandig bestand: dubbelklikken en het werkt
-  --fragment PAD               zelfde inhoud zonder <html>/<head>/<body>-omhulsel,
-                               voor platforms die zelf een omhulsel toevoegen
+De bron staat in src/ (index.html, style.css, app.js). Dit script zet de
+stijl en het script erin, zodat het resultaat overal werkt: dubbelklikken,
+uit een ZIP openen, of als enige bestand op een website zetten.
+
+  python3 tools/build.py                 schrijft index.html
+  python3 tools/build.py --check         faalt als index.html niet bij src/ past
+  python3 tools/build.py --fragment PAD  zelfde inhoud zonder <html>/<head>/<body>,
+                                         voor platforms die zelf een omhulsel maken
 """
 import pathlib, re, sys
 
 root = pathlib.Path(__file__).resolve().parent.parent
-html = (root / "index.html").read_text(encoding="utf-8")
-css = (root / "css/style.css").read_text(encoding="utf-8")
-js = (root / "js/app.js").read_text(encoding="utf-8")
+src = root / "src"
+html = (src / "index.html").read_text(encoding="utf-8")
+css = (src / "style.css").read_text(encoding="utf-8")
+js = (src / "app.js").read_text(encoding="utf-8")
 assert "</script" not in js.lower() and "</style" not in css.lower()
 
-one = html.replace('<link rel="stylesheet" href="css/style.css">', "<style>\n" + css + "</style>")
-one = one.replace('<script src="js/app.js"></script>', "<script>\n" + js + "</script>")
-assert "css/style.css" not in one and "js/app.js" not in one, "verwijzing niet vervangen"
+one = html.replace('<link rel="stylesheet" href="style.css">', "<style>\n" + css + "</style>")
+one = one.replace('<script src="app.js"></script>', "<script>\n" + js + "</script>")
+assert 'href="style.css"' not in one and 'src="app.js"' not in one, "verwijzing niet vervangen"
+one = one.replace("<html lang=\"nl\">", "<html lang=\"nl\">\n<!-- Gegenereerd uit src/ door tools/build.py; bewerk src/ en bouw opnieuw. -->", 1)
 
-out = root / "dist" / "mechanismeschets.html"
-out.parent.mkdir(exist_ok=True)
+out = root / "index.html"
+if "--check" in sys.argv:
+    cur = out.read_text(encoding="utf-8") if out.exists() else ""
+    if cur != one:
+        sys.exit("index.html loopt achter op src/: draai python3 tools/build.py")
+    print("index.html is actueel")
+    sys.exit(0)
 out.write_text(one, encoding="utf-8")
-print("geschreven:", out.relative_to(root), f"({len(one) // 1024} kB)")
+print("geschreven: index.html", f"({len(one) // 1024} kB)")
 
 if "--fragment" in sys.argv:
     frag = re.sub(r"(?is)<!doctype html>|</?html[^>]*>|</?head>|</?body>", "", one)

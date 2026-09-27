@@ -8,14 +8,35 @@ Eenheden: mm · N · N/mm · kg.
 
 ## Starten
 
-Geen afhankelijkheden. Het eenvoudigst: download
-[`dist/mechanismeschets.html`](dist/mechanismeschets.html) en dubbelklik erop;
-alles zit in dat ene bestand. Of open `index.html` in een browser, of start een
-lokale server in deze map:
+`index.html` is de complete app in één bestand, zonder afhankelijkheden
+(alleen het lettertype komt van Google Fonts; zonder internet valt het terug
+op een systeemlettertype). Dubbelklik erop, of zet het op een website.
+
+De app begint bij elke keer openen schoon, met een voorbeeld. Je werk bewaar
+je als bestand: **Model → Opslaan als bestand** (Ctrl+S) maakt een
+`.mech.json` in je map Downloads; **Model → Openen** (Ctrl+O) of het bestand
+op het venster slepen laadt het weer. Wie vergeet op te slaan: het werk van de
+vorige keer staat onder **Model → Vorige sessie herstellen**, en de browser
+waarschuwt bij het sluiten van een tabblad met niet-opgeslagen wijzigingen.
+
+## Hosten
+
+Het is een statische pagina: alleen `index.html` hoeft op de server.
+
+- **GitHub Pages** (gratis, deze repo is openbaar): Settings → Pages →
+  *Deploy from a branch* → kies de branch en map `/ (root)` → Save. Na een
+  minuut staat de app op `https://<gebruiker>.github.io/Mechanist/`.
+- **Eigen website of een dienst als Netlify**: upload `index.html` (hernoem
+  hem gerust, bijvoorbeeld naar `mechanisme.html`).
+
+## Ontwikkelen
+
+De bron staat in `src/` (`index.html`, `style.css`, `app.js`); open
+`src/index.html` om te testen. Na een wijziging:
 
 ```sh
-python3 -m http.server 8000
-# open http://localhost:8000
+python3 tools/build.py          # bouwt index.html opnieuw
+python3 tools/build.py --check  # controleert of index.html actueel is (ook op GitHub)
 ```
 
 ## Functies
@@ -60,8 +81,9 @@ python3 -m http.server 8000
 - **Voorbeelden** (menu Model): vierstang, slinger-kruk, compressor met veer,
   vijfstang met twee motoren, Hoeken-rechtgeleiding, Jansen-poot
   (Strandbeest), veerslinger, dubbele slinger en een arm die tot rust komt.
-- **Opslaan en delen:** automatisch in `localStorage`, export/import als JSON en
-  een deelbare link (model in de URL); ongedaan maken/opnieuw.
+- **Opslaan en delen:** opslaan als `.mech.json`-bestand en weer openen (ook
+  door slepen), een deelbare link (model in de URL), kopiëren en plakken als
+  JSON, en ongedaan maken/opnieuw.
 
 ## Sneltoetsen
 
@@ -75,7 +97,8 @@ python3 -m http.server 8000
 | D | Aandrijving | X | Verwijderen |
 | A | Actuator | | |
 
-Spatie: afspelen/pauzeren · Home: terug naar t = 0 · F5: dynamisch doorrekenen ·
+Spatie: afspelen/pauzeren · Home: terug naar t = 0 · F5: doorrekenen ·
+Ctrl+S: opslaan als bestand · Ctrl+O: openen ·
 Ctrl+Z / Ctrl+Shift+Z: ongedaan maken/opnieuw ·
 Delete: selectie verwijderen · Esc: selectie opheffen.
 
@@ -96,16 +119,15 @@ slinger van 120 mm 1,44 Hz.
 ## Projectstructuur
 
 ```
-index.html      opmaak van de app (topbalk, canvas, panelen, dialogen)
-css/style.css   vormgeving, inclusief licht en donker thema
-js/app.js       alle logica: model, solver, kinematica, dynamica, FRF,
-                tekenen, metingen, opslaan
-tools/build.py  bundelt alles tot dist/mechanismeschets.html
+index.html      de app in één bestand (gegenereerd, niet met de hand bewerken)
+src/index.html  opmaak van de app (topbalk, canvas, panelen, dialogen)
+src/style.css   vormgeving, inclusief licht en donker thema
+src/app.js      alle logica: model, solver, kinematica, dynamica, FRF,
+                tekenen, metingen, bestanden
+tools/build.py  bouwt index.html uit src/
 ```
 
-Na een wijziging: `python3 tools/build.py` om het losse bestand bij te werken.
-
-`js/app.js` is opgebouwd in blokken, in deze volgorde:
+`src/app.js` is opgebouwd in blokken, in deze volgorde:
 
 | Blok | Belangrijkste functies |
 |---|---|
@@ -120,3 +142,4 @@ Na een wijziging: `python3 tools/build.py` om het losse bestand bij te werken.
 | Eigenschappenpaneel | `syncInspector` |
 | Metingen en plot | `channels`, `chVal`, `compile`, `drawPlot` |
 | Opslaan en historie | `save`/`load`, `doc`/`loadDoc`, `undo`/`redo` |
+| Bestanden | `downloadModel`, `readModelFile`, `whenDiscarded` |
