@@ -67,6 +67,16 @@ python3 tools/build.py --check  # controleert of index.html actueel is (ook op G
   haalt een eerdere oplossing zonder rekenen terug.
 - **Demping:** optionele rotatiedemping in alle scharnieren (N·m·s/rad) en
   luchtweerstand per punt.
+- **Wrijving** per scharnier en glijder, met μ statisch en μ dynamisch
+  (Stribeck, niet puur Coulomb) en een penstraal voor scharnieren. In
+  Dynamisch en Evenwicht met echt plakken: bij stilstand wordt de
+  benodigde houdkracht uitgerekend en pas boven μs·N schiet het los.
+  In Kinematisch telt wrijving mee in krachten en motorkoppel; in de FRF niet
+  (niet lineair). Gecontroleerd met een blok op een helling van 25°.
+- **Speling** (toets G): een lineair element dat vrij beweegt tussen kortst en
+  langst en daarbuiten een aanslag (stijfheid + demping) raakt. Werkt in
+  Dynamisch en Evenwicht; in Kinematisch als kracht; in de FRF als stijfheid
+  wanneer hij in evenwicht tegen een aanslag ligt.
 - **Bewerken op t = 0:** buiten t = 0 kun je alleen kijken; een balk en de
   oranje knop brengen je terug naar t = 0 (of druk op Home).
 - **Metingen:** kies grootheden in een compacte tabel (één regel per onderdeel),
@@ -95,7 +105,7 @@ python3 tools/build.py --check  # controleert of index.html actueel is (ook op G
 | P | Scharnier | M | Massa |
 | S | Glijder | T | Spoor |
 | D | Aandrijving | X | Verwijderen |
-| A | Actuator | | |
+| A | Actuator | G | Speling |
 
 Spatie: afspelen/pauzeren · Home: terug naar t = 0 · F5: doorrekenen ·
 Ctrl+S: opslaan als bestand · Ctrl+O: openen ·

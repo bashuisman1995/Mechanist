@@ -41,7 +41,7 @@
   <header class="topbar">
     <div class="brand">
       <h1>Mechanismeschets</h1>
-      <span class="ver">v0.7</span>
+      <span class="ver">v0.8</span>
       <span class="docname" id="docName" title="Naam van dit model (wordt de bestandsnaam bij opslaan)"></span>
     </div>
 
@@ -82,6 +82,8 @@
           <button role="menuitem" data-ex="doublependulum">Dubbele slinger (chaotisch)</button>
           <button role="menuitem" data-ex="settle">Arm die tot rust komt (evenwicht)</button>
           <button role="menuitem" data-ex="shaker">Massa-veer, aangestoten door actuator</button>
+          <button role="menuitem" data-ex="frictionslide">Blok op helling met wrijving</button>
+          <button role="menuitem" data-ex="gaplimit">Slinger met speling en aanslag</button>
           <div class="menu-lab">Voorbeelden &middot; FRF</div>
           <button role="menuitem" data-ex="shakerfrf">Massa-veer: overdracht actuator &rarr; massa</button>
           <button role="menuitem" data-ex="pendfrf">Slinger aan een kracht</button>
@@ -228,6 +230,17 @@
               <div class="row"><label for="mInp">Standaardmassa <span class="unit">kg</span></label>
                 <input type="number" id="mInp" min="0.001" step="0.05" value="0.1"></div>
               <p class="empty dynonly" style="margin:8px 0 0" id="dynNote"></p>
+            </div>
+
+            <div class="sect">
+              <h2>Wrijving</h2>
+              <div class="row"><label for="fvsInp">Stribeck-snelheid <span class="unit">mm/s</span></label>
+                <input type="number" id="fvsInp" min="0.001" step="1" value="5"></div>
+              <div class="row"><label for="fveInp">Plakgrens v&epsilon; <span class="unit">mm/s</span></label>
+                <input type="number" id="fveInp" min="0.001" step="0.5" value="2"></div>
+              <p class="empty" style="margin:4px 0 0">&mu; zet je per scharnier of glijder bij Eigenschappen.
+                Onder de Stribeck-snelheid geldt &mu; statisch, erboven &mu; dynamisch. Een kleinere plakgrens plakt echter,
+                maar vraagt een kleinere tijdstap.</p>
             </div>
 
             <div class="sect">
