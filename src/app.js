@@ -4245,8 +4245,25 @@
         model.series.push({ key: "n|" + g("B").id + "|y" }, { key: "s|" + model.elems.find(e => e.type === "gap").id + "|F" });
       }
     ),
+    // stoommachine: actuator → veer → kruiskop → drijfstang → kruk met vliegwielmassa;
+    // de kant van het dode punt waar de krukpen start bepaalt de draairichting
+    steamL: () => steam(1),
     empty: () => build([], [])
   };
+  function steam(s) {
+    build(
+      [["A", 0, 0, "pin"], ["B", -5.21, 29.54 * s], ["C", 90.31, 0, "slider", 0],
+       ["E", 150, 0, "slider", 0], ["D", 230, 0, "pin"]],
+      [["link", "A", "B"], ["link", "B", "C"], ["spring", "C", "E", { k: 1, L0: 59.69 }],
+       ["actuator", "D", "E", { min: 50, max: 110, freq: 1 }]],
+      g => {
+        g("B").m = 2; g("B").trace = true; g("C").m = 0.2;
+        model.simDur = 4; model.dtStep = 0.2;
+        setModeUI("dyn");
+        model.series.push({ key: "n|" + g("B").id + "|x" }, { key: "s|" + model.elems.find(e => e.type === "spring").id + "|F" });
+      }
+    );
+  }
 
   /* ---------- top-bar menu ---------- */
   const menu = document.getElementById("menu"), menuBtn = document.getElementById("menuBtn");
