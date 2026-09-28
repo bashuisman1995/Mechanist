@@ -12,69 +12,80 @@
 :root{color-scheme:light dark;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html,body{height:100%}body{margin:0}img{max-width:100%}[hidden]{display:none!important}
 
+/* Kleuren naar Thalomex (thalomex.nl): donkergroen #27352A met gebroken wit.
+   Het groen zit in de topbalk en de accenten; de werkruimte blijft rustig. */
 :root {
-  --ground: #FCFCFB;
+  --ground: #F5F7F4;
   --panel: #FFFFFF;
-  --panel-2: #F3F4F1;
-  --ink: #14181A;
-  --ink-2: #4A5257;
-  --ink-3: #79838A;
-  --line: #DCDFD9;
-  --line-2: #C6CBC3;
-  --accent: #1F5FD8;
-  --accent-soft: #E7EEFC;
+  --panel-2: #EEF2EE;
+  --ink: #1B241E;
+  --ink-2: #4A554D;
+  --ink-3: #78837B;
+  --line: #DCE2DC;
+  --line-2: #C3CCC4;
+  --accent: #2F5B3D;
+  --accent-soft: #E2ECE4;
   --driver: #D95F02;
   --driver-soft: #FBEDE2;
-  --spring: #00897B;
+  --spring: #2B6CA3;
   --force: #C2185B;
   --bad: #B3261E;
-  --grid: #E6E8E2;
-  --grid-major: #D4D8CF;
-  --hatch: #8D958B;
-  --shadow: 0 1px 2px rgba(20,24,26,.06), 0 6px 18px rgba(20,24,26,.05);
+  --grid: #E4E9E3;
+  --grid-major: #D0D8D0;
+  --hatch: #8A948C;
+  --brand: #27352A;
+  --brand-ink: #E9EBEA;
+  --brand-ink-2: #A7ACA8;
+  --shadow: 0 1px 2px rgba(27,36,30,.06), 0 6px 18px rgba(27,36,30,.06);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --ground: #15181A;
-    --panel: #1B1F21;
-    --panel-2: #23282A;
-    --ink: #EDEFEC;
-    --ink-2: #AFB7BB;
-    --ink-3: #7C858A;
-    --line: #2E3437;
-    --line-2: #3D4548;
-    --accent: #6FA0FF;
-    --accent-soft: #1D2A42;
+    --ground: #18211B;
+    --panel: #1F2A22;
+    --panel-2: #27332A;
+    --ink: #E9EBEA;
+    --ink-2: #A7ACA8;
+    --ink-3: #7D867F;
+    --line: #313D34;
+    --line-2: #415045;
+    --accent: #8CBF98;
+    --accent-soft: #2A3B2F;
     --driver: #F5903C;
     --driver-soft: #3A2A1B;
-    --spring: #35B7A6;
+    --spring: #6FA8DC;
     --force: #F06292;
     --bad: #F2857C;
-    --grid: #232829;
-    --grid-major: #2E3436;
-    --hatch: #737C80;
+    --grid: #212C24;
+    --grid-major: #2C392F;
+    --hatch: #6E786F;
+    --brand: #27352A;
+    --brand-ink: #E9EBEA;
+    --brand-ink-2: #A7ACA8;
     --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.28);
   }
 }
 :root[data-theme="dark"] {
-  --ground: #15181A;
-  --panel: #1B1F21;
-  --panel-2: #23282A;
-  --ink: #EDEFEC;
-  --ink-2: #AFB7BB;
-  --ink-3: #7C858A;
-  --line: #2E3437;
-  --line-2: #3D4548;
-  --accent: #6FA0FF;
-  --accent-soft: #1D2A42;
+  --ground: #18211B;
+  --panel: #1F2A22;
+  --panel-2: #27332A;
+  --ink: #E9EBEA;
+  --ink-2: #A7ACA8;
+  --ink-3: #7D867F;
+  --line: #313D34;
+  --line-2: #415045;
+  --accent: #8CBF98;
+  --accent-soft: #2A3B2F;
   --driver: #F5903C;
   --driver-soft: #3A2A1B;
-  --spring: #35B7A6;
+  --spring: #6FA8DC;
   --force: #F06292;
   --bad: #F2857C;
-  --grid: #232829;
-  --grid-major: #2E3436;
-  --hatch: #737C80;
+  --grid: #212C24;
+  --grid-major: #2C392F;
+  --hatch: #6E786F;
+  --brand: #27352A;
+  --brand-ink: #E9EBEA;
+  --brand-ink-2: #A7ACA8;
   --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.28);
 }
 
@@ -127,6 +138,24 @@ h1, h2, h3 { text-wrap: balance; }
 }
 .brand { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .brand h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
+/* topbalk in het groen van Thalomex */
+.topbar { background: var(--brand); color: var(--brand-ink); border-bottom-color: var(--brand); }
+.topbar .brand h1 { color: var(--brand-ink); }
+.topbar .brand .ver { color: var(--brand-ink-2); border-color: rgba(233,235,234,.25); }
+.topbar .brand .docname { color: var(--brand-ink-2); }
+.topbar .brand .docname::before { color: rgba(233,235,234,.4); }
+.topbar .modewrap .cap { color: var(--brand-ink-2); }
+.topbar .btn { background: transparent; border-color: rgba(233,235,234,.3); color: var(--brand-ink); }
+.topbar .btn:hover { background: rgba(233,235,234,.1); }
+.topbar .btn.ghost { border-color: transparent; }
+.topbar .btn:disabled { opacity: .35; }
+.topbar .sep { background: rgba(233,235,234,.2); }
+.topbar #modeSeg { background: rgba(233,235,234,.08); border-color: rgba(233,235,234,.14); }
+.topbar #modeSeg button { color: var(--brand-ink-2); }
+.topbar #modeSeg button:hover { color: var(--brand-ink); }
+.topbar #modeSeg button[aria-pressed="true"] { background: #FFFFFF; color: var(--brand); box-shadow: none; }
+.topbar .menu { color: var(--ink); }
+.topbar .menu button { color: var(--ink); }
 .brand .docname {
   font-size: 12.5px; color: var(--ink-2); max-width: 220px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -898,8 +927,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   let pending = null;        // first node id while drawing a 2-node element
   let hover = null;
   let frame = 0, playing = false, raf = 0, lastT = 0;
-  const SERIES_LIGHT = ["#1F5FD8", "#D95F02", "#00897B", "#8E44C7", "#A6861F", "#C2185B"];
-  const SERIES_DARK  = ["#5B90F0", "#D0701C", "#28A794", "#A06CD6", "#A88C1E", "#E4527F"];
+  const SERIES_LIGHT = ["#2B6CA3", "#D95F02", "#2F7D4F", "#8E44C7", "#A6861F", "#C2185B"];
+  const SERIES_DARK  = ["#6FA8DC", "#D0701C", "#7CC395", "#A06CD6", "#A88C1E", "#E4527F"];
   const isDark = () => {
     const a = document.documentElement.getAttribute("data-theme");
     return a ? a === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
