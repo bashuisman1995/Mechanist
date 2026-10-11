@@ -1,0 +1,25 @@
+import { newPage, loadExample, store, visible } from '../lib.mjs';
+export default async ({ browser, url, check }) => {
+  const p = await newPage(browser, url);
+  await loadExample(p, 'fourbar');
+  await p.selectOption('#speedSel', '0.1');
+  await p.click('#playBtn'); await p.waitForTimeout(1200);
+  const s = +(await p.$eval('#scrub', e => e.value));
+  check('afspelen 0.1x: scrub > 0 na 1 s', s > 0, s);
+  check('lockBar zichtbaar tijdens t≠0', await visible(p, '#lockBar'));
+  await p.keyboard.press(' '); await p.waitForTimeout(200);
+  const f1 = await p.$eval('#scrub', e => e.value); await p.waitForTimeout(400);
+  check('spatie pauzeert', f1 === await p.$eval('#scrub', e => e.value), f1);
+  const n0 = (await store(p)).nodes.length;
+  await p.keyboard.press('n'); await p.mouse.click(300, 150); await p.waitForTimeout(200);
+  check('punt-tool bij t≠0 voegt geen knoop toe', (await store(p)).nodes.length === n0);
+  const hint = await p.$eval('#hint', e => e.textContent);
+  check('vergrendel-hint getoond', /Bewerken kan alleen op t = 0/.test(hint), hint);
+  await p.click('#lockBtn'); await p.waitForTimeout(200);
+  check('lockBtn zet scrub terug op 0', +(await p.$eval('#scrub', e => e.value)) === 0);
+  check('lockBar verborgen na terugspoelen', !(await visible(p, '#lockBar')));
+  await p.mouse.click(300, 150); await p.waitForTimeout(200);
+  check('bij t=0 voegt klik wel een knoop toe', (await store(p)).nodes.length === n0 + 1);
+  check('geen page errors', p.errs.length === 0, p.errs.join('|'));
+  await p.context().close();
+};
