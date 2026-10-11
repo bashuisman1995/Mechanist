@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "build": "python3 tools/build.py",
-    "check": "python3 tools/build.py --check"
+    "check": "python3 tools/build.py --check",
+    "test": "node --test tests/unit/*.test.mjs"
   },
   "devDependencies": {
     "esbuild": "0.24.0"

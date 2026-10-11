@@ -12,5 +12,7 @@ jobs:
       - run: npm ci
       - name: index.html moet gebouwd zijn uit src/
         run: npm run check
+      - name: Unit-tests van de solverkern
+        run: npm test
       - name: JavaScript-syntax van de bundel
         run: node --check build/app.js
