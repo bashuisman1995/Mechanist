@@ -1,0 +1,12 @@
+{
+  "name": "mechanismeschets",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "python3 tools/build.py",
+    "check": "python3 tools/build.py --check"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.0"
+  }
+}

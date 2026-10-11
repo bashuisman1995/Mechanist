@@ -1,27 +1,33 @@
 #!/usr/bin/env python3
 """Bouw index.html: de complete app in één bestand.
 
-De bron staat in src/ (index.html, style.css, app.js). Dit script zet de
-stijl en het script erin, zodat het resultaat overal werkt: dubbelklikken,
-uit een ZIP openen, of als enige bestand op een website zetten.
+De bron staat in src/ (index.html, style.css en de ES-modules vanaf main.js).
+Dit script bundelt de modules met esbuild (npm ci; build/app.js, leesbaar en
+zonder minify, doel es2019) en zet stijl en bundel erin, zodat het resultaat
+overal werkt: dubbelklikken, uit een ZIP openen, of als enige bestand op een website zetten.
 
   python3 tools/build.py                 schrijft index.html
   python3 tools/build.py --check         faalt als index.html niet bij src/ past
   python3 tools/build.py --fragment PAD  zelfde inhoud zonder <html>/<head>/<body>,
                                          voor platforms die zelf een omhulsel maken
 """
-import pathlib, re, sys
+import pathlib, re, subprocess, sys
 
 root = pathlib.Path(__file__).resolve().parent.parent
 src = root / "src"
 html = (src / "index.html").read_text(encoding="utf-8")
 css = (src / "style.css").read_text(encoding="utf-8")
-js = (src / "app.js").read_text(encoding="utf-8")
+esbuild = root / "node_modules" / ".bin" / "esbuild"
+if not esbuild.exists():
+    sys.exit("esbuild ontbreekt: draai eerst npm ci")
+subprocess.run([str(esbuild), "src/main.js", "--bundle", "--format=iife", "--target=es2019",
+                "--outfile=build/app.js", "--log-level=warning"], cwd=root, check=True)
+js = (root / "build" / "app.js").read_text(encoding="utf-8")
 assert "</script" not in js.lower() and "</style" not in css.lower()
 
 one = html.replace('<link rel="stylesheet" href="style.css">', "<style>\n" + css + "</style>")
-one = one.replace('<script src="app.js"></script>', "<script>\n" + js + "</script>")
-assert 'href="style.css"' not in one and 'src="app.js"' not in one, "verwijzing niet vervangen"
+one = one.replace('<script type="module" src="main.js"></script>', "<script>\n" + js + "</script>")
+assert 'href="style.css"' not in one and 'src="main.js"' not in one, "verwijzing niet vervangen"
 one = one.replace("<html lang=\"nl\">", "<html lang=\"nl\">\n<!-- Gegenereerd uit src/ door tools/build.py; bewerk src/ en bouw opnieuw. -->", 1)
 
 out = root / "index.html"

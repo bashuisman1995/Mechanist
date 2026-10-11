@@ -31,12 +31,16 @@ Het is een statische pagina: alleen `index.html` hoeft op de server.
 
 ## Ontwikkelen
 
-De bron staat in `src/` (`index.html`, `style.css`, `app.js`); open
-`src/index.html` om te testen. Na een wijziging:
+De bron staat in `src/` als ES-modules: `src/core/` is de rekenkern (geen
+DOM, draait ook in Node), `src/ui/` de interface en `src/main.js` het
+startpunt. Open `src/index.html` via een lokale server om zonder bouwen te
+testen. Bouwen en controleren:
 
 ```sh
-python3 tools/build.py          # bouwt index.html opnieuw
-python3 tools/build.py --check  # controleert of index.html actueel is (ook op GitHub)
+npm ci                  # eenmalig: esbuild
+npm run build           # bundelt src/ en schrijft index.html
+npm run check           # controleert of index.html actueel is (ook op GitHub)
+NODE_PATH=<map met playwright>/node_modules node tests/e2e/run.mjs   # browsertests
 ```
 
 ## Functies
@@ -129,27 +133,14 @@ slinger van 120 mm 1,44 Hz.
 ## Projectstructuur
 
 ```
-index.html      de app in één bestand (gegenereerd, niet met de hand bewerken)
-src/index.html  opmaak van de app (topbalk, canvas, panelen, dialogen)
-src/style.css   vormgeving, inclusief licht en donker thema
-src/app.js      alle logica: model, solver, kinematica, dynamica, FRF,
-                tekenen, metingen, bestanden
-tools/build.py  bouwt index.html uit src/
+index.html        de app in één bestand (gegenereerd, niet met de hand bewerken)
+src/index.html    opmaak
+src/style.css     vormgeving, licht en donker thema
+src/main.js       startpunt
+src/core/         rekenkern: state, linalg, elements, kinematics, dynamics,
+                  frf, channels, formula
+src/ui/           tekenen, inspector, grafieken, metingen, afspelen, bestanden, ...
+tools/build.py    bundelt met esbuild en schrijft index.html
+tests/e2e/        browsertests tegen gecontroleerde waarden
 ```
 
-`src/app.js` is opgebouwd in blokken, in deze volgorde:
-
-| Blok | Belangrijkste functies |
-|---|---|
-| Model en weergave | `model`, `toScr`/`toWld`, `fit`, `zoomAt` |
-| Gereedschappen | `TOOLS`, `setTool` |
-| Constraint-solver | `constraintRows`, `gauss`, `relax`, `lsq`, `actLen` |
-| Kinematica | `kinAt`, `computeSweep` |
-| Dynamica | `computeDyn`, `jointDamper` |
-| FRF | `computeFrf`, `frfVal`, `jacobiEig` |
-| Krachten | `forcesAt` |
-| Tekenen | `draw`, `drawLink`, `drawSpring`, `drawSupport`, … |
-| Eigenschappenpaneel | `syncInspector` |
-| Metingen en plot | `channels`, `chVal`, `compile`, `drawPlot` |
-| Opslaan en historie | `save`/`load`, `doc`/`loadDoc`, `undo`/`redo` |
-| Bestanden | `downloadModel`, `readModelFile`, `whenDiscarded` |
