@@ -64,6 +64,10 @@ const THUMB = {
     arrow(70, 26, 70, 14) + `<path class="g" d="M66 33q4 3 8 0"/>`,
   thermclamp: () => wall(6, 14, 38) + wall(74, 14, 38) + ln(6, 26, 26, 26, "k") + ln(26, 26, 74, 26, "k") + box(40, 26) +
     `<path class="f" d="M10 14h8M62 14h8M14 12l-4 2 4 2M66 12l4 2-4 2"/>`,
+  stiffcant: () => wall(10, 14, 38) + `<path class="k" style="stroke-width:3.4" d="M10 26Q40 26 66 36"/>` + `<path class="g" stroke-dasharray="3 2" d="M10 26H66"/>` + `<rect class="m" x="37" y="23" width="6" height="6" rx="1" transform="rotate(10 40 26)"/>` + arrow(66, 8, 66, 30),
+  stiffleaf: () => wall(10, 14, 38) + `<path class="k" style="stroke-width:2.2" d="M10 26C28 26 34 20 44 20S58 14 66 14"/>` + `<path class="dr" style="stroke-width:3.4" d="M66 8V22"/>` + `<path class="g" d="M62 40h8M62 4h8"/>` + arrow(72, 30, 72, 14),
+  stiffportal: () => `<path class="g" d="M10 44h12M58 44h12"/>` + `<path class="k" style="stroke-width:3.2" d="M16 44V14H64V44"/>` + `<rect class="m" x="12" y="10" width="7" height="7"/>` + `<rect class="m" x="60" y="10" width="7" height="7"/>` + arrow(2, 14, 14, 14),
+  stiffmixed: () => `<path class="g" d="M10 6V30M10 10l-3 3M10 16l-3 3M10 22l-3 3"/>` + `<path class="s" d="M10 20q-5 0-5 5t5 5"/>` + `<path class="k" style="stroke-width:2.2" d="M10 28L46 28"/>` + `<path class="dr" style="stroke-width:3.4" d="M46 28V8"/>` + `<rect class="m" x="43" y="25" width="6" height="6"/>` + arrow(54, 8, 66, 8),
   pendfrf: () => ln(30, 8, 30, 38) + pin(30, 8) + mass(30, 38) + arrow(38, 38, 70, 38),
   empty: () => `<rect class="dd" x="10" y="8" width="60" height="34" rx="4"/><path class="k" d="M40 20v10M35 25h10"/>`
 };

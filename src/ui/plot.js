@@ -23,7 +23,7 @@ let pctx = plotCtx;          // wijst tijdens het opbouwen van de grafiek naar e
 export const seriesBox = document.getElementById("series");
 export const xSel = document.getElementById("xSel");
 export function refreshChannels() {
-  sim.CH = channels().filter(c => model.mode !== "frf" || c.frf);     // FRF: alleen lineaire grootheden
+  sim.CH = channels().filter(c => model.mode === "stiff" ? c.stiff : model.mode !== "frf" || c.frf);     // FRF: alleen lineaire grootheden; Stijfheid: alleen verplaatsingen
   sim.CHM = new Map(sim.CH.map(c => [c.key, c]));
   sim.ALIAS = new Map(); sim.ALIASN = new Map();
   for (const c of sim.CH) if (c.al && !sim.ALIAS.has(c.al)) sim.ALIAS.set(c.al, c);

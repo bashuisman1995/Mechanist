@@ -51,7 +51,7 @@ NODE_PATH=<map met playwright>/node_modules node tests/e2e/run.mjs   # browserte
   veren, dempers, krachten, puntmassa's en
   sporen (baan van een punt). Opleggingen kun je ook los neerzetten en later
   verbinden.
-- **Drie rekenmodi** (bovenaan):
+- **Vijf rekenmodi** (bovenaan):
   - **Kinematisch:** exacte stand per krukhoek; snelheden en versnellingen
     analytisch uit de Jacobiaan; staafkrachten, oplegreacties en krukmoment uit
     quasi-statisch evenwicht.
@@ -64,6 +64,26 @@ NODE_PATH=<map met playwright>/node_modules node tests/e2e/run.mjs   # browserte
     (positie, snelheid, versnelling, veer- of demperkracht, actuatorlengte).
     Toont amplitude en fase (Bode), de eigenfrequenties met modale demping, en
     een animatie van de trillingsvorm bij de gekozen frequentie.
+  - **Stijfheid:** lineaire statica van het getekende raamwerk met buigende
+    balken. Een schakel krijgt de stijfheid **Volledig (EA + EI)**: een 2D
+    Euler–Bernoulli-balk (profiel rechthoek, rond, buis of eigen A en I; materiaal
+    uit de materialenlijst). Per punt kies je de verbinding: **Star** (■,
+    momentvast), **Scharnier** (○) of **Torsieveer** (k<sub>θ</sub>); een
+    oplegging kan **Ingeklemd** zijn. *Auto* is Star in een vrij punt met een
+    balk en Scharnier bij een oplegging. **Knoop op balk** (O, of de knop bij
+    Eigenschappen) splitst een balk met een punt ertussen. Axiale staven, veren,
+    krachtopnemers, flexures (draaiveer), contacten (k<sub>n</sub> bij de
+    huidige indringing) en opleggingen (scharnier, glijder, inklemming) doen
+    mee; een Oneindige schakel rekent als balk met EA en EI van 10<sup>5</sup>×
+    de grootste elastische stijfheid. Resultaat: vervormde lijn (kubische
+    Hermite) met automatische vergroting en schuifregelaar, kleur naar
+    σ/σ<sub>toel</sub>, verplaatsingen (µm, µrad), reacties, maximale spanning
+    en plaats, **stijfheid in een punt** (k = F/δ in N/µm) en de eerste zes
+    eigenfrequenties met animatie. Een mechanisme wordt in gewone taal benoemd.
+    Waar het model een standaardgeval is (uitkraging, geleide uitkraging, vrij
+    opgelegde balk) staat de formule van Roark naast de FE-uitkomst.
+    Eerste orde: de tekening is de onbelaste stand; spanningsverstijving en
+    afschuiving zijn verwaarloosd.
 - **Rekenen op de achtergrond:** dynamisch rekenen gebeurt in stukjes, met
   voortgangsbalk en Stop-knop. Standaard pas je eerst het model aan en druk je
   daarna op **Bereken** (F5); automatisch herberekenen kan aan in Instellingen.

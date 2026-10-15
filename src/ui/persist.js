@@ -62,7 +62,8 @@ function load(key) {
     model.frfIn = d.frfIn || ""; model.frfMin = d.frfMin || 0; model.frfMax = d.frfMax || 0;
     model.fricVs = d.fricVs || 5; model.fricVe = d.fricVe || 2;
     model.dT = d.dT || 0; model.thermNode = d.thermNode || "";
-    setModeUI(d.mode === "dyn" || d.mode === "frf" ? d.mode : "kin");
+    setModeUI(d.mode === "dyn" || d.mode === "frf" || d.mode === "stiff" ? d.mode : "kin");
+    model.stiffNode = d.stiffNode || ""; model.stiffAng = d.stiffAng !== undefined ? d.stiffAng : 90; model.stiffScale = d.stiffScale || 0;
     for (const e of model.elems) if (e.driver && e.theta0 === undefined) e.theta0 = e.theta || 0;
     sim.uid = d.uid || 1; ui.nameCounter = d.nameCounter || 0;
     for (const n of model.nodes) { if (n.ax === undefined) { n.ax = n.x; n.ay = n.y; } }
@@ -79,7 +80,7 @@ function load(key) {
    ============================================================ */
 const DOC_KEYS = ["nodes", "elems", "series", "mode", "gravity", "showForces",
                   "simDur", "dtStep", "defMass", "xAxis", "grid", "snap", "rigidDrag",
-                  "autoSolve", "durMode", "cVisc", "maxT", "jointDamp", "cJoint", "frfIn", "frfMin", "frfMax", "name", "fricVs", "fricVe", "dT", "thermNode"];
+                  "autoSolve", "durMode", "cVisc", "maxT", "jointDamp", "cJoint", "frfIn", "frfMin", "frfMax", "name", "fricVs", "fricVe", "dT", "thermNode", "stiffNode", "stiffAng", "stiffScale"];
 export function doc() {
   const o = {};
   for (const k of DOC_KEYS) o[k] = model[k];
@@ -101,7 +102,7 @@ export function loadDoc(d) {
   for (const e of model.elems) { const m = /^e(\d+)$/.exec(e.id); if (m) sim.uid = Math.max(sim.uid, +m[1] + 1); }
   ui.nameCounter = model.nodes.length;
   ui.sel = null; ui.pending = null; ui.frame = 0;
-  setModeUI(model.mode === "dyn" || model.mode === "frf" ? model.mode : "kin");
+  setModeUI(model.mode === "dyn" || model.mode === "frf" || model.mode === "stiff" ? model.mode : "kin");
   document.getElementById("snapChk").checked = model.snap !== false;
   document.getElementById("gridInp").value = model.grid;
   document.getElementById("gravChk").checked = !!model.gravity;

@@ -8,6 +8,7 @@ import { draw } from "./draw.js";
 import { syncDof, syncDynInputs, syncInspector } from "./inspector.js";
 import { narrow, setTab } from "./layout.js";
 import { pushHistory, save } from "./persist.js";
+import { solveStiff } from "./stiff.js";
 import { renderSeries } from "./picker.js";
 import { applyFrame, showProgress, syncTransport, togglePlay, toT0 } from "./playback.js";
 import { drawPlot } from "./plot.js";
@@ -31,6 +32,10 @@ function refreshAfterSolve() {
 }
 
 export function rebuild(force) {
+  if (model.mode === "stiff") {                 // lineaire statica: direct, alleen bij een wijziging
+    cancelJob(); ui.dynStale = false; sim.sweep = null; sim.solveOK = true; sim.simT = 0; sim.lenOv = null;
+    solveStiff(); refreshAfterSolve(); return;
+  }
   if (asyncMode()) {
     if (ui.playing) togglePlay();
     ui.frame = model.mode === "frf" ? ui.frame : 0; ui.pdata = null; ui.hoverI = null;

@@ -30,6 +30,7 @@ const ICON = {
   dsens:  '<path d="M3 5.4v9.2M3 10h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M8 6.6v6.8M11 6.6v6.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M11 10h6M14.6 7.8L17 10l-2.4 2.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
   encoder: '<circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 4v2M10 14v2M4 10h2M14 10h2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M10 10l3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
   accel:  '<rect x="5.4" y="9.4" width="9.2" height="6.2" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 8V2.8M7.8 5l2.2-2.4L12.2 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+  split:  '<path d="M2.6 14.5L17.4 5.5" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><rect x="7.4" y="7.3" width="5.2" height="5.2" transform="rotate(-31 10 10)" fill="var(--panel)" stroke="currentColor" stroke-width="1.5"/>',
   del:    '<path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
 };
 
@@ -38,6 +39,7 @@ const TOOLS = [
   { id: "select", nm: "Selecteren", kb: "V", ic: "select", hint: "Sleep punten om het mechanisme te vervormen. Sleep het canvas om te pannen." },
   { id: "node",   nm: "Punt",       kb: "N", ic: "node",   hint: "Klik om een <b>punt</b> te plaatsen." },
   { id: "link",   nm: "Schakel",    kb: "L", ic: "link",   hint: "Klik het <b>eerste</b> punt, dan het tweede. Klik in het lege vlak om meteen een nieuw punt te maken." },
+  { id: "split", nm: "Knoop op balk", kb: "O", ic: "split", hint: "Klik op een <b>Volledige balk</b> (stijfheid Volledig, EA + EI) om hem daar in twee elementen te splitsen met een punt ertussen: voor een kracht, massa of sensor midden op de balk." },
   { g: "Opleggingen" },
   { id: "pin",    nm: "Scharnier",  kb: "P", ic: "pin",    hint: "Klik een punt om het <b>vast te zetten</b>, of klik in het lege vlak voor een nieuw scharnier." },
   { id: "slider", nm: "Glijder",    kb: "S", ic: "slider", hint: "Klik een punt of het lege vlak voor een <b>glijder</b>. Richting instelbaar bij Eigenschappen." },
@@ -128,7 +130,7 @@ export function initTools() {
   document.addEventListener("keydown", e => {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
     const k = e.key.toLowerCase();
-    const map = { v: "select", n: "node", l: "link", p: "pin", s: "slider", d: "driver", a: "actuator", r: "spring", c: "damper", g: "gap", k: "contact", b: "flexure", q: "loadcell", w: "dsens", h: "encoder", j: "accel", f: "force", m: "mass", t: "trace", x: "del" };
+    const map = { v: "select", n: "node", l: "link", p: "pin", s: "slider", d: "driver", a: "actuator", r: "spring", c: "damper", g: "gap", k: "contact", b: "flexure", q: "loadcell", w: "dsens", h: "encoder", j: "accel", o: "split", f: "force", m: "mass", t: "trace", x: "del" };
     if (map[k]) { setTool(map[k]); e.preventDefault(); return; }
     if (e.key === " ") {
       // een knop met focus zou anders zelf nog eens "klikken" en het afspelen meteen weer stoppen

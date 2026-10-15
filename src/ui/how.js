@@ -7,6 +7,8 @@ import { flexI, flexK, flexLivePhi, flexMat, flexStress, FLEX_KINDS, GAMMA, KTHE
 import { mobility } from "../core/kinematics.js";
 import { encRes, loadcellDt, sensorLive, sensorMass, springK } from "../core/sensors.js";
 import { thermalNode, thermalShift } from "../core/thermal.js";
+import { beamSect, isBeam } from "../core/axial.js";
+import { RIGID_FACTOR } from "../core/stiffness.js";
 import { model, sim, ui } from "../core/state.js";
 
 // Bronnen: literatuur, geen bestandsnamen
@@ -20,6 +22,8 @@ const REF = {
   soem: "Soemers, <i>Design Principles for Precision Mechanisms</i> (T-Pointprint, 2010)",
   slocum: "Slocum, <i>Precision Machine Design</i> (Prentice Hall, 1992)",
   hunt: "Hunt &amp; Crossley, <i>Coefficient of restitution interpreted as damping in vibroimpact</i>, J. Appl. Mech. 42 (1975) 440\u2013445",
+  prz: "Przemieniecki, <i>Theory of Matrix Structural Analysis</i> (McGraw-Hill, 1968; Dover, 1985)",
+  roark: "Young, Budynas &amp; Sadegh, <i>Roark&rsquo;s Formulas for Stress and Strain</i> (8e druk, McGraw-Hill, 2012), tabel 8.1",
   paros: "Paros &amp; Weisbord, <i>How to design flexure hinges</i>, Machine Design 37 (1965) 151\u2013156"
 };
 const BA = 20, BB = 20;          // Baumgarte-constanten, gelijk aan dynamics.js (1/s)
@@ -286,6 +290,59 @@ function thermBlock(e, L) {
     src: REF.soem + "; " + REF.slocum + " (thermische uitzetting, athermisch ontwerp)"
   });
 }
+function stiffBlock() {
+  const R = sim.stiff, live = [];
+  const beams = model.elems.filter(e => isBeam(e) && N(e.a) && N(e.b));
+  live.push(kv("Balken (Volledig)", String(beams.length)));
+  if (R && R.sys) {
+    live.push(kv("Vrijheidsgraden", R.sys.nd + " (" + R.nfree + " vrij na opleggingen)"));
+    live.push(kv("Zwaartekracht", model.gravity ? "aan (gewicht van massa\u2019s en balken)" : "uit"));
+    if (R.sys.mem.some(m => m.rigid)) live.push(kv("Stijve schakels", "EA, EI = " + RIGID_FACTOR.toExponential(0).replace("e+", "\u00d710^") + " \u00d7 " + num(R.sys.kref) + " N/mm (penalty)"));
+    if (R.ok) {
+      live.push(kv("Rest \u2016K\u00b7u \u2212 F\u2016/\u2016F\u2016", num(R.resid)));
+      live.push(kv("Evenwicht \u03a3R + \u03a3F", num(R.eq) + " N"));
+      if (R.sigMax) live.push(kv("Max \u03c3", num(R.sigMax.val) + " MPa (" + num(R.sigMax.ratio * 100) + " % van \u03c3<sub>toel</sub>)"));
+      live.push(kv("Grootste verplaatsing", num(R.maxDisp * 1000) + " \u00b5m"));
+      if (R.modes && R.modes.length) live.push(kv("Eigenfrequenties", R.modes.map(m => hz(m.f)).join(", ")));
+      (R.analytic || []).forEach(a => a.rows.forEach(r => live.push(kv(esc(a.title), esc(r.k) + ": " + num(r.an * r.f, 4) + " " + r.unit + " (analytisch) tegen " + num(r.fe * r.f, 4) + " " + r.unit + " (FE)"))));
+    } else if (R.mech) live.push(kv("Status", esc(R.mech.text)));
+  }
+  const b0 = beams[0];
+  if (b0) {
+    const s = beamSect(b0), m = matOf(b0), L = Math.hypot(N(b0.a).x - N(b0.b).x, N(b0.a).y - N(b0.b).y);
+    live.push(kv("Balk " + esc(name(b0.a) + name(b0.b)), "A = " + num(s.A) + " mm\u00b2, I = " + num(s.I) + " mm\u2074, E = " + num(m.E) + " MPa, L = " + num(L) + " mm; EA/L = " + num(m.E * s.A / L) + " N/mm, 12EI/L\u00b3 = " + num(12 * m.E * s.I / L ** 3) + " N/mm"));
+  }
+  return block({
+    title: "Stijfheid: raamwerk met buigende balken",
+    eq: [
+      "Balk (Euler\u2013Bernoulli), lokaal " + c("[u<sub>1</sub> v<sub>1</sub> \u03b8<sub>1</sub> u<sub>2</sub> v<sub>2</sub> \u03b8<sub>2</sub>]") + ": axiaal " + c("EA/L\u00b7[1 \u22121; \u22121 1]") + ", buiging " +
+        c("EI/L\u00b3\u00b7") + mat([["12", "6L", "\u221212", "6L"], ["6L", "4L\u00b2", "\u22126L", "2L\u00b2"], ["\u221212", "\u22126L", "12", "\u22126L"], ["6L", "2L\u00b2", "\u22126L", "4L\u00b2"]]),
+      "Samenstellen: " + c("K = \u03a3 T<sup>T</sup>\u00b7k<sub>e</sub>\u00b7T") + " met " + c("T") + " de draaiing over de hoek van de balk; drie vrijheidsgraden " + c("(u, v, \u03b8)") + " per punt",
+      "Oplossen: " + c("K\u00b7u = F") + " (Cholesky " + c("K = L\u00b7L<sup>T</sup>") + "); een singuliere pivot is een mechanisme",
+      "Gebogen lijn: " + c("v(\u03be) = N<sub>1</sub>v<sub>1</sub> + N<sub>2</sub>\u03b8<sub>1</sub> + N<sub>3</sub>v<sub>2</sub> + N<sub>4</sub>\u03b8<sub>2</sub>") + " met " + c("N<sub>1</sub> = 1 \u2212 3\u03be\u00b2 + 2\u03be\u00b3") + ", " + c("N<sub>2</sub> = L(\u03be \u2212 2\u03be\u00b2 + \u03be\u00b3)") + ", " + c("N<sub>3</sub> = 3\u03be\u00b2 \u2212 2\u03be\u00b3") + ", " + c("N<sub>4</sub> = L(\u2212\u03be\u00b2 + \u03be\u00b3)"),
+      "Spanning: " + c("\u03c3(x) = |N|/A + |M(x)|\u00b7c/I") + " met " + c("M(x) = \u2212f<sub>3</sub> + f<sub>2</sub>\u00b7x + q\u00b7x\u00b2/2") + "; kleur = " + c("\u03c3/\u03c3<sub>toel</sub>"),
+      "Stijfheid in een punt: eenheidslast " + c("d") + " op het punt, " + c("k = 1/(d<sup>T</sup>K<sup>\u22121</sup>d)") + " = F/\u03b4",
+      "Eigenfrequenties: " + c("(K \u2212 \u03c9\u00b2M)\u00b7\u03c6 = 0") + ", consistente massa " + c("\u03c1AL/420\u00b7[140 156 22L \u2026]") + ", Cholesky van M en Jacobi",
+      "Controles (Roark): uitkraging " + c("\u03b4 = FL\u00b3/(3EI)") + ", geleid " + c("\u03b4 = FL\u00b3/(12EI)") + ", vrij opgelegd " + c("\u03b4 = FL\u00b3/(48EI)") + ", uitkraging " + c("f<sub>1</sub> = 1,875\u00b2/(2\u03c0)\u00b7\u221a(EI/(\u03c1AL\u2074))")
+    ],
+    sym: [
+      [c("E, A, I"), "elasticiteitsmodulus (MPa), oppervlak (mm\u00b2) en kwadratisch oppervlaktemoment (mm\u2074) van de doorsnede"],
+      [c("c"), "afstand van de neutrale lijn tot de uiterste vezel (mm)"],
+      [c("u, v, \u03b8"), "verplaatsing in x, y (mm) en draaiing (rad) van een punt"],
+      [c("f<sub>1..3</sub>"), "krachten en moment op het begin van de balk in zijn eigen assen"],
+      [c("\u03c1"), "dichtheid (kg/m\u00b3), massa per lengte " + c("\u03c1A")]
+    ],
+    live,
+    ass: ["Lineair en klein: de tekening is de onbelaste stand; voorspanning geeft geen verplaatsing, spanningsverstijving is verwaarloosd.",
+          "Verbindingen: Star (momentvast), Scharnier (elk balkuiteinde draait vrij) of Torsieveer k<sub>\u03b8</sub>; Auto = Star in een vrij punt met een balk, Scharnier bij een oplegging.",
+          "Opleggingen: scharnier (x, y vast), glijder (alleen de normaal vast), Ingeklemd houdt ook de draaiing vast.",
+          "Oneindige schakels zijn een balk met EA en EI van 10<sup>5</sup>\u00d7 de grootste elastische stijfheid; flexures zijn een stijve schakel met draaiveer K; een actuator staat vast op zijn lengte.",
+          "Veren, krachtopnemers en axiale staven werken langs hun lijn; een contact als veer k<sub>n</sub> in de normaal (alleen bij indringing); dempers tellen niet mee.",
+          "Geen afschuifvervorming (Euler\u2013Bernoulli): nauwkeurig voor slanke balken (L/h \u2273 10)."],
+    src: REF.prz + "; " + REF.roark + "; " + REF.soem
+  });
+}
+
 function shiftBlock() {
   const nd = thermalNode();
   if (!nd || !model.elems.some(e => isThermal(e) && dTOf(e) !== 0)) return "";
@@ -566,7 +623,7 @@ const sweepId = s => { if (!s) return 0; let i = sweepIds.get(s); if (!i) sweepI
 
 function keyOf() {
   const sel = ui.sel ? E(ui.sel.id) || N(ui.sel.id) : null;
-  return [model.mode, model.durMode, ui.sel ? ui.sel.kind + ui.sel.id : "", sweepId(sim.sweep), !!sim.job, ui.dynStale, sim.solveOK,
+  return [model.mode, sim.stiffGen, model.stiffNode, model.stiffAng, model.stiffScale, ui.stiffMode, sim.stiff && sim.stiff.modes ? 1 : 0, model.durMode, ui.sel ? ui.sel.kind + ui.sel.id : "", sweepId(sim.sweep), !!sim.job, ui.dynStale, sim.solveOK,
     model.nodes.length, model.elems.length, model.gravity, model.dtStep, model.simDur, model.defMass, model.cVisc, model.maxT,
     model.jointDamp, model.cJoint, model.fricVs, model.fricVe, model.dT, model.thermNode, model.frfIn, model.mode === "kin" ? ui.frame : 0,
     sel ? JSON.stringify(sel) : "", sel && (sel.type === "contact" || sel.type === "flexure" || sel.type === "loadcell" || sel.type === "dsens" || sel.type === "encoder" || sel.type === "accel") ? ui.frame : 0, model.mode === "kin" ? model.nodes.map(n => n.x + "," + n.y).join(";") : ""].join("|");
@@ -593,7 +650,8 @@ export function renderHow(el) {
   lastKey = key;
   copies = [];
   let h;
-  if (model.mode === "frf") h = [frfBlock()];
+  if (model.mode === "stiff") h = [stiffBlock()];
+  else if (model.mode === "frf") h = [frfBlock()];
   else if (model.mode === "dyn") h = dynBlocks();
   else h = [kinBlock(), shiftBlock()];
   const extra = selBlock();

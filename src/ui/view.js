@@ -1,6 +1,6 @@
 // Canvas, weergave (pannen/zoomen) en passend maken.
 import { bounds } from "../core/kinematics.js";
-import { ui, view } from "../core/state.js";
+import { model, ui, view } from "../core/state.js";
 import { draw } from "./draw.js";
 import { drawPlot } from "./plot.js";
 
@@ -29,7 +29,7 @@ export function fit() {
   const bb = bounds();
   if (!bb) { view.s = 2.2; view.ox = ui.W / 2; view.oy = ui.H / 2; draw(); return; }
   const w = Math.max(bb.b.x - bb.a.x, 40), h = Math.max(bb.b.y - bb.a.y, 40);
-  const padX = 80, padTop = 62, padBot = 96;          // de transportbalk hoort vrij te blijven
+  const padX = 80, padTop = 62, padBot = 96 + (model.mode === "stiff" ? 84 : 0);          // de transportbalk (en bij Stijfheid de vergrotingsbalk) hoort vrij te blijven
   view.s = Math.min((ui.W - padX * 2) / w, (ui.H - padTop - padBot) / h);
   view.s = Math.max(0.15, Math.min(view.s, 14));
   const cx = (bb.a.x + bb.b.x) / 2, cy = (bb.a.y + bb.b.y) / 2;

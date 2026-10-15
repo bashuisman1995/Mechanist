@@ -13,6 +13,7 @@ export const model = {
   railSlim: false, drawerOpen: true, drawerH: 232, tab: "props",
   autoSolve: false, durMode: "fixed", cVisc: 0, maxT: 30,
   jointDamp: false, cJoint: 0.05, frfIn: "", frfMin: 0, frfMax: 0, fricVs: 5, fricVe: 2,
+  stiffNode: "", stiffAng: 90, stiffScale: 0,   // Stijfheid: punt en richting voor "stijfheid in punt", vergroting (0 = auto)
   dT: 0, thermNode: "",     // temperatuurverschil (K) voor alle staven en het punt waarvan we de thermische verschuiving tonen
   name: "Naamloos"
 };
@@ -33,6 +34,8 @@ export const sim = {
   ALIASN: new Map(),
   job: null,
   solved: null,
+  stiff: null,       // uitkomst van de modus Stijfheid (src/core/stiffness.js)
+  stiffGen: 0,
 };
 
 export const ui = {
@@ -59,4 +62,6 @@ export const ui = {
   lastSnap: null,
   unsaved: false,
   userEdited: false,
+  stiffMode: -1,      // Stijfheid: -1 = statische vervorming, k = eigenvorm k
+  stiffAmp: 1,        // momentane factor (-1..1) tijdens de animatie
 };

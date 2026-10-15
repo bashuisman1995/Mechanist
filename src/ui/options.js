@@ -4,6 +4,7 @@ import { model, ui } from "../core/state.js";
 import { draw } from "./draw.js";
 import { syncDynInputs, syncResult } from "./inspector.js";
 import { renderHowNow as renderHow } from "./howhook.js";
+import { renderStiffUI } from "./stiff.js";
 import { save } from "./persist.js";
 import { renderSeries } from "./picker.js";
 import { toT0 } from "./playback.js";
@@ -17,7 +18,7 @@ export function setModeUI(m) {
   syncModeSeg();
 }
 function syncModeSeg() {
-  const v = model.mode === "frf" ? "frf" : model.mode !== "dyn" ? "kin" : model.durMode === "equil" ? "equil" : "dyn";
+  const v = model.mode === "frf" ? "frf" : model.mode === "stiff" ? "stiff" : model.mode !== "dyn" ? "kin" : model.durMode === "equil" ? "equil" : "dyn";
   document.querySelectorAll("#modeSeg button").forEach(x =>
     x.setAttribute("aria-pressed", String(x.dataset.v === v)));
   const am = asyncMode();
@@ -28,12 +29,13 @@ function syncModeSeg() {
   document.querySelector(".drawer-head label[for=xSel]").hidden = model.mode === "frf";
   xSel.hidden = model.mode === "frf";
   syncDynInputs();
-  syncResult(); renderHow();
+  syncResult(); renderHow(); renderStiffUI();
 }
 function setMode(v) {
   toT0();
   if (v === "kin") model.mode = "kin";
   else if (v === "frf") model.mode = "frf";
+  else if (v === "stiff") model.mode = "stiff";
   else { model.mode = "dyn"; model.durMode = v === "equil" ? "equil" : "fixed"; }
   syncModeSeg();
   ui.frame = 0; changed();
