@@ -167,7 +167,9 @@ export function syncSeriesValues() {
   const put = (el, html) => { if (el.__h !== html) { el.__h = html; el.innerHTML = html; } };
   seriesBox.querySelectorAll("[data-v]").forEach(el => {
     const d = ui.pdata && ui.pdata.ss[+el.dataset.v];
-    put(el, !d ? "–"
+    const mv = frf && ui.hoverI === null && ui.meet && d ? ui.meet.v[d.si] : null;      // exact bij de meetfrequentie
+    put(el, mv ? "<b>" + num(mv.amp, d.u) + "</b> \u00b7 " + mv.ph.toFixed(0) + "\u00b0 \u00b7 " + fmtHz(ui.meet.f)
+      : !d ? "–"
       : d.err ? '<b style="color:var(--bad)">' + d.err + "</b>"
       : frf ? "<b>" + num(Math.pow(10, d.a[i]), d.u) + "</b> \u00b7 " + (isFinite(d.ph[i]) ? d.ph[i].toFixed(0) + "\u00b0" : "\u2013") +
               " \u00b7 " + fmtHz(sim.sweep.f[i])

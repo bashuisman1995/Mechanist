@@ -334,15 +334,16 @@ function drawPlotDyn(c, idx) {
   g.clearRect(0, 0, plotCv.width, plotCv.height);
   g.drawImage(c.buf, 0, 0);
   g.setTransform(ui.DPR, 0, 0, ui.DPR, 0, 0);
-  const xv = ui.pdata.xs[idx];
+  const mt = ui.pdata.frf && ui.hoverI === null ? ui.meet : null;   // FRF: exacte meetfrequentie
+  const xv = mt ? Math.log10(mt.f) : ui.pdata.xs[idx];
   if (!isFinite(xv)) return;
   const x = c.X(xv);
   g.strokeStyle = ui.hoverI !== null ? ui.C.accent : ui.C.driver;
-  g.lineWidth = 1.2;
+  g.lineWidth = mt ? 1.8 : 1.2;
   const cx = Math.round(x) + .5;
   g.beginPath(); g.moveTo(cx, PAD.T - 4); g.lineTo(cx, c.bottom); g.stroke();
   for (const gm of c.geom) for (const s of gm.set) {
-    const yv = s.a[idx];
+    const yv = mt && mt.a[s.si] !== undefined ? mt.a[s.si] : s.a[idx];
     if (!isFinite(yv)) continue;
     g.fillStyle = serieColor(s.si);
     g.beginPath(); g.arc(x, gm.Y(yv), 3.4, 0, Math.PI * 2); g.fill();

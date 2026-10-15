@@ -22,7 +22,12 @@ export function readColors() {
   };
 }
 
+// FRF: de meetfrequentie-vorm wordt alleen tijdens het tekenen aangebracht (ui.drawPre/drawPost)
 export function draw() {
+  if (ui.drawPre) ui.drawPre();
+  try { drawNow(); } finally { if (ui.drawPost) ui.drawPost(); }
+}
+function drawNow() {
   if (!ui.W) return;
   readColors();
   ctx.clearRect(0, 0, ui.W, ui.H);

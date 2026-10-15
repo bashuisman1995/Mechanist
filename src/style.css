@@ -733,3 +733,21 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   .calc-res { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .app.calc-on .brand .docname, .app.calc-on .brand .ver { display: none; }
 }
+
+/* FRF: meetfrequentie */
+.meetbar {
+  position: absolute; left: 12px; right: 12px; bottom: 64px; z-index: 4;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
+  background: var(--panel); border: 1px solid var(--line-2); border-radius: 9px;
+  padding: 5px 10px; box-shadow: var(--shadow); font-size: 12px; color: var(--ink-2);
+}
+.meetbar[hidden] { display: none; }
+.meetbar input[type="number"] { width: 88px; padding: 3px 5px; font-size: 12px; }
+.meetbar .chips { display: inline-flex; gap: 5px; flex-wrap: wrap; }
+.meetbar .chip {
+  border: 1px solid var(--line-2); background: var(--panel-2); color: var(--ink); border-radius: 12px;
+  padding: 2px 9px; font-size: 11.5px; cursor: pointer;
+}
+.meetbar .chip.on { background: var(--driver); border-color: var(--driver); color: #fff; }
+.meetbar .chk { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.meetbar .out { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px; color: var(--ink); }

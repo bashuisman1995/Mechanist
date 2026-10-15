@@ -251,7 +251,9 @@ export function* computeFrf() {
         const y = backSubT(Lc, vec);            // massagenormeerde vorm in η
         let c = 0; for (let a = 0; a < k; a++) for (let b = 0; b < k; b++) c += y[a] * Cr[a][b] * y[b];
         const w = val > 0 ? Math.sqrt(val) : 0;
-        modes.push({ f: w / (2 * Math.PI), zeta: w > 0 ? c / (2 * w) : NaN, unstable: val < -1e-9 * (1 + Math.abs(val)) });
+        const shape = new Float64Array(nq);
+        for (let a = 0; a < k; a++) for (let j = 0; j < nq; j++) shape[j] += Z[a][j] * y[a];
+        modes.push({ shape, f: w / (2 * Math.PI), zeta: w > 0 ? c / (2 * w) : NaN, unstable: val < -1e-9 * (1 + Math.abs(val)) });
       });
       modes.sort((a, b) => a.f - b.f);
     }
@@ -265,11 +267,10 @@ export function* computeFrf() {
   const S = { frf: true, f: new Array(361), t: new Array(361), ok: new Array(361).fill(true), X: new Array(361),
               pos: {}, vel: {}, acc: {}, N: {}, EF: {}, R: {}, T: {}, dur: 1, stat: false,
               q0, fi, modes, eqOK, inUnit: inp.u, inLab: inp.lab, k };
-  for (let i = 0; i <= 360; i++) {
-    if (i % 60 === 0) yield { phase: "frf", f: i };
-    const f = f0 * Math.pow(f1 / f0, i / 360), w = 2 * Math.PI * f;
-    S.f[i] = S.t[i] = f;
-    let er = new Float64Array(k), ei = new Float64Array(k);
+  // één frequentie exact doorrekenen (ook buiten het rooster); levert {re, im, w} of null
+  function solveAt(f) {
+    const w = 2 * Math.PI * f;
+    let er = new Float64Array(k), ei = new Float64Array(k), ok = true;
     if (k) {
       // [[Kr−ω²M, −ωC], [ωC, Kr−ω²M]] · [ηr; ηi] = [br; bi]
       const n2 = 2 * k, Aug = [];
@@ -283,12 +284,21 @@ export function* computeFrf() {
         Aug[a][n2] = br; Aug[k + a][n2] = bi;
       }
       const x = gauss(Aug, n2);
-      if (x) { er = x.subarray(0, k); ei = x.subarray(k); } else S.ok[i] = false;
+      if (x) { er = x.subarray(0, k); ei = x.subarray(k); } else ok = false;
     }
     const re = new Float64Array(nq), im = new Float64Array(nq);
     for (let a = 0; a < k; a++) for (let j = 0; j < nq; j++) { re[j] += Z[a][j] * er[a]; im[j] += Z[a][j] * ei[a]; }
     if (motion) for (let j = 0; j < nq; j++) re[j] += p[j];
-    S.X[i] = { re, im, w };
+    return { re, im, w, ok };
+  }
+  S.at = solveAt;
+  for (let i = 0; i <= 360; i++) {
+    if (i % 60 === 0) yield { phase: "frf", f: i };
+    const f = f0 * Math.pow(f1 / f0, i / 360);
+    S.f[i] = S.t[i] = f;
+    const r = solveAt(f);
+    if (!r.ok) S.ok[i] = false;
+    S.X[i] = { re: r.re, im: r.im, w: r.w };
   }
   sim.solveOK = true;
   return S;

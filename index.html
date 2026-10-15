@@ -744,6 +744,24 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   .calc-res { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .app.calc-on .brand .docname, .app.calc-on .brand .ver { display: none; }
 }
+
+/* FRF: meetfrequentie */
+.meetbar {
+  position: absolute; left: 12px; right: 12px; bottom: 64px; z-index: 4;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
+  background: var(--panel); border: 1px solid var(--line-2); border-radius: 9px;
+  padding: 5px 10px; box-shadow: var(--shadow); font-size: 12px; color: var(--ink-2);
+}
+.meetbar[hidden] { display: none; }
+.meetbar input[type="number"] { width: 88px; padding: 3px 5px; font-size: 12px; }
+.meetbar .chips { display: inline-flex; gap: 5px; flex-wrap: wrap; }
+.meetbar .chip {
+  border: 1px solid var(--line-2); background: var(--panel-2); color: var(--ink); border-radius: 12px;
+  padding: 2px 9px; font-size: 11.5px; cursor: pointer;
+}
+.meetbar .chip.on { background: var(--driver); border-color: var(--driver); color: #fff; }
+.meetbar .chk { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.meetbar .out { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px; color: var(--ink); }
 </style>
 <script>
   // Vangnet: als het script niet laadt of vastloopt, zie je dat in plaats van een lege pagina.
@@ -842,6 +860,16 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         <div class="lockbar" id="lockBar" hidden>
           <span>Alleen bekijken &mdash; bewerken kan op t&nbsp;=&nbsp;0</span>
           <button class="btn primary" id="lockBtn" title="Terug naar t = 0 (Home)">&#9198; Naar t = 0</button>
+        </div>
+        <div class="meetbar" id="meetBar" hidden>
+          <label for="meetF">Meetfrequentie</label>
+          <button class="btn ghost ico" id="meetDn" title="Vorige rasterfrequentie" aria-label="Lagere frequentie">&#9664;</button>
+          <input type="number" id="meetF" min="0" step="any" value="" aria-label="Meetfrequentie in Hz">
+          <span class="unit">Hz</span>
+          <button class="btn ghost ico" id="meetUp" title="Volgende rasterfrequentie" aria-label="Hogere frequentie">&#9654;</button>
+          <span id="meetChips" class="chips"></span>
+          <label class="chk"><input type="checkbox" id="meetEig"> Toon eigenmode</label>
+          <span id="meetOut" class="out"></span>
         </div>
         <div class="transport" id="transport">
           <button class="play" id="rewBtn" title="Terug naar t = 0 om te bewerken (Home)" aria-label="Terug naar t = 0">
@@ -2988,7 +3016,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           let c2 = 0;
           for (let a = 0; a < k; a++) for (let b = 0; b < k; b++) c2 += y[a] * Cr[a][b] * y[b];
           const w = val > 0 ? Math.sqrt(val) : 0;
-          modes.push({ f: w / (2 * Math.PI), zeta: w > 0 ? c2 / (2 * w) : NaN, unstable: val < -1e-9 * (1 + Math.abs(val)) });
+          const shape = new Float64Array(nq);
+          for (let a = 0; a < k; a++) for (let j = 0; j < nq; j++) shape[j] += Z[a][j] * y[a];
+          modes.push({ shape, f: w / (2 * Math.PI), zeta: w > 0 ? c2 / (2 * w) : NaN, unstable: val < -1e-9 * (1 + Math.abs(val)) });
         });
         modes.sort((a, b) => a.f - b.f);
       }
@@ -3021,11 +3051,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       inLab: inp.lab,
       k
     };
-    for (let i = 0; i <= 360; i++) {
-      if (i % 60 === 0) yield { phase: "frf", f: i };
-      const f2 = f0 * Math.pow(f12 / f0, i / 360), w = 2 * Math.PI * f2;
-      S.f[i] = S.t[i] = f2;
-      let er = new Float64Array(k), ei = new Float64Array(k);
+    function solveAt(f2) {
+      const w = 2 * Math.PI * f2;
+      let er = new Float64Array(k), ei = new Float64Array(k), ok = true;
       if (k) {
         const n2 = 2 * k, Aug = [];
         for (let a = 0; a < n2; a++) Aug.push(new Float64Array(n2 + 1));
@@ -3045,7 +3073,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         if (x) {
           er = x.subarray(0, k);
           ei = x.subarray(k);
-        } else S.ok[i] = false;
+        } else ok = false;
       }
       const re = new Float64Array(nq), im = new Float64Array(nq);
       for (let a = 0; a < k; a++) for (let j = 0; j < nq; j++) {
@@ -3053,7 +3081,16 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         im[j] += Z[a][j] * ei[a];
       }
       if (motion) for (let j = 0; j < nq; j++) re[j] += p[j];
-      S.X[i] = { re, im, w };
+      return { re, im, w, ok };
+    }
+    S.at = solveAt;
+    for (let i = 0; i <= 360; i++) {
+      if (i % 60 === 0) yield { phase: "frf", f: i };
+      const f2 = f0 * Math.pow(f12 / f0, i / 360);
+      S.f[i] = S.t[i] = f2;
+      const r = solveAt(f2);
+      if (!r.ok) S.ok[i] = false;
+      S.X[i] = { re: r.re, im: r.im, w: r.w };
     }
     sim.solveOK = true;
     return S;
@@ -3630,7 +3667,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     };
     seriesBox.querySelectorAll("[data-v]").forEach((el) => {
       const d = ui.pdata && ui.pdata.ss[+el.dataset.v];
-      put(el, !d ? "\u2013" : d.err ? '<b style="color:var(--bad)">' + d.err + "</b>" : frf ? "<b>" + num(Math.pow(10, d.a[i]), d.u) + "</b> \xB7 " + (isFinite(d.ph[i]) ? d.ph[i].toFixed(0) + "\xB0" : "\u2013") + " \xB7 " + fmtHz(sim.sweep.f[i]) : "<b>" + num(d.a[i], d.u) + "</b>");
+      const mv = frf && ui.hoverI === null && ui.meet && d ? ui.meet.v[d.si] : null;
+      put(el, mv ? "<b>" + num(mv.amp, d.u) + "</b> \xB7 " + mv.ph.toFixed(0) + "\xB0 \xB7 " + fmtHz(ui.meet.f) : !d ? "\u2013" : d.err ? '<b style="color:var(--bad)">' + d.err + "</b>" : frf ? "<b>" + num(Math.pow(10, d.a[i]), d.u) + "</b> \xB7 " + (isFinite(d.ph[i]) ? d.ph[i].toFixed(0) + "\xB0" : "\u2013") + " \xB7 " + fmtHz(sim.sweep.f[i]) : "<b>" + num(d.a[i], d.u) + "</b>");
     });
     seriesBox.querySelectorAll("[data-s]").forEach((el) => {
       const d = ui.pdata && ui.pdata.ss[+el.dataset.s];
@@ -4745,6 +4783,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (!sim.sweep) return;
     if (sim.sweep.frf) {
       ui.frame = Math.max(0, Math.min(360, Math.round(k)));
+      const M = sim.sweep.meet;
+      if (M && Math.round(frameOf(sim.sweep, M.f)) !== ui.frame) sim.sweep.meet = null;
       return;
     }
     const kk = Math.max(0, Math.min(360, k));
@@ -4841,26 +4881,160 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return S.odsSc = mx > 0 ? 0.07 * size / mx : 0;
   }
   var ODS_MAX = 5;
+  var frameOf = (S, f2) => Math.max(0, Math.min(360, 360 * Math.log(f2 / S.f[0]) / Math.log(S.f[360] / S.f[0])));
+  var curF = (S) => S.meet ? S.meet.f : S.f[ui.frame];
+  var modesOf = (S) => (S.modes || []).filter((m) => !m.unstable && m.f > 1e-6 && m.shape);
+  function nearestMode(S, f2) {
+    let best = null, bd = Infinity;
+    for (const m of modesOf(S)) {
+      const d = Math.abs(Math.log(m.f / f2));
+      if (d < bd) {
+        bd = d;
+        best = m;
+      }
+    }
+    return best;
+  }
+  function shownOds(S) {
+    const f2 = curF(S);
+    if (ui.meetEig) {
+      const m = nearestMode(S, f2);
+      if (m) {
+        if (m.sc === void 0) {
+          let mx = 0;
+          for (let j = 0; j < m.shape.length; j++) mx = Math.max(mx, Math.abs(m.shape[j]));
+          const bb = bounds(), size = bb ? Math.hypot(bb.b.x - bb.a.x, bb.b.y - bb.a.y) : 100;
+          m.sc = mx > 0 ? 0.07 * size / mx : 0;
+        }
+        return { X: { re: m.shape, im: new Float64Array(m.shape.length) }, sc: m.sc, f: m.f };
+      }
+    }
+    return { X: S.meet ? S.meet.X : S.X[ui.frame], sc: odsScale(S), f: f2 };
+  }
   function odsRate() {
-    const f2 = sim.sweep.f[ui.frame], want = f2 * parseFloat(speedSel.value);
+    const f2 = shownOds(sim.sweep).f, want = f2 * parseFloat(speedSel.value);
     return { fa: Math.min(want, ODS_MAX), slowed: want > ODS_MAX, factor: Math.min(want, ODS_MAX) / f2 };
   }
   function odsLabel() {
-    const r = odsRate(), f2 = sim.sweep.f[ui.frame];
+    const r = odsRate(), f2 = curF(sim.sweep);
     if (!ui.playing) return fmtHz(f2);
     const k = r.factor;
     return fmtHz(f2) + " \xB7 " + (k >= 0.995 ? "echte tijd" : k >= 0.1 ? +k.toFixed(2) + "\xD7" : "1/" + Math.round(1 / k) + "\xD7");
   }
-  function applyOds() {
-    const S = sim.sweep, X = S.X[ui.frame];
+  function applyOds(ph) {
+    const S = sim.sweep, o = shownOds(S), X = o.X;
     if (!X) return;
-    const sc = odsScale(S), c2 = Math.cos(odsPh), sn = Math.sin(odsPh);
+    const sc = o.sc, c2 = Math.cos(ph), sn = Math.sin(ph);
     for (const n of model.nodes) {
       if (!S.fi.has(n.id)) continue;
       const j = S.fi.get(n.id);
       n.x = S.q0[2 * j] + sc * (X.re[2 * j] * c2 - X.im[2 * j] * sn);
       n.y = S.q0[2 * j + 1] + sc * (X.re[2 * j + 1] * c2 - X.im[2 * j + 1] * sn);
     }
+  }
+  function peakPhase(X) {
+    let A = 0, B = 0, C = 0;
+    for (let j = 0; j < X.re.length; j++) {
+      A += X.re[j] * X.re[j];
+      B += X.im[j] * X.im[j];
+      C += X.re[j] * X.im[j];
+    }
+    return 0.5 * Math.atan2(-C, (A - B) / 2);
+  }
+  var preKeep = null;
+  ui.drawPre = () => {
+    const S = sim.sweep;
+    if (ui.playing || !ui.meetOn || !S || !S.frf || model.mode !== "frf") return;
+    preKeep = model.nodes.map((n) => [n, n.x, n.y]);
+    applyOds(peakPhase(shownOds(S).X));
+  };
+  ui.drawPost = () => {
+    if (preKeep) {
+      preKeep.forEach(([n, x, y]) => {
+        n.x = x;
+        n.y = y;
+      });
+      preKeep = null;
+    }
+  };
+  var meetBar = document.getElementById("meetBar");
+  var meetFEl = document.getElementById("meetF");
+  var meetChips = document.getElementById("meetChips");
+  var meetOut = document.getElementById("meetOut");
+  var nlc = (x) => String(x).replace(".", ",");
+  var chipKey = "";
+  function syncMeet() {
+    const S = sim.sweep, on = !!(S && S.frf);
+    meetBar.hidden = !on;
+    if (!on) {
+      ui.meet = null;
+      return;
+    }
+    const f2 = curF(S), sh = shownOds(S);
+    const X = S.meet ? S.meet.X : S.X[ui.frame], FS = { fi: S.fi, q0: S.q0, X: { m: X } };
+    const a = {}, v = {};
+    let first = "";
+    model.series.forEach((sr, si) => {
+      if (sr.expr || !sim.CHM.get(sr.key)) return;
+      const z = frfVal(FS, sr.key, "m");
+      if (!z) return;
+      const m = Math.hypot(z[0], z[1]);
+      if (!(m > 1e-300)) return;
+      a[si] = Math.log10(m);
+      v[si] = { amp: m, ph: Math.atan2(z[1], z[0]) * 180 / Math.PI };
+      if (!first) first = chLab(sr.key) + ": " + nlc(m >= 1e4 || m < 0.01 ? m.toExponential(2) : m.toFixed(2)) + " " + (chU(sr.key) || "?") + "/" + S.inUnit + " \xB7 " + Math.round(v[si].ph) + "\xB0";
+    });
+    ui.meet = ui.meetOn ? { f: f2, a, v } : null;
+    if (document.activeElement !== meetFEl) meetFEl.value = +f2.toPrecision(5);
+    const ms = modesOf(S).slice(0, 3), key = ms.map((m) => m.f).join();
+    if (key !== chipKey) {
+      chipKey = key;
+      meetChips.innerHTML = ms.map((m, i) => '<button class="chip" data-m="' + i + '" title="Zet de meetfrequentie op deze eigenfrequentie">Mode ' + (i + 1) + " \xB7 " + nlc(fmtHz(m.f)) + "</button>").join("");
+    }
+    meetChips.querySelectorAll(".chip").forEach((b, i) => b.classList.toggle("on", !!ms[i] && Math.abs(f2 - ms[i].f) <= 1e-6 * ms[i].f));
+    meetOut.textContent = ui.meetEig && sh ? "eigenmode (ongedempt) \xB7 " + nlc(fmtHz(sh.f)) : first || "Kies een meting onder Metingen voor amplitude en fase";
+  }
+  function showMeet(f2) {
+    const S = sim.sweep;
+    if (!S || !S.frf || !(f2 > 0)) return;
+    const r = S.at(f2);
+    if (!r.ok) return;
+    S.meet = { f: f2, X: { re: r.re, im: r.im, w: r.w } };
+    ui.meetOn = true;
+    ui.frame = Math.round(frameOf(S, f2));
+    scrub.value = ui.frame;
+    angOut.textContent = fmtNow(ui.frame);
+    syncMeet();
+    syncSeriesValues();
+    drawPlot();
+    draw();
+  }
+  function initMeet() {
+    meetFEl.addEventListener("input", () => {
+      const f2 = parseFloat(String(meetFEl.value).replace(",", "."));
+      if (f2 > 0) showMeet(f2);
+    });
+    meetChips.addEventListener("click", (ev) => {
+      const b = ev.target.closest(".chip"), S = sim.sweep;
+      if (!b || !S) return;
+      const m = modesOf(S)[+b.dataset.m];
+      if (m) showMeet(m.f);
+    });
+    const step = (d) => {
+      const S = sim.sweep;
+      if (!S || !S.frf) return;
+      const x = frameOf(S, curF(S)), i = d > 0 ? Math.floor(x + 1e-6) + 1 : Math.ceil(x - 1e-6) - 1;
+      showMeet(S.f[Math.max(0, Math.min(360, i))]);
+    };
+    document.getElementById("meetDn").addEventListener("click", () => step(-1));
+    document.getElementById("meetUp").addEventListener("click", () => step(1));
+    document.getElementById("meetEig").addEventListener("change", (e) => {
+      ui.meetEig = e.target.checked;
+      ui.meetOn = true;
+      syncMeet();
+      drawPlot();
+      draw();
+    });
   }
   function tick(t) {
     if (!ui.playing || !sim.sweep) return;
@@ -4870,7 +5044,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       odsPh += 2 * Math.PI * odsRate().fa * dt2;
       const lab = odsLabel();
       if (angOut.textContent !== lab) angOut.textContent = lab;
-      applyOds();
+      applyOds(odsPh);
       draw();
       ui.raf = requestAnimationFrame(tick);
       return;
@@ -4903,6 +5077,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     syncContactLive();
     ui.hoverI = null;
+    if (sim.sweep.frf) syncMeet();
     syncSeriesValues();
     drawPlot();
     draw();
@@ -4929,6 +5104,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     else msg.textContent = sweepReason();
     syncLock();
     syncResult();
+    syncMeet();
   }
   var rewBtnEl = document.getElementById("rewBtn");
   function showProgress(p) {
@@ -4973,6 +5149,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return "In geen enkele stand samen te stellen \u2014 controleer de lengtes.";
   }
   function initPlayback() {
+    initMeet();
     document.getElementById("rewBtn").addEventListener("click", toT0);
     document.getElementById("lockBtn").addEventListener("click", toT0);
     document.getElementById("solveBtn").addEventListener("click", solveNow);
@@ -6160,18 +6337,19 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     g.clearRect(0, 0, plotCv.width, plotCv.height);
     g.drawImage(c2.buf, 0, 0);
     g.setTransform(ui.DPR, 0, 0, ui.DPR, 0, 0);
-    const xv = ui.pdata.xs[idx2];
+    const mt = ui.pdata.frf && ui.hoverI === null ? ui.meet : null;
+    const xv = mt ? Math.log10(mt.f) : ui.pdata.xs[idx2];
     if (!isFinite(xv)) return;
     const x = c2.X(xv);
     g.strokeStyle = ui.hoverI !== null ? ui.C.accent : ui.C.driver;
-    g.lineWidth = 1.2;
+    g.lineWidth = mt ? 1.8 : 1.2;
     const cx = Math.round(x) + 0.5;
     g.beginPath();
     g.moveTo(cx, PAD.T - 4);
     g.lineTo(cx, c2.bottom);
     g.stroke();
     for (const gm of c2.geom) for (const s of gm.set) {
-      const yv = s.a[idx2];
+      const yv = mt && mt.a[s.si] !== void 0 ? mt.a[s.si] : s.a[idx2];
       if (!isFinite(yv)) continue;
       g.fillStyle = serieColor(s.si);
       g.beginPath();
@@ -6385,6 +6563,14 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     };
   }
   function draw() {
+    if (ui.drawPre) ui.drawPre();
+    try {
+      drawNow();
+    } finally {
+      if (ui.drawPost) ui.drawPost();
+    }
+  }
+  function drawNow() {
     if (!ui.W) return;
     readColors();
     ctx.clearRect(0, 0, ui.W, ui.H);
