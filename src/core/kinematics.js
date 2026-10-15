@@ -1,5 +1,6 @@
 // Kinematica: randvoorwaarden, relaxatie, sweep, krachten, beweeglijkheid (zonder DOM).
 import { contactForce } from "./contact.js";
+import { flexRest, flexTrace } from "./flexure.js";
 import { actLen, actuators, curLen, drivers, frictionLoads, gapForce, hasFriction, isBar, N, omega } from "./elements.js";
 import { gauss, lsq } from "./linalg.js";
 import { model, sim } from "./state.js";
@@ -195,6 +196,7 @@ export function computeSweep() {
   if (ds.some(d => !N(d.a) || !N(d.b) || N(d.a).support !== "pin")) return;
 
   const keep = model.nodes.map(n => ({ n, x: n.x, y: n.y }));
+  const fxRest = flexRest();      // flexures: alleen de spanning wordt getoond, de stijfheid doet niet mee
   // Eén periode van de langzaamste aandrijving (kruk of actuator): de hele
   // beweging herhaalt zich alleen als de snelheden in verhouding staan.
   const per = ds.map(d => Math.abs(d.rpm || 0)).filter(r => r > 0).map(r => 60 / r)
@@ -237,6 +239,7 @@ export function computeSweep() {
   S.Rmax = Rmax; S.Nmax = Nmax;
   keep.forEach(r => { r.n.x = r.x; r.n.y = r.y; });
   sim.simT = 0;
+  flexTrace(S, fxRest);
   sim.solveOK = S.ok.some(Boolean);
   sim.sweep = S.ok.some(Boolean) ? S : null;
 }

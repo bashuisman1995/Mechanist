@@ -258,6 +258,21 @@ export const EXAMPLES = {
       }
     );
   },
+  // parallelgeleiding op twee bladveren; elk blad (L = 50 mm) is twee halve bladen van 25 mm met het buigpunt (S-vorm) ertussen,
+  // dus de PRBM-uitkraging van Howell is exact waar hij voor bedoeld is: een kracht aan de tip, zonder moment
+  parallelguide: () => build(
+    [["A", 0, 0, "pin"], ["B", 40, 0, "pin"], ["C", 0, 21.25], ["D", 40, 21.25], ["E", 0, 42.5], ["F", 40, 42.5]],
+    [["link", "E", "F"],
+     ["flexure", "A", "C", { wd: 20, t: 0.5 }], ["flexure", "E", "C", { wd: 20, t: 0.5 }],
+     ["flexure", "B", "D", { wd: 20, t: 0.5 }], ["flexure", "F", "D", { wd: 20, t: 0.5 }],
+     ["force", "E", 1, 0]],
+    g => {
+      g("C").m = 0.002; g("D").m = 0.002; g("E").m = 0.05; g("F").m = 0.05;
+      setModeUI("frf");
+      const fx = model.elems.filter(e => e.type === "flexure")[0];
+      model.series.push({ key: "n|" + g("E").id + "|x" }, { key: "f|" + fx.id + "|sig" });
+    }
+  ),
   // stoommachine: actuator → veer → kruiskop → drijfstang → kruk met vliegwielmassa;
   // de kant van het dode punt waar de krukpen start bepaalt de draairichting
   steamL: () => steam(1),
@@ -289,6 +304,7 @@ export const CATEGORIES = [
   { id: "dyn", nm: "Dynamica" },
   { id: "frf", nm: "Frequentie (FRF)" },
   { id: "fric", nm: "Wrijving & speling" },
+  { id: "flex", nm: "Flexures" },
   { id: "empty", nm: "Leeg" }
 ];
 export const MODE_NAMES = { kin: "Kinematisch", dyn: "Dynamisch", equil: "Evenwicht", frf: "FRF" };
@@ -382,6 +398,11 @@ export const EXAMPLE_META = {
     title: "Voorspanning en stijfheid", cat: "fric", modes: ["dyn"],
     desc: "Bal op een hard vlak, voorgespannen door een zachte veer en weggetrokken met een oplopende kracht.",
     text: "Zolang de trekkracht kleiner is dan de voorspanning (50 N) beweegt de bal nauwelijks: het harde contact en de veer werken samen. Bij F = F\u209a komt de bal los en blijft alleen de zachte veer over, dus de grafiek van verplaatsing tegen kracht knikt. De voorspanning bepaalt dus het krachtbereik waarin de hoge stijfheid geldt. Pas de veerstijfheid of voorspanning aan en zie de knik schuiven."
+  },
+  parallelguide: {
+    title: "Parallelgeleiding met bladveren", cat: "flex", modes: ["frf", "dyn"],
+    desc: "Tafel op twee parallelle bladveren, aangestoten door een kracht; de FRF geeft de eerste eigenfrequentie.",
+    text: "Twee bladveren van 50 \u00d7 20 \u00d7 0,5 mm (staal) geleiden de tafel; elk blad is getekend als twee halve bladen met een draaiveer (Howell, PRBM). Analytisch is c\u2093 = 2\u00b712EI/L\u00b3 = 8,40 N/mm; het PRBM geeft 8,71 N/mm, ongeveer 4 % stijver (K\u0398/(3\u03b3) = 1,039 in de theorie). De FRF vindt de eerste eigenfrequentie op 46,8 Hz, tegen 46,1 Hz analytisch voor 0,1 kg. Verklein de dikte t en kijk hoe de spanning \u03c3 bij de flexure meegroeit."
   },
   empty: {
     title: "Leeg canvas", cat: "empty", modes: ["kin"],

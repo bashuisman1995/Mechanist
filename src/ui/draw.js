@@ -1,6 +1,7 @@
 // Tekenen van het mechanisme op het canvas.
 import { frame as contactFrame, liveContact } from "../core/contact.js";
 import { dist, drivers, gapPen, isBar, N } from "../core/elements.js";
+import { flexLivePhi, flexStress } from "../core/flexure.js";
 import { model, sim, ui, view } from "../core/state.js";
 import { fmt } from "./format.js";
 import { ctx, toScr, toWld } from "./view.js";
@@ -38,6 +39,7 @@ export function draw() {
   for (const e of model.elems) if (e.type === "link" && !e.driver) drawLink(e);
   for (const e of model.elems) if (e.type === "link" && e.driver) drawLink(e);
   for (const e of model.elems) if (e.type === "actuator") drawActuator(e);
+  for (const e of model.elems) if (e.type === "flexure") drawFlexure(e);
   for (const n of model.nodes) drawSupport(n);
   for (const e of model.elems) if (e.type === "force") drawForce(e);
   for (const n of model.nodes) drawNode(n);
@@ -58,7 +60,7 @@ function labelDetail() {
   // typische schermlengte van een schakel; zonder schakels de zoomfactor
   const L = [];
   for (const e of model.elems) {
-    if (e.type !== "link" && e.type !== "spring" && e.type !== "damper") continue;
+    if (e.type !== "link" && e.type !== "spring" && e.type !== "damper" && e.type !== "flexure") continue;
     const A = N(e.a), B = N(e.b);
     if (A && B) L.push(dist(A, B) * view.s);
   }
@@ -215,6 +217,53 @@ function drawLink(e) {
     const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
     label(mx, my - 12, fmt(e.len) + " mm", e.driver ? ui.C.driver : ui.C.ink3);
   }
+}
+
+// flexure: dun golvend blad (bladveer), gekruiste bladen (kruisveerscharnier) of een inkeping, met een draaiveer-boogje bij a;
+// oranje zodra de spanning boven de toelaatbare ligt
+function drawFlexure(e) {
+  if (!N(e.a) || !N(e.b)) return;
+  const A = toScr(N(e.a)), B = toScr(N(e.b));
+  const dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L, px = -uy, py = ux;
+  const st = flexStress(e, flexLivePhi(e, sim.sweep, Math.round(ui.frame))), warn = st.ratio > 1;
+  const col = warn ? ui.C.driver : ui.C.ink2;
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  if (isSel(e.id) || isHov(e.id)) {
+    ctx.strokeStyle = ui.C.accent; ctx.lineWidth = 11; ctx.globalAlpha = isSel(e.id) ? .28 : .15;
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  ctx.strokeStyle = col; ctx.lineWidth = warn ? 2.2 : 1.7;
+  const at = (t, s) => [A.x + ux * L * t + px * s, A.y + uy * L * t + py * s];
+  ctx.beginPath();
+  if (e.kind === "cross") {                        // twee bladen die elkaar in het midden kruisen
+    const w = Math.min(7, L * .14), a = at(.2, 0), b = at(.8, 0);
+    ctx.moveTo(A.x, A.y); ctx.lineTo(a[0], a[1]);
+    ctx.moveTo(...at(.2, w)); ctx.lineTo(...at(.8, -w)); ctx.moveTo(...at(.2, -w)); ctx.lineTo(...at(.8, w));
+    ctx.moveTo(b[0], b[1]); ctx.lineTo(B.x, B.y);
+  } else if (e.kind === "notch") {                 // stang met aan weerszijden een halfronde inkeping
+    const r = Math.min(5, L * .12), w = 5.5, m1 = at(.5 - r / L, w), m2 = at(.5 + r / L, w);
+    ctx.moveTo(...at(0, w)); ctx.lineTo(...m1);
+    ctx.moveTo(...m2); ctx.lineTo(...at(1, w));
+    ctx.moveTo(...at(0, -w)); ctx.lineTo(...at(.5 - r / L, -w)); ctx.moveTo(...at(.5 + r / L, -w)); ctx.lineTo(...at(1, -w));
+    ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y);
+    ctx.stroke(); ctx.beginPath();
+    const c1 = at(.5, w), c2 = at(.5, -w), ang = Math.atan2(py, px);
+    ctx.arc(c1[0], c1[1], r, ang + Math.PI, ang + 2 * Math.PI);      // inkeping naar het midden toe
+    ctx.moveTo(c2[0] + Math.cos(ang) * r, c2[1] + Math.sin(ang) * r); ctx.arc(c2[0], c2[1], r, ang, ang + Math.PI);
+  } else {                                         // golvend blad
+    const n = Math.max(2, Math.round(L / 16)), amp = 3.4, N2 = n * 12;
+    for (let k = 0; k <= N2; k++) {
+      const t = k / N2, s = Math.sin(t * n * 2 * Math.PI) * amp * Math.min(1, t * 6, (1 - t) * 6), p = at(t, s);
+      if (k) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]);
+    }
+  }
+  ctx.stroke();
+  // draaiveer-boogje bij a
+  ctx.lineWidth = 1.4; ctx.beginPath();
+  const th = Math.atan2(dy, dx);
+  ctx.arc(A.x, A.y, 11, th - 1.1, th + 1.1); ctx.stroke();
+  label((A.x + B.x) / 2 + px * 14, (A.y + B.y) / 2 + py * 14,
+    (e.kind === "cross" ? "kruisveer" : e.kind === "notch" ? "inkeping" : "bladveer") + (warn ? " \u03c3 " + fmt(st.sigma) + " MPa" : ""), col, false, 2);
 }
 
 // cilinder aan kant a, zuigerstang naar b; de cilinder is zo lang als de kortste slag toelaat

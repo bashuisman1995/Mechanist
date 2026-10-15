@@ -1,5 +1,5 @@
 import { newPage, loadExample } from '../lib.mjs';
-const EX = ['fourbar', 'slidercrank', 'fivebar', 'jansen', 'hoeken', 'compressor', 'doublependulum', 'settle', 'liftarm', 'shaker', 'springload', 'gaplimit', 'frictionslide', 'shakerfrf', 'pendfrf', 'steamL', 'virtualplay', 'preload'];
+const EX = ['fourbar', 'slidercrank', 'fivebar', 'jansen', 'hoeken', 'compressor', 'doublependulum', 'settle', 'liftarm', 'shaker', 'springload', 'gaplimit', 'frictionslide', 'shakerfrf', 'pendfrf', 'steamL', 'virtualplay', 'preload', 'parallelguide'];
 export default async ({ browser, url, check }) => {
   const p = await newPage(browser, url);
   // controle dat de lijst volledig is

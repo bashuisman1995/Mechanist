@@ -56,6 +56,8 @@ const THUMB = {
   virtualplay: () => `<path class="g" d="M8 14L40 40L72 14"/>` + `<path class="g" d="M10 11l-3 3M16 17l-3 3M22 23l-3 3M28 29l-3 3M72 14l3 3M66 20l3 3M60 26l3 3M54 32l3 3"/>` +
     `<circle class="m" cx="40" cy="30" r="7.5"/>` + arrow(2, 30, 20, 30) + arrow(78, 30, 62, 30),
   preload: () => ln(8, 44, 72, 44, "g") + `<circle class="m" cx="40" cy="36" r="6"/>` + spring(40, 14, 40, 29) + ln(34, 4, 46, 4, "g") + arrow(58, 38, 58, 8),
+  parallelguide: () => ln(4, 46, 76, 46, "g") +
+    `<path class="k" d="M20 44Q16 38 20 32T20 20T20 10M60 44Q56 38 60 32T60 20T60 10"/>` + `<path class="dr" style="stroke-width:3.4" d="M14 8H66"/>` + arrow(2, 8, 12, 8),
   pendfrf: () => ln(30, 8, 30, 38) + pin(30, 8) + mass(30, 38) + arrow(38, 38, 70, 38),
   empty: () => `<rect class="dd" x="10" y="8" width="60" height="34" rx="4"/><path class="k" d="M40 20v10M35 25h10"/>`
 };

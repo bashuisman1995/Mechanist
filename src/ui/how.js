@@ -2,6 +2,7 @@
 // Alleen HTML-strings (sub/sup, CSS-breuken); herberekent alleen als de invoer veranderd is.
 import { frame as cFrame, hertz, liveContact, mat as material } from "../core/contact.js";
 import { actLen, E, N, curLen, isBar } from "../core/elements.js";
+import { flexI, flexK, flexLivePhi, flexMat, flexStress, FLEX_KINDS, GAMMA, KTHETA } from "../core/flexure.js";
 import { mobility } from "../core/kinematics.js";
 import { model, sim, ui } from "../core/state.js";
 
@@ -307,6 +308,37 @@ function selBlock() {
         ass: ["De aanslag trekt nooit: de kracht duwt alleen terug."], src: "src/core/elements.js (gapForce)"
       });
     }
+    case "flexure": {
+      const m = flexMat(e), K = flexK(e), I = flexI(e), phi = flexLivePhi(e, sim.sweep, Math.round(ui.frame)), st = flexStress(e, phi);
+      const kind = e.kind, cant = kind === "cantilever", Kt = e.Kt || 1;
+      const eq = cant
+        ? [c("pivot op (1−γ)·L van de inklemming, schakel γ·L"), c("K = γ·K<sub>Θ</sub>·E·I / L") + " met " + c("I = b·t³/12"),
+           c("M = −K·φ") + ", " + c("σ = M<sub>inkl</sub>·t/(2I) = K<sub>Θ</sub>·E·t·|φ| / (2L)")]
+        : kind === "cross"
+        ? [c("K = 2·E·I / L") + " (twee bladen, elk E·I/L)", c("M = −K·φ") + ", " + c("σ = E·t·|φ| / (2L)")]
+        : [c("K = 2·E·b·t<sup>5/2</sup> / (9π·√R)") + " (Paros–Weisbord)", c("M = −K·φ") + ", " + c("σ = K<sub>t</sub>·(4/(3π))·E·√(t/R)·|φ|")];
+      const sym = [[c("φ"), "hoek van de schakel ten opzichte van de referentie, min de getekende stand (+ voorspanning)"],
+                   [c("K"), "draaistijfheid in N·mm/rad"], [c("E, I"), "elasticiteitsmodulus en oppervlaktetraagheidsmoment"]]
+        .concat(cant ? [[c("γ, K<sub>Θ</sub>"), "0,85 en 2,65 (Howell, belasting aan de tip)"]] : [])
+        .concat(kind === "notch" ? [[c("K<sub>t</sub>"), "spanningsconcentratie bij de inkeping"]] : []);
+      const live = [kv("Type", esc(FLEX_KINDS[kind] || kind)), kv("Materiaal", esc(m.naam) + ", E = " + num(m.E) + " MPa"),
+        kv("b · t · L", num(e.wd) + " · " + num(e.t) + " · " + num(e.L) + " mm"), kv("I", num(I) + " mm⁴"),
+        kv("E·I", num(m.E * I) + " N·mm²"),
+        kv("K", num(K) + " N·mm/rad = " + num(K / 1000) + " N·m/rad"),
+        kv("φ nu", num(phi * 180 / Math.PI) + "° (" + num(phi) + " rad)"), kv("M", num(-K * phi / 1000) + " N·m"),
+        kv("σ", num(st.sigma) + " MPa (σ<sub>toel</sub> = " + num(st.allow) + " MPa, " + num(st.ratio * 100) + " %)"),
+        kv("φ<sub>max</sub>", num(st.phiMax * 180 / Math.PI) + "°")];
+      if (cant) live.splice(4, 0, kv("γ·K<sub>Θ</sub>/L", num(GAMMA * KTHETA / e.L) + " mm⁻¹"), kv("L<sub>eff</sub> = L/K<sub>Θ</sub>", num(st.Leff) + " mm"),
+        kv("Schakel γ·L", num(GAMMA * e.L) + " mm (getekend " + num(e.len) + " mm)"));
+      return block({
+        title: "Flexure " + nm + " (" + esc(FLEX_KINDS[kind] || kind) + ")",
+        eq, sym, live,
+        ass: ["PRBM: het blad is een stijve schakel met een draaiveer; goed voor kleine tot matige doorbuiging, de afwijking van de tip-stijfheid is ongeveer 4 % (K<sub>Θ</sub>/(3γ) = 1,039 ten opzichte van 3EI/L³).",
+              "Kinematisch: puur scharnier, de stijfheid telt niet mee maar σ en φ wel. Dynamisch, Evenwicht en FRF: K zit in de potentiële energie ½·K·φ².",
+              "Geen axiale rek, geen dwarskrachtvervorming en geen lastafhankelijke verschuiving van het karakteristieke scharnier."],
+        src: "Howell, <i>Compliant Mechanisms</i> (PRBM, γ en K<sub>Θ</sub>); Soemers, <i>Design Principles for Precision Mechanisms</i>; src/core/flexure.js, src/calc/flexures.js"
+      });
+    }
     case "contact": {
       const P = N(e.node); if (!P) return "";
       const f = cFrame(e, P), h = hertz(e, f.delta), st = liveContact(e), mu = e.mu === undefined ? 0.15 : e.mu;
@@ -392,7 +424,7 @@ function keyOf() {
   return [model.mode, model.durMode, ui.sel ? ui.sel.kind + ui.sel.id : "", sweepId(sim.sweep), !!sim.job, ui.dynStale, sim.solveOK,
     model.nodes.length, model.elems.length, model.gravity, model.dtStep, model.simDur, model.defMass, model.cVisc, model.maxT,
     model.jointDamp, model.cJoint, model.fricVs, model.fricVe, model.frfIn, model.mode === "kin" ? ui.frame : 0,
-    sel ? JSON.stringify(sel) : "", sel && sel.type === "contact" ? ui.frame : 0, model.mode === "kin" ? model.nodes.map(n => n.x + "," + n.y).join(";") : ""].join("|");
+    sel ? JSON.stringify(sel) : "", sel && (sel.type === "contact" || sel.type === "flexure") ? ui.frame : 0, model.mode === "kin" ? model.nodes.map(n => n.x + "," + n.y).join(";") : ""].join("|");
 }
 
 export function renderHow(el) {

@@ -133,7 +133,7 @@ export function initInteract() {
         break;
       }
 
-      case "link": case "spring": case "damper": case "actuator": case "gap": {
+      case "link": case "spring": case "damper": case "actuator": case "gap": case "flexure": {
         const n = hitN || addNode(snapPt(wp));
         edited = !hitN;
         if (!ui.pending) { ui.pending = n.id; }

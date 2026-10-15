@@ -1299,7 +1299,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return { L: Lm + La * Math.sin(ph), Ld: La * w * Math.cos(ph), Ldd: -La * w * w * Math.sin(ph) };
   }
   var actuators = () => model.elems.filter((e) => e.type === "actuator" && N(e.a) && N(e.b));
-  var isBar = (e) => e.type === "link" || e.type === "actuator";
+  var isBar = (e) => e.type === "link" || e.type === "actuator" || e.type === "flexure";
   function curLen(e) {
     if (e.type !== "actuator") return e.len;
     if (sim.lenOv && sim.lenOv.has(e.id)) return sim.lenOv.get(e.id);
@@ -1395,6 +1395,247 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return model.mode === "dyn" || model.mode === "frf";
   }
   var omega = (d) => (d.cw ? -1 : 1) * (d.rpm || 0) * Math.PI / 30;
+
+  // src/calc/flexures.js
+  var PI = Math.PI;
+  function freqTrans(cNmm, m) {
+    if (!(cNmm > 0) || !(m > 0)) return NaN;
+    return Math.sqrt(cNmm * 1e3 / m) / (2 * PI);
+  }
+  function freqRot(cNmmRad, m, r) {
+    if (!(cNmmRad > 0) || !(m > 0) || !(r > 0)) return NaN;
+    const J = m * (r / 1e3) ** 2;
+    return Math.sqrt(cNmmRad / 1e3 / J) / (2 * PI);
+  }
+  var margin = (Pcr, F) => F > 0 ? Pcr / F : Infinity;
+  var eff = (p) => p.plate ? p.E / (1 - p.nu * p.nu) : p.E;
+  function leafSpring(p) {
+    const E2 = eff(p), I = p.b * p.t ** 3 / 12;
+    const cx = 12 * E2 * I / p.L ** 3;
+    const cz0 = E2 * p.b * p.t / p.L;
+    const cz = 1 / (p.L / (E2 * p.b * p.t) + p.u ** 2 * p.L / (700 * E2 * I));
+    const uMax = p.sigma * p.L ** 2 / (3 * E2 * p.t);
+    const sb = 3 * E2 * p.t * p.u / p.L ** 2, sa = Math.abs(p.F) / (p.b * p.t);
+    const Pcr = PI ** 2 * E2 * I / p.L ** 2;
+    return {
+      E: E2,
+      I,
+      cx,
+      cz0,
+      cz,
+      dz: 0.6 * p.u ** 2 / p.L,
+      uMax,
+      sb,
+      sa,
+      sigma: sb + sa,
+      Pcr,
+      margin: margin(Pcr, Math.abs(p.F)),
+      f: freqTrans(cx, p.m),
+      force: cx * p.u
+    };
+  }
+  function parallelLeaf(p) {
+    const s = leafSpring(Object.assign({}, p, { F: p.F / 2 }));
+    return {
+      E: s.E,
+      I: s.I,
+      cx: 2 * s.cx,
+      cz0: 2 * s.cz0,
+      cz: 2 * s.cz,
+      dz: s.dz,
+      uMax: s.uMax,
+      sb: s.sb,
+      sa: s.sa,
+      sigma: s.sigma,
+      Pcr: 2 * s.Pcr,
+      margin: margin(2 * s.Pcr, Math.abs(p.F)),
+      f: freqTrans(2 * s.cx, p.m),
+      force: 2 * s.cx * p.u
+    };
+  }
+  function crossPivot(p) {
+    const E2 = eff(p), I = p.b * p.t ** 3 / 12;
+    const c2 = 2 * E2 * I / p.L;
+    const phiMax = 2 * p.sigma * p.L / (E2 * p.t);
+    const sb = E2 * p.t * p.phi / (2 * p.L), sa = Math.abs(p.F) / (2 * p.b * p.t);
+    const Pcr = 2 * PI ** 2 * E2 * I / p.L ** 2;
+    return {
+      E: E2,
+      I,
+      c: c2,
+      phiMax,
+      sb,
+      sa,
+      sigma: sb + sa,
+      moment: c2 * p.phi,
+      Pcr,
+      margin: margin(Pcr, Math.abs(p.F)),
+      f: freqRot(c2, p.m, p.r)
+    };
+  }
+  function notchHinge(p) {
+    const E2 = eff(p);
+    const c2 = 2 * E2 * p.b * p.t ** 2.5 / (9 * PI * Math.sqrt(p.R));
+    const perRad = 4 / (3 * PI) * E2 * Math.sqrt(p.t / p.R);
+    const sNom = perRad * p.phi, sigma = p.Kt * sNom;
+    return {
+      E: E2,
+      c: c2,
+      perRad,
+      sNom,
+      sigma,
+      phiMax: p.sigma / (p.Kt * perRad),
+      moment: c2 * p.phi,
+      ratio: p.t / (2 * p.R),
+      f: freqRot(c2, p.m, p.r)
+    };
+  }
+  function wireFlexure(p) {
+    const E2 = p.E, A = PI * p.d ** 2 / 4, I = PI * p.d ** 4 / 64, g = p.bc === "guided";
+    const cax = E2 * A / p.L, cb = (g ? 12 : 3) * E2 * I / p.L ** 3;
+    const k = g ? 3 : 1.5;
+    const uMax = p.sigma * p.L ** 2 / (k * E2 * p.d);
+    const sb = k * E2 * p.d * p.u / p.L ** 2, sa = Math.abs(p.F) / A;
+    const Pcr = PI ** 2 * E2 * I / ((g ? 1 : 2) * p.L) ** 2;
+    return {
+      A,
+      I,
+      cax,
+      cb,
+      uMax,
+      sb,
+      sa,
+      sigma: sb + sa,
+      Pcr,
+      margin: margin(Pcr, Math.abs(p.F)),
+      f: freqTrans(cb, p.m),
+      fax: freqTrans(cax, p.m),
+      force: cb * p.u
+    };
+  }
+
+  // src/calc/materials.js
+  var MATERIALS2 = [
+    { id: "staal", naam: "Staal (veerstaal)", E: 21e4, nu: 0.3, sigma: 300 },
+    { id: "rvs", naam: "RVS", E: 193e3, nu: 0.29, sigma: 250 },
+    { id: "alu", naam: "Aluminium", E: 7e4, nu: 0.33, sigma: 120 },
+    { id: "titaan", naam: "Titanium", E: 114e3, nu: 0.34, sigma: 500 },
+    { id: "cube", naam: "Brons / CuBe", E: 128e3, nu: 0.3, sigma: 600 },
+    { id: "invar", naam: "Invar", E: 141e3, nu: 0.26, sigma: 250 }
+  ];
+  var material = (id) => MATERIALS2.find((m) => m.id === id) || MATERIALS2[0];
+
+  // src/core/flexure.js
+  var GAMMA = 0.85;
+  var KTHETA = 2.65;
+  var FLEX_KINDS = { cantilever: "Bladveer (uitkraging)", cross: "Kruisveerscharnier", notch: "Scharnier met inkeping" };
+  var flexDefaults = (kind2, len) => {
+    const k = FLEX_KINDS[kind2] ? kind2 : "cantilever";
+    return {
+      kind: k,
+      L: k === "cantilever" ? Math.round(len / GAMMA * 100) / 100 : 20,
+      wd: 10,
+      t: 0.3,
+      R: 3,
+      Kt: 1.5,
+      mat: "staal",
+      sig: 0,
+      pre: 0,
+      ref: ""
+    };
+  };
+  var flexures = () => model.elems.filter((e) => e.type === "flexure" && N(e.a) && N(e.b));
+  var rad = Math.PI / 180;
+  function flexMat(e) {
+    const m = material(e.mat);
+    return { E: m.E, nu: m.nu, naam: m.naam, sigma: e.sig > 0 ? e.sig : m.sigma };
+  }
+  var geo = (e) => ({
+    b: Math.max(1e-6, e.wd || 10),
+    t: Math.max(1e-6, e.t || 0.3),
+    L: Math.max(1e-6, e.L || 20),
+    R: Math.max(1e-6, e.R || 3),
+    Kt: Math.max(1, e.Kt || 1)
+  });
+  var calcIn = (e) => {
+    const g = geo(e), m = flexMat(e);
+    return Object.assign({ E: m.E, nu: m.nu, sigma: m.sigma, phi: 0, F: 0, m: 1, r: 1 }, g);
+  };
+  var flexI = (e) => {
+    const g = geo(e);
+    return g.b * g.t ** 3 / 12;
+  };
+  function flexK(e) {
+    const g = geo(e), m = flexMat(e);
+    if (e.kind === "cross") return crossPivot(calcIn(e)).c;
+    if (e.kind === "notch") return notchHinge(calcIn(e)).c;
+    return GAMMA * KTHETA * m.E * flexI(e) / g.L;
+  }
+  function flexStressRate(e) {
+    const g = geo(e), m = flexMat(e);
+    if (e.kind === "notch") return { rate: notchHinge(calcIn(e)).perRad * g.Kt, Leff: NaN };
+    const Leff = e.kind === "cross" ? g.L : g.L / KTHETA;
+    return { rate: m.E * g.t / (2 * Leff), Leff };
+  }
+  function flexStress(e, phi) {
+    const s = flexStressRate(e), allow = flexMat(e).sigma, sigma = s.rate * Math.abs(phi);
+    return { sigma, allow, ratio: sigma / allow, rate: s.rate, Leff: s.Leff, phiMax: allow / s.rate };
+  }
+  function flexRef(e) {
+    if (!e.ref) return null;
+    const r = E(e.ref);
+    return r && r !== e && isBar(r) && N(r.a) && N(r.b) && (r.a === e.a || r.b === e.a) ? r : null;
+  }
+  function flexDefaultRef(e) {
+    if (N(e.a).support !== "free") return "";
+    const o = model.elems.find((x) => x !== e && isBar(x) && N(x.a) && N(x.b) && (x.a === e.a || x.b === e.a));
+    return o ? o.id : "";
+  }
+  function flexRefs(e) {
+    return model.elems.filter((x) => x !== e && isBar(x) && N(x.a) && N(x.b) && (x.a === e.a || x.b === e.a));
+  }
+  var wrap = (x) => x - 2 * Math.PI * Math.round(x / (2 * Math.PI));
+  function flexTheta(e, pos) {
+    const P = pos(e.a), Q = pos(e.b), r = flexRef(e);
+    let th = Math.atan2(Q.y - P.y, Q.x - P.x);
+    if (r) {
+      const O = pos(r.a === e.a ? r.b : r.a);
+      th -= Math.atan2(O.y - P.y, O.x - P.x);
+    }
+    return th;
+  }
+  function flexRest() {
+    const m = /* @__PURE__ */ new Map();
+    for (const e of flexures()) m.set(e.id, flexTheta(e, N));
+    return m;
+  }
+  var flexPhi = (e, pos, rest) => wrap(flexTheta(e, pos) - (rest.get(e.id) || 0)) + (e.pre || 0) * rad;
+  var flexPot = (e, phi) => 0.5 * flexK(e) * phi * phi;
+  function couple(add, P, Q, ida, idb, tau) {
+    const rx = Q.x - P.x, ry = Q.y - P.y, k = tau / (rx * rx + ry * ry || 1);
+    add(idb, -k * ry, k * rx);
+    add(ida, k * ry, -k * rx);
+  }
+  function flexLoads(pos, rest, add) {
+    for (const e of flexures()) {
+      const K = flexK(e), M = -K * flexPhi(e, pos, rest), r = flexRef(e);
+      couple(add, pos(e.a), pos(e.b), e.a, e.b, M);
+      if (r) couple(add, pos(r.a), pos(r.b), r.a, r.b, -M);
+    }
+  }
+  function flexTrace(S, rest) {
+    S.FX = {};
+    for (const e of flexures()) {
+      const r = flexRef(e), ids = [e.a, e.b].concat(r ? [r.a, r.b] : []);
+      if (ids.some((id) => !S.pos[id])) continue;
+      const out = new Array(S.t ? S.t.length : 361);
+      for (let i = 0; i < out.length; i++) out[i] = flexPhi(e, (id) => S.pos[id][i], rest);
+      S.FX[e.id] = out;
+    }
+  }
+  function flexLivePhi(e, S, i) {
+    return S && S.FX && S.FX[e.id] && isFinite(S.FX[e.id][i]) ? S.FX[e.id][i] : (e.pre || 0) * rad;
+  }
 
   // src/core/linalg.js
   function gauss(A, n) {
@@ -1736,6 +1977,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (mobility().dofDriven !== 0) return;
     if (ds.some((d) => !N(d.a) || !N(d.b) || N(d.a).support !== "pin")) return;
     const keep = model.nodes.map((n) => ({ n, x: n.x, y: n.y }));
+    const fxRest = flexRest();
     const per = ds.map((d) => Math.abs(d.rpm || 0)).filter((r) => r > 0).map((r) => 60 / r).concat(as.map((e) => e.freq > 0 ? 1 / e.freq : 0).filter((x) => x > 0));
     const dur = per.length ? Math.max(...per) : 1;
     const S = {
@@ -1794,6 +2036,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       r.n.y = r.y;
     });
     sim.simT = 0;
+    flexTrace(S, fxRest);
     sim.solveOK = S.ok.some(Boolean);
     sim.sweep = S.ok.some(Boolean) ? S : null;
   }
@@ -2024,6 +2267,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const pos = (q2, id) => fi.has(id) ? { x: q2[2 * fi.get(id)], y: q2[2 * fi.get(id) + 1] } : fixed[id];
     const vel = (v2, id) => fi.has(id) ? { x: v2[2 * fi.get(id)], y: v2[2 * fi.get(id) + 1] } : { x: 0, y: 0 };
     const jointLoads = jointDamper(pos, vel);
+    const fxRest = flexRest();
     const cj = jointLoads ? 1 : 0;
     function crankAt(d, t) {
       const A = fixed[d.a], om = omega(d);
@@ -2148,6 +2392,12 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         }
       }
       if (cj > 0) jointLoads(q2, v2, (id, fx, fy) => {
+        if (!fi.has(id)) return;
+        const i = fi.get(id);
+        F[2 * i] += fx;
+        F[2 * i + 1] += fy;
+      });
+      flexLoads((id) => pos(q2, id), fxRest, (id, fx, fy) => {
         if (!fi.has(id)) return;
         const i = fi.get(id);
         F[2 * i] += fx;
@@ -2457,6 +2707,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       r.n.y = r.y;
     });
     sim.simT = 0;
+    flexTrace(S, fxRest);
     S.Rmax = Rmax;
     S.Nmax = Nmax;
     sim.solveOK = S.ok.some(Boolean);
@@ -2615,6 +2866,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         if (model.gravity) E2 += m * G * S.pos[n.id][f2].y * 1e-3;
       }
       for (const e of cons) E2 += contactPot(e, S.pos[e.node][f2]) * 1e-3;
+      for (const e of flexures()) E2 += flexPot(e, flexPhi(e, (id) => S.pos[id][f2], fxRest)) * 1e-3;
       for (const e of model.elems) {
         if (e.type !== "spring" && e.type !== "gap") continue;
         const P = S.pos[e.a][f2], Q = S.pos[e.b][f2];
@@ -2683,6 +2935,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       for (let k2 = 0; k2 < a.length; k2++) t += a[k2] * b[k2];
       return t;
     };
+    const fxRest = flexRest();
     const bb = bounds();
     const size = bb ? Math.max(40, Math.hypot(bb.b.x - bb.a.x, bb.b.y - bb.a.y)) : 100;
     const h = Math.max(0.01, size * 2e-3);
@@ -2783,6 +3036,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           v += 0.5 * (e.kc || 0) * d * d;
         } else if (e.type === "contact" && fi.has(e.node)) {
           v += contactPot(e, pos(q, e.node));
+        } else if (e.type === "flexure" && N(e.a) && N(e.b)) {
+          v += flexPot(e, flexPhi(e, (id) => pos(q, id), fxRest));
         } else if (e.type === "force" && fi.has(e.node)) {
           const P = pos(q, e.node), th = e.ang * Math.PI / 180;
           v -= e.mag * (Math.cos(th) * P.x + Math.sin(th) * P.y);
@@ -3085,6 +3340,17 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const e = E(id);
     if (!e) return null;
     if (t === "a") return dL(e);
+    if (t === "f") {
+      const rot = (a, b) => {
+        const P = q0p(a), Q = q0p(b), L = Math.hypot(Q.x - P.x, Q.y - P.y) || 1, ux = (Q.x - P.x) / L, uy = (Q.y - P.y) / L;
+        const pa = [d(a, 0), d(a, 1)], pb = [d(b, 0), d(b, 1)];
+        return [0, 1].map((c2) => (ux * (pb[1][c2] - pa[1][c2]) - uy * (pb[0][c2] - pa[0][c2])) / L);
+      };
+      const r = flexRef(e), th = rot(e.a, e.b), tr = r ? rot(e.a, r.a === e.a ? r.b : r.a) : [0, 0];
+      const ph = [th[0] - tr[0], th[1] - tr[1]];
+      const sc = k === "phi" ? 180 / Math.PI : k === "sig" ? flexStressRate(e).rate : flexK(e) * 1e-3;
+      return [ph[0] * sc, ph[1] * sc];
+    }
     if (t === "s") {
       if (e.type === "spring") return dL(e).map((v) => v * e.k);
       if (e.type === "damper") return times(dL(e), 1).map((v) => v * e.c);
@@ -3200,6 +3466,12 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           frf: true
         });
       }
+      if (e.type === "flexure") {
+        const o = "Flexure " + pair(e), p = pair(e);
+        out.push({ key: "f|" + e.id + "|phi", lab: "flexure " + p + " \xB7 \u03C6", q: "\u03C6", u: "\xB0", al: "phi_" + p, g: "Krachtelementen", o, obj: e.id, frf: true });
+        out.push({ key: "f|" + e.id + "|sig", lab: "flexure " + p + " \xB7 \u03C3", q: "\u03C3", u: "MPa", al: "sig_" + p, g: "Krachtelementen", o, obj: e.id, frf: true });
+        out.push({ key: "f|" + e.id + "|M", lab: "flexure " + p + " \xB7 M", q: "M", u: "N\xB7m", al: "Mf_" + p, g: "Krachtelementen", o, obj: e.id, frf: true });
+      }
       if (e.type === "gap") {
         const o = "Speling " + pair(e);
         out.push({
@@ -3288,6 +3560,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (t === "c") {
       const c2 = S.C && S.C[id] ? S.C[id][i] : null;
       return c2 ? c2[k] : NaN;
+    }
+    if (t === "f") {
+      const e = E(id), a = S.FX && S.FX[id] ? S.FX[id][i] : NaN;
+      if (!e || !isFinite(a)) return NaN;
+      return k === "phi" ? a * 180 / Math.PI : k === "sig" ? flexStress(e, a).sigma : -flexK(e) * a * 1e-3;
     }
     if (t === "r") {
       const R = S.R[id] ? S.R[id][i] : null;
@@ -3708,6 +3985,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     actuator: '<path d="M2.5 13.8L9.6 8.2" stroke="currentColor" stroke-width="4.2" stroke-linecap="round"/><path d="M9 8.6l8-6.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M12.8 14.8l3.6-2.8M14.4 17l3.6-2.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>',
     spring: '<path d="M2.5 10h2.6l1.5-4 2.4 8 2.4-8 1.5 4h2.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
     gap: '<path d="M2.4 10h4.2M11.6 10h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M13.6 6.4H6.6v7.2h7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 7.6v4.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8.2 4.2h3.6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-dasharray="1 1.2"/>',
+    flexure: '<path d="M2.6 10h2.4c1.2-4.4 2.4-4.4 3.6 0s2.4 4.4 3.6 0 2.4-4.4 3.6 0h.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M2.6 4.6v10.8M1.2 6.2l1.4-1.4M1.2 9.2l1.4-1.4M1.2 12.2l1.4-1.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="17" cy="10" r="1.6" fill="currentColor"/>',
     contact: '<circle cx="10" cy="7.4" r="3.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2.6 11.8h14.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 13.6l-1.4 2M7.6 13.6l-1.4 2M11.2 13.6l-1.4 2M14.8 13.6l-1.4 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>',
     damper: '<path d="M2.4 10h3.4M14.2 10h3.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M5.8 6.2h5.6v7.6H5.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 6.9v6.2M10 10h4.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
     force: '<path d="M10 17V4.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M10 2.4l3.4 4.2H6.6z" fill="currentColor"/>',
@@ -3729,6 +4007,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     { id: "spring", nm: "Veer", kb: "R", ic: "spring", hint: "Klik twee punten om er een <b>veer</b> tussen te zetten." },
     { id: "damper", nm: "Demper", kb: "C", ic: "damper", hint: "Klik twee punten om er een <b>demper</b> tussen te zetten." },
     { id: "gap", nm: "Speling", kb: "G", ic: "gap", hint: "Klik twee punten voor een <b>lineaire speling</b>: vrij tussen kortst en langst, daarbuiten een aanslag." },
+    { id: "flexure", nm: "Flexure", kb: "B", ic: "flexure", hint: "Klik twee punten voor een <b>flexure</b> (bladveer, kruisveerscharnier of inkeping): een scharnier in het eerste punt met een draaiveer uit de geometrie en het materiaal. Type en maten stel je in bij Eigenschappen." },
     { id: "contact", nm: "Contact", kb: "K", ic: "contact", hint: "Klik een punt voor een <b>contact</b>: een bal (Hertz) op een vlak, met plakken en slippen. Het vlak ligt eerst recht onder de bal; hoek en plek stel je in bij Eigenschappen." },
     { id: "force", nm: "Kracht", kb: "F", ic: "force", hint: "Klik een punt om er een <b>kracht</b> op te zetten." },
     { id: "mass", nm: "Massa", kb: "M", ic: "mass", hint: "Klik een punt om er een <b>puntmassa</b> aan toe te kennen." },
@@ -3801,7 +4080,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     document.addEventListener("keydown", (e) => {
       if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
       const k = e.key.toLowerCase();
-      const map = { v: "select", n: "node", l: "link", p: "pin", s: "slider", d: "driver", a: "actuator", r: "spring", c: "damper", g: "gap", k: "contact", f: "force", m: "mass", t: "trace", x: "del" };
+      const map = { v: "select", n: "node", l: "link", p: "pin", s: "slider", d: "driver", a: "actuator", r: "spring", c: "damper", g: "gap", k: "contact", b: "flexure", f: "force", m: "mass", t: "trace", x: "del" };
       if (map[k]) {
         setTool(map[k]);
         e.preventDefault();
@@ -4142,6 +4421,51 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           src: "src/core/elements.js (gapForce)"
         });
       }
+      case "flexure": {
+        const m = flexMat(e), K = flexK(e), I = flexI(e), phi = flexLivePhi(e, sim.sweep, Math.round(ui.frame)), st = flexStress(e, phi);
+        const kind2 = e.kind, cant = kind2 === "cantilever", Kt = e.Kt || 1;
+        const eq = cant ? [
+          c("pivot op (1\u2212\u03B3)\xB7L van de inklemming, schakel \u03B3\xB7L"),
+          c("K = \u03B3\xB7K<sub>\u0398</sub>\xB7E\xB7I / L") + " met " + c("I = b\xB7t\xB3/12"),
+          c("M = \u2212K\xB7\u03C6") + ", " + c("\u03C3 = M<sub>inkl</sub>\xB7t/(2I) = K<sub>\u0398</sub>\xB7E\xB7t\xB7|\u03C6| / (2L)")
+        ] : kind2 === "cross" ? [c("K = 2\xB7E\xB7I / L") + " (twee bladen, elk E\xB7I/L)", c("M = \u2212K\xB7\u03C6") + ", " + c("\u03C3 = E\xB7t\xB7|\u03C6| / (2L)")] : [c("K = 2\xB7E\xB7b\xB7t<sup>5/2</sup> / (9\u03C0\xB7\u221AR)") + " (Paros\u2013Weisbord)", c("M = \u2212K\xB7\u03C6") + ", " + c("\u03C3 = K<sub>t</sub>\xB7(4/(3\u03C0))\xB7E\xB7\u221A(t/R)\xB7|\u03C6|")];
+        const sym = [
+          [c("\u03C6"), "hoek van de schakel ten opzichte van de referentie, min de getekende stand (+ voorspanning)"],
+          [c("K"), "draaistijfheid in N\xB7mm/rad"],
+          [c("E, I"), "elasticiteitsmodulus en oppervlaktetraagheidsmoment"]
+        ].concat(cant ? [[c("\u03B3, K<sub>\u0398</sub>"), "0,85 en 2,65 (Howell, belasting aan de tip)"]] : []).concat(kind2 === "notch" ? [[c("K<sub>t</sub>"), "spanningsconcentratie bij de inkeping"]] : []);
+        const live = [
+          kv("Type", esc(FLEX_KINDS[kind2] || kind2)),
+          kv("Materiaal", esc(m.naam) + ", E = " + num2(m.E) + " MPa"),
+          kv("b \xB7 t \xB7 L", num2(e.wd) + " \xB7 " + num2(e.t) + " \xB7 " + num2(e.L) + " mm"),
+          kv("I", num2(I) + " mm\u2074"),
+          kv("E\xB7I", num2(m.E * I) + " N\xB7mm\xB2"),
+          kv("K", num2(K) + " N\xB7mm/rad = " + num2(K / 1e3) + " N\xB7m/rad"),
+          kv("\u03C6 nu", num2(phi * 180 / Math.PI) + "\xB0 (" + num2(phi) + " rad)"),
+          kv("M", num2(-K * phi / 1e3) + " N\xB7m"),
+          kv("\u03C3", num2(st.sigma) + " MPa (\u03C3<sub>toel</sub> = " + num2(st.allow) + " MPa, " + num2(st.ratio * 100) + " %)"),
+          kv("\u03C6<sub>max</sub>", num2(st.phiMax * 180 / Math.PI) + "\xB0")
+        ];
+        if (cant) live.splice(
+          4,
+          0,
+          kv("\u03B3\xB7K<sub>\u0398</sub>/L", num2(GAMMA * KTHETA / e.L) + " mm\u207B\xB9"),
+          kv("L<sub>eff</sub> = L/K<sub>\u0398</sub>", num2(st.Leff) + " mm"),
+          kv("Schakel \u03B3\xB7L", num2(GAMMA * e.L) + " mm (getekend " + num2(e.len) + " mm)")
+        );
+        return block({
+          title: "Flexure " + nm + " (" + esc(FLEX_KINDS[kind2] || kind2) + ")",
+          eq,
+          sym,
+          live,
+          ass: [
+            "PRBM: het blad is een stijve schakel met een draaiveer; goed voor kleine tot matige doorbuiging, de afwijking van de tip-stijfheid is ongeveer 4 % (K<sub>\u0398</sub>/(3\u03B3) = 1,039 ten opzichte van 3EI/L\xB3).",
+            "Kinematisch: puur scharnier, de stijfheid telt niet mee maar \u03C3 en \u03C6 wel. Dynamisch, Evenwicht en FRF: K zit in de potenti\xEBle energie \xBD\xB7K\xB7\u03C6\xB2.",
+            "Geen axiale rek, geen dwarskrachtvervorming en geen lastafhankelijke verschuiving van het karakteristieke scharnier."
+          ],
+          src: "Howell, <i>Compliant Mechanisms</i> (PRBM, \u03B3 en K<sub>\u0398</sub>); Soemers, <i>Design Principles for Precision Mechanisms</i>; src/core/flexure.js, src/calc/flexures.js"
+        });
+      }
       case "contact": {
         const P = N(e.node);
         if (!P) return "";
@@ -4277,7 +4601,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       model.frfIn,
       model.mode === "kin" ? ui.frame : 0,
       sel ? JSON.stringify(sel) : "",
-      sel && sel.type === "contact" ? ui.frame : 0,
+      sel && (sel.type === "contact" || sel.type === "flexure") ? ui.frame : 0,
       model.mode === "kin" ? model.nodes.map((n) => n.x + "," + n.y).join(";") : ""
     ].join("|");
   }
@@ -4649,6 +4973,58 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       }
       return;
     }
+    if (e.type === "flexure") {
+      stSel.textContent = "flexure";
+      const sel = (id, lab, opts, cur) => '<div class="row"><label for="' + id + '">' + lab + '</label><select id="' + id + '">' + opts.map((o) => '<option value="' + o[0] + '"' + (o[0] === cur ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></div>";
+      const refs = flexRefs(e), cant = e.kind === "cantilever";
+      props.innerHTML = kind(ui.C.ink2, "Flexure (PRBM)") + '<p class="empty" style="margin:-4px 0 10px">Scharnier in ' + N(e.a).name + ", schakel naar " + N(e.b).name + "</p>" + sel("fk", "Type", Object.keys(FLEX_KINDS).map((k) => [k, FLEX_KINDS[k]]), e.kind) + numRow("fL", cant ? "Bladlengte L" : "Lengte bladen L", e.L, "mm", 1) + numRow("fwd", "Breedte b", e.wd, "mm", 0.5) + numRow("ft", "Dikte t", e.t, "mm", 0.01) + (e.kind === "notch" ? numRow("fR", "Inkepingsstraal R", e.R, "mm", 0.1) + numRow("fKt", "Spanningsconc. K\u209C", e.Kt, "\u2013", 0.1) : "") + sel("fm", "Materiaal", MATERIALS2.map((m) => [m.id, m.naam]), e.mat) + numRow("fsig", "\u03C3 toelaatbaar (0 = materiaal)", e.sig || 0, "MPa", 10) + numRow("fpre", "Voorspanning", e.pre || 0, "\xB0", 0.1) + sel("fref", "Draait ten opzichte van", [["", "de grond"]].concat(refs.map((r) => [r.id, "schakel " + N(r.a).name + N(r.b).name])), e.ref || "") + '<p class="empty" style="margin:10px 0 0"><b>Nu</b></p><p class="empty" id="fxLive" data-e="' + e.id + '" style="margin-top:2px">' + flexLive(e) + '</p><p class="empty" style="margin-top:8px">' + (cant ? "Pseudo-starre-lichaammodel (Howell): het karakteristieke scharnier ligt op " + nl2(fmt((1 - GAMMA) * e.L)) + " mm van de inklemming (a); de getekende schakel is \u03B3\xB7L = " + nl2(fmt(GAMMA * e.L)) + " mm lang. Teken a dus op die plek, niet op de inklemming zelf. " : "Het scharnier draait om punt a; de getekende schakel hoeft niet even lang te zijn als het blad. ") + "De draaiveer werkt in Dynamisch, Evenwicht en FRF. In Kinematisch telt de stijfheid niet mee (puur scharnier), maar de spanning wel.</p>";
+      bindNum("fL", (v) => {
+        e.L = Math.max(0.01, v);
+        if (cant) {
+          e.len = Math.round(GAMMA * e.L * 100) / 100;
+          relax();
+        }
+      });
+      bindNum("fwd", (v) => {
+        e.wd = Math.max(0.01, v);
+      });
+      bindNum("ft", (v) => {
+        e.t = Math.max(1e-3, v);
+      });
+      bindNum("fR", (v) => {
+        e.R = Math.max(0.01, v);
+      });
+      bindNum("fKt", (v) => {
+        e.Kt = Math.max(1, v);
+      });
+      bindNum("fsig", (v) => {
+        e.sig = Math.max(0, v);
+      });
+      bindNum("fpre", (v) => {
+        e.pre = v;
+      });
+      for (const [id, key] of [["fk", "kind"], ["fm", "mat"], ["fref", "ref"]]) {
+        const el = document.getElementById(id);
+        el.addEventListener("change", () => {
+          if (!atT0()) {
+            el.value = e[key] || "";
+            lockNudge();
+            return;
+          }
+          cancelJob();
+          e[key] = el.value;
+          if (key === "kind" && el.value === "cantilever") e.L = Math.round(e.len / GAMMA * 100) / 100;
+          if (!asyncMode()) ui.frame = 0;
+          rebuild();
+          syncDof();
+          draw();
+          pushHistory();
+          save();
+          buildInspector();
+        });
+      }
+      return;
+    }
     if (e.type === "spring") {
       stSel.textContent = "veer";
       props.innerHTML = kind(ui.C.spring, "Veer") + '<p class="empty" style="margin:-4px 0 10px">' + N(e.a).name + " \u2013 " + N(e.b).name + "</p>" + numRow("sk", "Stijfheid k", e.k, "N/mm", 0.1) + numRow("sl", "Rustlengte L\u2080", e.L0, "mm", 0.5) + '<p class="empty" style="margin-top:8px">Huidige lengte ' + fmt(dist(N(e.a), N(e.b))) + " mm. Veerkracht volgt straks uit de kinematica \u2014 geen tijdsintegratie nodig.</p>";
@@ -4687,10 +5063,21 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   }
   function syncContactLive() {
     const el = document.getElementById("ctLive");
-    if (!el) return;
-    const e = E(el.dataset.e);
-    if (e && e.type === "contact" && N(e.node)) el.innerHTML = contactLive(e);
+    if (el) {
+      const e = E(el.dataset.e);
+      if (e && e.type === "contact" && N(e.node)) el.innerHTML = contactLive(e);
+    }
+    const fx = document.getElementById("fxLive");
+    if (fx) {
+      const e = E(fx.dataset.e);
+      if (e && e.type === "flexure") fx.innerHTML = flexLive(e);
+    }
     renderHowNow();
+  }
+  function flexLive(e) {
+    const K = flexK(e), phi = flexLivePhi(e, sim.sweep, Math.round(ui.frame)), st = flexStress(e, phi);
+    const warn2 = st.ratio > 1;
+    return "K <b>" + fmt(K) + "</b> N\xB7mm/rad (" + fmt(K / 1e3) + " N\xB7m/rad)<br>\u03C6 <b>" + fmt(phi * 180 / Math.PI) + "</b>\xB0 \xB7 M <b>" + fmt(-K * phi / 1e3) + '</b> N\xB7m<br><span style="' + (warn2 ? "color:var(--driver);font-weight:600" : "") + '">\u03C3 <b>' + fmt(st.sigma) + "</b> MPa van " + fmt(st.allow) + " MPa (" + fmt(st.ratio * 100) + " %)" + (warn2 ? " \u2014 boven de toelaatbare spanning" : "") + "</span><br>\u03C6 maximaal <b>" + fmt(st.phiMax * 180 / Math.PI) + "</b>\xB0 bij \u03C3 toelaatbaar" + (sim.sweep && sim.sweep.FX ? "" : " \xB7 nog geen doorgerekende beweging");
   }
   function fricApplies(n) {
     const k = model.elems.filter((e) => isBar(e) && (e.a === n.id || e.b === n.id)).length;
@@ -5924,10 +6311,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return [lo, hi];
   }
   function measurePlot() {
-    const wrap = plotCv.parentElement, cs = getComputedStyle(wrap);
+    const wrap2 = plotCv.parentElement, cs = getComputedStyle(wrap2);
     ui.plotBox = {
-      w: wrap.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
-      h: wrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+      w: wrap2.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
+      h: wrap2.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
     };
   }
   function drawPlot() {
@@ -6399,6 +6786,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     for (const e of model.elems) if (e.type === "link" && !e.driver) drawLink(e);
     for (const e of model.elems) if (e.type === "link" && e.driver) drawLink(e);
     for (const e of model.elems) if (e.type === "actuator") drawActuator(e);
+    for (const e of model.elems) if (e.type === "flexure") drawFlexure(e);
     for (const n of model.nodes) drawSupport(n);
     for (const e of model.elems) if (e.type === "force") drawForce(e);
     for (const n of model.nodes) drawNode(n);
@@ -6411,7 +6799,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function labelDetail() {
     const L = [];
     for (const e of model.elems) {
-      if (e.type !== "link" && e.type !== "spring" && e.type !== "damper") continue;
+      if (e.type !== "link" && e.type !== "spring" && e.type !== "damper" && e.type !== "flexure") continue;
       const A = N(e.a), B = N(e.b);
       if (A && B) L.push(dist(A, B) * view.s);
     }
@@ -6599,6 +6987,79 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
       label(mx, my - 12, fmt(e.len) + " mm", e.driver ? ui.C.driver : ui.C.ink3);
     }
+  }
+  function drawFlexure(e) {
+    if (!N(e.a) || !N(e.b)) return;
+    const A = toScr(N(e.a)), B = toScr(N(e.b));
+    const dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L, px = -uy, py = ux;
+    const st = flexStress(e, flexLivePhi(e, sim.sweep, Math.round(ui.frame))), warn2 = st.ratio > 1;
+    const col = warn2 ? ui.C.driver : ui.C.ink2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    if (isSel(e.id) || isHov(e.id)) {
+      ctx.strokeStyle = ui.C.accent;
+      ctx.lineWidth = 11;
+      ctx.globalAlpha = isSel(e.id) ? 0.28 : 0.15;
+      ctx.beginPath();
+      ctx.moveTo(A.x, A.y);
+      ctx.lineTo(B.x, B.y);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.strokeStyle = col;
+    ctx.lineWidth = warn2 ? 2.2 : 1.7;
+    const at = (t, s) => [A.x + ux * L * t + px * s, A.y + uy * L * t + py * s];
+    ctx.beginPath();
+    if (e.kind === "cross") {
+      const w = Math.min(7, L * 0.14), a = at(0.2, 0), b = at(0.8, 0);
+      ctx.moveTo(A.x, A.y);
+      ctx.lineTo(a[0], a[1]);
+      ctx.moveTo(...at(0.2, w));
+      ctx.lineTo(...at(0.8, -w));
+      ctx.moveTo(...at(0.2, -w));
+      ctx.lineTo(...at(0.8, w));
+      ctx.moveTo(b[0], b[1]);
+      ctx.lineTo(B.x, B.y);
+    } else if (e.kind === "notch") {
+      const r = Math.min(5, L * 0.12), w = 5.5, m1 = at(0.5 - r / L, w), m2 = at(0.5 + r / L, w);
+      ctx.moveTo(...at(0, w));
+      ctx.lineTo(...m1);
+      ctx.moveTo(...m2);
+      ctx.lineTo(...at(1, w));
+      ctx.moveTo(...at(0, -w));
+      ctx.lineTo(...at(0.5 - r / L, -w));
+      ctx.moveTo(...at(0.5 + r / L, -w));
+      ctx.lineTo(...at(1, -w));
+      ctx.moveTo(A.x, A.y);
+      ctx.lineTo(B.x, B.y);
+      ctx.stroke();
+      ctx.beginPath();
+      const c1 = at(0.5, w), c2 = at(0.5, -w), ang = Math.atan2(py, px);
+      ctx.arc(c1[0], c1[1], r, ang + Math.PI, ang + 2 * Math.PI);
+      ctx.moveTo(c2[0] + Math.cos(ang) * r, c2[1] + Math.sin(ang) * r);
+      ctx.arc(c2[0], c2[1], r, ang, ang + Math.PI);
+    } else {
+      const n = Math.max(2, Math.round(L / 16)), amp = 3.4, N2 = n * 12;
+      for (let k = 0; k <= N2; k++) {
+        const t = k / N2, s = Math.sin(t * n * 2 * Math.PI) * amp * Math.min(1, t * 6, (1 - t) * 6), p = at(t, s);
+        if (k) ctx.lineTo(p[0], p[1]);
+        else ctx.moveTo(p[0], p[1]);
+      }
+    }
+    ctx.stroke();
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    const th = Math.atan2(dy, dx);
+    ctx.arc(A.x, A.y, 11, th - 1.1, th + 1.1);
+    ctx.stroke();
+    label(
+      (A.x + B.x) / 2 + px * 14,
+      (A.y + B.y) / 2 + py * 14,
+      (e.kind === "cross" ? "kruisveer" : e.kind === "notch" ? "inkeping" : "bladveer") + (warn2 ? " \u03C3 " + fmt(st.sigma) + " MPa" : ""),
+      col,
+      false,
+      2
+    );
   }
   function drawActuator(e) {
     const A = toScr(N(e.a)), B = toScr(N(e.b));
@@ -7208,6 +7669,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       e.kc = 50;
       e.cc = 0.05;
     }
+    if (type === "flexure") {
+      e.len = round2(L);
+      Object.assign(e, flexDefaults("cantilever", L));
+      e.ref = flexDefaultRef(e);
+    }
     if (type === "actuator") {
       e.len = round2(L);
       e.min = round2(L * 0.85);
@@ -7256,6 +7722,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           e.max = round2(e.max + d);
         }
         if (isBar(e)) e.len = round2(L);
+        if (e.type === "flexure" && e.kind === "cantilever") e.L = round2(e.len / GAMMA);
         if (e.type === "spring") e.L0 = round2(L);
       }
     }
@@ -7637,6 +8104,28 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         }
       );
     },
+    // parallelgeleiding op twee bladveren; elk blad (L = 50 mm) is twee halve bladen van 25 mm met het buigpunt (S-vorm) ertussen,
+    // dus de PRBM-uitkraging van Howell is exact waar hij voor bedoeld is: een kracht aan de tip, zonder moment
+    parallelguide: () => build(
+      [["A", 0, 0, "pin"], ["B", 40, 0, "pin"], ["C", 0, 21.25], ["D", 40, 21.25], ["E", 0, 42.5], ["F", 40, 42.5]],
+      [
+        ["link", "E", "F"],
+        ["flexure", "A", "C", { wd: 20, t: 0.5 }],
+        ["flexure", "E", "C", { wd: 20, t: 0.5 }],
+        ["flexure", "B", "D", { wd: 20, t: 0.5 }],
+        ["flexure", "F", "D", { wd: 20, t: 0.5 }],
+        ["force", "E", 1, 0]
+      ],
+      (g) => {
+        g("C").m = 2e-3;
+        g("D").m = 2e-3;
+        g("E").m = 0.05;
+        g("F").m = 0.05;
+        setModeUI("frf");
+        const fx = model.elems.filter((e) => e.type === "flexure")[0];
+        model.series.push({ key: "n|" + g("E").id + "|x" }, { key: "f|" + fx.id + "|sig" });
+      }
+    ),
     // stoommachine: actuator → veer → kruiskop → drijfstang → kruk met vliegwielmassa;
     // de kant van het dode punt waar de krukpen start bepaalt de draairichting
     steamL: () => steam(1),
@@ -7674,6 +8163,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     { id: "dyn", nm: "Dynamica" },
     { id: "frf", nm: "Frequentie (FRF)" },
     { id: "fric", nm: "Wrijving & speling" },
+    { id: "flex", nm: "Flexures" },
     { id: "empty", nm: "Leeg" }
   ];
   var MODE_NAMES = { kin: "Kinematisch", dyn: "Dynamisch", equil: "Evenwicht", frf: "FRF" };
@@ -7804,6 +8294,13 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       desc: "Bal op een hard vlak, voorgespannen door een zachte veer en weggetrokken met een oplopende kracht.",
       text: "Zolang de trekkracht kleiner is dan de voorspanning (50 N) beweegt de bal nauwelijks: het harde contact en de veer werken samen. Bij F = F\u209A komt de bal los en blijft alleen de zachte veer over, dus de grafiek van verplaatsing tegen kracht knikt. De voorspanning bepaalt dus het krachtbereik waarin de hoge stijfheid geldt. Pas de veerstijfheid of voorspanning aan en zie de knik schuiven."
     },
+    parallelguide: {
+      title: "Parallelgeleiding met bladveren",
+      cat: "flex",
+      modes: ["frf", "dyn"],
+      desc: "Tafel op twee parallelle bladveren, aangestoten door een kracht; de FRF geeft de eerste eigenfrequentie.",
+      text: "Twee bladveren van 50 \xD7 20 \xD7 0,5 mm (staal) geleiden de tafel; elk blad is getekend als twee halve bladen met een draaiveer (Howell, PRBM). Analytisch is c\u2093 = 2\xB712EI/L\xB3 = 8,40 N/mm; het PRBM geeft 8,71 N/mm, ongeveer 4 % stijver (K\u0398/(3\u03B3) = 1,039 in de theorie). De FRF vindt de eerste eigenfrequentie op 46,8 Hz, tegen 46,1 Hz analytisch voor 0,1 kg. Verklein de dikte t en kijk hoe de spanning \u03C3 bij de flexure meegroeit."
+    },
     empty: {
       title: "Leeg canvas",
       cat: "empty",
@@ -7812,135 +8309,6 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       text: "Kies links een gereedschap en teken punten en schakels. Zet een punt vast met Scharnier en maak een schakel tot kruk met Aandrijving. Kies bovenin de modus waarmee je wilt rekenen."
     }
   };
-
-  // src/calc/materials.js
-  var MATERIALS2 = [
-    { id: "staal", naam: "Staal (veerstaal)", E: 21e4, nu: 0.3, sigma: 300 },
-    { id: "rvs", naam: "RVS", E: 193e3, nu: 0.29, sigma: 250 },
-    { id: "alu", naam: "Aluminium", E: 7e4, nu: 0.33, sigma: 120 },
-    { id: "titaan", naam: "Titanium", E: 114e3, nu: 0.34, sigma: 500 },
-    { id: "cube", naam: "Brons / CuBe", E: 128e3, nu: 0.3, sigma: 600 },
-    { id: "invar", naam: "Invar", E: 141e3, nu: 0.26, sigma: 250 }
-  ];
-  var material = (id) => MATERIALS2.find((m) => m.id === id) || MATERIALS2[0];
-
-  // src/calc/flexures.js
-  var PI = Math.PI;
-  function freqTrans(cNmm, m) {
-    if (!(cNmm > 0) || !(m > 0)) return NaN;
-    return Math.sqrt(cNmm * 1e3 / m) / (2 * PI);
-  }
-  function freqRot(cNmmRad, m, r) {
-    if (!(cNmmRad > 0) || !(m > 0) || !(r > 0)) return NaN;
-    const J = m * (r / 1e3) ** 2;
-    return Math.sqrt(cNmmRad / 1e3 / J) / (2 * PI);
-  }
-  var margin = (Pcr, F) => F > 0 ? Pcr / F : Infinity;
-  var eff = (p) => p.plate ? p.E / (1 - p.nu * p.nu) : p.E;
-  function leafSpring(p) {
-    const E2 = eff(p), I = p.b * p.t ** 3 / 12;
-    const cx = 12 * E2 * I / p.L ** 3;
-    const cz0 = E2 * p.b * p.t / p.L;
-    const cz = 1 / (p.L / (E2 * p.b * p.t) + p.u ** 2 * p.L / (700 * E2 * I));
-    const uMax = p.sigma * p.L ** 2 / (3 * E2 * p.t);
-    const sb = 3 * E2 * p.t * p.u / p.L ** 2, sa = Math.abs(p.F) / (p.b * p.t);
-    const Pcr = PI ** 2 * E2 * I / p.L ** 2;
-    return {
-      E: E2,
-      I,
-      cx,
-      cz0,
-      cz,
-      dz: 0.6 * p.u ** 2 / p.L,
-      uMax,
-      sb,
-      sa,
-      sigma: sb + sa,
-      Pcr,
-      margin: margin(Pcr, Math.abs(p.F)),
-      f: freqTrans(cx, p.m),
-      force: cx * p.u
-    };
-  }
-  function parallelLeaf(p) {
-    const s = leafSpring(Object.assign({}, p, { F: p.F / 2 }));
-    return {
-      E: s.E,
-      I: s.I,
-      cx: 2 * s.cx,
-      cz0: 2 * s.cz0,
-      cz: 2 * s.cz,
-      dz: s.dz,
-      uMax: s.uMax,
-      sb: s.sb,
-      sa: s.sa,
-      sigma: s.sigma,
-      Pcr: 2 * s.Pcr,
-      margin: margin(2 * s.Pcr, Math.abs(p.F)),
-      f: freqTrans(2 * s.cx, p.m),
-      force: 2 * s.cx * p.u
-    };
-  }
-  function crossPivot(p) {
-    const E2 = eff(p), I = p.b * p.t ** 3 / 12;
-    const c2 = 2 * E2 * I / p.L;
-    const phiMax = 2 * p.sigma * p.L / (E2 * p.t);
-    const sb = E2 * p.t * p.phi / (2 * p.L), sa = Math.abs(p.F) / (2 * p.b * p.t);
-    const Pcr = 2 * PI ** 2 * E2 * I / p.L ** 2;
-    return {
-      E: E2,
-      I,
-      c: c2,
-      phiMax,
-      sb,
-      sa,
-      sigma: sb + sa,
-      moment: c2 * p.phi,
-      Pcr,
-      margin: margin(Pcr, Math.abs(p.F)),
-      f: freqRot(c2, p.m, p.r)
-    };
-  }
-  function notchHinge(p) {
-    const E2 = eff(p);
-    const c2 = 2 * E2 * p.b * p.t ** 2.5 / (9 * PI * Math.sqrt(p.R));
-    const perRad = 4 / (3 * PI) * E2 * Math.sqrt(p.t / p.R);
-    const sNom = perRad * p.phi, sigma = p.Kt * sNom;
-    return {
-      E: E2,
-      c: c2,
-      perRad,
-      sNom,
-      sigma,
-      phiMax: p.sigma / (p.Kt * perRad),
-      moment: c2 * p.phi,
-      ratio: p.t / (2 * p.R),
-      f: freqRot(c2, p.m, p.r)
-    };
-  }
-  function wireFlexure(p) {
-    const E2 = p.E, A = PI * p.d ** 2 / 4, I = PI * p.d ** 4 / 64, g = p.bc === "guided";
-    const cax = E2 * A / p.L, cb = (g ? 12 : 3) * E2 * I / p.L ** 3;
-    const k = g ? 3 : 1.5;
-    const uMax = p.sigma * p.L ** 2 / (k * E2 * p.d);
-    const sb = k * E2 * p.d * p.u / p.L ** 2, sa = Math.abs(p.F) / A;
-    const Pcr = PI ** 2 * E2 * I / ((g ? 1 : 2) * p.L) ** 2;
-    return {
-      A,
-      I,
-      cax,
-      cb,
-      uMax,
-      sb,
-      sa,
-      sigma: sb + sa,
-      Pcr,
-      margin: margin(Pcr, Math.abs(p.F)),
-      f: freqTrans(cb, p.m),
-      fax: freqTrans(cax, p.m),
-      force: cb * p.u
-    };
-  }
 
   // src/ui/calc.js
   var $ = (id) => document.getElementById(id);
@@ -8433,7 +8801,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         case "spring":
         case "damper":
         case "actuator":
-        case "gap": {
+        case "gap":
+        case "flexure": {
           const n = hitN || addNode(snapPt(wp));
           edited = !hitN;
           if (!ui.pending) {
@@ -8629,6 +8998,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     shakerfrf: () => shakerBase(10) + `<path class="f" d="M6 18Q22 17 32 16Q40 4 46 16Q60 18 74 18"/><path class="g" d="M6 20H74"/>`,
     virtualplay: () => `<path class="g" d="M8 14L40 40L72 14"/><path class="g" d="M10 11l-3 3M16 17l-3 3M22 23l-3 3M28 29l-3 3M72 14l3 3M66 20l3 3M60 26l3 3M54 32l3 3"/><circle class="m" cx="40" cy="30" r="7.5"/>` + arrow(2, 30, 20, 30) + arrow(78, 30, 62, 30),
     preload: () => ln(8, 44, 72, 44, "g") + `<circle class="m" cx="40" cy="36" r="6"/>` + spring(40, 14, 40, 29) + ln(34, 4, 46, 4, "g") + arrow(58, 38, 58, 8),
+    parallelguide: () => ln(4, 46, 76, 46, "g") + `<path class="k" d="M20 44Q16 38 20 32T20 20T20 10M60 44Q56 38 60 32T60 20T60 10"/><path class="dr" style="stroke-width:3.4" d="M14 8H66"/>` + arrow(2, 8, 12, 8),
     pendfrf: () => ln(30, 8, 30, 38) + pin(30, 8) + mass(30, 38) + arrow(38, 38, 70, 38),
     empty: () => `<rect class="dd" x="10" y="8" width="60" height="34" rx="4"/><path class="k" d="M40 20v10M35 25h10"/>`
   };

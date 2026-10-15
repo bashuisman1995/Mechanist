@@ -1,6 +1,7 @@
 // Eigenschappenpaneel.
 import { frame as cFrame, hertz, liveContact, MATERIALS } from "../core/contact.js";
 import { asyncMode, dist, E, hasFriction, isBar, N } from "../core/elements.js";
+import { FLEX_KINDS, flexK, flexLivePhi, flexRefs, flexStress, GAMMA } from "../core/flexure.js";
 import { frfInputs } from "../core/frf.js";
 import { mobility, placeAt, relax } from "../core/kinematics.js";
 import { model, sim, ui } from "../core/state.js";
@@ -14,6 +15,7 @@ import { refreshChannels } from "./plot.js";
 import { cancelJob, changed, rebuild } from "./solver.js";
 import { flash } from "./tools.js";
 import { renderHowNow } from "./howhook.js";
+import { MATERIALS as CALC_MATERIALS } from "../calc/materials.js";
 
 export function syncDynInputs() {
   const a = document.getElementById("autoChk"); if (!a) return;
@@ -345,6 +347,49 @@ function buildInspector() {
     return;
   }
 
+  if (e.type === "flexure") {
+    stSel.textContent = "flexure";
+    const sel = (id, lab, opts, cur) => '<div class="row"><label for="' + id + '">' + lab + '</label><select id="' + id + '">' +
+      opts.map(o => '<option value="' + o[0] + '"' + (o[0] === cur ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></div>";
+    const refs = flexRefs(e), cant = e.kind === "cantilever";
+    props.innerHTML =
+      kind(ui.C.ink2, "Flexure (PRBM)") +
+      '<p class="empty" style="margin:-4px 0 10px">Scharnier in ' + N(e.a).name + ", schakel naar " + N(e.b).name + '</p>' +
+      sel("fk", "Type", Object.keys(FLEX_KINDS).map(k => [k, FLEX_KINDS[k]]), e.kind) +
+      numRow("fL", cant ? "Bladlengte L" : "Lengte bladen L", e.L, "mm", 1) +
+      numRow("fwd", "Breedte b", e.wd, "mm", .5) +
+      numRow("ft", "Dikte t", e.t, "mm", .01) +
+      (e.kind === "notch" ? numRow("fR", "Inkepingsstraal R", e.R, "mm", .1) + numRow("fKt", "Spanningsconc. K\u209c", e.Kt, "\u2013", .1) : "") +
+      sel("fm", "Materiaal", CALC_MATERIALS.map(m => [m.id, m.naam]), e.mat) +
+      numRow("fsig", "\u03c3 toelaatbaar (0 = materiaal)", e.sig || 0, "MPa", 10) +
+      numRow("fpre", "Voorspanning", e.pre || 0, "\u00b0", .1) +
+      sel("fref", "Draait ten opzichte van", [["", "de grond"]].concat(refs.map(r => [r.id, "schakel " + N(r.a).name + N(r.b).name])), e.ref || "") +
+      '<p class="empty" style="margin:10px 0 0"><b>Nu</b></p>' +
+      '<p class="empty" id="fxLive" data-e="' + e.id + '" style="margin-top:2px">' + flexLive(e) + '</p>' +
+      '<p class="empty" style="margin-top:8px">' + (cant
+        ? "Pseudo-starre-lichaammodel (Howell): het karakteristieke scharnier ligt op " + nl(fmt((1 - GAMMA) * e.L)) + " mm van de inklemming (a); de getekende schakel is \u03b3\u00b7L = " + nl(fmt(GAMMA * e.L)) + " mm lang. Teken a dus op die plek, niet op de inklemming zelf. "
+        : "Het scharnier draait om punt a; de getekende schakel hoeft niet even lang te zijn als het blad. ") +
+      "De draaiveer werkt in Dynamisch, Evenwicht en FRF. In Kinematisch telt de stijfheid niet mee (puur scharnier), maar de spanning wel.</p>";
+    bindNum("fL", v => { e.L = Math.max(.01, v); if (cant) { e.len = Math.round(GAMMA * e.L * 100) / 100; relax(); } });
+    bindNum("fwd", v => { e.wd = Math.max(.01, v); });
+    bindNum("ft", v => { e.t = Math.max(.001, v); });
+    bindNum("fR", v => { e.R = Math.max(.01, v); });
+    bindNum("fKt", v => { e.Kt = Math.max(1, v); });
+    bindNum("fsig", v => { e.sig = Math.max(0, v); });
+    bindNum("fpre", v => { e.pre = v; });
+    for (const [id, key] of [["fk", "kind"], ["fm", "mat"], ["fref", "ref"]]) {
+      const el = document.getElementById(id);
+      el.addEventListener("change", () => {
+        if (!atT0()) { el.value = e[key] || ""; lockNudge(); return; }
+        cancelJob(); e[key] = el.value;
+        if (key === "kind" && el.value === "cantilever") e.L = Math.round(e.len / GAMMA * 100) / 100;
+        if (!asyncMode()) ui.frame = 0;
+        rebuild(); syncDof(); draw(); pushHistory(); save(); buildInspector();
+      });
+    }
+    return;
+  }
+
   if (e.type === "spring") {
     stSel.textContent = "veer";
     props.innerHTML =
@@ -392,9 +437,21 @@ function contactLive(e) {
     "</b>" + (st && !st.open ? " \u00b7 F\u209c " + fmt(st.Ft) + " N" : "");
 }
 export function syncContactLive() {
-  const el = document.getElementById("ctLive"); if (!el) return;
-  const e = E(el.dataset.e); if (e && e.type === "contact" && N(e.node)) el.innerHTML = contactLive(e);
+  const el = document.getElementById("ctLive");
+  if (el) { const e = E(el.dataset.e); if (e && e.type === "contact" && N(e.node)) el.innerHTML = contactLive(e); }
+  const fx = document.getElementById("fxLive");
+  if (fx) { const e = E(fx.dataset.e); if (e && e.type === "flexure") fx.innerHTML = flexLive(e); }
   renderHowNow();
+}
+// live uitlezing van een flexure: draaistijfheid, hoek, moment en spanning tegen de toelaatbare waarde
+function flexLive(e) {
+  const K = flexK(e), phi = flexLivePhi(e, sim.sweep, Math.round(ui.frame)), st = flexStress(e, phi);
+  const warn = st.ratio > 1;
+  return "K <b>" + fmt(K) + "</b> N\u00b7mm/rad (" + fmt(K / 1000) + " N\u00b7m/rad)<br>\u03c6 <b>" + fmt(phi * 180 / Math.PI) + "</b>\u00b0 \u00b7 M <b>" +
+    fmt(-K * phi / 1000) + "</b> N\u00b7m<br>" +
+    '<span style="' + (warn ? "color:var(--driver);font-weight:600" : "") + '">\u03c3 <b>' + fmt(st.sigma) + "</b> MPa van " + fmt(st.allow) + " MPa (" + fmt(st.ratio * 100) + " %)" +
+    (warn ? " \u2014 boven de toelaatbare spanning" : "") + "</span><br>\u03c6 maximaal <b>" + fmt(st.phiMax * 180 / Math.PI) + "</b>\u00b0 bij \u03c3 toelaatbaar" +
+    (sim.sweep && sim.sweep.FX ? "" : " \u00b7 nog geen doorgerekende beweging");
 }
 
 // wrijving heeft zin bij een glijder, een oplegging met een stang, of een punt waar twee stangen samenkomen

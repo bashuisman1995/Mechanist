@@ -86,6 +86,11 @@ NODE_PATH=<map met playwright>/node_modules node tests/e2e/run.mjs   # browserte
   Mindlin-achtig plakken en slippen: een tangentiële veer k_t = 8·G*·a die tot μ·F_n
   plakt en daarna slipt (hysterese). Werkt in Dynamisch en Evenwicht; Kinematisch
   geeft alleen F_n, FRF alleen de Hertz-stijfheid.
+- **Flexure** (toets B): bladveer (uitkraging), kruisveerscharnier of scharnier met inkeping als
+  pseudo-starre-lichaammodel (Howell): een stijve schakel met in punt a een draaiveer, K = γ·K_Θ·E·I/L
+  (γ = 0,85, K_Θ = 2,65; de andere typen uit `src/calc/flexures.js`). Live hoek, moment en spanning met een
+  oranje waarschuwing boven σ_toelaatbaar; kanalen φ, σ en M. Draaiveer in Dynamisch, Evenwicht en FRF; in
+  Kinematisch puur scharnier met spanning. Voorbeeld: parallelgeleiding (PRBM +3,9 % op 24EI/L³).
 - **Bewerken op t = 0:** buiten t = 0 kun je alleen kijken; een balk en de
   oranje knop brengen je terug naar t = 0 (of druk op Home).
 - **Metingen:** kies grootheden in een compacte tabel (één regel per onderdeel),
@@ -115,6 +120,7 @@ NODE_PATH=<map met playwright>/node_modules node tests/e2e/run.mjs   # browserte
 | S | Glijder | T | Spoor |
 | D | Aandrijving | X | Verwijderen |
 | A | Actuator | G | Speling |
+| B | Flexure | K | Contact |
 
 Spatie: afspelen/pauzeren · Home: terug naar t = 0 · F5: doorrekenen ·
 Ctrl+S: opslaan als bestand · Ctrl+O: openen ·
@@ -143,7 +149,7 @@ src/index.html    opmaak
 src/style.css     vormgeving, licht en donker thema
 src/main.js       startpunt
 src/core/         rekenkern: state, linalg, elements, kinematics, dynamics,
-                  frf, channels, formula
+                  frf, channels, formula, contact, flexure
 src/ui/           tekenen, inspector, grafieken, metingen, afspelen, bestanden, ...
 tools/build.py    bundelt met esbuild en schrijft index.html
 tests/e2e/        browsertests tegen gecontroleerde waarden
