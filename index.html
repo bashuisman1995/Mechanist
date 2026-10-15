@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mechanismeschets</title>
-<meta name="mech-build" content="c3ba6ee">
+<meta name="mech-build" content="b8a13fa">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -238,7 +238,7 @@ body.dropping::after {
 .tool .kb { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10px; color: var(--ink-3); }
 
 /* ---------- centre column ---------- */
-.centre { display: grid; grid-template-rows: 1fr auto; min-width: 0; min-height: 0; }
+.centre { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto; min-width: 0; min-height: 0; }
 .stage { position: relative; min-width: 0; min-height: 0; background: var(--ground); }
 canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; }
 
@@ -246,7 +246,8 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; }
   position: absolute; left: 50%; transform: translateX(-50%); top: 12px;
   background: var(--panel); border: 1px solid var(--line-2); border-radius: 7px;
   padding: 6px 12px; font-size: 12.5px; color: var(--ink-2); box-shadow: var(--shadow);
-  pointer-events: none; max-width: calc(100% - 100px); text-align: center;
+  pointer-events: none; width: max-content; max-width: calc(100% - 150px); text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   opacity: 1; transition: opacity .45s;
 }
 .hint.dim { opacity: 0; visibility: hidden; transition: opacity .45s, visibility 0s .45s; }
@@ -260,24 +261,23 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; }
 .zoomer #helpBtn { font-size: 13px; font-weight: 600; color: var(--ink-2); margin-top: 6px; }
 
 /* onderaan het canvas: de lockbar boven de transportbalk, samen in één kolom zodat ze elkaar nooit overlappen */
-.dock { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 5; display: flex; flex-direction: column; align-items: stretch; gap: 8px; pointer-events: none; }
-.dock > * { pointer-events: auto; }
+.dock { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 12px; background: var(--ground); border-top: 1px solid var(--line); }
 .transport {
   position: relative;
   display: flex; align-items: center; gap: 10px;
   background: var(--panel); border: 1px solid var(--line-2);
-  border-radius: 9px; padding: 7px 10px; box-shadow: var(--shadow); flex-wrap: wrap;
+  border-radius: 9px; padding: 5px 10px; flex-wrap: wrap;
 }
 .transport .play {
-  width: 34px; height: 34px; flex: none; border-radius: 7px; border: 1px solid var(--line-2);
+  width: 30px; height: 30px; flex: none; border-radius: 7px; border: 1px solid var(--line-2);
   background: var(--panel); cursor: pointer; display: grid; place-items: center; color: var(--driver);
 }
 .transport .play:hover { background: var(--panel-2); }
 .transport .play:disabled { color: var(--ink-3); cursor: not-allowed; opacity: .55; }
-.transport input[type="range"] { flex: 1; min-width: 40px; }
+.transport input[type="range"] { flex: 1 1 120px; min-width: 70px; }
 .transport .ang {
   font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px;
-  font-variant-numeric: tabular-nums; color: var(--ink-2); min-width: 62px; text-align: right;
+  font-variant-numeric: tabular-nums; color: var(--ink-2); min-width: 58px; text-align: right;
 }
 .transport select { width: auto; padding: 3px 5px; font-size: 11.5px; }
 .transport .msg { font-size: 12px; color: var(--ink-3); flex: 1; }
@@ -310,11 +310,11 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; }
 .drawer {
   border-top: 1px solid var(--line); background: var(--panel);
   display: grid; grid-template-rows: auto 1fr; min-height: 0;
-  height: var(--drawerH, 260px);
+  height: var(--drawerH, 35vh);
 }
 .drawer.closed { height: auto; }
 .drawer.closed .drawer-body { display: none; }
-.grip { height: 5px; margin-top: -3px; cursor: ns-resize; background: transparent; }
+.grip { height: 9px; margin-top: -5px; cursor: ns-resize; background: transparent; position: relative; z-index: 2; touch-action: none; }
 .grip:hover { background: var(--accent-soft); }
 .drawer-head {
   display: flex; align-items: center; gap: 9px; padding: 7px 12px;
@@ -352,8 +352,10 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; }
 /* ---------- inspector ---------- */
 .inspector {
   border-left: 1px solid var(--line); background: var(--panel);
-  display: grid; grid-template-rows: auto 1fr; min-height: 0;
+  display: flex; flex-direction: column; min-height: 0;
 }
+.inspector > .inspector-body { flex: 1 1 0; }
+.inspector > .result, .inspector > .uitleg { flex: none; }
 .result { border-bottom: 1px solid var(--line); padding: 12px 14px 12px; }
 .result > h2, .sect h2 {
   margin: 0 0 8px; font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
@@ -567,15 +569,19 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   .rail .rail-label, .rail .railtop { display: none; }
   .tool { width: auto; flex: none; padding: 8px; }
   .tool .nm, .tool .kb { display: none; }
-  .centre { grid-template-rows: 1fr; }
+  .centre { grid-template-rows: minmax(0, 1fr) auto; }
   .drawer { display: none; }          /* leeft op mobiel in het tabblad Metingen */
+  .inspector > .inspector-body { flex: 1 1 auto; }
+  .result .state { grid-column: 1 / -1; }
   .inspector { border-left: none; border-top: 1px solid var(--line); max-height: 46vh; overflow: hidden; }
   .pane .drawer { display: grid; height: auto; border-top: none; }
   .drawer-body { grid-template-columns: 1fr; grid-template-rows: 230px auto; }
   .grip { display: none; }
   .serieslist { border-left: none; border-top: 1px solid var(--line); }
-  .hint { max-width: 66%; font-size: 11.5px; padding: 5px 9px; }
-  .dock { left: 8px; right: 8px; bottom: 8px; }
+  .hint { max-width: calc(100% - 70px); font-size: 11.5px; padding: 5px 9px; }
+  .dock { padding: 5px 8px; }
+  .transport .meetbar { flex: 1 1 100%; overflow-x: auto; padding: 5px 0 0; border-left: 0; border-top: 1px solid var(--line); scrollbar-width: thin; }
+  .transport .meetbar .out { max-width: none; overflow: visible; }
   .transport { padding: 6px 8px; gap: 7px; }
   .transport .ang { min-width: 50px; font-size: 11px; }
   .lockbar { font-size: 11.5px; max-width: 100%; }
@@ -661,34 +667,20 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   #lib.modal { padding: 10px; }
 }
 
-/* ---------- uitleg-kaart op het canvas ---------- */
+/* ---------- uitleg-kaart: bovenaan het rechterpaneel, dus nooit over de tekening ---------- */
 .uitleg {
-  position: absolute; left: 12px; top: 12px; z-index: 4; width: min(300px, calc(50% - 24px));
-  max-height: calc(100% - 150px); overflow-y: auto;
-  background: var(--panel); border: 1px solid var(--line-2); border-left: 3px solid var(--accent);
-  border-radius: 8px; padding: 9px 11px 9px; box-shadow: var(--shadow);
+  max-height: 42vh; overflow-y: auto; border-bottom: 1px solid var(--line); border-left: 3px solid var(--accent);
+  background: var(--accent-soft); padding: 9px 12px;
 }
 .uitleg[hidden] { display: none; }
-.uitleg { pointer-events: none; }          /* klikken gaan door naar het canvas */
-.uitleg .btn { pointer-events: auto; }
-.uitleg h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+.uitleg h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .uitleg p { margin: 0 0 8px; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
 .uitleg .btn { padding: 3px 10px; font-size: 12px; }
-.uitleg h3 { pointer-events: auto; cursor: pointer; }
-.uitleg.min { width: auto; max-width: calc(100% - 100px); padding: 4px 10px; overflow: hidden; }
+.uitleg.min { padding: 5px 12px; overflow: hidden; }
 .uitleg.min p, .uitleg.min .btn { display: none; }
 .uitleg.min h3 { margin: 0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .uitleg.min h3::before { content: "\24D8\00a0"; color: var(--accent); }
-@media (min-width: 901px) {
-  /* de hint schuift op, zodat de uitleg er niet overheen ligt */
-  .stage.hasnote .hint { left: 336px; transform: none; max-width: calc(100% - 336px - 60px); }
-  .stage.hasmin .hint { left: 290px; transform: none; max-width: calc(100% - 290px - 60px); }
-}
-@media (max-width: 900px) {
-  .uitleg { left: 8px; top: 8px; width: auto; right: 56px; max-height: calc(100% - 130px); }
-  .stage.hasnote .hint { display: none; }
-  .stage.hasmin .hint { top: 46px; max-width: calc(100% - 70px); }
-}
+@media (max-width: 900px) { .uitleg { max-height: 20vh; } }
 
 /* ---------- rondleiding ---------- */
 .tour-ring {
@@ -830,14 +822,25 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   display: flex; align-items: center; gap: 6px 8px; font-size: 12px; color: var(--ink-2); min-width: 0;
 }
 .meetbar[hidden], .stiffbar[hidden] { display: none; }
-.transport .meetbar { order: 9; flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; padding-top: 6px; border-top: 1px solid var(--line); white-space: nowrap; scrollbar-width: thin; }
+.transport .meetbar { order: 9; flex: 0 1 auto; flex-wrap: nowrap; min-width: 0; white-space: nowrap; padding-left: 10px; border-left: 1px solid var(--line); }
 .transport .meetbar > * { flex: none; }
+.transport .meetbar .out { flex: 0 1 auto; min-width: 0; max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+.transport .meetbar .out:empty { display: none; }
+.meetbar input[type="text"] { width: 66px; padding: 3px 5px; font-size: 12px; text-align: right; }
+.meetbar .ico { padding: 2px 7px; }
+.transport .meetbar .chips { flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+@media (min-width: 701px) {
+  .transport { flex-wrap: nowrap; }
+  .transport .stiffbar { min-width: 0; }
+}
+@media (max-width: 1599px) and (min-width: 701px) { .transport .meetbar .out { display: none; } }
 .transport .stiffbar { flex: 1 1 0; flex-wrap: nowrap; }
 .transport .stiffbar > * { flex: none; }
 .meetbar input[type="number"], .stiffbar input[type="number"] { width: 88px; padding: 3px 5px; font-size: 12px; }
 .meetbar .chips, .stiffbar .chips { display: inline-flex; gap: 5px; flex-wrap: nowrap; margin: 0; }
 .stiffbar .chips { flex: 1 1 0; min-width: 0; overflow-x: auto; scrollbar-width: thin; padding: 2px 0 3px; }
 .stiffbar .chips .chip { flex: none; white-space: nowrap; }
+.meetbar .chip { flex: none; white-space: nowrap; }
 .meetbar .chip, .stiffbar .chip {
   border: 1px solid var(--line-2); background: var(--panel-2); color: var(--ink); border-radius: 12px;
   padding: 2px 9px; font-size: 11.5px; cursor: pointer;
@@ -1071,59 +1074,55 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           <button id="helpBtn" title="Uitleg en tips (?)" aria-label="Uitleg en tips tonen">?</button>
         </div>
         <div class="hint" id="hint"></div>
-        <aside class="uitleg" id="uitleg" hidden aria-label="Uitleg bij dit voorbeeld">
-          <h3 id="uitTitle"></h3>
-          <p id="uitText"></p>
-          <button class="btn" id="uitClose">Sluiten</button>
-        </aside>
-        <div class="dock">
-          <div class="lockbar" id="lockBar" hidden>
-            <span>Alleen bekijken &mdash; bewerken kan op t&nbsp;=&nbsp;0</span>
-            <button class="btn primary" id="lockBtn" title="Terug naar t = 0 (Home)">&#9198; Naar t = 0</button>
-          </div>
-        <div class="transport" id="transport">
-          <button class="play" id="rewBtn" title="Terug naar t = 0 om te bewerken (Home)" aria-label="Terug naar t = 0">
-            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5h2v11H3zM12 1.5l-7 5.5 7 5.5z" fill="currentColor"/></svg>
-          </button>
-          <button class="play" id="playBtn" title="Afspelen" aria-label="Afspelen">
-            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path id="playIco" d="M3 1.5l9 5.5-9 5.5z" fill="currentColor"/></svg>
-          </button>
-        <div class="stiffbar" id="stiffBar" hidden>
-          <span class="sb-mag" title="Vergroting van de vervorming"><label for="stiffSc">Vergroting</label> <b id="stiffMag" class="mag">&times;1</b></span>
-          <input type="range" id="stiffSc" min="0" max="7" step="0.01" value="0" aria-label="Vergroting van de vervorming">
-          <label class="chk"><input type="checkbox" id="stiffAuto" checked> Auto</label>
-          <span id="stiffChips" class="chips" role="group" aria-label="Statisch of eigenvorm"></span>
-          <span id="stiffSum" class="sum"></span>
-          <span id="stiffOut" class="out"></span>
-          <button type="button" class="btn ghost ico fold" id="stiffFold" aria-expanded="true" title="Balk in- of uitklappen" aria-label="Vergroting en modes in- of uitklappen">&#9662;</button>
+      </div>
+
+      <div class="dock">
+        <div class="lockbar" id="lockBar" hidden>
+          <span>Alleen bekijken &mdash; bewerken kan op t&nbsp;=&nbsp;0</span>
+          <button class="btn primary" id="lockBtn" title="Terug naar t = 0 (Home)">&#9198; Naar t = 0</button>
         </div>
-          <input type="range" id="scrub" min="0" max="360" step="1" value="0" aria-label="Positie in de cyclus">
-          <span class="ang" id="angOut">0</span>
-          <select id="speedSel" aria-label="Snelheid">
-            <option value="0.01">0,01&times;</option>
-            <option value="0.02">0,02&times;</option>
-            <option value="0.05">0,05&times;</option>
-            <option value="0.1">0,1&times;</option>
-            <option value="0.25">0,25&times;</option>
-            <option value="0.5" selected>0,5&times;</option>
-            <option value="1">1&times;</option>
-          </select>
-          <span class="msg" id="tmsg" hidden></span>
-          <progress id="tprog" max="1" hidden></progress>
-          <button class="btn" id="stopBtn" hidden title="Berekening afbreken">Stop</button>
-          <button class="btn primary" id="solveBtn" hidden title="Doorrekenen (F5)">Bereken</button>
-          <div class="meetbar" id="meetBar" hidden>
-          <label for="meetF">Meetfrequentie</label>
-          <button class="btn ghost ico" id="meetDn" title="Vorige rasterfrequentie" aria-label="Lagere frequentie">&#9664;</button>
-          <input type="number" id="meetF" min="0" step="any" value="" aria-label="Meetfrequentie in Hz">
-          <span class="unit">Hz</span>
-          <button class="btn ghost ico" id="meetUp" title="Volgende rasterfrequentie" aria-label="Hogere frequentie">&#9654;</button>
-          <span id="meetChips" class="chips"></span>
-          <label class="chk"><input type="checkbox" id="meetEig"> Toon eigenmode</label>
-          <span id="meetOut" class="out"></span>
-        </div>
-        </div>
-        </div>
+      <div class="transport" id="transport">
+        <button class="play" id="rewBtn" title="Terug naar t = 0 om te bewerken (Home)" aria-label="Terug naar t = 0">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5h2v11H3zM12 1.5l-7 5.5 7 5.5z" fill="currentColor"/></svg>
+        </button>
+        <button class="play" id="playBtn" title="Afspelen" aria-label="Afspelen">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path id="playIco" d="M3 1.5l9 5.5-9 5.5z" fill="currentColor"/></svg>
+        </button>
+      <div class="stiffbar" id="stiffBar" hidden>
+        <span class="sb-mag" title="Vergroting van de vervorming"><label for="stiffSc">Vergroting</label> <b id="stiffMag" class="mag">&times;1</b></span>
+        <input type="range" id="stiffSc" min="0" max="7" step="0.01" value="0" aria-label="Vergroting van de vervorming">
+        <label class="chk"><input type="checkbox" id="stiffAuto" checked> Auto</label>
+        <span id="stiffChips" class="chips" role="group" aria-label="Statisch of eigenvorm"></span>
+        <span id="stiffSum" class="sum"></span>
+        <span id="stiffOut" class="out"></span>
+        <button type="button" class="btn ghost ico fold" id="stiffFold" aria-expanded="true" title="Balk in- of uitklappen" aria-label="Vergroting en modes in- of uitklappen">&#9662;</button>
+      </div>
+        <input type="range" id="scrub" min="0" max="360" step="1" value="0" aria-label="Positie in de cyclus">
+        <span class="ang" id="angOut">0</span>
+        <select id="speedSel" aria-label="Snelheid">
+          <option value="0.01">0,01&times;</option>
+          <option value="0.02">0,02&times;</option>
+          <option value="0.05">0,05&times;</option>
+          <option value="0.1">0,1&times;</option>
+          <option value="0.25">0,25&times;</option>
+          <option value="0.5" selected>0,5&times;</option>
+          <option value="1">1&times;</option>
+        </select>
+        <span class="msg" id="tmsg" hidden></span>
+        <progress id="tprog" max="1" hidden></progress>
+        <button class="btn" id="stopBtn" hidden title="Berekening afbreken">Stop</button>
+        <button class="btn primary" id="solveBtn" hidden title="Doorrekenen (F5)">Bereken</button>
+        <div class="meetbar" id="meetBar" hidden>
+        <label for="meetF" title="Meetfrequentie: de frequentie waarop tekening en metingen worden afgelezen">Meetfreq.</label>
+        <button class="btn ghost ico" id="meetDn" title="Vorige rasterfrequentie" aria-label="Lagere frequentie">&#9664;</button>
+        <input type="text" inputmode="decimal" autocomplete="off" id="meetF" value="" aria-label="Meetfrequentie in Hz">
+        <span class="unit">Hz</span>
+        <button class="btn ghost ico" id="meetUp" title="Volgende rasterfrequentie" aria-label="Hogere frequentie">&#9654;</button>
+        <span id="meetChips" class="chips"></span>
+        <label class="chk"><input type="checkbox" id="meetEig"> Toon eigenmode</label>
+        <span id="meetOut" class="out"></span>
+      </div>
+      </div>
       </div>
 
       <section class="drawer" id="drawer">
@@ -1150,6 +1149,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     </div>
 
     <aside class="inspector">
+      <aside class="uitleg" id="uitleg" hidden aria-label="Uitleg bij dit voorbeeld">
+        <h3 id="uitTitle"></h3>
+        <p id="uitText"></p>
+        <button class="btn" id="uitClose">Sluiten</button>
+      </aside>
       <section class="result" id="result" aria-label="Resultaat">
         <h2>Resultaat</h2>
         <button class="status" id="statusBtn" aria-expanded="false" title="Details tonen">
@@ -5319,7 +5323,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     pick.hidden = false;
     const was = { s: view.s, ox: view.ox, oy: view.oy };
     const cr = cv.getBoundingClientRect(), pr = pick.querySelector(".card").getBoundingClientRect();
-    let l = 0, t = 0, r = ui.W, b = ui.H - 70;
+    let l = 0, t = 0, r = ui.W, b = ui.H - 8;
     if (pr.left > cr.left + ui.W * 0.4) r = Math.min(r, pr.left - cr.left - 8);
     else if (pr.top > cr.top) b = Math.min(b, pr.top - cr.top - 8);
     pickView = fitInto(l, t + 56, r, b) ? was : null;
@@ -5621,8 +5625,6 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const u = document.getElementById("uitleg");
     if (u && !u.hidden) {
       u.classList.remove("min");
-      u.closest(".stage").classList.add("hasnote");
-      u.closest(".stage").classList.remove("hasmin");
     }
   }
   function setTool(id) {
@@ -6964,10 +6966,13 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const st = v === 0 ? "bepaald" : v > 0 ? "onderbepaald" : "overbepaald";
       if (model.mode === "stiff") {
         const R = sim.stiff;
-        t = !R ? "Stijfheid \xB7 nog niet doorgerekend" : R.empty ? "Stijfheid \xB7 nog niets om door te rekenen" : !R.ok ? "Stijfheid \xB7 mechanisme" : "Stijfheid \xB7 " + (R.sigMax ? "max \u03C3 " + fmtStress(R.sigMax.val) + " (" + nl2(sg(R.sigMax.ratio * 100, 2)) + " %)" : "doorgerekend");
+        t = !R ? "Stijfheid \xB7 nog niet doorgerekend" : R.empty ? "Stijfheid \xB7 nog niets om door te rekenen" : !R.ok ? "Stijfheid \xB7 mechanisme" : "Stijfheid \xB7 " + (R.sigMax ? "max \u03C3 op " + nl2(sg(R.sigMax.ratio * 100, 2)) + " % van toelaatbaar" : "doorgerekend");
       } else if (model.mode === "frf") {
-        const md = sw && sw.modes ? sw.modes.find((x) => !x.unstable && x.f > 1e-6) : null;
-        t = "FRF \xB7 " + (md ? nl2(fmtHz(md.f)) : sw ? "doorgerekend" : "nog niet doorgerekend");
+        if (!sw || !sw.frf) t = "FRF \xB7 " + (sim.frfMsg || "nog niet doorgerekend");
+        else {
+          const sr = model.series.find((x) => !x.expr);
+          t = "ingang " + (sw.inLab || "\u2013") + " \xB7 uitgang " + (sr ? chLab(sr.key) : "kies een meting onder Metingen");
+        }
       } else if (model.mode === "dyn") {
         const eq = model.durMode === "equil";
         t = (eq ? "Evenwicht" : "Dynamisch") + " \xB7 " + (sw ? (eq && sw.settled ? "tot rust na " : "") + fmtTime(sw.dur) + (eq && sw.settled ? "" : " doorgerekend") : "nog niet doorgerekend");
@@ -7028,10 +7033,36 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (!sim.solveOK) {
       note.innerHTML = '<b style="color:var(--bad)">Deze stand is niet samen te stellen.</b> De stangen halen elkaar niet \u2014 draai de kruk terug of pas een lengte aan.';
     }
+    if (model.mode === "frf") frfDof(el, of);
     document.getElementById("tally").innerHTML = row("punten", m.nNodes) + row("scharnieren", m.nPinned) + row("glijders", m.nSliders) + row("schakels", m.nLinks + (m.nDead ? " (" + m.nDead + " star)" : "")) + row("onbekenden", m.unknowns) + row("vergelijkingen", m.cons + m.driver);
     function row(k, v2) {
       return "<span>" + k + "</span><b>" + v2 + "</b>";
     }
+  }
+  function frfDof(el, of) {
+    const sw = sim.sweep;
+    if (!sw || !sw.frf) {
+      el.textContent = "\u2013";
+      el.className = "big";
+      of.textContent = sim.frfMsg ? "geen FRF" : "nog niet doorgerekend";
+      return;
+    }
+    if ((sw.modes || []).some((x) => x.unstable)) {
+      el.textContent = "instabiel";
+      el.className = "big bad";
+      of.textContent = "negatieve stijfheid of demping";
+      return;
+    }
+    const md = (sw.modes || []).find((x) => x.f > 1e-6);
+    if (!md) {
+      el.textContent = "\u2013";
+      el.className = "big";
+      of.textContent = "geen eigenfrequentie";
+      return;
+    }
+    el.textContent = fmtHz(md.f);
+    el.className = "big ok";
+    of.textContent = "eerste eigenfrequentie" + (isFinite(md.zeta) ? " \xB7 \u03B6 " + nl2(sg(md.zeta * 100, 2)) + " %" : "");
   }
   function stiffDof(el, of, note) {
     const R = sim.stiff, tally = document.getElementById("tally");
@@ -7044,9 +7075,20 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       return;
     }
     const free = R.ok ? 0 : R.mech.count;
-    el.textContent = free ? "+" + free : "0";
-    el.className = "big " + (free ? "bad" : "ok");
-    of.textContent = free ? "vrije bewegingen (mechanisme)" : "vrije bewegingen";
+    if (free) {
+      el.textContent = "+" + free;
+      el.className = "big bad";
+      of.textContent = "vrije bewegingen (mechanisme)";
+    } else if (R.sigMax) {
+      const r = R.sigMax.ratio;
+      el.textContent = fmtStress(R.sigMax.val);
+      el.className = "big " + (r > 1 ? "bad" : r > 0.7 ? "warn" : "ok");
+      of.textContent = "max \u03C3 \xB7 max \u03B4 " + fmtLen(R.maxDisp);
+    } else {
+      el.textContent = fmtLen(R.maxDisp);
+      el.className = "big ok";
+      of.textContent = "max \u03B4 (verplaatsing)";
+    }
     note.innerHTML = free ? '<b style="color:var(--bad)">' + R.mech.text + "</b>" : "Stijf genoeg: elke belasting heeft een eenduidige vervorming. Onbekenden: " + R.nfree + " vrijheidsgraden van punten en scharnierende balkuiteinden.";
     const rowk = (k, v) => "<span>" + k + "</span><b>" + v + "</b>";
     tally.innerHTML = rowk("punten", model.nodes.length) + rowk("balken (EA + EI)", R.sys.mem.filter((x) => x.kind === "beam").length) + rowk("stijve schakels", R.sys.mem.filter((x) => x.kind === "rigid").length) + rowk("staven en veren", R.sys.spr.length) + rowk("vrijheidsgraden", R.sys.nd) + rowk("vrij (na opleggingen)", R.nfree);
@@ -7953,7 +7995,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       if (!first) first = chLab(sr.key) + ": " + sg(m) + " " + (chU(sr.key) || "?") + "/" + S.inUnit + " \xB7 " + Math.round(v[si].ph) + "\xB0";
     });
     ui.meet = ui.meetOn ? { f: f2, a, v } : null;
-    if (document.activeElement !== meetFEl) meetFEl.value = +f2.toPrecision(5);
+    if (document.activeElement !== meetFEl) meetFEl.value = sg(f2, 4);
     const ms = modesOf(S).slice(0, 3), key = ms.map((m) => m.f).join();
     if (key !== chipKey) {
       chipKey = key;
@@ -7979,8 +8021,12 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   }
   function initMeet() {
     meetFEl.addEventListener("input", () => {
-      const f2 = parseFloat(String(meetFEl.value).replace(",", "."));
+      const f2 = parseFloat(String(meetFEl.value).replace(/[\s\u202f\u00a0]/g, "").replace(",", "."));
       if (f2 > 0) showMeet(f2);
+    });
+    meetFEl.addEventListener("blur", syncMeet);
+    meetFEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") meetFEl.blur();
     });
     meetChips.addEventListener("click", (ev) => {
       const b = ev.target.closest(".chip"), S = sim.sweep;
@@ -8887,7 +8933,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       });
       grip.addEventListener("pointermove", (ev) => {
         if (!g) return;
-        const h = Math.max(120, Math.min(window.innerHeight * 0.62, g.h - (ev.clientY - g.y)));
+        const h = Math.max(120, Math.min(window.innerHeight * 0.6, g.h - (ev.clientY - g.y)));
         model.drawerH = Math.round(h);
         model.drawerAuto = false;
         drawer.style.setProperty("--drawerH", h + "px");
@@ -8904,6 +8950,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       grip.addEventListener("dblclick", () => {
         model.drawerAuto = true;
         drawPlot();
+        requestAnimationFrame(resize);
         save();
       });
       grip.addEventListener("pointercancel", stop);
@@ -9115,7 +9162,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       groups.push({ u: "fase, \xB0", phase: true, set: live.map((s) => ({ si: s.si, a: s.ph, mn: s.pmn, mx: s.pmx })) });
     const nF = Math.max(1, groups.length);
     if (model.drawerAuto !== false && !narrow.matches && !drawer.classList.contains("closed")) {
-      const want = Math.round(Math.max(210, Math.min(window.innerHeight * 0.5, 64 + nF * 92 + PAD.B)));
+      const want = Math.round(Math.max(190, window.innerHeight * 0.35));
       const cur = parseFloat(drawer.style.getPropertyValue("--drawerH")) || 0;
       if (Math.abs(cur - want) > 2) {
         drawer.style.setProperty("--drawerH", want + "px");
@@ -9491,11 +9538,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       return;
     }
     const w = Math.max(bb.b.x - bb.a.x, 40), h = Math.max(bb.b.y - bb.a.y, 40);
-    const padX = 80, padTop = 62, padBot = 96 + (model.mode === "stiff" ? 84 : 0);
-    view.s = Math.min((ui.W - padX * 2) / w, (ui.H - padTop - padBot) / h);
+    const padL = 56, padR = 100, padTop = 52, padBot = 36;
+    view.s = Math.min((ui.W - padL - padR) / w, (ui.H - padTop - padBot) / h);
     view.s = Math.max(0.15, Math.min(view.s, 14));
     const cx = (bb.a.x + bb.b.x) / 2, cy = (bb.a.y + bb.b.y) / 2;
-    view.ox = ui.W / 2 - cx * view.s;
+    view.ox = padL + (ui.W - padL - padR) / 2 - cx * view.s;
     view.oy = padTop + (ui.H - padTop - padBot) / 2 + cy * view.s;
     draw();
   }
@@ -14614,10 +14661,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     $2("uitText").textContent = m.text;
     el.hidden = false;
     el.classList.remove("min");
-    el.closest(".stage").classList.add("hasnote");
-    el.closest(".stage").classList.remove("hasmin");
     clearTimeout(minT);
-    minT = setTimeout(() => uitlegMin(true), 6e3);
+    minT = setTimeout(() => uitlegMin(true), 2e4);
     if (window.matchMedia("(max-width: 900px)").matches) uitlegMin(true);
   }
   var minT = 0;
@@ -14625,14 +14670,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const el = $2("uitleg");
     if (el.hidden) return;
     el.classList.toggle("min", on);
-    el.closest(".stage").classList.toggle("hasnote", !on);
-    el.closest(".stage").classList.toggle("hasmin", on);
   }
   function hideUitleg() {
     const el = $2("uitleg");
     clearTimeout(minT);
     el.hidden = true;
-    el.closest(".stage").classList.remove("hasnote", "hasmin");
   }
   function initLibrary() {
     $2("libChips").innerHTML = CATEGORIES.map((c2) => `<button type="button" class="chip" data-c="${c2.id}" aria-pressed="false">${esc5(c2.nm)}</button>`).join("");

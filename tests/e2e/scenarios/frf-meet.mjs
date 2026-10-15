@@ -9,6 +9,9 @@ export default async ({ browser, url, check }) => {
   const snap = () => p.$eval('#cv', c => c.toDataURL()).catch(() => null);
   const before = await snap();
   await p.fill('#meetF', '3.559');
+  await p.fill('#meetF', '3,559');
+  await p.waitForTimeout(100);
+  await p.fill('#meetF', '3.559');
   await p.waitForTimeout(150);
   const v = await vals(p);
   check('amplitude bij 3.559 Hz = piek (±2%)', Math.abs(num(v[0]) - peak) <= 0.02 * peak, v[0] + ' vs ' + peak);
@@ -20,14 +23,14 @@ export default async ({ browser, url, check }) => {
   check('chip Mode 1', /Mode 1 · 3,56 Hz/.test(chip), chip);
   await p.fill('#meetF', '1');
   await p.click('.chip[data-m="0"]');
-  const inp = await p.$eval('#meetF', e => parseFloat(e.value));
-  check('chip zet meetfrequentie', Math.abs(inp - 3.559) < 0.01, String(inp));
+  const inp = await p.$eval('#meetF', e => e.value);
+  check('chip zet meetfrequentie', Math.abs(num(inp) - 3.559) < 0.01 && /,/.test(inp), String(inp));
   await p.check('#meetEig');
   const eo = await p.$eval('#meetOut', e => e.textContent);
   check('eigenmode-weergave', /eigenmode/.test(eo), eo);
   await p.uncheck('#meetEig');
   await p.click('#meetUp');
-  const up = await p.$eval('#meetF', e => parseFloat(e.value));
+  const up = num(await p.$eval('#meetF', e => e.value));
   check('stap omhoog', up > 3.559, String(up));
   await p.screenshot({ path: '/tmp/claude-0/-home-user-Mechanist/1e45fc4c-94b6-53cc-82eb-8e0cec55c972/scratchpad/frf_meet.png' });
   check('geen page errors', p.errs.length === 0, p.errs.join('|'));

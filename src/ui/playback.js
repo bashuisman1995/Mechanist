@@ -216,7 +216,7 @@ function syncMeet() {
       (chU(sr.key) || "?") + "/" + S.inUnit + " \u00b7 " + Math.round(v[si].ph) + "\u00b0";
   });
   ui.meet = ui.meetOn ? { f, a, v } : null;
-  if (document.activeElement !== meetFEl) meetFEl.value = +f.toPrecision(5);
+  if (document.activeElement !== meetFEl) meetFEl.value = sg(f, 4);
   const ms = modesOf(S).slice(0, 3), key = ms.map(m => m.f).join();
   if (key !== chipKey) {
     chipKey = key;
@@ -238,7 +238,10 @@ function showMeet(f) {
   syncMeet(); syncSeriesValues(); drawPlot(); draw();
 }
 function initMeet() {
-  meetFEl.addEventListener("input", () => { const f = parseFloat(String(meetFEl.value).replace(",", ".")); if (f > 0) showMeet(f); });
+  // typen mag met komma of punt (en met een spatie als duizendtalscheiding); getoond wordt met de gedeelde notatie
+  meetFEl.addEventListener("input", () => { const f = parseFloat(String(meetFEl.value).replace(/[\s\u202f\u00a0]/g, "").replace(",", ".")); if (f > 0) showMeet(f); });
+  meetFEl.addEventListener("blur", syncMeet);
+  meetFEl.addEventListener("keydown", e => { if (e.key === "Enter") meetFEl.blur(); });
   meetChips.addEventListener("click", ev => {
     const b = ev.target.closest(".chip"), S = sim.sweep; if (!b || !S) return;
     const m = modesOf(S)[+b.dataset.m]; if (m) showMeet(m.f);

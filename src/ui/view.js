@@ -29,11 +29,13 @@ export function fit() {
   const bb = bounds();
   if (!bb) { view.s = 2.2; view.ox = ui.W / 2; view.oy = ui.H / 2; draw(); return; }
   const w = Math.max(bb.b.x - bb.a.x, 40), h = Math.max(bb.b.y - bb.a.y, 40);
-  const padX = 80, padTop = 62, padBot = 96 + (model.mode === "stiff" ? 84 : 0);          // de transportbalk (en bij Stijfheid de vergrotingsbalk) hoort vrij te blijven
-  view.s = Math.min((ui.W - padX * 2) / w, (ui.H - padTop - padBot) / h);
+  // het canvas is al het zichtbare deel: de transportbalk, de lade en de uitleg liggen er niet overheen.
+  // Alleen ruimte voor de zoomknoppen (rechts) en de tijdelijke hint (boven).
+  const padL = 56, padR = 100, padTop = 52, padBot = 36;
+  view.s = Math.min((ui.W - padL - padR) / w, (ui.H - padTop - padBot) / h);
   view.s = Math.max(0.15, Math.min(view.s, 14));
   const cx = (bb.a.x + bb.b.x) / 2, cy = (bb.a.y + bb.b.y) / 2;
-  view.ox = ui.W / 2 - cx * view.s;
+  view.ox = padL + (ui.W - padL - padR) / 2 - cx * view.s;
   view.oy = padTop + (ui.H - padTop - padBot) / 2 + cy * view.s;
   draw();
 }

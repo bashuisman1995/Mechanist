@@ -91,14 +91,14 @@ export function initLayout() {
     });
     grip.addEventListener("pointermove", ev => {
       if (!g) return;
-      const h = Math.max(120, Math.min(window.innerHeight * 0.62, g.h - (ev.clientY - g.y)));
+      const h = Math.max(120, Math.min(window.innerHeight * 0.6, g.h - (ev.clientY - g.y)));
       model.drawerH = Math.round(h); model.drawerAuto = false;
       drawer.style.setProperty("--drawerH", h + "px");
       resize(); drawPlot();
     });
     const stop = () => { if (g) { g = null; save(); } };
     grip.addEventListener("pointerup", stop);
-    grip.addEventListener("dblclick", () => { model.drawerAuto = true; drawPlot(); save(); });
+    grip.addEventListener("dblclick", () => { model.drawerAuto = true; drawPlot(); requestAnimationFrame(resize); save(); });
     grip.addEventListener("pointercancel", stop);
   })();
 

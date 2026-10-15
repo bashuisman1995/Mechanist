@@ -3,6 +3,7 @@ import { frame as cFrame, hertz, liveContact, MATERIALS } from "../core/contact.
 import { A_DEFAULT, axialA, axialE, axialK, axialSigma, alphaOf, beamSect, dTOf, isAxial, isBeam, matOf, PROFILES, sigAllow, thermDL } from "../core/axial.js";
 import { asyncMode, dist, E, hasFriction, isBar, N } from "../core/elements.js";
 import { FLEX_KINDS, flexK, flexLivePhi, flexRefs, flexStress, GAMMA } from "../core/flexure.js";
+import { chLab } from "../core/channels.js";
 import { frfInputs } from "../core/frf.js";
 import { mobility, placeAt, relax } from "../core/kinematics.js";
 import { barsAt, encRes, loadcellDt, sensorLive, SENSORS, springK } from "../core/sensors.js";
@@ -63,10 +64,13 @@ export function syncResult() {
     if (model.mode === "stiff") {
       const R = sim.stiff;
       t = !R ? "Stijfheid \u00b7 nog niet doorgerekend" : R.empty ? "Stijfheid \u00b7 nog niets om door te rekenen" : !R.ok ? "Stijfheid \u00b7 mechanisme"
-        : "Stijfheid \u00b7 " + (R.sigMax ? "max \u03c3 " + fmtStress(R.sigMax.val) + " (" + nl(sg(R.sigMax.ratio * 100, 2)) + " %)" : "doorgerekend");
+        : "Stijfheid \u00b7 " + (R.sigMax ? "max \u03c3 op " + nl(sg(R.sigMax.ratio * 100, 2)) + " % van toelaatbaar" : "doorgerekend");
     } else if (model.mode === "frf") {
-      const md = sw && sw.modes ? sw.modes.find(x => !x.unstable && x.f > 1e-6) : null;
-      t = "FRF \u00b7 " + (md ? nl(fmtHz(md.f)) : sw ? "doorgerekend" : "nog niet doorgerekend");
+      if (!sw || !sw.frf) t = "FRF \u00b7 " + (sim.frfMsg || "nog niet doorgerekend");
+      else {
+        const sr = model.series.find(x => !x.expr);
+        t = "ingang " + (sw.inLab || "\u2013") + " \u00b7 uitgang " + (sr ? chLab(sr.key) : "kies een meting onder Metingen");
+      }
     } else if (model.mode === "dyn") {
       const eq = model.durMode === "equil";
       t = (eq ? "Evenwicht" : "Dynamisch") + " \u00b7 " +
@@ -139,11 +143,23 @@ export function syncDof() {
     note.innerHTML = '<b style="color:var(--bad)">Deze stand is niet samen te stellen.</b> ' +
       'De stangen halen elkaar niet — draai de kruk terug of pas een lengte aan.';
   }
+  if (model.mode === "frf") frfDof(el, of);
   document.getElementById("tally").innerHTML =
     row("punten", m.nNodes) + row("scharnieren", m.nPinned) + row("glijders", m.nSliders) +
     row("schakels", m.nLinks + (m.nDead ? " (" + m.nDead + " star)" : "")) +
     row("onbekenden", m.unknowns) + row("vergelijkingen", m.cons + m.driver);
   function row(k, v) { return "<span>" + k + "</span><b>" + v + "</b>"; }
+}
+
+// FRF: de vrijheidsgraden zeggen hier weinig; de kaart toont de eerste eigenfrequentie en de demping
+function frfDof(el, of) {
+  const sw = sim.sweep;
+  if (!sw || !sw.frf) { el.textContent = "\u2013"; el.className = "big"; of.textContent = sim.frfMsg ? "geen FRF" : "nog niet doorgerekend"; return; }
+  if ((sw.modes || []).some(x => x.unstable)) { el.textContent = "instabiel"; el.className = "big bad"; of.textContent = "negatieve stijfheid of demping"; return; }
+  const md = (sw.modes || []).find(x => x.f > 1e-6);
+  if (!md) { el.textContent = "\u2013"; el.className = "big"; of.textContent = "geen eigenfrequentie"; return; }
+  el.textContent = fmtHz(md.f); el.className = "big ok";
+  of.textContent = "eerste eigenfrequentie" + (isFinite(md.zeta) ? " \u00b7 \u03b6 " + nl(sg(md.zeta * 100, 2)) + " %" : "");
 }
 
 // Stijfheid: het getal is het aantal vrije bewegingen (0 = stijf genoeg)
@@ -155,8 +171,12 @@ function stiffDof(el, of, note) {
     tally.innerHTML = ""; return;
   }
   const free = R.ok ? 0 : R.mech.count;
-  el.textContent = free ? "+" + free : "0"; el.className = "big " + (free ? "bad" : "ok");
-  of.textContent = free ? "vrije bewegingen (mechanisme)" : "vrije bewegingen";
+  if (free) { el.textContent = "+" + free; el.className = "big bad"; of.textContent = "vrije bewegingen (mechanisme)"; }
+  else if (R.sigMax) {                                   // wat telt: de grootste spanning en de grootste verplaatsing
+    const r = R.sigMax.ratio;
+    el.textContent = fmtStress(R.sigMax.val); el.className = "big " + (r > 1 ? "bad" : r > 0.7 ? "warn" : "ok");
+    of.textContent = "max \u03c3 \u00b7 max \u03b4 " + fmtLen(R.maxDisp);
+  } else { el.textContent = fmtLen(R.maxDisp); el.className = "big ok"; of.textContent = "max \u03b4 (verplaatsing)"; }
   note.innerHTML = free ? "<b style=\"color:var(--bad)\">" + R.mech.text + "</b>"
     : "Stijf genoeg: elke belasting heeft een eenduidige vervorming. Onbekenden: " + R.nfree + " vrijheidsgraden van punten en scharnierende balkuiteinden.";
   const rowk = (k, v) => "<span>" + k + "</span><b>" + v + "</b>";

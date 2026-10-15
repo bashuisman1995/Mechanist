@@ -25,7 +25,7 @@ function openPick(idx, mode) {
   // het paneel mag het mechanisme niet afdekken: schuif het beeld naar het vrije deel
   const was = { s: view.s, ox: view.ox, oy: view.oy };
   const cr = cv.getBoundingClientRect(), pr = pick.querySelector(".card").getBoundingClientRect();
-  let l = 0, t = 0, r = ui.W, b = ui.H - 70;                       // onderaan zit de afspeelbalk
+  let l = 0, t = 0, r = ui.W, b = ui.H - 8;                        // de afspeelbalk ligt onder het canvas
   if (pr.left > cr.left + ui.W * 0.4) r = Math.min(r, pr.left - cr.left - 8);   // paneel rechts
   else if (pr.top > cr.top) b = Math.min(b, pr.top - cr.top - 8);           // paneel onderaan
   pickView = fitInto(l, t + 56, r, b) ? was : null;          // bovenaan staat de hulptekst

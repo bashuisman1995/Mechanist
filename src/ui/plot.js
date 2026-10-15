@@ -151,10 +151,10 @@ export function drawPlot() {
     groups.push({ u: "fase, °", phase: true, set: live.map(s => ({ si: s.si, a: s.ph, mn: s.pmn, mx: s.pmx })) });
   const nF = Math.max(1, groups.length);
 
-  // de lade groeit mee met het aantal deelgrafieken, tot de helft van het scherm;
-  // wie de lade zelf versleept houdt zijn eigen hoogte
+  // standaardhoogte van de lade: ongeveer 35 % van het scherm, zodat de tekening de hoofdzaak blijft
+  // (meer deelgrafieken scrollen in de lade); wie de lade zelf versleept houdt zijn eigen hoogte
   if (model.drawerAuto !== false && !narrow.matches && !drawer.classList.contains("closed")) {
-    const want = Math.round(Math.max(210, Math.min(window.innerHeight * 0.5, 64 + nF * 92 + PAD.B)));
+    const want = Math.round(Math.max(190, window.innerHeight * 0.35));
     const cur = parseFloat(drawer.style.getPropertyValue("--drawerH")) || 0;
     if (Math.abs(cur - want) > 2) { drawer.style.setProperty("--drawerH", want + "px"); return; }
   }

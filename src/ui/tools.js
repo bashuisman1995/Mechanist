@@ -80,7 +80,7 @@ export function showHelp() {
   document.getElementById("hint").innerHTML = t ? t.hint : "";
   hintShow();
   const u = document.getElementById("uitleg");
-  if (u && !u.hidden) { u.classList.remove("min"); u.closest(".stage").classList.add("hasnote"); u.closest(".stage").classList.remove("hasmin"); }
+  if (u && !u.hidden) { u.classList.remove("min"); }
 }
 export function setTool(id) {
   ui.tool = id; ui.pending = null;

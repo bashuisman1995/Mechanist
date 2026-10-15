@@ -12,10 +12,10 @@ export default async ({ browser, url, check }) => {
       const r = id => document.getElementById(id).getBoundingClientRect();
       const bar = r('stiffBar'), tr = r('transport'), st = document.querySelector('.stage').getBoundingClientRect(), chips = document.getElementById('stiffChips');
       return { barH: bar.height, trH: tr.height, inTransport: !!document.getElementById('transport').contains(document.getElementById('stiffBar')), stageH: st.height,
-        oneRow: bar.height < 50, docked: Math.abs(tr.bottom - st.bottom) <= 14, chipsScroll: chips.scrollWidth > chips.clientWidth, chipsOv: getComputedStyle(chips).overflowX,
+        oneRow: bar.height < 50, docked: Math.abs(tr.top - st.bottom) <= 14, chipsScroll: chips.scrollWidth > chips.clientWidth, chipsOv: getComputedStyle(chips).overflowX,
         hScroll: document.documentElement.scrollWidth > document.documentElement.clientWidth };
     });
-    check(`${tag}: Stijfheid-balk is één rij, onderin, in de transportbalk`, geo.inTransport && geo.oneRow && geo.docked && geo.trH < 62, JSON.stringify(geo));
+    check(`${tag}: Stijfheid-balk is één rij, onder het canvas, in de transportbalk`, geo.inTransport && geo.oneRow && geo.docked && geo.trH < 62, JSON.stringify(geo));
     check(`${tag}: modechips scrollen horizontaal`, geo.chipsOv === 'auto' && (tag === 'desktop' || geo.chipsScroll), JSON.stringify(geo));
     check(`${tag}: balk neemt weinig van het canvas (< 12 %)`, geo.trH / geo.stageH < 0.12 + (tag === 'telefoon' ? 0.05 : 0), JSON.stringify(geo));
     check(`${tag}: geen horizontale paginascroll`, !geo.hScroll);

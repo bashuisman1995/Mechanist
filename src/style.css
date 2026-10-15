@@ -226,7 +226,7 @@ body.dropping::after {
 .tool .kb { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10px; color: var(--ink-3); }
 
 /* ---------- centre column ---------- */
-.centre { display: grid; grid-template-rows: 1fr auto; min-width: 0; min-height: 0; }
+.centre { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto; min-width: 0; min-height: 0; }
 .stage { position: relative; min-width: 0; min-height: 0; background: var(--ground); }
 canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; }
 
@@ -234,7 +234,8 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; }
   position: absolute; left: 50%; transform: translateX(-50%); top: 12px;
   background: var(--panel); border: 1px solid var(--line-2); border-radius: 7px;
   padding: 6px 12px; font-size: 12.5px; color: var(--ink-2); box-shadow: var(--shadow);
-  pointer-events: none; max-width: calc(100% - 100px); text-align: center;
+  pointer-events: none; width: max-content; max-width: calc(100% - 150px); text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   opacity: 1; transition: opacity .45s;
 }
 .hint.dim { opacity: 0; visibility: hidden; transition: opacity .45s, visibility 0s .45s; }
@@ -248,24 +249,23 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; }
 .zoomer #helpBtn { font-size: 13px; font-weight: 600; color: var(--ink-2); margin-top: 6px; }
 
 /* onderaan het canvas: de lockbar boven de transportbalk, samen in één kolom zodat ze elkaar nooit overlappen */
-.dock { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 5; display: flex; flex-direction: column; align-items: stretch; gap: 8px; pointer-events: none; }
-.dock > * { pointer-events: auto; }
+.dock { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 12px; background: var(--ground); border-top: 1px solid var(--line); }
 .transport {
   position: relative;
   display: flex; align-items: center; gap: 10px;
   background: var(--panel); border: 1px solid var(--line-2);
-  border-radius: 9px; padding: 7px 10px; box-shadow: var(--shadow); flex-wrap: wrap;
+  border-radius: 9px; padding: 5px 10px; flex-wrap: wrap;
 }
 .transport .play {
-  width: 34px; height: 34px; flex: none; border-radius: 7px; border: 1px solid var(--line-2);
+  width: 30px; height: 30px; flex: none; border-radius: 7px; border: 1px solid var(--line-2);
   background: var(--panel); cursor: pointer; display: grid; place-items: center; color: var(--driver);
 }
 .transport .play:hover { background: var(--panel-2); }
 .transport .play:disabled { color: var(--ink-3); cursor: not-allowed; opacity: .55; }
-.transport input[type="range"] { flex: 1; min-width: 40px; }
+.transport input[type="range"] { flex: 1 1 120px; min-width: 70px; }
 .transport .ang {
   font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px;
-  font-variant-numeric: tabular-nums; color: var(--ink-2); min-width: 62px; text-align: right;
+  font-variant-numeric: tabular-nums; color: var(--ink-2); min-width: 58px; text-align: right;
 }
 .transport select { width: auto; padding: 3px 5px; font-size: 11.5px; }
 .transport .msg { font-size: 12px; color: var(--ink-3); flex: 1; }
@@ -298,11 +298,11 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; }
 .drawer {
   border-top: 1px solid var(--line); background: var(--panel);
   display: grid; grid-template-rows: auto 1fr; min-height: 0;
-  height: var(--drawerH, 260px);
+  height: var(--drawerH, 35vh);
 }
 .drawer.closed { height: auto; }
 .drawer.closed .drawer-body { display: none; }
-.grip { height: 5px; margin-top: -3px; cursor: ns-resize; background: transparent; }
+.grip { height: 9px; margin-top: -5px; cursor: ns-resize; background: transparent; position: relative; z-index: 2; touch-action: none; }
 .grip:hover { background: var(--accent-soft); }
 .drawer-head {
   display: flex; align-items: center; gap: 9px; padding: 7px 12px;
@@ -340,8 +340,10 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; }
 /* ---------- inspector ---------- */
 .inspector {
   border-left: 1px solid var(--line); background: var(--panel);
-  display: grid; grid-template-rows: auto 1fr; min-height: 0;
+  display: flex; flex-direction: column; min-height: 0;
 }
+.inspector > .inspector-body { flex: 1 1 0; }
+.inspector > .result, .inspector > .uitleg { flex: none; }
 .result { border-bottom: 1px solid var(--line); padding: 12px 14px 12px; }
 .result > h2, .sect h2 {
   margin: 0 0 8px; font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
@@ -555,15 +557,19 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   .rail .rail-label, .rail .railtop { display: none; }
   .tool { width: auto; flex: none; padding: 8px; }
   .tool .nm, .tool .kb { display: none; }
-  .centre { grid-template-rows: 1fr; }
+  .centre { grid-template-rows: minmax(0, 1fr) auto; }
   .drawer { display: none; }          /* leeft op mobiel in het tabblad Metingen */
+  .inspector > .inspector-body { flex: 1 1 auto; }
+  .result .state { grid-column: 1 / -1; }
   .inspector { border-left: none; border-top: 1px solid var(--line); max-height: 46vh; overflow: hidden; }
   .pane .drawer { display: grid; height: auto; border-top: none; }
   .drawer-body { grid-template-columns: 1fr; grid-template-rows: 230px auto; }
   .grip { display: none; }
   .serieslist { border-left: none; border-top: 1px solid var(--line); }
-  .hint { max-width: 66%; font-size: 11.5px; padding: 5px 9px; }
-  .dock { left: 8px; right: 8px; bottom: 8px; }
+  .hint { max-width: calc(100% - 70px); font-size: 11.5px; padding: 5px 9px; }
+  .dock { padding: 5px 8px; }
+  .transport .meetbar { flex: 1 1 100%; overflow-x: auto; padding: 5px 0 0; border-left: 0; border-top: 1px solid var(--line); scrollbar-width: thin; }
+  .transport .meetbar .out { max-width: none; overflow: visible; }
   .transport { padding: 6px 8px; gap: 7px; }
   .transport .ang { min-width: 50px; font-size: 11px; }
   .lockbar { font-size: 11.5px; max-width: 100%; }
@@ -649,34 +655,20 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   #lib.modal { padding: 10px; }
 }
 
-/* ---------- uitleg-kaart op het canvas ---------- */
+/* ---------- uitleg-kaart: bovenaan het rechterpaneel, dus nooit over de tekening ---------- */
 .uitleg {
-  position: absolute; left: 12px; top: 12px; z-index: 4; width: min(300px, calc(50% - 24px));
-  max-height: calc(100% - 150px); overflow-y: auto;
-  background: var(--panel); border: 1px solid var(--line-2); border-left: 3px solid var(--accent);
-  border-radius: 8px; padding: 9px 11px 9px; box-shadow: var(--shadow);
+  max-height: 42vh; overflow-y: auto; border-bottom: 1px solid var(--line); border-left: 3px solid var(--accent);
+  background: var(--accent-soft); padding: 9px 12px;
 }
 .uitleg[hidden] { display: none; }
-.uitleg { pointer-events: none; }          /* klikken gaan door naar het canvas */
-.uitleg .btn { pointer-events: auto; }
-.uitleg h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+.uitleg h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .uitleg p { margin: 0 0 8px; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
 .uitleg .btn { padding: 3px 10px; font-size: 12px; }
-.uitleg h3 { pointer-events: auto; cursor: pointer; }
-.uitleg.min { width: auto; max-width: calc(100% - 100px); padding: 4px 10px; overflow: hidden; }
+.uitleg.min { padding: 5px 12px; overflow: hidden; }
 .uitleg.min p, .uitleg.min .btn { display: none; }
 .uitleg.min h3 { margin: 0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .uitleg.min h3::before { content: "\24D8\00a0"; color: var(--accent); }
-@media (min-width: 901px) {
-  /* de hint schuift op, zodat de uitleg er niet overheen ligt */
-  .stage.hasnote .hint { left: 336px; transform: none; max-width: calc(100% - 336px - 60px); }
-  .stage.hasmin .hint { left: 290px; transform: none; max-width: calc(100% - 290px - 60px); }
-}
-@media (max-width: 900px) {
-  .uitleg { left: 8px; top: 8px; width: auto; right: 56px; max-height: calc(100% - 130px); }
-  .stage.hasnote .hint { display: none; }
-  .stage.hasmin .hint { top: 46px; max-width: calc(100% - 70px); }
-}
+@media (max-width: 900px) { .uitleg { max-height: 20vh; } }
 
 /* ---------- rondleiding ---------- */
 .tour-ring {
@@ -818,14 +810,25 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   display: flex; align-items: center; gap: 6px 8px; font-size: 12px; color: var(--ink-2); min-width: 0;
 }
 .meetbar[hidden], .stiffbar[hidden] { display: none; }
-.transport .meetbar { order: 9; flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; padding-top: 6px; border-top: 1px solid var(--line); white-space: nowrap; scrollbar-width: thin; }
+.transport .meetbar { order: 9; flex: 0 1 auto; flex-wrap: nowrap; min-width: 0; white-space: nowrap; padding-left: 10px; border-left: 1px solid var(--line); }
 .transport .meetbar > * { flex: none; }
+.transport .meetbar .out { flex: 0 1 auto; min-width: 0; max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+.transport .meetbar .out:empty { display: none; }
+.meetbar input[type="text"] { width: 66px; padding: 3px 5px; font-size: 12px; text-align: right; }
+.meetbar .ico { padding: 2px 7px; }
+.transport .meetbar .chips { flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+@media (min-width: 701px) {
+  .transport { flex-wrap: nowrap; }
+  .transport .stiffbar { min-width: 0; }
+}
+@media (max-width: 1599px) and (min-width: 701px) { .transport .meetbar .out { display: none; } }
 .transport .stiffbar { flex: 1 1 0; flex-wrap: nowrap; }
 .transport .stiffbar > * { flex: none; }
 .meetbar input[type="number"], .stiffbar input[type="number"] { width: 88px; padding: 3px 5px; font-size: 12px; }
 .meetbar .chips, .stiffbar .chips { display: inline-flex; gap: 5px; flex-wrap: nowrap; margin: 0; }
 .stiffbar .chips { flex: 1 1 0; min-width: 0; overflow-x: auto; scrollbar-width: thin; padding: 2px 0 3px; }
 .stiffbar .chips .chip { flex: none; white-space: nowrap; }
+.meetbar .chip { flex: none; white-space: nowrap; }
 .meetbar .chip, .stiffbar .chip {
   border: 1px solid var(--line-2); background: var(--panel-2); color: var(--ink); border-radius: 12px;
   padding: 2px 9px; font-size: 11.5px; cursor: pointer;
