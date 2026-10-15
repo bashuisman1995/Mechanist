@@ -808,3 +808,26 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
 @media (min-width: 701px) and (max-width: 980px) {
   .calc-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Calculators Contact, Dynamica, Thermisch */
+.calc-fig .s-ball { fill: var(--accent-soft); stroke: var(--ink-2); stroke-width: 1.2; }
+.calc-fig .s-press { fill-opacity: .55; stroke: var(--ink-2); stroke-width: .8; }
+.calc-fig .s-patch { stroke: var(--accent); fill: none; }
+.calc-fig .s-slot { stroke: var(--ink-3); stroke-opacity: .5; stroke-linecap: round; fill: none; }
+.calc-fig .s-grid { stroke: var(--line-2); stroke-width: .6; fill: none; }
+.calc-fig .s-axis { stroke: var(--ink-3); stroke-width: 1.2; fill: none; }
+.calc-fig .s-zone { fill: var(--driver-soft); }
+.calc-fig .s-zone-ok { fill: var(--accent-soft); }
+.calc-fig .s-curve { stroke: var(--accent); stroke-width: 1.8; fill: none; stroke-linejoin: round; }
+.calc-fig .s-band { fill: var(--accent-soft); }
+.calc-fig .s-force { stroke-width: 1.8; }
+.calc-fig .s-thin { stroke-width: .9; }
+.calc-fig .s-spring { stroke-linejoin: round; }
+.calc-fig .s-redline { stroke: var(--bad); stroke-width: 1.4; fill: none; }
+.calc-fig .s-bar0 { fill: none; stroke: var(--ink-3); stroke-dasharray: 3 2; stroke-width: 1; }
+.calc-fig .s-bar1 { fill: hsl(215,55%,50%); stroke: none; }
+.calc-fig .s-bar2 { fill: hsl(15,70%,50%); stroke: none; }
+.calc-fig .s-ghostr { fill: none; stroke: var(--ink-3); stroke-dasharray: 3 2; stroke-width: 1; }
+.calc-fig .s-pt { fill: var(--accent); stroke: none; }
+.calc-fig .s-pt0 { fill: var(--ink-3); }
+.calc-fig .s-blk { stroke: var(--ink-2); stroke-width: 1; stroke-linejoin: round; }
