@@ -43,6 +43,12 @@ export function settleTime(zeta, wn, band = 0.02) {
   return hi;
 }
 
+/** Insteltijd voor weergave: ζ < 1 de vuistregel 4/(ζ·ω_n) (omhullende op ≈ 2 %); ζ ≥ 1 numeriek uit de exacte stapresponsie tot de ±band. */
+export function settleInfo(zeta, wn, band = 0.02) {
+  if (zeta < 1) return { t: (band === 0.02 ? 4 : Math.log(1 / band)) / (zeta * wn), method: "approx" };   // vuistregel 4/(ζ·ω_n); ln(50) = 3,91
+  return { t: settleTime(zeta, wn, band), method: "numeric" };
+}
+
 /** Trillingsisolator: massa m [kg], stijfheid k [N/mm] (totaal, verticaal), ζ [%], storingsfrequentie f [Hz]. */
 export function isolator({ m, k, zeta, f, g = 9.81 }) {
   const ks = k * 1000, fn = Math.sqrt(ks / m) / (2 * PI), z = zeta / 100, r = f / fn;

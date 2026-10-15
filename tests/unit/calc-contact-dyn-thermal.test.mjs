@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { effModulus, effShear, shearModulus, effRadius, hertzSphere, kinCoupling } from "../../src/calc/contact.js";
-import { msd, dynAmp, transmissibility, peakAmp, step, overshoot, settleTime, isolator, fnForT, servo } from "../../src/calc/dynamics.js";
+import { msd, dynAmp, transmissibility, peakAmp, step, overshoot, settleTime, settleInfo, isolator, fnForT, servo } from "../../src/calc/dynamics.js";
 import { dLength, athermal, lumped } from "../../src/calc/thermal.js";
 import { MATERIALS, material } from "../../src/calc/materials.js";
 import { close } from "./helpers.mjs";
@@ -182,4 +182,32 @@ test("materialen: nieuwe velden c, k, sy aanwezig en plausibel; bestaande id's o
   for (const m of MATERIALS) assert.ok(m.c > 100 && m.c < 1500 && m.k > 1 && m.k < 400 && m.sy > 0, m.id);
   for (const id of ["staal", "rvs", "alu", "titaan", "cube", "fbrons", "invar"]) assert.equal(material(id).id, id);
   for (const id of ["alumina", "wc", "zerodur"]) assert.equal(material(id).id, id);
+});
+
+test("settleInfo: ζ < 1 geeft 4/(ζω_n), ζ ≥ 1 numeriek uit de stapresponsie", () => {
+  const a = settleInfo(0.1, 2 * Math.PI);
+  assert.equal(a.method, "approx");
+  close(a.t, 4 / (0.1 * 2 * Math.PI), { rtol: 1e-12 });
+  for (const z of [1, 2, 10]) {
+    const b = settleInfo(z, 3);
+    assert.equal(b.method, "numeric");
+    close(step(z, 3, b.t), 0.98, { atol: 1e-8 });
+    assert.ok(step(z, 3, b.t * 0.99) < 0.98);
+  }
+  // ζ = 2: 4/(ζω) zou 0,67/ω geven, exact is 4,9/ω: de formule is hier niet bruikbaar
+  assert.ok(settleInfo(2, 1).t > 2 * 4 / (2 * 1));
+});
+
+test("Mindlin volledig slippen: 3μN/(16G*a) = 3(2−ν)μN/(8Ga) voor identieke lichamen", () => {
+  const nu = 0.3, G = 80000, mu = 0.2, N = 10, a = 0.05, Gs = G / (2 * (2 - nu));
+  close(3 * mu * N / (16 * Gs * a), 3 * (2 - nu) * mu * N / (8 * G * a), { rtol: 1e-12 });
+});
+
+test("uitzetting: drift per kelvin is onafhankelijk van ΔT, ook bij ΔT = 0", () => {
+  const al = material("alu"), st = material("staal");
+  const per = dT => athermal({ a1: al.alpha, L1: 100, a2: st.alpha, L2: 205, dT, E1: al.E, E2: st.E });
+  const k = (st.alpha * 205 - al.alpha * 100);                                   // µm/K · (mm·1e-3)... in nm/K
+  close(per(0).dP, 0, { atol: 1e-15 });
+  close(per(5).dP / 5, per(1).dP, { rtol: 1e-9 });
+  close(per(1).dP * 1e6, k, { rtol: 1e-9 });
 });

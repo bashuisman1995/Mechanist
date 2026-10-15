@@ -2,7 +2,7 @@
 import { MATERIALS, MATERIAL_SOURCE, material } from "../calc/materials.js";
 import { crossPivot, leafSpring, notchHinge, parallelLeaf, wireFlexure } from "../calc/flexures.js";
 import { effModulus, effRadius, hertzSphere, kinCoupling } from "../calc/contact.js";
-import { dynAmp, fnForT, isolator, msd, overshoot, peakAmp, servo, settleTime, step as stepResp, transmissibility } from "../calc/dynamics.js";
+import { dynAmp, fnForT, isolator, msd, overshoot, peakAmp, servo, settleInfo, settleTime, step as stepResp, transmissibility } from "../calc/dynamics.js";
 import { athermal, dLength, lumped } from "../calc/thermal.js";
 
 const $ = id => document.getElementById(id);
@@ -12,8 +12,9 @@ const NNBSP = " ";                      // dunne, niet-brekende spatie als dui
 // ---------- opmaak ----------
 // Komma als decimaalteken; duizendtallen (vanaf 4 cijfers) met een dunne spatie, nooit met een punt:
 // "4.228" zou voor een decimaal doorgaan. Alles wat boven 1000 komt blijft dus ondubbelzinnig: "4 228".
+let nonFin = 0;                          // aantal niet-eindige waarden dat tijdens deze berekening is opgemaakt
 function sig(x, n) {
-  if (!isFinite(x)) return x > 0 ? "∞" : "—";
+  if (!isFinite(x)) { nonFin++; return x > 0 ? "∞" : "—"; }
   if (x === 0) return "0";
   const a = Math.abs(x), d = Math.min(8, Math.max(0, n - 1 - Math.floor(Math.log10(a))));
   let s = Math.abs(x).toFixed(d);
@@ -57,6 +58,8 @@ const SRC_H = LIT.smith + "; " + LIT.henein;
 
 // ---------- invoervelden ----------
 const f = (id, label, unit, def, min, range, grp) => ({ id, label, unit, def, min: min == null ? 0 : min, range, grp });
+// bovengrens voor een veld: de waarde wordt voor de berekening begrensd en er verschijnt een korte oranje melding
+const bound = (i, max, sym) => Object.assign(i, { max, sym });
 const selIn = (id, label, def, options, grp) => ({ id, type: "select", label, def, options, grp });
 const matIn = (id, label, def) => ({ id, type: "mat", label, def, grp: "Materiaal" });
 const IN_M = f("m", "Massa m op de vrije kant", "kg", 0.1);
@@ -264,7 +267,8 @@ const CALCS = [
 // De SVG wordt één keer opgebouwd; daarna worden alleen attributen en tekst bijgewerkt.
 const NS = "http://www.w3.org/2000/svg";
 const f1 = x => Math.round(x * 10) / 10;
-function set(e, a) { for (const k in a) e.setAttribute(k, a[k]); return e; }
+const badAttr = v => (typeof v === "number" ? !isFinite(v) : typeof v === "string" && /NaN|Infinity/.test(v));
+function set(e, a) { for (const k in a) if (!badAttr(a[k])) e.setAttribute(k, a[k]); return e; }   // geen NaN/Infinity in de SVG: oude (geldige) waarde blijft staan
 function mk(tag, attrs, parent) { const e = document.createElementNS(NS, tag); set(e, attrs || {}); if (parent) parent.appendChild(e); return e; }
 function txt(parent, cls, anchor) { return mk("text", { class: "s-txt " + (cls || ""), "text-anchor": anchor || "middle" }, parent); }
 const SVG_DEFS = '<defs><marker id="calcArr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L8 4L0 8z" class="s-arrf"/></marker>' +
@@ -465,7 +469,7 @@ CALCS.push({
     f("R2", "Straal tegenhouder R₂ (alleen bol–bol / holle bol)", "mm", 10, 0.01, [0.5, 100, 1], "Geometrie"),
     f("F", "Totale belasting F langs de as", "N", 10, 0.001, [0.1, 5000, 1], "Belasting"),
     selIn("n", "Aantal gelijke contacten n (V-groef: 2)", "1", [["1", "1"], ["2", "2 (V-groef)"], ["3", "3"], ["4", "4"], ["6", "6"]], "Belasting"),
-    f("theta", "Hoek θ tussen flanknormaal en belasting (V-groef 90°: 45°)", "°", 0, 0, [0, 75, 0], "Belasting")].concat(MAT_DEF),
+    bound(f("theta", "Hoek θ tussen flanknormaal en belasting (V-groef 90°: 45°)", "°", 0, 0, [0, 75, 0], "Belasting"), 89, "θ")].concat(MAT_DEF),
   lim: P0_LIM,
   run: (p, M) => {
     const m1 = material(p.mat1), m2 = material(p.mat2), n = +p.n, th = p.theta * DEG;
@@ -513,8 +517,8 @@ CALCS.push({
 
 CALCS.push({
   id: "kc", group: "Contact", name: "Kinematische koppeling", short: "Maxwell: 3 bollen in 3 V-groeven, zes contacten",
-  inputs: [f("R", "Straal bol R", "mm", 6, 0.01, [1, 25, 1], "Geometrie"), f("gamma", "Openingshoek van de V-groef γ", "°", 90, 10, [30, 150, 0], "Geometrie"),
-    f("F", "Totale voorspanning F (langs de as)", "N", 60, 0.001, [1, 5000, 1], "Belasting"), f("mu", "Wrijvingscoëfficiënt μ", "–", 0.15, 0, [0.02, 0.6, 0], "Belasting")].concat(MAT_DEF),
+  inputs: [f("R", "Straal bol R", "mm", 6, 0.01, [1, 25, 1], "Geometrie"), bound(f("gamma", "Openingshoek van de V-groef γ", "°", 90, 10, [30, 150, 0], "Geometrie"), 179, "γ"),
+    f("F", "Totale voorspanning F (langs de as)", "N", 60, 0.001, [1, 5000, 1], "Belasting"), bound(f("mu", "Wrijvingscoëfficiënt μ", "–", 0.15, 0, [0.02, 0.6, 0], "Belasting"), 2, "μ")].concat(MAT_DEF),
   lim: P0_LIM,
   run: (p, M) => {
     const m1 = material(p.mat1), m2 = material(p.mat2);
@@ -545,7 +549,7 @@ CALCS.push({
     ["Tangentiële stijfheid per contact", sub("k", "t") + " = 8·G*·a", sub("k", "t") + " = 8·" + num(r.Gs) + "·" + num(r.a) + " = " + num(r.kt / 1000) + " N/µm", LIT.johnson + " (Mindlin; lineair, onder de slipgrens)"],
     ["Groefas: stijfheid en slipkracht per groef", sub("k", "groef") + " = 2·" + sub("k", "t") + ",  " + sub("Q", "slip") + " = 2·μ·N", sub("k", "groef") + " = " + num(r.kGroove / 1000) + " N/µm,  " + sub("Q", "slip") + " = " + num(r.QGroove) + " N", "Twee flanken per groef; langs de groefas houdt alleen wrijving de bol vast"],
     ["Virtueel spel (schatting)", sub("x", "stick") + " = " + fr("μ·N", sub("k", "t")) + ";  volledig slippen " + sub("x", "slip") + " = " + fr("3·μ·N", "16·G*·a") + " = 1,5·" + sub("x", "stick"),
-      sub("x", "stick") + " = " + num(r.xStick * 1e6) + " nm,  " + sub("x", "slip") + " = " + num(r.xSlip * 1e6) + " nm", LIT.johnson + " (Mindlin: δ = 3(2−ν)μN/(16Ga) bij Q = μN). Het model erachter staat onder Aannames"],
+      sub("x", "stick") + " = " + num(r.xStick * 1e6) + " nm,  " + sub("x", "slip") + " = " + num(r.xSlip * 1e6) + " nm", LIT.johnson + " (Mindlin: δ = 3(2−ν)μN/(8Ga) bij Q = μN, identieke lichamen; gelijk aan 3μN/(16G*a) met G* = G/(2(2−ν))). Het model erachter staat onder Aannames"],
     ["Veiligheid", "n = " + fr(sub("p", "0,toel"), sub("p", "0")), "n = " + fr(num(M.sigma), num(r.p0)) + " = " + num(r.margin), "p₀,toel is jouw invoer (standaard 1,6·σ_y)"],
   ],
   assume: ["Maxwell-koppeling: drie bollen, elk in een V-groef met de groefassen in een vlak loodrecht op de voorspanning; zes puntcontacten bepalen zes vrijheidsgraden exact (geen overbepaling). Een Kelvin-koppeling (kegel, V-groef, vlak) heeft ook zes contacten, maar met verschillende krachten per contact; die is hier niet apart uitgewerkt.",
@@ -568,7 +572,7 @@ CALCS.push({
   run: (p, M) => {
     const s = msd(p), r = Object.assign({}, s), w = [];
     r.r = p.fd / s.fn; r.dyn = dynAmp(r.r, s.zeta); r.T = transmissibility(r.r, s.zeta); r.peak = peakAmp(s.zeta);
-    r.ov = overshoot(s.zeta); r.ts = settleTime(s.zeta, s.wn); r.cstat = 1 / s.ks;
+    r.ov = overshoot(s.zeta); r.tsx = settleTime(s.zeta, s.wn); const si = settleInfo(s.zeta, s.wn); r.ts = si.t; r.tsMethod = si.method; r.cstat = 1 / s.ks;
     if (s.zeta >= 1) w.push("ζ = " + num(s.zeta) + " ≥ 1: overgedempt, geen resonantiepiek en geen overshoot.");
     if (s.zeta < 0.01) w.push("ζ = " + num(s.zeta) + " < 1 %: zeer lichte demping, een stap klinkt lang na (t_s = " + tTxt(r.ts) + ").");
     if (Math.abs(r.r - 1) < 0.2) w.push("f ligt binnen 20 % van f_n: dicht bij de resonantie, versterking ×" + num(r.dyn) + ".");
@@ -581,7 +585,7 @@ CALCS.push({
         res("Resonantiepiek (max. versterking)", num(r.peak), "×"), res("Overshoot op een kracht-stap", num(r.ov * 100), "%"), res("Insteltijd t_s (2 %)", tFmt(r.ts)[0], tFmt(r.ts)[1])] };
   },
   keys: r => [K("Eigenfrequentie f_n", "Hz", num(r.fn), "f_d = " + (isFinite(r.fd) ? num(r.fd) + " Hz" : "—")), K("Demping ζ", "%", num(r.zeta * 100), "Q = " + num(r.Q) + " · c = " + num(r.c) + " N·s/m"),
-    K("Insteltijd t_s (2 %)", tFmt(r.ts)[1], tFmt(r.ts)[0], "overshoot " + num(r.ov * 100) + " %")],
+    K("Insteltijd t_s (2 %)", tFmt(r.ts)[1], tFmt(r.ts)[0], "overshoot " + num(r.ov * 100) + " % · " + (r.tsMethod === "approx" ? "4/(ζ·ω_n)" : "numeriek, ±2 %-band"))],
   formulas: (p, M, r) => [
     ["Eigenfrequentie", sub("f", "n") + " = " + fr("1", "2π") + "·√" + fr("k", "m"), sub("f", "n") + " = " + fr("1", "2π") + "·√" + fr(num(p.k * 1000), num(p.m)) + " = " + num(r.fn) + " Hz  (k in N/m = N/mm·1000)", LIT.denhartog + "; " + LIT.rao],
     ["Dempingsverhouding (" + dTxt(p.dmode) + " opgegeven)", "ζ = " + fr("c", "2·√(k·m)") + " = " + fr("1", "2Q"),
@@ -592,11 +596,12 @@ CALCS.push({
     ["Transmissibiliteit (grondexcitatie en krachtoverdracht)", "T = " + fr("√(1 + (2ζr)²)", "√((1 − r²)² + (2ζr)²)"), "T(" + num(r.r) + ") = " + num(r.T), LIT.rao + "; " + LIT.denhartog],
     ["Resonantiepiek", sub("A", "max") + " = " + fr("1", "2ζ·√(1 − ζ²)") + " (ζ < 0,707); bij kleine ζ ≈ Q", sub("A", "max") + " = " + num(r.peak) + " ×", LIT.denhartog],
     ["Stapresponsie en overshoot", "y(t) = 1 − e<sup>−ζ·ω<sub>n</sub>·t</sup>·(cos ω<sub>d</sub>t + " + fr("ζ", "√(1 − ζ²)") + "·sin ω<sub>d</sub>t),  OS = e<sup>−πζ/√(1−ζ²)</sup>", "overshoot = " + num(r.ov * 100) + " %", LIT.rao + "; " + LIT.franklin],
-    ["Insteltijd 2 %", sub("t", "s") + " ≈ " + fr("4", "ζ·" + sub("ω", "n")) + " (ζ < 1); hier exact uit y(t)", "4/(ζ·ω_n) = " + num(4 / (r.zeta * r.wn)) + " s;  exact t_s = " + tTxt(r.ts), LIT.franklin],
+    ["Insteltijd, ±2 %-band (criterium: respons blijft binnen 2 % van de eindwaarde)", "ζ < 1:  " + sub("t", "s") + " ≈ " + fr("4", "ζ·" + sub("ω", "n")) + " (omhullende e<sup>−ζω<sub>n</sub>t</sup> = 2 %, bovengrens);  ζ ≥ 1: numeriek uit y(t) (exacte stapresponsie) tot |1 − y| ≤ 2 %",
+      (r.tsMethod === "approx" ? "gebruikt: 4/(ζ·ω_n) = " + tTxt(r.ts) + " (ζ < 1);  laatste doorgang van de 2 %-band exact uit y(t): " + tTxt(r.tsx) : "gebruikt: numeriek uit y(t) = " + tTxt(r.ts) + " (ζ ≥ 1, geen formule 4/(ζ·ω_n))"), LIT.franklin],
   ],
   assume: ["Lineair massa-veer-demper-systeem met één vrijheidsgraad; viskeuze demping (kracht ∝ snelheid). Echte constructies hebben vaak materiaaldemping (ζ ≈ 0,1–1 %), wrijving en meer eigenvormen.",
     "De meegeefbaarheid is de verplaatsing per newton bij een harmonische kracht met frequentie f; de statische waarde is 1/k. De transmissibiliteit geldt voor grondexcitatie (afstand massa/grond) en voor kracht-transmissie naar de ondergrond.",
-    "De stap is een kracht-stap op de massa; de eindwaarde is F/k. Insteltijd is de laatste doorgang van de ±2 %-band, exact uit de analytische respons (ook overgedempt).",
+    "De stap is een kracht-stap op de massa; de eindwaarde is F/k. Insteltijd: voor ζ < 1 de vuistregel 4/(ζ·ω_n) (omhullende op 2 %, iets conservatief); voor ζ ≥ 1 numeriek uit de exacte stapresponsie tot de ±2 %-band. De gebruikte methode staat onder de uitkomst.",
     "Q = 1/(2ζ) is de benadering voor lichte demping; de exacte piek is 1/(2ζ√(1−ζ²)) en wordt ook getoond."],
   source: LIT.denhartog + "; " + LIT.rao + "; " + LIT.franklin + ".",
 });
@@ -680,19 +685,20 @@ CALCS.push({
     const m1 = material(p.mat1), m2 = material(p.mat2);
     const r = athermal({ a1: m1.alpha, L1: p.L1, a2: m2.alpha, L2: p.L2, dT: p.dT, E1: m1.E, E2: m2.E });
     r.m1 = m1; r.m2 = m2; r.dev = (p.L2 - r.L2ath) / r.L2ath; r.per1 = m1.alpha * p.L1 * 1e-3, r.per2 = m2.alpha * p.L2 * 1e-3;     // µm/K
+    r.driftK = (r.per2 - r.per1) * 1000;                                     // nm/K, onafhankelijk van ΔT
     const w = [];
     if (m1.id === m2.id) w.push("Beide staven hebben hetzelfde materiaal: de uitzettingen zijn gelijk in verhouding, athermisch ontwerp met L₂ = L₁ kan alleen op geometrie.");
-    if (Math.abs(r.dP) > 0.3 * Math.abs(r.d1) && p.dT > 0) w.push("Netto verplaatsing is " + num(Math.abs(r.dP) / Math.abs(r.d1) * 100) + " % van de uitzetting van staaf 1: weinig gecompenseerd (athermisch L₂ = " + num(r.L2ath) + " mm).");
+    if (Math.abs(r.driftK) > 300 * Math.abs(r.per1)) w.push("Netto drift is " + num(Math.abs(r.driftK) / Math.abs(r.per1) / 10) + " % van de uitzetting van staaf 1: weinig gecompenseerd (athermisch L₂ = " + num(r.L2ath) + " mm).");
     if (r.s1 > m1.sigma || r.s2 > m2.sigma) w.push("Bij volledig inklemmen zou de thermische spanning (" + num(Math.max(r.s1, r.s2)) + " MPa) boven σ_toel van het materiaal komen.");
     if (Math.abs(r.dev) > 1 && r.L2ath > 5000) w.push("De athermale lengte L₂ is erg groot; kies materialen met een kleinere α-verhouding.");
     return { r, warn: w,
       out: [res("Uitzetting staaf 1: ΔL₁ = α₁·L₁·ΔT", num(r.d1 * 1000), "µm"), res("Uitzetting staaf 2: ΔL₂ = α₂·L₂·ΔT", num(r.d2 * 1000), "µm"),
         res("Uitzetting per kelvin, staaf 1", num(r.per1), "µm/K"), res("Uitzetting per kelvin, staaf 2", num(r.per2), "µm/K"),
-        res("Netto verplaatsing ΔP = ΔL₂ − ΔL₁", num(r.dP * 1000), "µm"), res("Netto drift", num(r.dP * 1e6 / Math.max(p.dT, 1e-9)), "nm/K"),
+        res("Netto verplaatsing ΔP = ΔL₂ − ΔL₁", num(r.dP * 1000), "µm"), res("Netto drift per kelvin", num(r.driftK), "nm/K"), res("Netto drift totaal bij ΔT", num(r.dP * 1e6), "nm"),
         res("Netto lengte P (L₂ − L₁)", num(r.Lnet), "mm"), res("Athermale lengte L₂ = L₁·α₁/α₂", num(r.L2ath), "mm"), res("Afwijking L₂ van athermaal", num(r.dev * 100), "%"),
         res("Spanning staaf 1, volledig ingeklemd E·α·ΔT", num(r.s1), "MPa", r.s1 > m1.sigma), res("Spanning staaf 2, volledig ingeklemd", num(r.s2), "MPa", r.s2 > m2.sigma)] };
   },
-  keys: (r, p) => [K("Uitzetting staaf 1 ΔL₁", "µm", num(r.d1 * 1000), num(r.per1) + " µm/K"), K("Netto verplaatsing ΔP", "µm", num(r.dP * 1000), num(r.dP * 1e6 / Math.max(p.dT, 1e-9)) + " nm/K",
+  keys: (r, p) => [K("Uitzetting staaf 1 ΔL₁", "µm", num(r.d1 * 1000), num(r.per1) + " µm/K"), K("Netto verplaatsing ΔP", "µm", num(r.dP * 1000), num(r.driftK) + " nm/K · totaal " + num(r.dP * 1e6) + " nm",
     Math.abs(r.dP) < 0.05 * Math.abs(r.d1) ? "ok" : Math.abs(r.dP) < 0.3 * Math.abs(r.d1) ? "warn" : "bad"), K("Athermale lengte L₂", "mm", num(r.L2ath), "huidige L₂ wijkt " + num(r.dev * 100) + " % af")],
   formulas: (p, M, r) => [
     ["Uitzetting van een staaf", "ΔL = α·L·ΔT", "ΔL₁ = " + num(r.m1.alpha) + "·10⁻⁶·" + num(p.L1) + "·" + num(p.dT) + " = " + num(r.d1 * 1000) + " µm;  ΔL₂ = " + num(r.m2.alpha) + "·10⁻⁶·" + num(p.L2) + "·" + num(p.dT) + " = " + num(r.d2 * 1000) + " µm", LIT.invar + "; " + LIT.roark],
@@ -1154,6 +1160,13 @@ function params(c) {
   c.inputs.forEach(i => { p[i.id] = v[i.id]; });
   return p;
 }
+// begrens waarden met een bovengrens (max); geeft de meldingen terug
+function clampP(c, p) {
+  const notes = [];
+  c.inputs.forEach(i => { if (i.max != null && isFinite(p[i.id]) && p[i.id] > i.max) { p[i.id] = i.max; notes.push(i.sym + " begrensd tot " + num(i.max) + (i.unit && i.unit !== "–" ? " " + i.unit : "")); } });
+  return notes;
+}
+const OOR = "buiten bereik";
 const invalid = (c, p) => c.inputs.filter(i => typeof i.def === "number" &&
   !(isFinite(p[i.id]) && p[i.id] >= i.min && (i.min === 0 || p[i.id] > 0)));
 function matParams(c, p) {
@@ -1172,7 +1185,8 @@ let REF = null;   // verwijzingen naar de huidige DOM
 function render() {
   state.raf = 0;
   if (!REF) return;
-  const c = calcOf(state.cur), p = params(c), bad = invalid(c, p), M = matParams(c, p);
+  const c = calcOf(state.cur), p = params(c), bad = invalid(c, p), cl = bad.length ? [] : clampP(c, p), M = matParams(c, p);
+  const clH = cl.length ? '<div class="calc-warn calc-clamp" role="status">' + cl.map(t => "<div>" + t + "</div>").join("") + "</div>" : "";
   c.inputs.forEach(i => { const n = REF.fields[i.id]; if (n && n.type === "number") n.setAttribute("aria-invalid", String(bad.indexOf(i) >= 0)); });
   if (bad.length) {
     REF.warn.innerHTML = '<div class="calc-warn" role="alert">Controleer de invoer: ' + bad.map(i => i.label).join(", ") + ".</div>";
@@ -1182,19 +1196,22 @@ function render() {
     return;
   }
   REF.root.classList.remove("is-bad");
-  const o = c.run(p, M), r = o.r;
+  nonFin = 0;
+  const o = c.run(p, M), r = o.r, kl = keysOf(c, r, p, M), oor = nonFin > 0;     // niet-eindige uitkomst: "buiten bereik" in plaats van NaN
   REF.last = { c, p, M, o, r };
-  const wh = o.warn.length ? '<div class="calc-warn" role="alert">' + o.warn.map(w => "<div>⚠ " + w + "</div>").join("") + "</div>" : "";
+  const wh = clH + (oor ? '<div class="calc-warn" role="alert"><div>⚠ Uitkomst ' + OOR + ': de invoer geeft een niet-eindige waarde. Kies een kleinere of grotere waarde (of een andere combinatie van massa, stijfheid en demping).</div></div>' : "") + (o.warn.length ? '<div class="calc-warn" role="alert">' + o.warn.map(w => "<div>⚠ " + w + "</div>").join("") + "</div>" : "");
   if (wh !== REF.warnH) { REF.warn.innerHTML = wh; REF.warnH = wh; }
   o.out.forEach((x, k) => {
     const cell = REF.cells[k];
     if (!cell) return;
-    cell.dd.firstChild.nodeValue = x.v + (x.unit ? " " : "");
-    cell.u.textContent = x.unit || "";
+    const nf = oor && /^(—|∞)$/.test(String(x.v));
+    cell.dd.firstChild.nodeValue = (nf ? OOR : x.v) + (x.unit && !nf ? " " : "");
+    cell.u.textContent = nf ? "" : (x.unit || "");
     cell.box.classList.toggle("bad", !!x.bad);
   });
-  keysOf(c, r, p, M).forEach((k, n) => {
-    const e = REF.keys[n]; e.v.firstChild.nodeValue = k.v + (k.u ? " " : ""); e.u.textContent = k.u;
+  kl.forEach((k, n) => {
+    const nf = oor && /^(—|∞)$/.test(String(k.v));
+    const e = REF.keys[n]; e.v.firstChild.nodeValue = (nf ? OOR : k.v) + (k.u && !nf ? " " : ""); e.u.textContent = nf ? "" : k.u;
     e.sub.textContent = k.sub || ""; e.box.setAttribute("data-status", k.status || "");
   });
   FIGS[c.id].draw(REF.fig, p, r, M);

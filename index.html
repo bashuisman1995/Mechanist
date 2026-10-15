@@ -9857,6 +9857,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     return hi;
   }
+  function settleInfo(zeta, wn, band = 0.02) {
+    if (zeta < 1) return { t: (band === 0.02 ? 4 : Math.log(1 / band)) / (zeta * wn), method: "approx" };
+    return { t: settleTime(zeta, wn, band), method: "numeric" };
+  }
   function isolator({ m, k, zeta, f: f2, g = 9.81 }) {
     const ks = k * 1e3, fn = Math.sqrt(ks / m) / (2 * PI3), z = zeta / 100, r = f2 / fn;
     const T = transmissibility(r, z);
@@ -9916,8 +9920,12 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   var $ = (id) => document.getElementById(id);
   var DEG2 = Math.PI / 180;
   var NNBSP = "\u202F";
+  var nonFin = 0;
   function sig(x, n) {
-    if (!isFinite(x)) return x > 0 ? "\u221E" : "\u2014";
+    if (!isFinite(x)) {
+      nonFin++;
+      return x > 0 ? "\u221E" : "\u2014";
+    }
     if (x === 0) return "0";
     const a = Math.abs(x), d = Math.min(8, Math.max(0, n - 1 - Math.floor(Math.log10(a))));
     let s = Math.abs(x).toFixed(d);
@@ -9959,6 +9967,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   var SRC_S = LIT.soemers;
   var SRC_H = LIT.smith + "; " + LIT.henein;
   var f = (id, label2, unit, def, min, range, grp) => ({ id, label: label2, unit, def, min: min == null ? 0 : min, range, grp });
+  var bound = (i, max, sym) => Object.assign(i, { max, sym });
   var selIn = (id, label2, def, options, grp) => ({ id, type: "select", label: label2, def, options, grp });
   var matIn = (id, label2, def) => ({ id, type: "mat", label: label2, def, grp: "Materiaal" });
   var IN_M = f("m", "Massa m op de vrije kant", "kg", 0.1);
@@ -10245,8 +10254,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   ];
   var NS = "http://www.w3.org/2000/svg";
   var f1 = (x) => Math.round(x * 10) / 10;
+  var badAttr = (v) => typeof v === "number" ? !isFinite(v) : typeof v === "string" && /NaN|Infinity/.test(v);
   function set(e, a) {
-    for (const k in a) e.setAttribute(k, a[k]);
+    for (const k in a) if (!badAttr(a[k])) e.setAttribute(k, a[k]);
     return e;
   }
   function mk(tag, attrs, parent) {
@@ -10503,7 +10513,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       f("R2", "Straal tegenhouder R\u2082 (alleen bol\u2013bol / holle bol)", "mm", 10, 0.01, [0.5, 100, 1], "Geometrie"),
       f("F", "Totale belasting F langs de as", "N", 10, 1e-3, [0.1, 5e3, 1], "Belasting"),
       selIn("n", "Aantal gelijke contacten n (V-groef: 2)", "1", [["1", "1"], ["2", "2 (V-groef)"], ["3", "3"], ["4", "4"], ["6", "6"]], "Belasting"),
-      f("theta", "Hoek \u03B8 tussen flanknormaal en belasting (V-groef 90\xB0: 45\xB0)", "\xB0", 0, 0, [0, 75, 0], "Belasting")
+      bound(f("theta", "Hoek \u03B8 tussen flanknormaal en belasting (V-groef 90\xB0: 45\xB0)", "\xB0", 0, 0, [0, 75, 0], "Belasting"), 89, "\u03B8")
     ].concat(MAT_DEF),
     lim: P0_LIM,
     run: (p, M) => {
@@ -10591,9 +10601,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     short: "Maxwell: 3 bollen in 3 V-groeven, zes contacten",
     inputs: [
       f("R", "Straal bol R", "mm", 6, 0.01, [1, 25, 1], "Geometrie"),
-      f("gamma", "Openingshoek van de V-groef \u03B3", "\xB0", 90, 10, [30, 150, 0], "Geometrie"),
+      bound(f("gamma", "Openingshoek van de V-groef \u03B3", "\xB0", 90, 10, [30, 150, 0], "Geometrie"), 179, "\u03B3"),
       f("F", "Totale voorspanning F (langs de as)", "N", 60, 1e-3, [1, 5e3, 1], "Belasting"),
-      f("mu", "Wrijvingsco\xEBffici\xEBnt \u03BC", "\u2013", 0.15, 0, [0.02, 0.6, 0], "Belasting")
+      bound(f("mu", "Wrijvingsco\xEBffici\xEBnt \u03BC", "\u2013", 0.15, 0, [0.02, 0.6, 0], "Belasting"), 2, "\u03BC")
     ].concat(MAT_DEF),
     lim: P0_LIM,
     run: (p, M) => {
@@ -10645,7 +10655,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         "Virtueel spel (schatting)",
         sub("x", "stick") + " = " + fr("\u03BC\xB7N", sub("k", "t")) + ";  volledig slippen " + sub("x", "slip") + " = " + fr("3\xB7\u03BC\xB7N", "16\xB7G*\xB7a") + " = 1,5\xB7" + sub("x", "stick"),
         sub("x", "stick") + " = " + num3(r.xStick * 1e6) + " nm,  " + sub("x", "slip") + " = " + num3(r.xSlip * 1e6) + " nm",
-        LIT.johnson + " (Mindlin: \u03B4 = 3(2\u2212\u03BD)\u03BCN/(16Ga) bij Q = \u03BCN). Het model erachter staat onder Aannames"
+        LIT.johnson + " (Mindlin: \u03B4 = 3(2\u2212\u03BD)\u03BCN/(8Ga) bij Q = \u03BCN, identieke lichamen; gelijk aan 3\u03BCN/(16G*a) met G* = G/(2(2\u2212\u03BD))). Het model erachter staat onder Aannames"
       ],
       ["Veiligheid", "n = " + fr(sub("p", "0,toel"), sub("p", "0")), "n = " + fr(num3(M.sigma), num3(r.p0)) + " = " + num3(r.margin), "p\u2080,toel is jouw invoer (standaard 1,6\xB7\u03C3_y)"]
     ],
@@ -10680,7 +10690,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       r.T = transmissibility(r.r, s.zeta);
       r.peak = peakAmp(s.zeta);
       r.ov = overshoot(s.zeta);
-      r.ts = settleTime(s.zeta, s.wn);
+      r.tsx = settleTime(s.zeta, s.wn);
+      const si = settleInfo(s.zeta, s.wn);
+      r.ts = si.t;
+      r.tsMethod = si.method;
       r.cstat = 1 / s.ks;
       if (s.zeta >= 1) w.push("\u03B6 = " + num3(s.zeta) + " \u2265 1: overgedempt, geen resonantiepiek en geen overshoot.");
       if (s.zeta < 0.01) w.push("\u03B6 = " + num3(s.zeta) + " < 1 %: zeer lichte demping, een stap klinkt lang na (t_s = " + tTxt(r.ts) + ").");
@@ -10710,7 +10723,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     keys: (r) => [
       K("Eigenfrequentie f_n", "Hz", num3(r.fn), "f_d = " + (isFinite(r.fd) ? num3(r.fd) + " Hz" : "\u2014")),
       K("Demping \u03B6", "%", num3(r.zeta * 100), "Q = " + num3(r.Q) + " \xB7 c = " + num3(r.c) + " N\xB7s/m"),
-      K("Insteltijd t_s (2 %)", tFmt(r.ts)[1], tFmt(r.ts)[0], "overshoot " + num3(r.ov * 100) + " %")
+      K("Insteltijd t_s (2 %)", tFmt(r.ts)[1], tFmt(r.ts)[0], "overshoot " + num3(r.ov * 100) + " % \xB7 " + (r.tsMethod === "approx" ? "4/(\u03B6\xB7\u03C9_n)" : "numeriek, \xB12 %-band"))
     ],
     formulas: (p, M, r) => [
       ["Eigenfrequentie", sub("f", "n") + " = " + fr("1", "2\u03C0") + "\xB7\u221A" + fr("k", "m"), sub("f", "n") + " = " + fr("1", "2\u03C0") + "\xB7\u221A" + fr(num3(p.k * 1e3), num3(p.m)) + " = " + num3(r.fn) + " Hz  (k in N/m = N/mm\xB71000)", LIT.denhartog + "; " + LIT.rao],
@@ -10730,12 +10743,17 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       ["Transmissibiliteit (grondexcitatie en krachtoverdracht)", "T = " + fr("\u221A(1 + (2\u03B6r)\xB2)", "\u221A((1 \u2212 r\xB2)\xB2 + (2\u03B6r)\xB2)"), "T(" + num3(r.r) + ") = " + num3(r.T), LIT.rao + "; " + LIT.denhartog],
       ["Resonantiepiek", sub("A", "max") + " = " + fr("1", "2\u03B6\xB7\u221A(1 \u2212 \u03B6\xB2)") + " (\u03B6 < 0,707); bij kleine \u03B6 \u2248 Q", sub("A", "max") + " = " + num3(r.peak) + " \xD7", LIT.denhartog],
       ["Stapresponsie en overshoot", "y(t) = 1 \u2212 e<sup>\u2212\u03B6\xB7\u03C9<sub>n</sub>\xB7t</sup>\xB7(cos \u03C9<sub>d</sub>t + " + fr("\u03B6", "\u221A(1 \u2212 \u03B6\xB2)") + "\xB7sin \u03C9<sub>d</sub>t),  OS = e<sup>\u2212\u03C0\u03B6/\u221A(1\u2212\u03B6\xB2)</sup>", "overshoot = " + num3(r.ov * 100) + " %", LIT.rao + "; " + LIT.franklin],
-      ["Insteltijd 2 %", sub("t", "s") + " \u2248 " + fr("4", "\u03B6\xB7" + sub("\u03C9", "n")) + " (\u03B6 < 1); hier exact uit y(t)", "4/(\u03B6\xB7\u03C9_n) = " + num3(4 / (r.zeta * r.wn)) + " s;  exact t_s = " + tTxt(r.ts), LIT.franklin]
+      [
+        "Insteltijd, \xB12 %-band (criterium: respons blijft binnen 2 % van de eindwaarde)",
+        "\u03B6 < 1:  " + sub("t", "s") + " \u2248 " + fr("4", "\u03B6\xB7" + sub("\u03C9", "n")) + " (omhullende e<sup>\u2212\u03B6\u03C9<sub>n</sub>t</sup> = 2 %, bovengrens);  \u03B6 \u2265 1: numeriek uit y(t) (exacte stapresponsie) tot |1 \u2212 y| \u2264 2 %",
+        r.tsMethod === "approx" ? "gebruikt: 4/(\u03B6\xB7\u03C9_n) = " + tTxt(r.ts) + " (\u03B6 < 1);  laatste doorgang van de 2 %-band exact uit y(t): " + tTxt(r.tsx) : "gebruikt: numeriek uit y(t) = " + tTxt(r.ts) + " (\u03B6 \u2265 1, geen formule 4/(\u03B6\xB7\u03C9_n))",
+        LIT.franklin
+      ]
     ],
     assume: [
       "Lineair massa-veer-demper-systeem met \xE9\xE9n vrijheidsgraad; viskeuze demping (kracht \u221D snelheid). Echte constructies hebben vaak materiaaldemping (\u03B6 \u2248 0,1\u20131 %), wrijving en meer eigenvormen.",
       "De meegeefbaarheid is de verplaatsing per newton bij een harmonische kracht met frequentie f; de statische waarde is 1/k. De transmissibiliteit geldt voor grondexcitatie (afstand massa/grond) en voor kracht-transmissie naar de ondergrond.",
-      "De stap is een kracht-stap op de massa; de eindwaarde is F/k. Insteltijd is de laatste doorgang van de \xB12 %-band, exact uit de analytische respons (ook overgedempt).",
+      "De stap is een kracht-stap op de massa; de eindwaarde is F/k. Insteltijd: voor \u03B6 < 1 de vuistregel 4/(\u03B6\xB7\u03C9_n) (omhullende op 2 %, iets conservatief); voor \u03B6 \u2265 1 numeriek uit de exacte stapresponsie tot de \xB12 %-band. De gebruikte methode staat onder de uitkomst.",
       "Q = 1/(2\u03B6) is de benadering voor lichte demping; de exacte piek is 1/(2\u03B6\u221A(1\u2212\u03B6\xB2)) en wordt ook getoond."
     ],
     source: LIT.denhartog + "; " + LIT.rao + "; " + LIT.franklin + "."
@@ -10880,9 +10898,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       r.m2 = m2;
       r.dev = (p.L2 - r.L2ath) / r.L2ath;
       r.per1 = m1.alpha * p.L1 * 1e-3, r.per2 = m2.alpha * p.L2 * 1e-3;
+      r.driftK = (r.per2 - r.per1) * 1e3;
       const w = [];
       if (m1.id === m2.id) w.push("Beide staven hebben hetzelfde materiaal: de uitzettingen zijn gelijk in verhouding, athermisch ontwerp met L\u2082 = L\u2081 kan alleen op geometrie.");
-      if (Math.abs(r.dP) > 0.3 * Math.abs(r.d1) && p.dT > 0) w.push("Netto verplaatsing is " + num3(Math.abs(r.dP) / Math.abs(r.d1) * 100) + " % van de uitzetting van staaf 1: weinig gecompenseerd (athermisch L\u2082 = " + num3(r.L2ath) + " mm).");
+      if (Math.abs(r.driftK) > 300 * Math.abs(r.per1)) w.push("Netto drift is " + num3(Math.abs(r.driftK) / Math.abs(r.per1) / 10) + " % van de uitzetting van staaf 1: weinig gecompenseerd (athermisch L\u2082 = " + num3(r.L2ath) + " mm).");
       if (r.s1 > m1.sigma || r.s2 > m2.sigma) w.push("Bij volledig inklemmen zou de thermische spanning (" + num3(Math.max(r.s1, r.s2)) + " MPa) boven \u03C3_toel van het materiaal komen.");
       if (Math.abs(r.dev) > 1 && r.L2ath > 5e3) w.push("De athermale lengte L\u2082 is erg groot; kies materialen met een kleinere \u03B1-verhouding.");
       return {
@@ -10894,7 +10913,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           res("Uitzetting per kelvin, staaf 1", num3(r.per1), "\xB5m/K"),
           res("Uitzetting per kelvin, staaf 2", num3(r.per2), "\xB5m/K"),
           res("Netto verplaatsing \u0394P = \u0394L\u2082 \u2212 \u0394L\u2081", num3(r.dP * 1e3), "\xB5m"),
-          res("Netto drift", num3(r.dP * 1e6 / Math.max(p.dT, 1e-9)), "nm/K"),
+          res("Netto drift per kelvin", num3(r.driftK), "nm/K"),
+          res("Netto drift totaal bij \u0394T", num3(r.dP * 1e6), "nm"),
           res("Netto lengte P (L\u2082 \u2212 L\u2081)", num3(r.Lnet), "mm"),
           res("Athermale lengte L\u2082 = L\u2081\xB7\u03B1\u2081/\u03B1\u2082", num3(r.L2ath), "mm"),
           res("Afwijking L\u2082 van athermaal", num3(r.dev * 100), "%"),
@@ -10907,7 +10927,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       "Netto verplaatsing \u0394P",
       "\xB5m",
       num3(r.dP * 1e3),
-      num3(r.dP * 1e6 / Math.max(p.dT, 1e-9)) + " nm/K",
+      num3(r.driftK) + " nm/K \xB7 totaal " + num3(r.dP * 1e6) + " nm",
       Math.abs(r.dP) < 0.05 * Math.abs(r.d1) ? "ok" : Math.abs(r.dP) < 0.3 * Math.abs(r.d1) ? "warn" : "bad"
     ), K("Athermale lengte L\u2082", "mm", num3(r.L2ath), "huidige L\u2082 wijkt " + num3(r.dev * 100) + " % af")],
     formulas: (p, M, r) => [
@@ -11584,6 +11604,17 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     });
     return p;
   }
+  function clampP(c2, p) {
+    const notes = [];
+    c2.inputs.forEach((i) => {
+      if (i.max != null && isFinite(p[i.id]) && p[i.id] > i.max) {
+        p[i.id] = i.max;
+        notes.push(i.sym + " begrensd tot " + num3(i.max) + (i.unit && i.unit !== "\u2013" ? " " + i.unit : ""));
+      }
+    });
+    return notes;
+  }
+  var OOR = "buiten bereik";
   var invalid = (c2, p) => c2.inputs.filter((i) => typeof i.def === "number" && !(isFinite(p[i.id]) && p[i.id] >= i.min && (i.min === 0 || p[i.id] > 0)));
   function matParams(c2, p) {
     c2 = c2 || calcOf(state.cur);
@@ -11599,7 +11630,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function render() {
     state.raf = 0;
     if (!REF2) return;
-    const c2 = calcOf(state.cur), p = params(c2), bad = invalid(c2, p), M = matParams(c2, p);
+    const c2 = calcOf(state.cur), p = params(c2), bad = invalid(c2, p), cl = bad.length ? [] : clampP(c2, p), M = matParams(c2, p);
+    const clH = cl.length ? '<div class="calc-warn calc-clamp" role="status">' + cl.map((t) => "<div>" + t + "</div>").join("") + "</div>" : "";
     c2.inputs.forEach((i) => {
       const n = REF2.fields[i.id];
       if (n && n.type === "number") n.setAttribute("aria-invalid", String(bad.indexOf(i) >= 0));
@@ -11612,9 +11644,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       return;
     }
     REF2.root.classList.remove("is-bad");
-    const o = c2.run(p, M), r = o.r;
+    nonFin = 0;
+    const o = c2.run(p, M), r = o.r, kl = keysOf(c2, r, p, M), oor = nonFin > 0;
     REF2.last = { c: c2, p, M, o, r };
-    const wh = o.warn.length ? '<div class="calc-warn" role="alert">' + o.warn.map((w) => "<div>\u26A0 " + w + "</div>").join("") + "</div>" : "";
+    const wh = clH + (oor ? '<div class="calc-warn" role="alert"><div>\u26A0 Uitkomst ' + OOR + ": de invoer geeft een niet-eindige waarde. Kies een kleinere of grotere waarde (of een andere combinatie van massa, stijfheid en demping).</div></div>" : "") + (o.warn.length ? '<div class="calc-warn" role="alert">' + o.warn.map((w) => "<div>\u26A0 " + w + "</div>").join("") + "</div>" : "");
     if (wh !== REF2.warnH) {
       REF2.warn.innerHTML = wh;
       REF2.warnH = wh;
@@ -11622,14 +11655,16 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     o.out.forEach((x, k) => {
       const cell = REF2.cells[k];
       if (!cell) return;
-      cell.dd.firstChild.nodeValue = x.v + (x.unit ? " " : "");
-      cell.u.textContent = x.unit || "";
+      const nf2 = oor && /^(—|∞)$/.test(String(x.v));
+      cell.dd.firstChild.nodeValue = (nf2 ? OOR : x.v) + (x.unit && !nf2 ? " " : "");
+      cell.u.textContent = nf2 ? "" : x.unit || "";
       cell.box.classList.toggle("bad", !!x.bad);
     });
-    keysOf(c2, r, p, M).forEach((k, n) => {
+    kl.forEach((k, n) => {
+      const nf2 = oor && /^(—|∞)$/.test(String(k.v));
       const e = REF2.keys[n];
-      e.v.firstChild.nodeValue = k.v + (k.u ? " " : "");
-      e.u.textContent = k.u;
+      e.v.firstChild.nodeValue = (nf2 ? OOR : k.v) + (k.u && !nf2 ? " " : "");
+      e.u.textContent = nf2 ? "" : k.u;
       e.sub.textContent = k.sub || "";
       e.box.setAttribute("data-status", k.status || "");
     });
