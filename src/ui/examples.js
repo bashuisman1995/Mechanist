@@ -231,3 +231,105 @@ function steam(s) {
     }
   );
 }
+
+/* ============================================================
+   Metadata voor de bibliotheek: titel, categorie, rekenmodus(sen),
+   korte beschrijving en de uitleg die na het laden verschijnt.
+   cat: mech | dyn | frf | fric | empty;  modes: kin | dyn | equil | frf
+   ============================================================ */
+export const CATEGORIES = [
+  { id: "all", nm: "Alles" },
+  { id: "mech", nm: "Mechanismen" },
+  { id: "dyn", nm: "Dynamica" },
+  { id: "frf", nm: "Frequentie (FRF)" },
+  { id: "fric", nm: "Wrijving & speling" },
+  { id: "empty", nm: "Leeg" }
+];
+export const MODE_NAMES = { kin: "Kinematisch", dyn: "Dynamisch", equil: "Evenwicht", frf: "FRF" };
+export const EXAMPLE_META = {
+  fourbar: {
+    title: "Vierstangenmechanisme", cat: "mech", modes: ["kin"],
+    desc: "Kruk, koppelstang en tuimelaar met een koppelpunt dat een kromme volgt.",
+    text: "Eén kruk drijft het hele mechanisme aan; het koppelpunt E beschrijft een gesloten kromme. Druk op Afspelen of sleep de schuif onderin. Sleep daarna punt E of een scharnier en kijk hoe de baan verandert."
+  },
+  slidercrank: {
+    title: "Slinger-krukmechanisme", cat: "mech", modes: ["kin"],
+    desc: "Draaiende kruk die een glijder heen en weer beweegt, zoals in een motor.",
+    text: "De draaiende kruk maakt van een cirkelbeweging een rechte heen-en-weerbeweging van de glijder. Kijk in Metingen naar de versnelling van de glijder: die is niet symmetrisch. Maak de drijfstang korter en zie hoe dat verschil groter wordt."
+  },
+  compressor: {
+    title: "Slinger-kruk met veer", cat: "mech", modes: ["kin"],
+    desc: "Slinger-krukmechanisme met een veer tegen de glijder, als in een compressor.",
+    text: "De glijder duwt tegen een veer, dus het koppel dat de kruk nodig heeft wisselt sterk per stand. Bekijk de grafiek van het krukkoppel en de veerkracht. Probeer een stijvere veer en kijk hoe de koppelpiek groeit."
+  },
+  fivebar: {
+    title: "Vijfstang, twee motoren", cat: "mech", modes: ["kin"],
+    desc: "Twee aangedreven krukken sturen één punt door het vlak.",
+    text: "Met twee motoren heeft dit mechanisme twee vrijheidsgraden, beide ingevuld door een kruk. Punt C volgt een baan die van beide hoeken afhangt. Pas het toerental van een kruk aan bij Eigenschappen en zie hoe de baan van vorm wisselt."
+  },
+  hoeken: {
+    title: "Hoeken-rechtgeleiding", cat: "mech", modes: ["kin"],
+    desc: "Koppelpunt dat een stuk bijna rechtlijnig beweegt.",
+    text: "Het koppelpunt E volgt een baan met een bijna rechte lijn, zonder dat er een glijder aan te pas komt. Kijk in Metingen naar de hoogte y en snelheid vx van E. Sleep een scharnier een beetje en zie hoe snel de rechte lijn verdwijnt."
+  },
+  jansen: {
+    title: "Jansen-poot (Strandbeest)", cat: "mech", modes: ["kin"],
+    desc: "Loopmechanisme van Theo Jansen met een voet die een platte baan volgt.",
+    text: "De voet H loopt onderlangs een bijna vlak stuk en zwaait daarna omhoog, als een stap. De grafiek toont de baan van de voet: y tegen x. Verander een staaflengte en kijk hoe de stap slechter of beter wordt."
+  },
+  liftarm: {
+    title: "Hefarm met actuator", cat: "mech", modes: ["kin"],
+    desc: "Arm met een last, opgetild door een lineaire actuator.",
+    text: "De actuator wordt langer en korter en tilt zo de arm met de last op. In Metingen zie je de actuatorkracht en de hoogte van de last. Verplaats het onderste scharnier van de actuator en kijk hoeveel kracht je daarmee bespaart."
+  },
+  springload: {
+    title: "Veerslinger", cat: "dyn", modes: ["dyn"],
+    desc: "Slinger met een veer en zwaartekracht die vanzelf gaat zwaaien.",
+    text: "Hier bepalen de veer en de zwaartekracht de beweging, niet een kruk. Speel de uitkomst af en bekijk de hoogte van punt B in Metingen. Maak de veer zwakker of stijver bij Eigenschappen en zie hoe de zwaaitijd verandert."
+  },
+  doublependulum: {
+    title: "Dubbele slinger", cat: "dyn", modes: ["dyn"],
+    desc: "Twee gekoppelde slingers waarvan de beweging chaotisch wordt.",
+    text: "Een kleine verandering in de beginstand geeft na enkele seconden een heel andere beweging. De spoorlijn van het onderste punt laat dat goed zien. Sleep het mechanisme op t = 0 een tikje anders en bereken opnieuw."
+  },
+  settle: {
+    title: "Arm die tot rust komt", cat: "dyn", modes: ["dyn", "equil"],
+    desc: "Arm met veer en demping, doorgerekend tot hij stilhangt.",
+    text: "Met demping in de scharnieren zwaait de arm uit tot hij in evenwicht hangt. De rekenduur volgt vanzelf uit het moment waarop hij tot rust komt. Zet de demping lager bij Instellingen en kijk hoeveel langer het duurt."
+  },
+  shaker: {
+    title: "Massa-veer met actuator", cat: "dyn", modes: ["dyn"],
+    desc: "Massa op een veer en demper, aangestoten door een actuator.",
+    text: "De actuator schudt het ene uiteinde en de massa volgt via veer en demper. Staat de frequentie dicht bij de eigenfrequentie van massa en veer, dan wordt de uitslag veel groter. Pas de frequentie van de actuator aan en vergelijk de uitslag van de massa."
+  },
+  steamL: {
+    title: "Stoommachine", cat: "dyn", modes: ["dyn"],
+    desc: "Actuator en veer sturen via een kruiskop een kruk met vliegwielmassa.",
+    text: "De actuator speelt de stoomdruk en de veer geeft die kracht door aan kruiskop en drijfstang. De kruk met zware massa werkt als vliegwiel. Kijk in Metingen naar de x-positie van de krukpen en probeer een andere massa."
+  },
+  frictionslide: {
+    title: "Blok op helling met wrijving", cat: "fric", modes: ["dyn"],
+    desc: "Blok op een schuine baan: blijft het plakken of glijdt het?",
+    text: "De wrijving heeft een statische en een dynamische waarde, dus het blok kan blijven plakken en daarna losschieten. Kijk naar de normaalkracht en de snelheid in Metingen. Zet de statische wrijving hoger of lager bij het punt en zie waar het omslaat."
+  },
+  gaplimit: {
+    title: "Slinger met speling en aanslag", cat: "fric", modes: ["dyn"],
+    desc: "Slinger die vrij beweegt tot hij tegen een aanslag klapt.",
+    text: "Binnen de speling is de slinger vrij; daarbuiten klapt hij tegen de aanslag en wordt de veerkracht groot. De grafiek van de aanslagkracht toont dat als scherpe pieken. Maak de speling groter of kleiner bij Eigenschappen en vergelijk het effect."
+  },
+  shakerfrf: {
+    title: "Massa-veer: overdracht", cat: "frf", modes: ["frf"],
+    desc: "Frequentieresponsie van actuator naar massa met een duidelijke resonantie.",
+    text: "In plaats van in de tijd zie je hier hoe sterk de massa reageert per frequentie. De piek ligt bij de eigenfrequentie, ongeveer 3,6 Hz. Maak de massa zwaarder of de veer zwakker en zie de piek naar links schuiven."
+  },
+  pendfrf: {
+    title: "Slinger aan een kracht", cat: "frf", modes: ["frf"],
+    desc: "Frequentieresponsie van een slinger met zwaartekracht als stijfheid.",
+    text: "Een horizontale kracht stoot de slinger aan; de zwaartekracht werkt als veer. De resonantie ligt bij de slingerfrequentie, die alleen van de lengte afhangt. Verleng de slinger en kijk hoe de piek omlaag in frequentie gaat."
+  },
+  empty: {
+    title: "Leeg canvas", cat: "empty", modes: ["kin"],
+    desc: "Begin helemaal opnieuw met een leeg canvas.",
+    text: "Kies links een gereedschap en teken punten en schakels. Zet een punt vast met Scharnier en maak een schakel tot kruk met Aandrijving. Kies bovenin de modus waarmee je wilt rekenen."
+  }
+};

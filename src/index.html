@@ -71,36 +71,11 @@
           <button role="menuitem" data-a="copy">Kopieer als JSON</button>
           <button role="menuitem" data-a="paste">Plak een model…</button>
           <button role="menuitem" data-a="link">Kopieer deelbare link</button>
+          <div class="menu-sep"></div>
+          <button role="menuitem" data-a="tour">Rondleiding</button>
         </div>
       </div>
-      <div class="menuwrap">
-        <button class="btn" id="libBtn" aria-haspopup="true" aria-expanded="false">Bibliotheek</button>
-        <div class="menu" id="libMenu" hidden role="menu">
-          <div class="menu-lab">Voorbeelden &middot; kinematisch</div>
-          <button role="menuitem" data-ex="fourbar">Vierstangenmechanisme</button>
-          <button role="menuitem" data-ex="slidercrank">Slinger-krukmechanisme</button>
-          <button role="menuitem" data-ex="compressor">Slinger-kruk met veer (compressor)</button>
-          <button role="menuitem" data-ex="fivebar">Vijfstang, twee motoren</button>
-          <button role="menuitem" data-ex="hoeken">Hoeken-rechtgeleiding</button>
-          <button role="menuitem" data-ex="jansen">Jansen-poot (Strandbeest)</button>
-          <button role="menuitem" data-ex="liftarm">Hefarm met actuator</button>
-          <div class="menu-lab">Voorbeelden &middot; dynamisch</div>
-          <button role="menuitem" data-ex="springload">Veerslinger</button>
-          <button role="menuitem" data-ex="doublependulum">Dubbele slinger (chaotisch)</button>
-          <button role="menuitem" data-ex="settle">Arm die tot rust komt (evenwicht)</button>
-          <button role="menuitem" data-ex="shaker">Massa-veer, aangestoten door actuator</button>
-          <button role="menuitem" data-ex="frictionslide">Blok op helling met wrijving</button>
-          <button role="menuitem" data-ex="gaplimit">Slinger met speling en aanslag</button>
-          <button role="menuitem" data-ex="steamL">Stoommachine</button>
-          <div class="menu-lab">Voorbeelden &middot; FRF</div>
-          <button role="menuitem" data-ex="shakerfrf">Massa-veer: overdracht actuator &rarr; massa</button>
-          <button role="menuitem" data-ex="pendfrf">Slinger aan een kracht</button>
-          <div class="menu-sep"></div>
-          <button role="menuitem" data-ex="empty">Nieuw, leeg canvas</button>
-          <div class="menu-sep"></div>
-          <button role="menuitem" data-ex="empty">Nieuw, leeg canvas</button>
-        </div>
-      </div>
+      <button class="btn" id="libBtn" aria-haspopup="dialog" aria-expanded="false" title="Voorbeelden en een leeg canvas">Bibliotheek</button>
       <button class="btn ghost ico" id="fitBtn" title="Passend maken" aria-label="Passend maken">&#10530;</button>
       <button class="btn ghost ico" id="themeBtn" title="Licht of donker" aria-label="Thema wisselen">&#9681;</button>
     </div>
@@ -117,6 +92,11 @@
           <button id="zout" title="Uitzoomen" aria-label="Uitzoomen">&minus;</button>
         </div>
         <div class="hint" id="hint"></div>
+        <aside class="uitleg" id="uitleg" hidden aria-label="Uitleg bij dit voorbeeld">
+          <h3 id="uitTitle"></h3>
+          <p id="uitText"></p>
+          <button class="btn" id="uitClose">Sluiten</button>
+        </aside>
         <div class="lockbar" id="lockBar" hidden>
           <span>Alleen bekijken &mdash; bewerken kan op t&nbsp;=&nbsp;0</span>
           <button class="btn primary" id="lockBtn" title="Terug naar t = 0 (Home)">&#9198; Naar t = 0</button>
@@ -332,6 +312,17 @@
         <button class="btn" id="pickCancel">Sluiten</button>
         <button class="btn primary" id="pickOk">Klaar</button>
       </div>
+    </div>
+  </div>
+
+  <div class="modal" id="lib" hidden>
+    <div class="card libwrap" role="dialog" aria-modal="true" aria-labelledby="libTitle">
+      <div class="libhead">
+        <h3 id="libTitle">Bibliotheek</h3>
+        <button class="btn ghost ico" id="libClose" aria-label="Sluiten" title="Sluiten (Esc)">&times;</button>
+      </div>
+      <div class="chips" id="libChips" role="group" aria-label="Filter"></div>
+      <div class="libgrid" id="libGrid"></div>
     </div>
   </div>
 

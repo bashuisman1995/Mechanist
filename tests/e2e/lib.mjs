@@ -1,6 +1,8 @@
 // Gedeelde hulpfuncties voor scenario's
 export async function newPage(browser, url, opts = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 }, acceptDownloads: true });
+  // de rondleiding hoort niet in de weg te zitten; opts.tour = true laat hem juist zien
+  if (!opts.tour) await ctx.addInitScript(() => { try { if (!localStorage.getItem('mechschets.tour1')) localStorage.setItem('mechschets.tour1', '1'); } catch (e) {} });
   const p = await ctx.newPage();
   p.errs = [];
   p.on('pageerror', e => p.errs.push(e.message));

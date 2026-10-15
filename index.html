@@ -571,6 +571,115 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ---------- Hoe rekent dit? ---------- */
+#howPanel { font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }
+#howPanel[hidden] { display: none; }
+.hw-block { border: 1px solid var(--line); border-radius: 6px; background: var(--panel); padding: 10px 12px 12px; margin-bottom: 12px; }
+.hw-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.hw-block h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.hw-copy { flex: none; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--ink-2); border-radius: 5px; padding: 2px 8px; font-size: 11px; cursor: pointer; }
+.hw-copy:hover { color: var(--ink); border-color: var(--accent); }
+.hw-h { margin: 10px 0 4px; font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.hw-eq, .hw-live { margin: 3px 0; }
+.hw-eq { overflow-x: auto; }
+.hw-live span { color: var(--ink-3); }
+.hw-live b { font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+#howPanel code { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; color: var(--ink); background: var(--panel-2); border-radius: 3px; padding: 0 3px; }
+.hw-sym { display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px; margin: 0; }
+.hw-sym dt { margin: 0; } .hw-sym dd { margin: 0; }
+.hw-block ul { margin: 0; padding-left: 16px; } .hw-block li { margin: 2px 0; }
+.hw-src { margin-top: 8px; font-size: 11px; color: var(--ink-3); font-family: "IBM Plex Mono", ui-monospace, monospace; }
+.hw-sel { margin: 14px 0 6px; font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.fr { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; margin: 0 2px; }
+.fr > span:first-child { border-bottom: 1px solid currentColor; padding: 0 2px; }
+.fr > span + span { padding: 0 2px; }
+.mat { display: inline-flex; flex-direction: column; vertical-align: middle; border-left: 1px solid var(--ink-2); border-right: 1px solid var(--ink-2); border-radius: 3px; padding: 0 5px; margin: 0 3px; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; }
+.mat > span { display: flex; gap: 10px; justify-content: space-around; }
+.mat i { font-style: normal; min-width: 1.4em; text-align: center; }
+
+/* ---------- bibliotheek ---------- */
+#lib { z-index: 45; }
+.libwrap { width: min(900px, 100%); max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); display: flex; flex-direction: column; padding: 14px 14px 12px; }
+.libhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.libhead h3 { margin: 0; font-size: 15px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.chip {
+  border: 1px solid var(--line-2); background: var(--panel); color: var(--ink-2); border-radius: 999px;
+  padding: 4px 11px; font-size: 12.5px; font-family: inherit; cursor: pointer;
+}
+.chip:hover { background: var(--panel-2); }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--ground); font-weight: 600; }
+.libgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; overflow-y: auto; min-height: 0; padding: 2px; }
+.libcard {
+  display: flex; flex-direction: column; gap: 6px; text-align: left; cursor: pointer; min-width: 0;
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line-2); border-radius: 9px; padding: 8px;
+}
+.libcard[hidden] { display: none; }
+.libcard:hover { background: var(--panel-2); border-color: var(--accent); }
+.libcard .thumb { width: 100%; height: 76px; background: var(--ground); border: 1px solid var(--line); border-radius: 6px; flex: none; }
+.thumb path, .thumb rect, .thumb circle { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; }
+.thumb .k { stroke: var(--ink-2); }
+.thumb .g { stroke: var(--hatch); stroke-width: 1.2; }
+.thumb .dr { stroke: var(--driver); stroke-width: 2; }
+.thumb .s { stroke: var(--spring); stroke-width: 1.3; }
+.thumb .d { stroke: var(--spring); stroke-width: 1.4; }
+.thumb .f { stroke: var(--force); stroke-width: 1.5; }
+.thumb .t { stroke: var(--driver); stroke-width: 1.1; stroke-dasharray: 2 2; }
+.thumb .dd { stroke: var(--line-2); stroke-dasharray: 3 3; }
+.thumb .n { fill: var(--panel); stroke: var(--ink); stroke-width: 1.3; }
+.thumb .m { fill: var(--accent-soft); stroke: var(--ink-2); stroke-width: 1.4; }
+.lc-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.lc-t { font-size: 13px; font-weight: 600; }
+.lc-d { font-size: 12px; color: var(--ink-2); line-height: 1.4; }
+.lc-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.tag { font-size: 10.5px; padding: 1px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--ink); border: 1px solid var(--line-2); }
+.tag-frf { background: var(--panel-2); }
+@media (max-width: 600px) {
+  .libgrid { grid-template-columns: 1fr; }
+  .libcard { flex-direction: row; align-items: center; gap: 10px; }
+  .libcard .thumb { width: 96px; height: 60px; }
+  #lib.modal { padding: 10px; }
+}
+
+/* ---------- uitleg-kaart op het canvas ---------- */
+.uitleg {
+  position: absolute; left: 12px; top: 12px; z-index: 4; width: min(300px, calc(50% - 24px));
+  max-height: calc(100% - 150px); overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--line-2); border-left: 3px solid var(--accent);
+  border-radius: 8px; padding: 9px 11px 9px; box-shadow: var(--shadow);
+}
+.uitleg[hidden] { display: none; }
+.uitleg { pointer-events: none; }          /* klikken gaan door naar het canvas */
+.uitleg .btn { pointer-events: auto; }
+.uitleg h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+.uitleg p { margin: 0 0 8px; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
+.uitleg .btn { padding: 3px 10px; font-size: 12px; }
+@media (min-width: 901px) {
+  /* de hint schuift op, zodat de uitleg er niet overheen ligt */
+  .stage.hasnote .hint { left: 336px; transform: none; max-width: calc(100% - 336px - 60px); }
+}
+@media (max-width: 900px) {
+  .uitleg { left: 8px; top: 8px; width: auto; right: 56px; max-height: calc(100% - 130px); }
+  .stage.hasnote .hint { display: none; }
+}
+
+/* ---------- rondleiding ---------- */
+.tour-ring {
+  position: fixed; z-index: 60; pointer-events: none; border-radius: 8px;
+  border: 2px solid var(--driver); box-shadow: 0 0 0 4px var(--driver-soft);
+  transition: left .25s, top .25s, width .25s, height .25s;
+}
+.tour-ring[hidden] { display: none; }
+.tour-bubble {
+  position: fixed; z-index: 61; width: min(280px, calc(100vw - 16px));
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line-2); border-radius: 10px;
+  padding: 11px 13px; box-shadow: var(--shadow);
+}
+.tour-bubble .tn { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.tour-bubble h3 { margin: 2px 0 4px; font-size: 14px; }
+.tour-bubble p { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
+.tour-bubble .tacts { display: flex; justify-content: flex-end; gap: 8px; }
 </style>
 <script>
   // Vangnet: als het script niet laadt of vastloopt, zie je dat in plaats van een lege pagina.
@@ -635,36 +744,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           <button role="menuitem" data-a="copy">Kopieer als JSON</button>
           <button role="menuitem" data-a="paste">Plak een model…</button>
           <button role="menuitem" data-a="link">Kopieer deelbare link</button>
+          <div class="menu-sep"></div>
+          <button role="menuitem" data-a="tour">Rondleiding</button>
         </div>
       </div>
-      <div class="menuwrap">
-        <button class="btn" id="libBtn" aria-haspopup="true" aria-expanded="false">Bibliotheek</button>
-        <div class="menu" id="libMenu" hidden role="menu">
-          <div class="menu-lab">Voorbeelden &middot; kinematisch</div>
-          <button role="menuitem" data-ex="fourbar">Vierstangenmechanisme</button>
-          <button role="menuitem" data-ex="slidercrank">Slinger-krukmechanisme</button>
-          <button role="menuitem" data-ex="compressor">Slinger-kruk met veer (compressor)</button>
-          <button role="menuitem" data-ex="fivebar">Vijfstang, twee motoren</button>
-          <button role="menuitem" data-ex="hoeken">Hoeken-rechtgeleiding</button>
-          <button role="menuitem" data-ex="jansen">Jansen-poot (Strandbeest)</button>
-          <button role="menuitem" data-ex="liftarm">Hefarm met actuator</button>
-          <div class="menu-lab">Voorbeelden &middot; dynamisch</div>
-          <button role="menuitem" data-ex="springload">Veerslinger</button>
-          <button role="menuitem" data-ex="doublependulum">Dubbele slinger (chaotisch)</button>
-          <button role="menuitem" data-ex="settle">Arm die tot rust komt (evenwicht)</button>
-          <button role="menuitem" data-ex="shaker">Massa-veer, aangestoten door actuator</button>
-          <button role="menuitem" data-ex="frictionslide">Blok op helling met wrijving</button>
-          <button role="menuitem" data-ex="gaplimit">Slinger met speling en aanslag</button>
-          <button role="menuitem" data-ex="steamL">Stoommachine</button>
-          <div class="menu-lab">Voorbeelden &middot; FRF</div>
-          <button role="menuitem" data-ex="shakerfrf">Massa-veer: overdracht actuator &rarr; massa</button>
-          <button role="menuitem" data-ex="pendfrf">Slinger aan een kracht</button>
-          <div class="menu-sep"></div>
-          <button role="menuitem" data-ex="empty">Nieuw, leeg canvas</button>
-          <div class="menu-sep"></div>
-          <button role="menuitem" data-ex="empty">Nieuw, leeg canvas</button>
-        </div>
-      </div>
+      <button class="btn" id="libBtn" aria-haspopup="dialog" aria-expanded="false" title="Voorbeelden en een leeg canvas">Bibliotheek</button>
       <button class="btn ghost ico" id="fitBtn" title="Passend maken" aria-label="Passend maken">&#10530;</button>
       <button class="btn ghost ico" id="themeBtn" title="Licht of donker" aria-label="Thema wisselen">&#9681;</button>
     </div>
@@ -681,6 +765,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           <button id="zout" title="Uitzoomen" aria-label="Uitzoomen">&minus;</button>
         </div>
         <div class="hint" id="hint"></div>
+        <aside class="uitleg" id="uitleg" hidden aria-label="Uitleg bij dit voorbeeld">
+          <h3 id="uitTitle"></h3>
+          <p id="uitText"></p>
+          <button class="btn" id="uitClose">Sluiten</button>
+        </aside>
         <div class="lockbar" id="lockBar" hidden>
           <span>Alleen bekijken &mdash; bewerken kan op t&nbsp;=&nbsp;0</span>
           <button class="btn primary" id="lockBtn" title="Terug naar t = 0 (Home)">&#9198; Naar t = 0</button>
@@ -896,6 +985,17 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         <button class="btn" id="pickCancel">Sluiten</button>
         <button class="btn primary" id="pickOk">Klaar</button>
       </div>
+    </div>
+  </div>
+
+  <div class="modal" id="lib" hidden>
+    <div class="card libwrap" role="dialog" aria-modal="true" aria-labelledby="libTitle">
+      <div class="libhead">
+        <h3 id="libTitle">Bibliotheek</h3>
+        <button class="btn ghost ico" id="libClose" aria-label="Sluiten" title="Sluiten (Esc)">&times;</button>
+      </div>
+      <div class="chips" id="libChips" role="group" aria-label="Filter"></div>
+      <div class="libgrid" id="libGrid"></div>
     </div>
   </div>
 
@@ -1139,19 +1239,19 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
 
   // src/core/linalg.js
   function gauss(A, n) {
-    for (let c = 0; c < n; c++) {
-      let p = c;
-      for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
-      if (Math.abs(A[p][c]) < 1e-12) return null;
-      const t = A[c];
-      A[c] = A[p];
+    for (let c2 = 0; c2 < n; c2++) {
+      let p = c2;
+      for (let r = c2 + 1; r < n; r++) if (Math.abs(A[r][c2]) > Math.abs(A[p][c2])) p = r;
+      if (Math.abs(A[p][c2]) < 1e-12) return null;
+      const t = A[c2];
+      A[c2] = A[p];
       A[p] = t;
-      const pv = A[c][c];
+      const pv = A[c2][c2];
       for (let r = 0; r < n; r++) {
-        if (r === c) continue;
-        const f = A[r][c] / pv;
+        if (r === c2) continue;
+        const f = A[r][c2] / pv;
         if (!f) continue;
-        for (let k = c; k <= n; k++) A[r][k] -= f * A[c][k];
+        for (let k = c2; k <= n; k++) A[r][k] -= f * A[c2][k];
       }
     }
     const x = new Float64Array(n);
@@ -1211,7 +1311,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const A = [];
     for (let i = 0; i < n; i++) A.push(new Float64Array(n));
     for (let i = 0; i < n; i++) {
-      const row = fwd(Y.map((c) => c[i]));
+      const row = fwd(Y.map((c2) => c2[i]));
       for (let j = 0; j < n; j++) A[j][i] = row[j];
     }
     for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) A[i][j] = A[j][i] = (A[i][j] + A[j][i]) / 2;
@@ -1232,7 +1332,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       V.push(new Float64Array(n));
       V[i][i] = 1;
     }
-    for (let sweepN = 0; sweepN < 60; sweepN++) {
+    for (let sweepN2 = 0; sweepN2 < 60; sweepN2++) {
       let off = 0;
       for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) off += A[i][j] * A[i][j];
       if (off < 1e-22) break;
@@ -1240,21 +1340,21 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         if (Math.abs(A[p][q]) < 1e-300) continue;
         const th = (A[q][q] - A[p][p]) / (2 * A[p][q]);
         const t = Math.sign(th || 1) / (Math.abs(th) + Math.sqrt(th * th + 1));
-        const c = 1 / Math.sqrt(t * t + 1), s = t * c;
+        const c2 = 1 / Math.sqrt(t * t + 1), s = t * c2;
         for (let k = 0; k < n; k++) {
           const akp = A[k][p], akq = A[k][q];
-          A[k][p] = c * akp - s * akq;
-          A[k][q] = s * akp + c * akq;
+          A[k][p] = c2 * akp - s * akq;
+          A[k][q] = s * akp + c2 * akq;
         }
         for (let k = 0; k < n; k++) {
           const apk = A[p][k], aqk = A[q][k];
-          A[p][k] = c * apk - s * aqk;
-          A[q][k] = s * apk + c * aqk;
+          A[p][k] = c2 * apk - s * aqk;
+          A[q][k] = s * apk + c2 * aqk;
         }
         for (let k = 0; k < n; k++) {
           const vkp = V[k][p], vkq = V[k][q];
-          V[k][p] = c * vkp - s * vkq;
-          V[k][q] = s * vkp + c * vkq;
+          V[k][p] = c2 * vkp - s * vkq;
+          V[k][q] = s * vkp + c2 * vkq;
         }
       }
     }
@@ -1281,8 +1381,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return { a, b };
   }
   function constraintRows(vars) {
-    const idx = /* @__PURE__ */ new Map();
-    vars.forEach((n, i) => idx.set(n.id, i));
+    const idx2 = /* @__PURE__ */ new Map();
+    vars.forEach((n, i) => idx2.set(n.id, i));
     const rows = [], res = [];
     for (const e of model.elems) {
       if (!isBar(e)) continue;
@@ -1293,14 +1393,14 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const ux = dx / d, uy = dy / d;
       const row = new Float64Array(vars.length * 2);
       let touched2 = false;
-      if (idx.has(A.id)) {
-        const i = idx.get(A.id);
+      if (idx2.has(A.id)) {
+        const i = idx2.get(A.id);
         row[2 * i] = ux;
         row[2 * i + 1] = uy;
         touched2 = true;
       }
-      if (idx.has(B.id)) {
-        const i = idx.get(B.id);
+      if (idx2.has(B.id)) {
+        const i = idx2.get(B.id);
         row[2 * i] = -ux;
         row[2 * i + 1] = -uy;
         touched2 = true;
@@ -1310,11 +1410,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       res.push(d - curLen(e));
     }
     for (const n of model.nodes) {
-      if (n.support !== "slider" || !idx.has(n.id)) continue;
+      if (n.support !== "slider" || !idx2.has(n.id)) continue;
       const th = n.dir * Math.PI / 180;
       const nx = -Math.sin(th), ny = Math.cos(th);
       const row = new Float64Array(vars.length * 2);
-      const i = idx.get(n.id);
+      const i = idx2.get(n.id);
       row[2 * i] = nx;
       row[2 * i + 1] = ny;
       rows.push(row);
@@ -1337,7 +1437,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         return true;
       }
       let worst = 0;
-      for (const c of res) worst = Math.max(worst, Math.abs(c));
+      for (const c2 of res) worst = Math.max(worst, Math.abs(c2));
       if (worst < 1e-8) {
         snapCoords(vars);
         sim.solveOK = true;
@@ -1568,28 +1668,28 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const ux = dx / L, uy = dy / L;
       const p = 2 * ri.get(P.id), q = 2 * ri.get(Q.id);
       if (e.driver) {
-        const c = cD.get(e.id);
-        A[q][c] += 1;
-        A[q + 1][c + 1] += 1;
-        A[p][c] -= 1;
-        A[p + 1][c + 1] -= 1;
+        const c2 = cD.get(e.id);
+        A[q][c2] += 1;
+        A[q + 1][c2 + 1] += 1;
+        A[p][c2] -= 1;
+        A[p + 1][c2 + 1] -= 1;
       } else {
-        const c = cL.get(e.id);
-        A[p][c] += ux;
-        A[p + 1][c] += uy;
-        A[q][c] -= ux;
-        A[q + 1][c] -= uy;
+        const c2 = cL.get(e.id);
+        A[p][c2] += ux;
+        A[p + 1][c2] += uy;
+        A[q][c2] -= ux;
+        A[q + 1][c2] -= uy;
       }
     }
     for (const n of pins) {
-      const i = 2 * ri.get(n.id), c = cP.get(n.id);
-      A[i][c] += 1;
-      A[i + 1][c + 1] += 1;
+      const i = 2 * ri.get(n.id), c2 = cP.get(n.id);
+      A[i][c2] += 1;
+      A[i + 1][c2 + 1] += 1;
     }
     for (const n of slis) {
-      const th = n.dir * Math.PI / 180, i = 2 * ri.get(n.id), c = cS.get(n.id);
-      A[i][c] += -Math.sin(th);
-      A[i + 1][c] += Math.cos(th);
+      const th = n.dir * Math.PI / 180, i = 2 * ri.get(n.id), c2 = cS.get(n.id);
+      A[i][c2] += -Math.sin(th);
+      A[i + 1][c2] += Math.cos(th);
     }
     const kn = nd.map(() => ({ x: 0, y: 0 })), EF = {};
     for (const e of model.elems) {
@@ -1645,10 +1745,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         for (const e of links) {
           const P = N(e.a), Q = N(e.b), L = Math.hypot(Q.x - P.x, Q.y - P.y) || 1, ux = (Q.x - P.x) / L, uy = (Q.y - P.y) / L;
           if (e.driver) {
-            const c = cD.get(e.id);
-            bar.set(e.id, Math.hypot(x2[c], x2[c + 1]));
-            addB(e.b, x2[c], x2[c + 1]);
-            addB(e.a, -x2[c], -x2[c + 1]);
+            const c2 = cD.get(e.id);
+            bar.set(e.id, Math.hypot(x2[c2], x2[c2 + 1]));
+            addB(e.b, x2[c2], x2[c2 + 1]);
+            addB(e.a, -x2[c2], -x2[c2 + 1]);
           } else {
             const Nf = x2[cL.get(e.id)];
             bar.set(e.id, Math.abs(Nf));
@@ -1689,10 +1789,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     for (const e of links) {
       if (!e.driver) continue;
-      const c = cD.get(e.id), P = N(e.a), Q = N(e.b);
+      const c2 = cD.get(e.id), P = N(e.a), Q = N(e.b);
       const rx = Q.x - P.x, ry = Q.y - P.y, L = Math.hypot(rx, ry) || 1;
-      out.T[e.id] = (rx * x[c + 1] - ry * x[c]) * MM;
-      out.N[e.id] = (x[c] * rx + x[c + 1] * ry) / L;
+      out.T[e.id] = (rx * x[c2 + 1] - ry * x[c2]) * MM;
+      out.N[e.id] = (x[c2] * rx + x[c2 + 1] * ry) / L;
     }
     return out;
   }
@@ -1810,21 +1910,21 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         kind2.push({ t: "sli", n });
       }
       for (const d of ds) {
-        const c = crankAt(d, t), i = fi.get(d.b), B = pos(q2, d.b);
+        const c2 = crankAt(d, t), i = fi.get(d.b), B = pos(q2, d.b);
         let r = new Float64Array(nq);
         r[2 * i] = 1;
         rows.push(r);
-        phi.push(B.x - c.x);
-        gam.push(c.ax);
-        phit.push(-c.vx);
-        kind2.push({ t: "drv", d, c });
+        phi.push(B.x - c2.x);
+        gam.push(c2.ax);
+        phit.push(-c2.vx);
+        kind2.push({ t: "drv", d, c: c2 });
         r = new Float64Array(nq);
         r[2 * i + 1] = 1;
         rows.push(r);
-        phi.push(B.y - c.y);
-        gam.push(c.ay);
-        phit.push(-c.vy);
-        kind2.push({ t: "drv", d, c });
+        phi.push(B.y - c2.y);
+        gam.push(c2.ay);
+        phit.push(-c2.vy);
+        kind2.push({ t: "drv", d, c: c2 });
       }
       return { rows, phi, gam, phit, kind: kind2 };
     }
@@ -1972,28 +2072,28 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         row[2 * i + 1] += sgn * -rx / L2;
       }
     }
-    function evalContact(c, q2, v2, ld, cpl) {
+    function evalContact(c2, q2, v2, ld, cpl) {
       const row = new Float64Array(nq);
       let N0, scale;
-      if (c.k === "sli") {
-        const th = c.n.dir * Math.PI / 180, i = fi.get(c.n.id);
+      if (c2.k === "sli") {
+        const th = c2.n.dir * Math.PI / 180, i = fi.get(c2.n.id);
         row[2 * i] = Math.cos(th);
         row[2 * i + 1] = Math.sin(th);
-        N0 = ld.sli(c.n);
+        N0 = ld.sli(c2.n);
         scale = 1;
       } else {
-        if (c.A) bodyRow(q2, c.A, row, 1);
-        if (c.B) bodyRow(q2, c.B, row, -1);
-        if (c.A && c.B) N0 = (ld.bar(c.A) + ld.bar(c.B)) / 2;
+        if (c2.A) bodyRow(q2, c2.A, row, 1);
+        if (c2.B) bodyRow(q2, c2.B, row, -1);
+        if (c2.A && c2.B) N0 = (ld.bar(c2.A) + ld.bar(c2.B)) / 2;
         else {
-          const b = ld.vec(c.n), o = cpl && cpl[c.n.id];
+          const b = ld.vec(c2.n), o = cpl && cpl[c2.n.id];
           N0 = o ? Math.hypot(b.x - o.x, b.y - o.y) : Math.hypot(b.x, b.y);
         }
-        scale = c.r;
+        scale = c2.r;
       }
       let w = 0;
       for (let k = 0; k < nq; k++) if (row[k]) w += row[k] * v2[k];
-      return { c, row, w, sv: w * scale, lim: N0 * scale };
+      return { c: c2, row, w, sv: w * scale, lim: N0 * scale };
     }
     const muSlip = (n, a) => (n.muk || 0) + ((n.mus || 0) - (n.muk || 0)) * Math.exp(-(a / vS) * (a / vS));
     function deriv(t, q2, v2) {
@@ -2005,7 +2105,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         const m0 = J.rows.length, loosened = /* @__PURE__ */ new Set(), lastGen = {};
         let xc = x, cs = null, gen = null, x2 = null, cpl = null;
         for (let it = 0; it < 10; it++) {
-          cs = contacts.map((c) => evalContact(c, q2, v2, lamLoads(q2, J, xc.subarray(nq, nq + m0)), cpl));
+          cs = contacts.map((c2) => evalContact(c2, q2, v2, lamLoads(q2, J, xc.subarray(nq, nq + m0)), cpl));
           gen = new Float64Array(cs.length);
           const stick = [];
           cs.forEach((e, k) => {
@@ -2046,7 +2146,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
               changedSet = true;
             }
           });
-          const prevN = cs.map((e) => e.lim), nowN = contacts.map((c) => evalContact(c, q2, v2, ld2, cpl).lim);
+          const prevN = cs.map((e) => e.lim), nowN = contacts.map((c2) => evalContact(c2, q2, v2, ld2, cpl).lim);
           xc = x2.subarray(0, nq + m0);
           if (!changedSet && nowN.every((n, k) => Math.abs(n - prevN[k]) <= 1e-6 * (1 + Math.abs(n)))) break;
         }
@@ -2082,7 +2182,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (model.durMode === "equil") {
       const q0 = q.slice(), v0 = v.slice();
       const maxT = Math.max(0.2, model.maxT || 30);
-      const VTOL = 0.5, ATOL = 50;
+      const VTOL2 = 0.5, ATOL2 = 50;
       let t = 0, calm = 0, k = 0;
       while (t < maxT) {
         if (!rk4(t, q, v, h0)) break;
@@ -2095,7 +2195,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           const d = deriv(t, q, v);
           let ma = 0;
           if (d) for (let i = 0; i < nq; i++) ma = Math.max(ma, Math.abs(d.a[i]));
-          if (mv < VTOL && ma < ATOL) {
+          if (mv < VTOL2 && ma < ATOL2) {
             calm += 10 * h0;
             if (calm > 0.1) break;
           } else calm = 0;
@@ -2204,9 +2304,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       });
       const tips = /* @__PURE__ */ new Set();
       for (const d of ds) {
-        const c = crankAt(d, t), B = N(d.b);
-        B.x = c.x;
-        B.y = c.y;
+        const c2 = crankAt(d, t), B = N(d.b);
+        B.x = c2.x;
+        B.y = c2.y;
         tips.add(B.id);
       }
       relax(tips);
@@ -2382,7 +2482,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const isIn = (e) => inp.e === e;
     const pos = (q, id) => fi.has(id) ? { x: q[2 * fi.get(id)], y: q[2 * fi.get(id) + 1] } : N(id);
     const vel = (v, id) => fi.has(id) ? { x: v[2 * fi.get(id)], y: v[2 * fi.get(id) + 1] } : { x: 0, y: 0 };
-    const dot = (a, b) => {
+    const dot2 = (a, b) => {
       let t = 0;
       for (let k2 = 0; k2 < a.length; k2++) t += a[k2] * b[k2];
       return t;
@@ -2390,7 +2490,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const bb = bounds();
     const size = bb ? Math.max(40, Math.hypot(bb.b.x - bb.a.x, bb.b.y - bb.a.y)) : 100;
     const h = Math.max(0.01, size * 2e-3);
-    function place(q, u) {
+    function place2(q, u) {
       fr.forEach((n, i) => {
         n.x = q[2 * i];
         n.y = q[2 * i + 1];
@@ -2457,15 +2557,15 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         const e = new Float64Array(nq);
         e[j] = 1;
         if (rows.length) {
-          const c = lsq(rows, rows.map((r) => r[j]), nq);
-          if (c) for (let k2 = 0; k2 < nq; k2++) e[k2] -= c[k2];
+          const c2 = lsq(rows, rows.map((r) => r[j]), nq);
+          if (c2) for (let k2 = 0; k2 < nq; k2++) e[k2] -= c2[k2];
         }
         for (let pass = 0; pass < 2; pass++)
           for (const z of Z2) {
-            const d = dot(z, e);
+            const d = dot2(z, e);
             for (let k2 = 0; k2 < nq; k2++) e[k2] -= d * z[k2];
           }
-        const nr = Math.sqrt(dot(e, e));
+        const nr = Math.sqrt(dot2(e, e));
         if (nr > 1e-5) {
           for (let k2 = 0; k2 < nq; k2++) e[k2] /= nr;
           Z2.push(e);
@@ -2503,7 +2603,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     function hessGrad(q02, Z2) {
       const k2 = Z2.length, H = [], g = new Float64Array(k2);
       const Vat = (eta) => {
-        const q = place(comb(q02, Z2, eta, null, 0), 0);
+        const q = place2(comb(q02, Z2, eta, null, 0), 0);
         return q ? V(q) : NaN;
       };
       const e = (l, a, m, b2) => {
@@ -2545,7 +2645,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       start[2 * i] = n.x;
       start[2 * i + 1] = n.y;
     });
-    let q0 = place(start, 0);
+    let q0 = place2(start, 0);
     if (!q0) {
       sim.frfMsg = "Het model is op t = 0 niet samen te stellen.";
       return null;
@@ -2559,23 +2659,23 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         break;
       }
       const { H, g, V0 } = hessGrad(q0, Z2);
-      const gn = Math.sqrt(dot(g, g));
+      const gn = Math.sqrt(dot2(g, g));
       let lam = 0, moved = false;
       for (let tries = 0; tries < 10 && !moved; tries++) {
         const A = H.map((r, i) => r.map((v, j) => v + (i === j ? lam : 0)));
         let st = solveR(A, Array.from(g, (v) => -v));
-        if (!st || dot(st, g) >= 0) {
+        if (!st || dot2(st, g) >= 0) {
           lam = lam ? lam * 10 : 1e-3 + Math.abs(H[0][0]);
           continue;
         }
-        const sn = Math.sqrt(dot(st, st)), lim = 0.05 * size;
+        const sn = Math.sqrt(dot2(st, st)), lim = 0.05 * size;
         if (sn > lim) st = st.map((v) => v * lim / sn);
-        if (Math.sqrt(dot(st, st)) < 1e-7 * size) {
+        if (Math.sqrt(dot2(st, st)) < 1e-7 * size) {
           moved = true;
           eqOK = true;
           break;
         }
-        const qn = place(comb(q0, Z2, st, null, 0), 0);
+        const qn = place2(comb(q0, Z2, st, null, 0), 0);
         if (qn && V(qn) < V0 - 1e-12 * Math.abs(V0)) {
           q0 = qn;
           moved = true;
@@ -2609,10 +2709,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       for (const e of model.elems) {
         if (e.type !== "damper" && e.type !== "gap") continue;
         const P = pos(q0, e.a), Q = pos(q0, e.b), dx = Q.x - P.x, dy = Q.y - P.y, L = Math.hypot(dx, dy) || 1;
-        const c = e.type === "damper" ? e.c : gapPen(e, L) !== 0 ? e.cc || 0 : 0;
-        if (!c) continue;
+        const c2 = e.type === "damper" ? e.c : gapPen(e, L) !== 0 ? e.cc || 0 : 0;
+        if (!c2) continue;
         const ux = dx / L, uy = dy / L, vP = vel(v, e.a), vQ = vel(v, e.b);
-        const Fv = c * ((vQ.x - vP.x) * ux + (vQ.y - vP.y) * uy);
+        const Fv = c2 * ((vQ.x - vP.x) * ux + (vQ.y - vP.y) * uy);
         if (fi.has(e.a)) {
           const i = fi.get(e.a);
           F[2 * i] += Fv * ux;
@@ -2644,8 +2744,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       Mr.push(new Float64Array(k));
       Cr.push(new Float64Array(k));
       for (let b = 0; b < k; b++) {
-        Mr[a][b] = dot(Z[a], MZ[b]);
-        Cr[a][b] = dot(Z[a], CZ[b]);
+        Mr[a][b] = dot2(Z[a], MZ[b]);
+        Cr[a][b] = dot2(Z[a], CZ[b]);
       }
     }
     let Ku = new Float64Array(k), Mu = new Float64Array(k), Cu = new Float64Array(k), Fu = new Float64Array(k);
@@ -2656,7 +2756,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         const Mp = Mq(p), Cp = Cq(p);
         const hu = h;
         const Vat = (eta, u) => {
-          const q = place(comb(q0, Z, eta, p, u), u);
+          const q = place2(comb(q0, Z, eta, p, u), u);
           return q ? V(q) : NaN;
         };
         for (let a = 0; a < k; a++) {
@@ -2664,14 +2764,14 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           e1[a] = h;
           e2[a] = -h;
           Ku[a] = (Vat(e1, hu) - Vat(e1, -hu) - Vat(e2, hu) + Vat(e2, -hu)) / (4 * h * hu);
-          Mu[a] = dot(Z[a], Mp);
-          Cu[a] = dot(Z[a], Cp);
+          Mu[a] = dot2(Z[a], Mp);
+          Cu[a] = dot2(Z[a], Cp);
         }
       } else {
         const fv = new Float64Array(nq), i = fi.get(inp.e.node), th = inp.e.ang * Math.PI / 180;
         fv[2 * i] = Math.cos(th);
         fv[2 * i + 1] = Math.sin(th);
-        for (let a = 0; a < k; a++) Fu[a] = dot(Z[a], fv);
+        for (let a = 0; a < k; a++) Fu[a] = dot2(Z[a], fv);
       }
     }
     keep.forEach(([n, x, y]) => {
@@ -2687,19 +2787,19 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         const ev = jacobiEig(A);
         ev.forEach(({ val, vec }) => {
           const y = backSubT(Lc, vec);
-          let c = 0;
-          for (let a = 0; a < k; a++) for (let b = 0; b < k; b++) c += y[a] * Cr[a][b] * y[b];
+          let c2 = 0;
+          for (let a = 0; a < k; a++) for (let b = 0; b < k; b++) c2 += y[a] * Cr[a][b] * y[b];
           const w = val > 0 ? Math.sqrt(val) : 0;
-          modes.push({ f: w / (2 * Math.PI), zeta: w > 0 ? c / (2 * w) : NaN, unstable: val < -1e-9 * (1 + Math.abs(val)) });
+          modes.push({ f: w / (2 * Math.PI), zeta: w > 0 ? c2 / (2 * w) : NaN, unstable: val < -1e-9 * (1 + Math.abs(val)) });
         });
         modes.sort((a, b) => a.f - b.f);
       }
     }
     const pos0 = modes.filter((m) => m.f > 1e-6);
     let f0 = model.frfMin > 0 ? model.frfMin : pos0.length ? pos0[0].f / 20 : 0.1;
-    let f1 = model.frfMax > 0 ? model.frfMax : pos0.length ? pos0[pos0.length - 1].f * 20 : 100;
+    let f12 = model.frfMax > 0 ? model.frfMax : pos0.length ? pos0[pos0.length - 1].f * 20 : 100;
     f0 = Math.max(1e-4, f0);
-    if (!(f1 > f0 * 1.01)) f1 = f0 * 100;
+    if (!(f12 > f0 * 1.01)) f12 = f0 * 100;
     const S = {
       frf: true,
       f: new Array(361),
@@ -2725,7 +2825,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     };
     for (let i = 0; i <= 360; i++) {
       if (i % 60 === 0) yield { phase: "frf", f: i };
-      const f = f0 * Math.pow(f1 / f0, i / 360), w = 2 * Math.PI * f;
+      const f = f0 * Math.pow(f12 / f0, i / 360), w = 2 * Math.PI * f;
       S.f[i] = S.t[i] = f;
       let er = new Float64Array(k), ei = new Float64Array(k);
       if (k) {
@@ -2765,9 +2865,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (!X) return null;
     const w = X.w;
     const at = (nid2) => S.fi.has(nid2) ? S.fi.get(nid2) : -1;
-    const d = (nid2, c) => {
+    const d = (nid2, c2) => {
       const j = at(nid2);
-      return j < 0 ? [0, 0] : [X.re[2 * j + c], X.im[2 * j + c]];
+      return j < 0 ? [0, 0] : [X.re[2 * j + c2], X.im[2 * j + c2]];
     };
     const q0p = (nid2) => {
       const j = at(nid2);
@@ -2780,9 +2880,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     };
     const times = (z, n) => n === 1 ? [-w * z[1], w * z[0]] : n === 2 ? [-w * w * z[0], -w * w * z[1]] : z;
     if (t === "n") {
-      const c = { x: 0, y: 1, vx: 0, vy: 1, ax: 0, ay: 1 }[k];
-      if (c === void 0) return null;
-      return times(d(id, c), k[0] === "v" ? 1 : k[0] === "a" ? 2 : 0);
+      const c2 = { x: 0, y: 1, vx: 0, vy: 1, ax: 0, ay: 1 }[k];
+      if (c2 === void 0) return null;
+      return times(d(id, c2), k[0] === "v" ? 1 : k[0] === "a" ? 2 : 0);
     }
     const e = E(id);
     if (!e) return null;
@@ -2996,12 +3096,12 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return NaN;
   }
   function chU(key) {
-    const c = sim.CHM.get(key);
-    return c ? c.u : "";
+    const c2 = sim.CHM.get(key);
+    return c2 ? c2.u : "";
   }
   function chLab(key) {
-    const c = sim.CHM.get(key);
-    return c ? c.lab : "?";
+    const c2 = sim.CHM.get(key);
+    return c2 ? c2.lab : "?";
   }
 
   // src/core/formula.js
@@ -3032,10 +3132,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const ws = () => {
       while (i < src.length && /\s/.test(src[i])) i++;
     };
-    const eat = (c) => {
+    const eat = (c2) => {
       ws();
-      if (src.startsWith(c, i)) {
-        i += c.length;
+      if (src.startsWith(c2, i)) {
+        i += c2.length;
         return true;
       }
       return false;
@@ -3091,10 +3191,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         if (!eat(")")) throw new Error("sluithaakje ontbreekt");
         return e;
       }
-      const num2 = /^\d+(\.\d+)?([eE][+-]?\d+)?/.exec(src.slice(i));
-      if (num2) {
-        i += num2[0].length;
-        const v = parseFloat(num2[0]);
+      const num3 = /^\d+(\.\d+)?([eE][+-]?\d+)?/.exec(src.slice(i));
+      if (num3) {
+        i += num3[0].length;
+        const v = parseFloat(num3[0]);
         return () => v;
       }
       const id = /^[A-Za-z_][A-Za-z0-9_.]*/.exec(src.slice(i));
@@ -3151,9 +3251,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   var pickFor = -1;
   var pickMode = "q";
   var pickView = null;
-  function openPick(idx, mode) {
+  function openPick(idx2, mode) {
     refreshChannels();
-    pickFor = idx;
+    pickFor = idx2;
     pickQ.value = "";
     setPickMode(mode || "q");
     pick.hidden = false;
@@ -3187,18 +3287,18 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function plotted(key) {
     return model.series.some((s) => s.key === key);
   }
-  function chip(c, on) {
-    return '<button type="button" class="chip" data-k="' + c.key + '" aria-pressed="' + !!on + '" title="' + c.lab + " [" + c.u + "] \u2014 in formules: " + c.al + '">' + c.q + "</button>";
+  function chip(c2, on) {
+    return '<button type="button" class="chip" data-k="' + c2.key + '" aria-pressed="' + !!on + '" title="' + c2.lab + " [" + c2.u + "] \u2014 in formules: " + c2.al + '">' + c2.q + "</button>";
   }
   function renderPick() {
     const words = pickQ.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const rows = /* @__PURE__ */ new Map();
-    for (const c of sim.CH) {
-      if (c.hide) continue;
-      const hay = (c.o + " " + c.q + " " + c.al + " " + c.lab).toLowerCase();
+    for (const c2 of sim.CH) {
+      if (c2.hide) continue;
+      const hay = (c2.o + " " + c2.q + " " + c2.al + " " + c2.lab).toLowerCase();
       if (!words.every((w) => hay.includes(w))) continue;
-      if (!rows.has(c.o)) rows.set(c.o, { o: c.o, g: c.g, obj: c.obj, cs: [] });
-      rows.get(c.o).cs.push(c);
+      if (!rows.has(c2.o)) rows.set(c2.o, { o: c2.o, g: c2.g, obj: c2.obj, cs: [] });
+      rows.get(c2.o).cs.push(c2);
     }
     const sid = ui.sel ? ui.sel.id : null;
     const list = [...rows.values()];
@@ -3208,7 +3308,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     let html = "", g = null;
     const mark = pickMode === "q" && pickFor < 0;
-    const rowHtml = (r) => '<div class="prow' + (r.obj === sid ? " sel" : "") + '" data-o="' + r.obj + '"><span class="po">' + r.o + '</span><span class="pq">' + r.cs.map((c) => chip(c, mark && plotted(c.key))).join("") + "</span></div>";
+    const rowHtml = (r) => '<div class="prow' + (r.obj === sid ? " sel" : "") + '" data-o="' + r.obj + '"><span class="po">' + r.o + '</span><span class="pq">' + r.cs.map((c2) => chip(c2, mark && plotted(c2.key))).join("") + "</span></div>";
     const selRow = list.find((r) => r.obj === sid);
     if (selRow) html += '<div class="g">Selectie</div>' + rowHtml(selRow);
     for (const r of list) {
@@ -3244,8 +3344,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       return false;
     }
     try {
-      const c = compile(src);
-      const u = exprUnit(c.used, src);
+      const c2 = compile(src);
+      const u = exprUnit(c2.used, src);
       pickMsg.innerHTML = '<span style="color:var(--spring)">\u2713 geldig</span>' + (u ? " \xB7 eenheid " + u : "");
       return true;
     } catch (e) {
@@ -3253,9 +3353,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       return false;
     }
   }
-  function setSerie(idx, sr) {
-    if (idx < 0) model.series.push(sr);
-    else model.series[idx] = sr;
+  function setSerie(idx2, sr) {
+    if (idx2 < 0) model.series.push(sr);
+    else model.series[idx2] = sr;
     ui.pdata = null;
     renderSeries();
     drawPlot();
@@ -3337,19 +3437,19 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     pickList.addEventListener("click", (ev) => {
       const b = ev.target.closest("button.chip");
       if (!b) return;
-      const c = sim.CHM.get(b.dataset.k);
-      if (!c) return;
+      const c2 = sim.CHM.get(b.dataset.k);
+      if (!c2) return;
       if (pickMode === "f") {
-        insertFx(c.al);
+        insertFx(c2.al);
         return;
       }
       if (pickFor >= 0) {
-        setSerie(pickFor, { key: c.key });
+        setSerie(pickFor, { key: c2.key });
         closePick();
         return;
       }
-      toggleSerie(c.key);
-      b.setAttribute("aria-pressed", String(plotted(c.key)));
+      toggleSerie(c2.key);
+      b.setAttribute("aria-pressed", String(plotted(c2.key)));
     });
     pickFxInp.addEventListener("input", checkFx);
     pickFxInp.addEventListener("keydown", (ev) => {
@@ -3526,7 +3626,437 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   }
 
   // src/ui/how.js
+  var BA2 = 20;
+  var BB2 = 20;
+  var VTOL = 0.5;
+  var ATOL = 50;
+  var CALM = 0.1;
+  var esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  var nl = (x) => String(x).replace(".", ",");
+  var num2 = (v, d = 3) => {
+    if (v === void 0 || v === null || !isFinite(v)) return "\u2013";
+    const a = Math.abs(v);
+    if (a !== 0 && (a < 1e-3 || a >= 1e5)) return nl(v.toExponential(2));
+    return nl(+v.toPrecision(d));
+  };
+  var hz = (f) => f === void 0 || !isFinite(f) ? "\u2013" : nl(f < 10 ? f.toPrecision(3) : f < 1e3 ? f.toFixed(1) : f.toFixed(0)) + " Hz";
+  var mat = (rows) => '<span class="mat">' + rows.map((r) => "<span>" + r.map((c2) => "<i>" + c2 + "</i>").join("") + "</span>").join("") + "</span>";
+  var c = (s) => "<code>" + s + "</code>";
+  var name = (id) => {
+    const n = N(id);
+    return n ? n.name || id : "?";
+  };
+  function plain(h) {
+    return h.replace(/<span class="fr"><span>(.*?)<\/span><span>(.*?)<\/span><\/span>/g, "($1)/($2)").replace(/<sub>(.*?)<\/sub>/g, "_$1").replace(/<sup>(.*?)<\/sup>/g, "^$1").replace(/<span class="mat">(.*?)<\/span><\/span>/g, (m) => m).replace(/<\/i><i>/g, "  ").replace(/<\/span><span>/g, " ; ").replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  }
+  var copies = [];
+  function block(b) {
+    const i = copies.length;
+    const sec = (t, items, cls) => items && items.length ? '<div class="hw-h">' + t + "</div>" + (cls === "ul" ? "<ul>" + items.map((x) => "<li>" + x + "</li>").join("") + "</ul>" : items.map((x) => '<div class="hw-' + cls + '">' + x + "</div>").join("")) : "";
+    const txt = [b.title, ""];
+    const add = (t, items, f) => {
+      if (items && items.length) {
+        txt.push(t + ":");
+        items.forEach((x) => txt.push("  " + (f ? f(x) : plain(x))));
+        txt.push("");
+      }
+    };
+    add("Vergelijkingen", b.eq);
+    add("Betekenis", b.sym, (x) => plain(x[0]) + " = " + plain(x[1]));
+    add("Met jouw getallen", b.live);
+    add("Aannames", b.ass);
+    if (b.src) txt.push("Bron: " + plain(b.src));
+    copies.push(txt.join("\n").replace(/\n{3,}/g, "\n\n").trim());
+    return '<section class="hw-block"><div class="hw-top"><h3>' + b.title + '</h3><button type="button" class="hw-copy" data-i="' + i + '">Kopieer</button></div>' + sec("Vergelijkingen", b.eq, "eq") + (b.sym && b.sym.length ? '<div class="hw-h">Betekenis</div><dl class="hw-sym">' + b.sym.map((x) => "<dt>" + x[0] + "</dt><dd>" + x[1] + "</dd>").join("") + "</dl>" : "") + sec("Met jouw getallen", b.live, "live") + sec("Aannames", b.ass, "ul") + (b.src ? '<div class="hw-src">Bron: ' + b.src + "</div>" : "") + "</section>";
+  }
+  var kv = (k, v) => "<span>" + k + "</span> <b>" + v + "</b>";
+  function kinBlock() {
+    const m = mobility();
+    const v = m.drive ? m.dofDriven : m.dof;
+    let res = 0;
+    for (const e of model.elems) {
+      if (!isBar(e) || !N(e.a) || !N(e.b)) continue;
+      const A = N(e.a), B = N(e.b);
+      res = Math.max(res, Math.abs(Math.hypot(A.x - B.x, A.y - B.y) - curLen(e)));
+    }
+    for (const n of model.nodes) if (n.support === "slider") {
+      const th = n.dir * Math.PI / 180;
+      res = Math.max(res, Math.abs((n.x - n.ax) * -Math.sin(th) + (n.y - n.ay) * Math.cos(th)));
+    }
+    const live = [
+      kv("Punten", m.nNodes + " (" + m.nPinned + " vast, " + (m.nNodes - m.nPinned) + " vrij)"),
+      kv("Onbekenden", "2\xB7" + (m.nNodes - m.nPinned) + " = " + m.unknowns),
+      kv("Vergelijkingen", m.nLinks - m.nDead + " stangen + " + m.nSliders + " glijders = " + m.cons),
+      kv("Vrijheidsgraden", m.unknowns + " \u2212 " + m.cons + " = " + m.dof)
+    ];
+    if (m.drive) live.push(kv("Aangedreven", m.driver + " kruk(ken), " + m.acts + " actuator(en) \u2192 " + m.dofDriven + " over"));
+    live.push(kv("Status", v === 0 ? "bepaald" : v > 0 ? "onderbepaald (" + v + " te veel vrij)" : "overbepaald (" + -v + " te veel)"));
+    live.push(kv("Restfout max |\u03A6|", num2(res) + " mm" + (sim.solveOK === false ? " (niet samen te stellen)" : "")));
+    live.push(kv("Zwaartekracht", model.gravity ? "aan (g = 9,81 m/s\xB2)" : "uit"));
+    return block({
+      title: "Kinematica: positie, snelheid, versnelling en krachten",
+      eq: [
+        "Stang: " + c("\u03A6<sub>i</sub> = |p \u2212 q|\xB2 \u2212 L<sub>i</sub>\xB2 = 0"),
+        "Glijder: " + c("n\xB7(p \u2212 a) = 0") + ", " + c("n = (\u2212sin \u03B8, cos \u03B8)"),
+        "Kruk: " + c("p = A + L\xB7(cos \u03B8, sin \u03B8)") + ", " + c("\u03B8 = \u03B8<sub>0</sub> + \u03C9t"),
+        "Positie (Gauss-Newton, kleinste stap): " + c("J\xB7\u0394q = \u2212\u03A6") + ", " + c("\u0394q = J\u1D40(JJ\u1D40)\u207B\xB9(\u2212\u03A6)"),
+        "Snelheid: " + c("J\xB7q\u0307 = \u2212\u03A6<sub>t</sub>") + " met " + c("2(p\u2212q)\xB7(v<sub>p</sub>\u2212v<sub>q</sub>) = 0"),
+        "Versnelling: " + c("J\xB7q\u0308 = \u03B3") + " met " + c("\u03B3 = \u22122|v<sub>p</sub>\u2212v<sub>q</sub>|\xB2"),
+        "Krachten (quasi-statisch): " + c("\u03A3F = m\xB7a") + " in elk punt, onbekend: stangkrachten N, reacties, krukkracht",
+        "Gr\xFCbler: " + c("DOF = 2\xB7n<sub>vrij</sub> \u2212 (stangen + glijders)")
+      ],
+      sym: [
+        [c("q"), "co\xF6rdinaten (x, y) van alle vrije punten, in mm"],
+        [c("\u03A6"), "afwijking van de randvoorwaarden; 0 als alles klopt"],
+        [c("J"), "Jacobiaan \u2202\u03A6/\u2202q (rij per stang of glijder)"],
+        [c("L"), "stanglengte (bij een actuator: de lengte op dat moment)"],
+        [c("m, a"), "massa in kg en versnelling van het punt in mm/s\xB2 (\xD710<sup>\u22123</sup> geeft N)"]
+      ],
+      live,
+      ass: ["Stangen zijn stijf en massaloos; massa zit in de punten.", "Geen tijdstappen: elke stand volgt uit de vorige met de kleinste verplaatsing.", "Krachten alleen als het stelsel vierkant is (DOF = 0 met aandrijving)."],
+      src: "src/core/kinematics.js (relax, kinAt, forcesAt, mobility)"
+    });
+  }
+  function dynBlocks() {
+    const sw = sim.sweep && sim.sweep.dyn ? sim.sweep : null;
+    const eq = model.durMode === "equil";
+    const free = model.nodes.filter((n) => n.support !== "pin").length, nq = 2 * free;
+    const drv = model.elems.filter((e) => e.type === "link" && e.driver && N(e.a) && N(e.b) && N(e.a).support === "pin" && N(e.b).support !== "pin").length;
+    const bars = model.elems.filter((e) => isBar(e) && !e.driver && N(e.a) && N(e.b) && !(N(e.a).support === "pin" && N(e.b).support === "pin")).length;
+    const sl = model.nodes.filter((n) => n.support === "slider").length;
+    const nm = bars + sl + 2 * drv;
+    const h0 = Math.max(1e-6, (model.dtStep || 0.2) / 1e3);
+    const dur = sw ? sw.dur : eq ? null : Math.max(0.01, model.simDur || 2);
+    let sub = null, h = null;
+    if (dur) {
+      sub = Math.min(2e3, Math.max(1, Math.ceil(dur / 360 / h0)));
+      h = dur / 360 / sub;
+    }
+    const live = [
+      kv("Onbekenden q", "2\xB7" + free + " = " + nq),
+      kv("Randvoorwaarden \u03A6", bars + " stangen + " + sl + " glijders + 2\xB7" + drv + " kruk = " + nm),
+      kv("Vrijheidsgraden", nq + " \u2212 " + nm + " = " + (nq - nm) + (nq - nm < 0 ? " (overbepaald, niet te rekenen)" : "")),
+      kv("Stap h<sub>0</sub> (instelling)", nl(+(h0 * 1e3).toPrecision(3)) + " ms"),
+      kv("Baumgarte \u03B1 = \u03B2", BA2 + " 1/s"),
+      kv("Zwaartekracht", model.gravity ? "aan" : "uit"),
+      kv("Demping per punt c<sub>v</sub>", num2(model.cVisc || 0) + " Ns/mm"),
+      kv("Scharnierdemping", model.jointDamp ? num2(model.cJoint) + " N\xB7m\xB7s" : "uit")
+    ];
+    if (dur) live.push(kv("Looptijd", num2(dur, 3) + " s" + (eq && !sw ? " (max)" : "") + " \u2192 360 beelden, " + sub + " RK4-stap(pen) per beeld, h = " + num2(h * 1e3) + " ms"));
+    if (sim.job) live.push(kv("Status", "bezig met rekenen\u2026"));
+    else if (ui.dynStale) live.push(kv("Status", "model gewijzigd, druk op Bereken"));
+    else if (!sw) live.push(kv("Status", "nog niet doorgerekend"));
+    else {
+      live.push(kv("Grootste reactie", num2(sw.Rmax) + " N"));
+      live.push(kv("Grootste stangkracht", num2(sw.Nmax) + " N"));
+    }
+    const out = [block({
+      title: eq ? "Evenwicht: bewegen tot het stil ligt" : "Dynamica: beweging in de tijd",
+      eq: [
+        mat([["M", "\u03A6<sub>q</sub>\u1D40"], ["\u03A6<sub>q</sub>", "0"]]) + mat([["q\u0308"], ["\u03BB"]]) + " = " + mat([["Q"], ["\u03B3 \u2212 2\u03B1\xB7\u03A6\u0307 \u2212 \u03B2\xB2\xB7\u03A6"]]),
+        "Randvoorwaarden: " + c("\u03A6(q, t) = |p\u2212q|\xB2 \u2212 L\xB2 = 0") + " (stang, glijder, kruk als in kinematica)",
+        "Stangkracht: " + c("N = 2L\xB7\u03BB"),
+        "Tijdstap RK4: " + c("y\u2032 = (q\u0307, q\u0308)") + ", vier KKT-stelsels per stap",
+        "Projectie na elk beeld: " + c("\u03A6 = 0") + " (positie) en " + c("\u03A6<sub>q</sub>\xB7q\u0307 = \u2212\u03A6<sub>t</sub>") + " (snelheid)"
+      ],
+      sym: [
+        [c("M"), "massamatrix (diagonaal, kg\xB7mm \u2192 N via 10<sup>\u22123</sup>)"],
+        [c("Q"), "uitwendige krachten: veer, demper, speling, kracht, zwaartekracht, wrijving, demping"],
+        [c("\u03A6<sub>q</sub>"), "Jacobiaan van de randvoorwaarden"],
+        [c("\u03BB"), "Lagrange-multiplicatoren: de krachten die de verbindingen leveren"],
+        [c("\u03B3"), "kwadratische snelheidsterm uit de tweede afgeleide van \u03A6"],
+        [c("\u03B1, \u03B2"), "Baumgarte: dempen van afwijkingen, " + BA2 + " en " + BB2 + " 1/s"]
+      ],
+      live,
+      ass: ["Stangen zijn stijf; massa zit in de punten (standaardmassa als er geen is ingevuld).", "Wrijving: Stribeck-vorm met echt plakken onder de snelheidsdrempel.", "Draait ook met vrijheidsgraden over: veren en dempers sturen dan de beweging."],
+      src: "src/core/dynamics.js (computeDyn: jac, kkt, rk4, project)"
+    })];
+    if (eq) {
+      out.push(block({
+        title: "Evenwichtscriteria",
+        eq: [
+          "Stil als: " + c("max|q\u0307| < " + nl(VTOL) + " mm/s") + " en " + c("max|q\u0308| < " + ATOL + " mm/s\xB2"),
+          "...gedurende " + c("> " + nl(CALM) + " s") + " aaneen; gecontroleerd elke 10 stappen",
+          "Evenwicht zelf: " + c("q\u0307 = 0, q\u0308 = 0") + " \u2192 " + c("\u03A6<sub>q</sub>\u1D40\u03BB = Q, \u03A6 = 0")
+        ],
+        sym: [[c("max|q\u0307|"), "grootste puntsnelheid"], [c("max|q\u0308|"), "grootste puntversnelling, uit het KKT-stelsel"]],
+        live: [
+          kv("Maximale rekentijd", num2(model.maxT || 30) + " s"),
+          kv("Resultaat", sw && sw.settled ? "tot rust na " + num2(sw.settled, 3) + " s" : sw ? "niet tot rust binnen de maximale tijd" : "nog niet doorgerekend")
+        ],
+        ass: ["Daarna wordt de beweging vanaf het begin opnieuw opgeslagen tot die tijd.", "Dempers of wrijving zijn nodig om echt tot rust te komen."],
+        src: "src/core/dynamics.js (durMode = equil)"
+      }));
+    }
+    return out;
+  }
+  function frfBlock() {
+    const sw = sim.sweep && sim.sweep.frf ? sim.sweep : null;
+    const live = [];
+    if (sim.job) live.push(kv("Status", "bezig met rekenen\u2026"));
+    else if (ui.dynStale) live.push(kv("Status", "model gewijzigd, druk op Bereken"));
+    else if (!sw) live.push(kv("Status", sim.frfMsg ? esc(sim.frfMsg) : "nog niet doorgerekend"));
+    if (sw) {
+      live.push(kv("Ingang", esc(sw.inLab || "") + " (" + sw.inUnit + ")"));
+      live.push(kv("Vrijheidsgraden k (dim Z)", String(sw.k)));
+      live.push(kv("Evenwicht", sw.eqOK ? "gevonden (\u2207V = 0)" : "niet nauwkeurig gevonden"));
+      live.push(kv("Frequentiebereik", hz(sw.f[0]) + " \u2013 " + hz(sw.f[360]) + ", 361 punten log"));
+      const ms = (sw.modes || []).filter((x) => x.f > 1e-6 || x.unstable).slice(0, 3);
+      ms.forEach((x, i) => live.push(kv(
+        "Eigenfrequentie f<sub>" + (i + 1) + "</sub>",
+        x.unstable ? "onstabiel (K niet positief)" : hz(x.f) + ", \u03B6 = " + (isFinite(x.zeta) ? num2(x.zeta, 2) : "\u2013")
+      )));
+      if (!ms.length) live.push(kv("Eigenfrequenties", "geen (k = 0 of geen massa)"));
+    }
+    live.push(kv("Zwaartekracht", model.gravity ? "aan (geeft K een slingerstijfheid)" : "uit"));
+    live.push(kv("Demping per punt c<sub>v</sub>", num2(model.cVisc || 0) + " Ns/mm"));
+    live.push(kv("Scharnierdemping", model.jointDamp ? num2(model.cJoint) + " N\xB7m\xB7s" : "uit"));
+    return block({
+      title: "FRF: frequentieresponsie rond het evenwicht",
+      eq: [
+        "Evenwicht: " + c("min V(q)") + " onder de randvoorwaarden, aandrijvingen vast",
+        "Kleine bewegingen: " + c("q = q<sub>0</sub> + Z\xB7\u03B7 + p\xB7u"),
+        c("M = Z\u1D40MZ") + ", " + c("C = Z\u1D40CZ") + ", " + c("K = \u2202\xB2V/\u2202\u03B7\xB2") + " (numeriek)",
+        "Per frequentie: " + c("(K \u2212 \u03C9\xB2M + i\u03C9C)\xB7\u03B7 = F") + " (kracht: F = Z\u1D40f; beweging: F = \u2212(K<sub>u</sub> \u2212 \u03C9\xB2M<sub>u</sub> + i\u03C9C<sub>u</sub>)\xB7u)",
+        "Eigenfrequentie: " + c("f = \u221A\u03BB(K,M) / 2\u03C0") + ", " + c("\u03B6 = y\u1D40Cy / 2\u03C9") + " (y massa-genormeerd)"
+      ],
+      sym: [
+        [c("Z"), "orthonormale basis van wat de randvoorwaarden toelaten (k kolommen)"],
+        [c("\u03B7"), "co\xF6rdinaten in die basis (k vrijheidsgraden)"],
+        [c("p\xB7u"), "vaste vorm bij de ingang u (actuatorlengte, krukhoek)"],
+        [c("V"), "potenti\xEBle energie: veren, aanslag, zwaartekracht, krachten"],
+        [c("M, C, K"), "gereduceerde massa-, dempings- en stijfheidsmatrix"],
+        [c("\u03C9, \u03B6"), "hoekfrequentie (rad/s) en dempingsfactor per eigenvorm"]
+      ],
+      live,
+      ass: ["Lineair rond \xE9\xE9n evenwicht: alleen kleine uitslagen.", "Wrijving en gesloten speling-aanslagen tellen alleen als stijfheid/demping mee als de aanslag raakt.", "Demping: demper, aanslag, demping per punt en scharnierdemping."],
+      src: "src/core/frf.js (computeFrf)"
+    });
+  }
+  function selBlock() {
+    const s = ui.sel;
+    if (!s) return "";
+    if (s.kind === "node") {
+      const n = N(s.id);
+      if (!n) return "";
+      const nm2 = n.name || n.id, parts = [];
+      const dm = n.m > 0 ? n.m : model.defMass || 0.1;
+      parts.push(block({
+        title: "Massa in punt " + esc(nm2),
+        eq: [c("\u03A3F = m\xB7a") + " ; " + c("F<sub>zwaarte</sub> = \u2212m\xB7g") + " (alleen als zwaartekracht aan staat)"],
+        sym: [[c("m"), "massa van het punt in kg"], [c("g"), "9,81 m/s\xB2"]],
+        live: [
+          kv("m", num2(dm) + " kg" + (n.m > 0 ? "" : " (standaard)")),
+          kv("m\xB7g", num2(dm * 9.81) + " N" + (model.gravity ? "" : " (zwaartekracht uit)")),
+          kv("Steun", n.support === "pin" ? "scharnier (vast)" : n.support === "slider" ? "glijder, hoek " + num2(n.dir) + "\xB0" : "vrij")
+        ],
+        src: "src/core/dynamics.js (loads, mA)"
+      }));
+      if (n.mus > 0 || n.muk > 0) {
+        const vS = model.fricVs || 5, ve = model.fricVe || 2, r = n.rj > 0 ? n.rj : 5;
+        parts.push(block({
+          title: "Wrijving in punt " + esc(nm2),
+          eq: [
+            c("\u03BC(v) = [\u03BC<sub>k</sub> + (\u03BC<sub>s</sub> \u2212 \u03BC<sub>k</sub>)\xB7e<sup>\u2212(v/v<sub>S</sub>)\xB2</sup>]\xB7tanh(v/v<sub>\u03B5</sub>)"),
+            n.support === "slider" ? "Glijder: " + c("F = \u2212\u03BC(v)\xB7N") + " langs de rail" : "",
+            "Scharnier: " + c("\u03C4 = \u2212\u03BC(r\xB7\u0394\u03C9)\xB7r\xB7N") + ", " + c("v = r\xB7\u0394\u03C9"),
+            "Stilstand: als " + c("|v| < v<sub>\u03B5</sub>") + " plakt het contact (extra voorwaarde " + c("c\xB7a = \u22122\u03B1\xB7c\xB7v") + ") zolang de benodigde kracht " + c("\u2264 \u03BC<sub>s</sub>\xB7N") + "; anders schiet het los"
+          ].filter(Boolean),
+          sym: [
+            [c("\u03BC<sub>s</sub>, \u03BC<sub>k</sub>"), "wrijvingsco\xEBffici\xEBnt in rust en tijdens glijden"],
+            [c("v<sub>S</sub>"), "Stribeck-snelheid"],
+            [c("v<sub>\u03B5</sub>"), "afvlakking rond v = 0"],
+            [c("N"), "normaalkracht of lagerkracht uit de multiplicatoren"],
+            [c("r"), "penstraal"]
+          ],
+          live: [
+            kv("\u03BC<sub>s</sub> / \u03BC<sub>k</sub>", num2(n.mus || 0) + " / " + num2(n.muk || 0)),
+            kv("v<sub>S</sub>, v<sub>\u03B5</sub>", num2(vS) + ", " + num2(ve) + " mm/s"),
+            kv("r", num2(r) + " mm")
+          ],
+          ass: ["Een door de klok gedraaide kruk kan niet plakken.", "In de kinematische modus volgt de wrijving uit dezelfde formule."],
+          src: "src/core/elements.js (frictionLoads), src/core/dynamics.js (contacts)"
+        }));
+      }
+      if (model.jointDamp) {
+        parts.push(block({
+          title: "Scharnierdemping" + (n.support !== "free" ? " (met de vaste wereld)" : ""),
+          eq: [c("\u03C4 = \u2212c\xB7\u0394\u03C9") + " tussen elk paar lichamen in het punt", "Moment \u03C4 op een stang wordt een krachtenkoppel op zijn uiteinden: " + c("F = \u03C4/L\xB2")],
+          sym: [[c("c"), "dempingsconstante in N\xB7m\xB7s"], [c("\u0394\u03C9"), "relatieve hoeksnelheid van de twee lichamen"]],
+          live: [kv("c", num2(model.cJoint) + " N\xB7m\xB7s")],
+          src: "src/core/elements.js (jointDamper)"
+        }));
+      }
+      return parts.join("");
+    }
+    const e = E(s.id);
+    if (!e) return "";
+    const A = N(e.a), B = N(e.b), L = A && B ? Math.hypot(B.x - A.x, B.y - A.y) : NaN;
+    const nm = A && B ? esc(name(e.a) + name(e.b)) : "";
+    switch (e.type) {
+      case "spring":
+        return block({
+          title: "Veer " + nm,
+          eq: [c("F = k\xB7(L \u2212 L<sub>0</sub>)"), "Kracht werkt langs de veer: positief = trekt de punten naar elkaar"],
+          sym: [[c("k"), "stijfheid in N/mm"], [c("L"), "huidige lengte tussen de punten"], [c("L<sub>0</sub>"), "lengte zonder kracht"]],
+          live: [kv("k", num2(e.k) + " N/mm"), kv("L<sub>0</sub>", num2(e.L0) + " mm"), kv("L nu", num2(L) + " mm"), kv("F nu", num2(e.k * (L - e.L0)) + " N")],
+          ass: ["Lineaire veer, geen massa."],
+          src: "src/core/dynamics.js (loads)"
+        });
+      case "damper":
+        return block({
+          title: "Demper " + nm,
+          eq: [c("F = c\xB7L\u0307"), c("L\u0307 = (v<sub>b</sub> \u2212 v<sub>a</sub>)\xB7u") + ", u = eenheidsvector van a naar b"],
+          sym: [[c("c"), "dempingsconstante in Ns/mm"], [c("L\u0307"), "lengtesnelheid, mm/s"]],
+          live: [kv("c", num2(e.c) + " Ns/mm"), kv("L nu", num2(L) + " mm")],
+          ass: ["Werkt alleen met beweging; in rust is de kracht 0. In FRF gaat c in de matrix C."],
+          src: "src/core/dynamics.js (loads)"
+        });
+      case "gap": {
+        const lo = Math.min(e.min, e.max), hi = Math.max(e.min, e.max);
+        return block({
+          title: "Speling " + nm,
+          eq: [
+            c("F = 0") + "  voor " + c("L<sub>min</sub> \u2264 L \u2264 L<sub>max</sub>"),
+            c("F = min(0, k<sub>c</sub>(L \u2212 L<sub>min</sub>) + c<sub>c</sub>L\u0307)") + "  als L < L<sub>min</sub>",
+            c("F = max(0, k<sub>c</sub>(L \u2212 L<sub>max</sub>) + c<sub>c</sub>L\u0307)") + "  als L > L<sub>max</sub>"
+          ],
+          sym: [[c("k<sub>c</sub>, c<sub>c</sub>"), "stijfheid en demping van de aanslag"], [c("L<sub>min</sub>, L<sub>max</sub>"), "vrije slag"]],
+          live: [
+            kv("Vrije slag", num2(lo) + " \u2013 " + num2(hi) + " mm"),
+            kv("L nu", num2(L) + " mm"),
+            kv("k<sub>c</sub>, c<sub>c</sub>", num2(e.kc || 0) + " N/mm, " + num2(e.cc || 0) + " Ns/mm")
+          ],
+          ass: ["De aanslag trekt nooit: de kracht duwt alleen terug."],
+          src: "src/core/elements.js (gapForce)"
+        });
+      }
+      case "force": {
+        const th = e.ang * Math.PI / 180;
+        return block({
+          title: "Kracht op " + esc(name(e.node)),
+          eq: [c("F = (F\xB7cos \u03B1, F\xB7sin \u03B1)")],
+          sym: [[c("F"), "grootte in N"], [c("\u03B1"), "hoek vanaf de x-as, tegen de klok in"]],
+          live: [kv("F", num2(e.mag) + " N"), kv("\u03B1", num2(e.ang) + "\xB0"), kv("F<sub>x</sub>, F<sub>y</sub>", num2(e.mag * Math.cos(th)) + ", " + num2(e.mag * Math.sin(th)) + " N")],
+          ass: ["Constant, onafhankelijk van tijd en stand."],
+          src: "src/core/dynamics.js (loads)"
+        });
+      }
+      case "actuator": {
+        const lo = Math.min(e.min, e.max), hi = Math.max(e.min, e.max), f = e.freq || 0;
+        const a = actLen(e, sim.simT);
+        return block({
+          title: "Actuator " + nm,
+          eq: [
+            c("L(t) = L<sub>m</sub> + L<sub>a</sub>\xB7sin(\u03C6<sub>0</sub> + 2\u03C0ft)"),
+            c("L<sub>m</sub> = (max+min)/2") + ", " + c("L<sub>a</sub> = (max\u2212min)/2"),
+            c("\u03C6<sub>0</sub> = asin((L<sub>0</sub> \u2212 L<sub>m</sub>)/L<sub>a</sub>)") + ": op t = 0 de getekende lengte",
+            "Randvoorwaarde: " + c("|p\u2212q|\xB2 = L(t)\xB2") + ", met " + c("L\u0307") + " en " + c("L\u0308") + " in \u03B3"
+          ],
+          sym: [[c("min, max"), "kortste en langste lengte"], [c("f"), "frequentie in Hz"], [c("L<sub>0</sub>"), "getekende lengte"]],
+          live: [
+            kv("min \u2013 max", num2(lo) + " \u2013 " + num2(hi) + " mm"),
+            kv("f", num2(f) + " Hz"),
+            kv("L<sub>m</sub>, L<sub>a</sub>", num2((hi + lo) / 2) + ", " + num2((hi - lo) / 2) + " mm"),
+            kv("L bij t = " + num2(sim.simT, 2) + " s", num2(a.L) + " mm")
+          ],
+          ass: ["Sinus; bij f = 0 of min = max staat hij stil op de getekende lengte."],
+          src: "src/core/elements.js (actLen)"
+        });
+      }
+      case "link":
+        if (e.driver) {
+          const om = (e.cw ? -1 : 1) * (e.rpm || 0) * Math.PI / 30;
+          return block({
+            title: "Kruk " + nm,
+            eq: [c("\u03B8 = \u03B8<sub>0</sub> + \u03C9t"), c("p = A + L\xB7(cos \u03B8, sin \u03B8)"), c("v = \u03C9\xB7(\u2212r<sub>y</sub>, r<sub>x</sub>)") + ", " + c("a = \u2212\u03C9\xB2r")],
+            sym: [[c("\u03C9"), "hoeksnelheid = toerental\xB7\u03C0/30, rad/s"], [c("r"), "vector van het draaipunt naar de tip"]],
+            live: [kv("L", num2(e.len) + " mm"), kv("\u03B8<sub>0</sub>", num2(e.theta0 || 0) + "\xB0"), kv("\u03C9", num2(om) + " rad/s (" + num2(e.rpm || 0) + " rpm, " + (e.cw ? "rechtsom" : "linksom") + ")")],
+            ass: ["Constant toerental."],
+            src: "src/core/elements.js (omega), src/core/kinematics.js"
+          });
+        }
+        return block({
+          title: "Stang " + nm,
+          eq: [c("|p \u2212 q|\xB2 = L\xB2"), "Tweekrachtenstaaf: alleen axiale kracht N"],
+          sym: [[c("L"), "stanglengte"], [c("N"), "stangkracht (trek positief)"]],
+          live: [kv("L", num2(e.len) + " mm"), kv("L nu", num2(L) + " mm")],
+          src: "src/core/kinematics.js"
+        });
+    }
+    return "";
+  }
+  var lastKey = "";
+  var sweepIds = /* @__PURE__ */ new WeakMap();
+  var sweepN = 0;
+  var wired = false;
+  var sweepId = (s) => {
+    if (!s) return 0;
+    let i = sweepIds.get(s);
+    if (!i) sweepIds.set(s, i = ++sweepN);
+    return i;
+  };
+  function keyOf() {
+    const sel = ui.sel ? E(ui.sel.id) || N(ui.sel.id) : null;
+    return [
+      model.mode,
+      model.durMode,
+      ui.sel ? ui.sel.kind + ui.sel.id : "",
+      sweepId(sim.sweep),
+      !!sim.job,
+      ui.dynStale,
+      sim.solveOK,
+      model.nodes.length,
+      model.elems.length,
+      model.gravity,
+      model.dtStep,
+      model.simDur,
+      model.defMass,
+      model.cVisc,
+      model.maxT,
+      model.jointDamp,
+      model.cJoint,
+      model.fricVs,
+      model.fricVe,
+      model.frfIn,
+      model.mode === "kin" ? ui.frame : 0,
+      sel ? JSON.stringify(sel) : "",
+      model.mode === "kin" ? model.nodes.map((n) => n.x + "," + n.y).join(";") : ""
+    ].join("|");
+  }
   function renderHow(el) {
+    if (!el || el.offsetParent === null) return;
+    const ph = document.getElementById("howPlaceholder");
+    if (ph) ph.hidden = true;
+    if (!wired) {
+      wired = true;
+      el.addEventListener("click", (ev) => {
+        const b = ev.target.closest(".hw-copy");
+        if (!b) return;
+        const t = copies[+b.dataset.i];
+        const done = (ok) => {
+          b.textContent = ok ? "Gekopieerd" : "Mislukt";
+          setTimeout(() => {
+            b.textContent = "Kopieer";
+          }, 1400);
+        };
+        try {
+          navigator.clipboard.writeText(t).then(() => done(true), () => done(false));
+        } catch (_) {
+          done(false);
+        }
+      });
+    }
+    const key = keyOf();
+    if (key === lastKey && el.firstChild) return;
+    lastKey = key;
+    copies = [];
+    let h;
+    if (model.mode === "frf") h = [frfBlock()];
+    else if (model.mode === "dyn") h = dynBlocks();
+    else h = [kinBlock()];
+    const extra = selBlock();
+    el.innerHTML = h.join("") + (extra ? '<div class="hw-sel">Geselecteerd onderdeel</div>' + extra : "");
   }
 
   // src/ui/howhook.js
@@ -3569,7 +4099,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     document.getElementById("fveInp").value = model.fricVe || 2;
     document.getElementById("frfMaxInp").value = model.frfMax || 0;
   }
-  var nl = (x) => String(x).replace(".", ",");
+  var nl2 = (x) => String(x).replace(".", ",");
   function syncResult() {
     const el = document.getElementById("resState");
     if (!el) return;
@@ -3583,10 +4113,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const st = v === 0 ? "bepaald" : v > 0 ? "onderbepaald" : "overbepaald";
       if (model.mode === "frf") {
         const md = sw && sw.modes ? sw.modes.find((x) => !x.unstable && x.f > 1e-6) : null;
-        t = "FRF \xB7 " + (md ? nl(fmtHz(md.f)) : sw ? "doorgerekend" : "nog niet doorgerekend");
+        t = "FRF \xB7 " + (md ? nl2(fmtHz(md.f)) : sw ? "doorgerekend" : "nog niet doorgerekend");
       } else if (model.mode === "dyn") {
         const eq = model.durMode === "equil";
-        t = (eq ? "Evenwicht" : "Dynamisch") + " \xB7 " + (sw ? (eq && sw.settled ? "tot rust na " : "") + nl(sw.dur.toFixed(1)) + " s" + (eq && sw.settled ? "" : " doorgerekend") : "nog niet doorgerekend");
+        t = (eq ? "Evenwicht" : "Dynamisch") + " \xB7 " + (sw ? (eq && sw.settled ? "tot rust na " : "") + nl2(sw.dur.toFixed(1)) + " s" + (eq && sw.settled ? "" : " doorgerekend") : "nog niet doorgerekend");
       } else t = "Kinematisch \xB7 " + (sim.solveOK === false ? "niet samen te stellen" : st);
     }
     el.textContent = t;
@@ -3650,18 +4180,18 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     renderHowNow();
     if (!ui.sel) return;
     refreshChannels();
-    const cs = sim.CH.filter((c) => c.obj === ui.sel.id && !c.hide);
+    const cs = sim.CH.filter((c2) => c2.obj === ui.sel.id && !c2.hide);
     if (cs.length) {
-      const box = document.createElement("div");
-      box.className = "measq";
-      box.innerHTML = '<div class="lab">In de grafiek</div><div class="pq">' + cs.map((c) => chip(c, plotted(c.key))).join("") + "</div>";
-      box.addEventListener("click", (ev) => {
+      const box3 = document.createElement("div");
+      box3.className = "measq";
+      box3.innerHTML = '<div class="lab">In de grafiek</div><div class="pq">' + cs.map((c2) => chip(c2, plotted(c2.key))).join("") + "</div>";
+      box3.addEventListener("click", (ev) => {
         const b = ev.target.closest("button.chip");
         if (!b) return;
         toggleSerie(b.dataset.k);
         b.setAttribute("aria-pressed", String(plotted(b.dataset.k)));
       });
-      props.appendChild(box);
+      props.appendChild(box3);
     }
     if (!atT0()) {
       props.querySelectorAll("input, select, .seg button, #drvBtn").forEach((el) => {
@@ -4009,12 +4539,12 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function applyOds() {
     const S = sim.sweep, X = S.X[ui.frame];
     if (!X) return;
-    const sc = odsScale(S), c = Math.cos(odsPh), sn = Math.sin(odsPh);
+    const sc = odsScale(S), c2 = Math.cos(odsPh), sn = Math.sin(odsPh);
     for (const n of model.nodes) {
       if (!S.fi.has(n.id)) continue;
       const j = S.fi.get(n.id);
-      n.x = S.q0[2 * j] + sc * (X.re[2 * j] * c - X.im[2 * j] * sn);
-      n.y = S.q0[2 * j + 1] + sc * (X.re[2 * j + 1] * c - X.im[2 * j + 1] * sn);
+      n.x = S.q0[2 * j] + sc * (X.re[2 * j] * c2 - X.im[2 * j] * sn);
+      n.y = S.q0[2 * j + 1] + sc * (X.re[2 * j + 1] * c2 - X.im[2 * j + 1] * sn);
     }
   }
   function tick(t) {
@@ -4051,10 +4581,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     applyFrame(deg);
     scrub.value = Math.round(ui.frame);
     angOut.textContent = fmtNow(Math.round(ui.frame));
-    const f1 = document.getElementById("ethNow");
-    if (f1) {
-      const d = E(f1.dataset.e);
-      if (d) f1.textContent = Math.round(d.theta) + "\xB0";
+    const f12 = document.getElementById("ethNow");
+    if (f12) {
+      const d = E(f12.dataset.e);
+      if (d) f12.textContent = Math.round(d.theta) + "\xB0";
     }
     ui.hoverI = null;
     syncSeriesValues();
@@ -4499,8 +5029,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const r = document.documentElement;
       const cur = r.getAttribute("data-theme");
       const sysDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      const next = cur ? cur === "dark" ? "light" : "dark" : sysDark ? "light" : "dark";
-      r.setAttribute("data-theme", next);
+      const next2 = cur ? cur === "dark" ? "light" : "dark" : sysDark ? "light" : "dark";
+      r.setAttribute("data-theme", next2);
       ui.colorsDirty = true;
       draw();
       renderSeries();
@@ -4912,16 +5442,16 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   var seriesBox = document.getElementById("series");
   var xSel = document.getElementById("xSel");
   function refreshChannels() {
-    sim.CH = channels().filter((c) => model.mode !== "frf" || c.frf);
-    sim.CHM = new Map(sim.CH.map((c) => [c.key, c]));
+    sim.CH = channels().filter((c2) => model.mode !== "frf" || c2.frf);
+    sim.CHM = new Map(sim.CH.map((c2) => [c2.key, c2]));
     sim.ALIAS = /* @__PURE__ */ new Map();
     sim.ALIASN = /* @__PURE__ */ new Map();
-    for (const c of sim.CH) if (c.al && !sim.ALIAS.has(c.al)) sim.ALIAS.set(c.al, c);
-    for (const c of sim.CH) if (c.al && !sim.ALIASN.has(normAl(c.al))) sim.ALIASN.set(normAl(c.al), c);
+    for (const c2 of sim.CH) if (c2.al && !sim.ALIAS.has(c2.al)) sim.ALIAS.set(c2.al, c2);
+    for (const c2 of sim.CH) if (c2.al && !sim.ALIASN.has(normAl(c2.al))) sim.ALIASN.set(normAl(c2.al), c2);
     const opts = [{ v: "time", lab: "tijd (s)" }];
     for (const d of drivers())
       opts.push({ v: "ang|" + d.id, lab: "krukhoek " + (N(d.a) ? N(d.a).name : "") + (N(d.b) ? N(d.b).name : "") + " (\xB0)" });
-    for (const c of sim.CH) if (!c.hide) opts.push({ v: "ch|" + c.key, lab: c.lab + " (" + c.u + ")" });
+    for (const c2 of sim.CH) if (!c2.hide) opts.push({ v: "ch|" + c2.key, lab: c2.lab + " (" + c2.u + ")" });
     if (!opts.some((o) => o.v === model.xAxis)) model.xAxis = "time";
     xSel.innerHTML = opts.map((o) => '<option value="' + o.v + '"' + (o.v === model.xAxis ? " selected" : "") + ">" + o.lab + "</option>").join("");
   }
@@ -4952,9 +5482,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       let u = "", err = "", get = null;
       if (sr.expr) {
         try {
-          const c = compile(sr.expr);
-          u = exprUnit(c.used, sr.expr);
-          get = (i) => c.f((nm) => nm === "t" ? sim.sweep.t[i] : chVal(sim.sweep, alias(nm).key, i));
+          const c2 = compile(sr.expr);
+          u = exprUnit(c2.used, sr.expr);
+          get = (i) => c2.f((nm) => nm === "t" ? sim.sweep.t[i] : chVal(sim.sweep, alias(nm).key, i));
         } catch (e) {
           err = e.message;
         }
@@ -5114,10 +5644,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       plotCv.width = bw;
       plotCv.height = bh;
     }
-    const idx = Math.max(0, Math.min(360, ui.hoverI !== null ? ui.hoverI : Math.round(ui.frame)));
+    const idx2 = Math.max(0, Math.min(360, ui.hoverI !== null ? ui.hoverI : Math.round(ui.frame)));
     const key = [pdataGen, ui.colorGen, bw, bh, live.length, sim.sweep && sim.sweep.frf].join();
     if (live.length && w >= 90 && plotCache && plotCache.key === key) {
-      drawPlotDyn(plotCache, idx);
+      drawPlotDyn(plotCache, idx2);
       return;
     }
     plotCache = null;
@@ -5304,28 +5834,28 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       pctx = plotCtx;
     }
     plotCache = { key, buf, X, geom, bottom: nF * hF };
-    drawPlotDyn(plotCache, idx);
+    drawPlotDyn(plotCache, idx2);
   }
   var plotCache = null;
   var pdataGen = 0;
-  function drawPlotDyn(c, idx) {
+  function drawPlotDyn(c2, idx2) {
     const g = plotCtx;
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.clearRect(0, 0, plotCv.width, plotCv.height);
-    g.drawImage(c.buf, 0, 0);
+    g.drawImage(c2.buf, 0, 0);
     g.setTransform(ui.DPR, 0, 0, ui.DPR, 0, 0);
-    const xv = ui.pdata.xs[idx];
+    const xv = ui.pdata.xs[idx2];
     if (!isFinite(xv)) return;
-    const x = c.X(xv);
+    const x = c2.X(xv);
     g.strokeStyle = ui.hoverI !== null ? ui.C.accent : ui.C.driver;
     g.lineWidth = 1.2;
     const cx = Math.round(x) + 0.5;
     g.beginPath();
     g.moveTo(cx, PAD.T - 4);
-    g.lineTo(cx, c.bottom);
+    g.lineTo(cx, c2.bottom);
     g.stroke();
-    for (const gm of c.geom) for (const s of gm.set) {
-      const yv = s.a[idx];
+    for (const gm of c2.geom) for (const s of gm.set) {
+      const yv = s.a[idx2];
       if (!isFinite(yv)) continue;
       g.fillStyle = serieColor(s.si);
       g.beginPath();
@@ -6703,6 +7233,136 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       }
     );
   }
+  var CATEGORIES = [
+    { id: "all", nm: "Alles" },
+    { id: "mech", nm: "Mechanismen" },
+    { id: "dyn", nm: "Dynamica" },
+    { id: "frf", nm: "Frequentie (FRF)" },
+    { id: "fric", nm: "Wrijving & speling" },
+    { id: "empty", nm: "Leeg" }
+  ];
+  var MODE_NAMES = { kin: "Kinematisch", dyn: "Dynamisch", equil: "Evenwicht", frf: "FRF" };
+  var EXAMPLE_META = {
+    fourbar: {
+      title: "Vierstangenmechanisme",
+      cat: "mech",
+      modes: ["kin"],
+      desc: "Kruk, koppelstang en tuimelaar met een koppelpunt dat een kromme volgt.",
+      text: "E\xE9n kruk drijft het hele mechanisme aan; het koppelpunt E beschrijft een gesloten kromme. Druk op Afspelen of sleep de schuif onderin. Sleep daarna punt E of een scharnier en kijk hoe de baan verandert."
+    },
+    slidercrank: {
+      title: "Slinger-krukmechanisme",
+      cat: "mech",
+      modes: ["kin"],
+      desc: "Draaiende kruk die een glijder heen en weer beweegt, zoals in een motor.",
+      text: "De draaiende kruk maakt van een cirkelbeweging een rechte heen-en-weerbeweging van de glijder. Kijk in Metingen naar de versnelling van de glijder: die is niet symmetrisch. Maak de drijfstang korter en zie hoe dat verschil groter wordt."
+    },
+    compressor: {
+      title: "Slinger-kruk met veer",
+      cat: "mech",
+      modes: ["kin"],
+      desc: "Slinger-krukmechanisme met een veer tegen de glijder, als in een compressor.",
+      text: "De glijder duwt tegen een veer, dus het koppel dat de kruk nodig heeft wisselt sterk per stand. Bekijk de grafiek van het krukkoppel en de veerkracht. Probeer een stijvere veer en kijk hoe de koppelpiek groeit."
+    },
+    fivebar: {
+      title: "Vijfstang, twee motoren",
+      cat: "mech",
+      modes: ["kin"],
+      desc: "Twee aangedreven krukken sturen \xE9\xE9n punt door het vlak.",
+      text: "Met twee motoren heeft dit mechanisme twee vrijheidsgraden, beide ingevuld door een kruk. Punt C volgt een baan die van beide hoeken afhangt. Pas het toerental van een kruk aan bij Eigenschappen en zie hoe de baan van vorm wisselt."
+    },
+    hoeken: {
+      title: "Hoeken-rechtgeleiding",
+      cat: "mech",
+      modes: ["kin"],
+      desc: "Koppelpunt dat een stuk bijna rechtlijnig beweegt.",
+      text: "Het koppelpunt E volgt een baan met een bijna rechte lijn, zonder dat er een glijder aan te pas komt. Kijk in Metingen naar de hoogte y en snelheid vx van E. Sleep een scharnier een beetje en zie hoe snel de rechte lijn verdwijnt."
+    },
+    jansen: {
+      title: "Jansen-poot (Strandbeest)",
+      cat: "mech",
+      modes: ["kin"],
+      desc: "Loopmechanisme van Theo Jansen met een voet die een platte baan volgt.",
+      text: "De voet H loopt onderlangs een bijna vlak stuk en zwaait daarna omhoog, als een stap. De grafiek toont de baan van de voet: y tegen x. Verander een staaflengte en kijk hoe de stap slechter of beter wordt."
+    },
+    liftarm: {
+      title: "Hefarm met actuator",
+      cat: "mech",
+      modes: ["kin"],
+      desc: "Arm met een last, opgetild door een lineaire actuator.",
+      text: "De actuator wordt langer en korter en tilt zo de arm met de last op. In Metingen zie je de actuatorkracht en de hoogte van de last. Verplaats het onderste scharnier van de actuator en kijk hoeveel kracht je daarmee bespaart."
+    },
+    springload: {
+      title: "Veerslinger",
+      cat: "dyn",
+      modes: ["dyn"],
+      desc: "Slinger met een veer en zwaartekracht die vanzelf gaat zwaaien.",
+      text: "Hier bepalen de veer en de zwaartekracht de beweging, niet een kruk. Speel de uitkomst af en bekijk de hoogte van punt B in Metingen. Maak de veer zwakker of stijver bij Eigenschappen en zie hoe de zwaaitijd verandert."
+    },
+    doublependulum: {
+      title: "Dubbele slinger",
+      cat: "dyn",
+      modes: ["dyn"],
+      desc: "Twee gekoppelde slingers waarvan de beweging chaotisch wordt.",
+      text: "Een kleine verandering in de beginstand geeft na enkele seconden een heel andere beweging. De spoorlijn van het onderste punt laat dat goed zien. Sleep het mechanisme op t = 0 een tikje anders en bereken opnieuw."
+    },
+    settle: {
+      title: "Arm die tot rust komt",
+      cat: "dyn",
+      modes: ["dyn", "equil"],
+      desc: "Arm met veer en demping, doorgerekend tot hij stilhangt.",
+      text: "Met demping in de scharnieren zwaait de arm uit tot hij in evenwicht hangt. De rekenduur volgt vanzelf uit het moment waarop hij tot rust komt. Zet de demping lager bij Instellingen en kijk hoeveel langer het duurt."
+    },
+    shaker: {
+      title: "Massa-veer met actuator",
+      cat: "dyn",
+      modes: ["dyn"],
+      desc: "Massa op een veer en demper, aangestoten door een actuator.",
+      text: "De actuator schudt het ene uiteinde en de massa volgt via veer en demper. Staat de frequentie dicht bij de eigenfrequentie van massa en veer, dan wordt de uitslag veel groter. Pas de frequentie van de actuator aan en vergelijk de uitslag van de massa."
+    },
+    steamL: {
+      title: "Stoommachine",
+      cat: "dyn",
+      modes: ["dyn"],
+      desc: "Actuator en veer sturen via een kruiskop een kruk met vliegwielmassa.",
+      text: "De actuator speelt de stoomdruk en de veer geeft die kracht door aan kruiskop en drijfstang. De kruk met zware massa werkt als vliegwiel. Kijk in Metingen naar de x-positie van de krukpen en probeer een andere massa."
+    },
+    frictionslide: {
+      title: "Blok op helling met wrijving",
+      cat: "fric",
+      modes: ["dyn"],
+      desc: "Blok op een schuine baan: blijft het plakken of glijdt het?",
+      text: "De wrijving heeft een statische en een dynamische waarde, dus het blok kan blijven plakken en daarna losschieten. Kijk naar de normaalkracht en de snelheid in Metingen. Zet de statische wrijving hoger of lager bij het punt en zie waar het omslaat."
+    },
+    gaplimit: {
+      title: "Slinger met speling en aanslag",
+      cat: "fric",
+      modes: ["dyn"],
+      desc: "Slinger die vrij beweegt tot hij tegen een aanslag klapt.",
+      text: "Binnen de speling is de slinger vrij; daarbuiten klapt hij tegen de aanslag en wordt de veerkracht groot. De grafiek van de aanslagkracht toont dat als scherpe pieken. Maak de speling groter of kleiner bij Eigenschappen en vergelijk het effect."
+    },
+    shakerfrf: {
+      title: "Massa-veer: overdracht",
+      cat: "frf",
+      modes: ["frf"],
+      desc: "Frequentieresponsie van actuator naar massa met een duidelijke resonantie.",
+      text: "In plaats van in de tijd zie je hier hoe sterk de massa reageert per frequentie. De piek ligt bij de eigenfrequentie, ongeveer 3,6 Hz. Maak de massa zwaarder of de veer zwakker en zie de piek naar links schuiven."
+    },
+    pendfrf: {
+      title: "Slinger aan een kracht",
+      cat: "frf",
+      modes: ["frf"],
+      desc: "Frequentieresponsie van een slinger met zwaartekracht als stijfheid.",
+      text: "Een horizontale kracht stoot de slinger aan; de zwaartekracht werkt als veer. De resonantie ligt bij de slingerfrequentie, die alleen van de lengte afhangt. Verleng de slinger en kijk hoe de piek omlaag in frequentie gaat."
+    },
+    empty: {
+      title: "Leeg canvas",
+      cat: "empty",
+      modes: ["kin"],
+      desc: "Begin helemaal opnieuw met een leeg canvas.",
+      text: "Kies links een gereedschap en teken punten en schakels. Zet een punt vast met Scharnier en maak een schakel tot kruk met Aandrijving. Kies bovenin de modus waarmee je wilt rekenen."
+    }
+  };
 
   // src/ui/interact.js
   var HIT = window.matchMedia("(pointer: coarse)").matches ? 18 : 11;
@@ -6962,10 +7622,269 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }, { passive: false });
   }
 
+  // src/ui/library.js
+  var f1 = (n) => Math.round(n * 10) / 10;
+  var ln = (a, b, c2, d, cls) => `<path class="${cls || "k"}" d="M${a} ${b}L${c2} ${d}"/>`;
+  var pl = (pts, cls) => `<path class="${cls || "k"}" d="M${pts.map((p) => p.join(" ")).join("L")}"/>`;
+  var pin = (x, y) => `<path class="g" d="M${x - 4} ${y + 6}h8M${x - 3} ${y + 6}l-2 2.5M${x} ${y + 6}l-2 2.5M${x + 3} ${y + 6}l-2 2.5"/><path class="g" d="M${x} ${y}L${x - 3.5} ${y + 6}M${x} ${y}L${x + 3.5} ${y + 6}"/><circle class="n" cx="${x}" cy="${y}" r="2.4"/>`;
+  var dot = (x, y, r) => `<circle class="n" cx="${x}" cy="${y}" r="${r || 2}"/>`;
+  var mass = (x, y) => `<circle class="m" cx="${x}" cy="${y}" r="3.6"/>`;
+  var wall = (x, y1, y2) => `<path class="g" d="M${x} ${y1}V${y2}"/>` + Array.from({ length: 4 }, (_, i) => {
+    const y = y1 + (i + 0.5) * (y2 - y1) / 4;
+    return `<path class="g" d="M${x} ${f1(y)}l${x > 40 ? 3 : -3} -3"/>`;
+  }).join("");
+  function spring(a, b, c2, d) {
+    const dx = c2 - a, dy = d - b, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
+    const lead = 5, n = 6, pts = [[a, b], [a + ux * lead, b + uy * lead]];
+    for (let i = 0; i < n; i++) {
+      const t = lead + (L - 2 * lead) * (i + 0.5) / n, s = i % 2 ? -3 : 3;
+      pts.push([f1(a + ux * t + nx * s), f1(b + uy * t + ny * s)]);
+    }
+    pts.push([c2 - ux * lead, d - uy * lead], [c2, d]);
+    return pl(pts.map((p) => [f1(p[0]), f1(p[1])]), "s");
+  }
+  var damper = (a, b, c2, d) => {
+    const m = (a + c2) / 2;
+    return ln(a, b, m - 3, b, "d") + `<path class="d" d="M${m - 3} ${b - 3}v6M${m - 3} ${b - 3}h9M${m - 3} ${b + 3}h9M${m + 6} ${b}H${c2}"/>` + ln(m, b, m + 2, b, "d");
+  };
+  var box = (x, y) => `<rect class="m" x="${x - 4.5}" y="${y - 3.5}" width="9" height="7" rx="1"/>`;
+  var arrow = (a, b, c2, d) => `<path class="f" d="M${a} ${b}L${c2} ${d}M${c2 - 4} ${d - 2.5}L${c2} ${d}L${c2 - 4} ${d + 2.5}"/>`;
+  var THUMB = {
+    fourbar: () => ln(14, 40, 20, 22, "dr") + pl([[20, 22], [52, 16], [58, 40]]) + pl([[20, 22], [36, 6], [52, 16]]) + pin(14, 40) + pin(58, 40) + dot(20, 22) + dot(52, 16) + dot(36, 6),
+    slidercrank: () => ln(4, 41, 76, 41, "g") + ln(14, 34, 28, 14, "dr") + ln(28, 14, 60, 34) + box(60, 36) + pin(14, 34) + dot(28, 14),
+    compressor: () => ln(4, 41, 60, 41, "g") + ln(12, 34, 24, 14, "dr") + ln(24, 14, 46, 34) + box(46, 36) + spring(51, 36, 70, 36) + wall(72, 26, 46) + pin(12, 34) + dot(24, 14),
+    fivebar: () => ln(12, 42, 18, 24, "dr") + pl([[18, 24], [37, 6], [56, 24]]) + ln(62, 42, 56, 24, "dr") + pin(12, 42) + pin(62, 42) + dot(18, 24) + dot(56, 24) + dot(37, 6),
+    hoeken: () => ln(14, 40, 6, 28, "dr") + pl([[6, 28], [24, 12], [52, 40]]) + pl([[6, 28], [44, 6], [24, 12]]) + pin(14, 40) + pin(52, 40) + dot(6, 28) + dot(24, 12) + dot(44, 6),
+    jansen: () => ln(34, 10, 42, 18, "dr") + pl([[42, 18], [14, 14], [30, 32], [42, 18]]) + pl([[14, 14], [8, 28], [18, 40], [30, 32]]) + pl([[30, 32], [40, 46], [18, 40]]) + pin(34, 10) + pin(14, 14) + dot(40, 46, 2.6),
+    liftarm: () => ln(14, 32, 58, 14) + `<path class="dr" style="stroke-width:3.4" d="M30 44L58 14"/>` + pin(14, 32) + pin(30, 44) + mass(58, 14),
+    springload: () => ln(12, 36, 62, 36) + spring(14, 6, 62, 36) + pin(12, 36) + wall(10, 4, 16) + mass(62, 36),
+    doublependulum: () => `<path class="t" d="M46 44Q70 30 58 16Q40 4 24 20"/>` + pl([[40, 8], [30, 26], [46, 44]]) + pin(40, 8) + dot(30, 26) + mass(46, 44),
+    settle: () => pl([[12, 30], [42, 30], [62, 44]]) + spring(12, 8, 42, 30) + wall(10, 4, 14) + pin(12, 30) + dot(42, 30) + mass(62, 44),
+    shaker: () => shakerBase(0),
+    steamL: () => ln(4, 41, 76, 41, "g") + ln(14, 36, 20, 24) + ln(20, 24, 40, 36) + box(40, 38) + spring(45, 38, 56, 38) + box(59, 38) + `<path class="dr" style="stroke-width:3.4" d="M63 38H74"/>` + pin(14, 36) + pin(76, 38) + mass(20, 24),
+    frictionslide: () => {
+      const d = [0.93, -0.37], n = [-0.37, -0.93], o = [36, 30], p = (u, v) => [f1(o[0] + d[0] * u + n[0] * v), f1(o[1] + d[1] * u + n[1] * v)];
+      const top = p(34, 0);
+      return ln(6, 42, 74, 15, "g") + Array.from({ length: 6 }, (_, i) => ln(12 + i * 11, 40 - i * 4.3, 10 + i * 11, 44 - i * 4.3, "g")).join("") + pl([p(-9, 0), p(9, 0), p(9, 9), p(-9, 9), p(-9, 0)], "m") + spring(p(9, 4.5)[0], p(9, 4.5)[1], top[0] + n[0] * 4.5, top[1] + n[1] * 4.5) + pin(top[0] + n[0] * 4.5, top[1] + n[1] * 4.5 - 2);
+    },
+    gaplimit: () => ln(14, 10, 46, 24) + `<path class="d" stroke-dasharray="3 2" d="M70 40L46 24"/><path class="g" d="M58 28l4-5M62 31l4-5"/>` + pin(14, 10) + pin(70, 40) + mass(46, 24),
+    shakerfrf: () => shakerBase(10) + `<path class="f" d="M6 18Q22 17 32 16Q40 4 46 16Q60 18 74 18"/><path class="g" d="M6 20H74"/>`,
+    pendfrf: () => ln(30, 8, 30, 38) + pin(30, 8) + mass(30, 38) + arrow(38, 38, 70, 38),
+    empty: () => `<rect class="dd" x="10" y="8" width="60" height="34" rx="4"/><path class="k" d="M40 20v10M35 25h10"/>`
+  };
+  function shakerBase(dy) {
+    const y = 25 + dy;
+    return wall(8, y - 10, y + 10) + `<path class="dr" style="stroke-width:3.4" d="M8 ${y}H26"/>` + box(30, y) + spring(34.5, y - 3, 62, y - 3) + damper(34.5, y + 3, 62, y + 3) + box(66, y) + `<path class="g" d="M4 ${y + 9}H76"/>`;
+  }
+  function thumb(id) {
+    const f = THUMB[id];
+    return `<svg class="thumb" viewBox="0 0 80 50" aria-hidden="true" focusable="false">${f ? f() : ""}</svg>`;
+  }
+  var $ = (id) => document.getElementById(id);
+  var esc2 = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  var cat = "all";
+  function applyFilter() {
+    $("libChips").querySelectorAll("[data-c]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.c === cat)));
+    $("libGrid").querySelectorAll("[data-ex]").forEach((b) => {
+      b.hidden = !(cat === "all" || EXAMPLE_META[b.dataset.ex].cat === cat);
+    });
+  }
+  function openLibrary() {
+    cat = "all";
+    applyFilter();
+    $("lib").hidden = false;
+    $("libBtn").setAttribute("aria-expanded", "true");
+    $("libGrid").scrollTop = 0;
+    const first = $("libGrid").querySelector("[data-ex]:not([hidden])");
+    if (first) first.focus({ preventScroll: true });
+  }
+  function closeLibrary() {
+    if ($("lib").hidden) return;
+    $("lib").hidden = true;
+    $("libBtn").setAttribute("aria-expanded", "false");
+  }
+  function showUitleg(id) {
+    const m = EXAMPLE_META[id], el = $("uitleg");
+    if (!m) return;
+    $("uitTitle").textContent = m.title;
+    $("uitText").textContent = m.text;
+    el.hidden = false;
+    el.closest(".stage").classList.add("hasnote");
+  }
+  function hideUitleg() {
+    const el = $("uitleg");
+    el.hidden = true;
+    el.closest(".stage").classList.remove("hasnote");
+  }
+  function initLibrary() {
+    $("libChips").innerHTML = CATEGORIES.map((c2) => `<button type="button" class="chip" data-c="${c2.id}" aria-pressed="false">${esc2(c2.nm)}</button>`).join("");
+    $("libGrid").innerHTML = Object.keys(EXAMPLE_META).map((id) => {
+      const m = EXAMPLE_META[id];
+      const tags = m.modes.map((t) => `<span class="tag tag-${t}">${MODE_NAMES[t]}</span>`).join("");
+      return `<button type="button" class="libcard" data-ex="${id}">${thumb(id)}<span class="lc-body"><span class="lc-t">${esc2(m.title)}</span><span class="lc-d">${esc2(m.desc)}</span><span class="lc-tags">${tags}</span></span></button>`;
+    }).join("");
+    $("libBtn").addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      if ($("lib").hidden) openLibrary();
+      else closeLibrary();
+    });
+    $("libClose").addEventListener("click", closeLibrary);
+    $("lib").addEventListener("click", (ev) => {
+      if (ev.target === $("lib")) closeLibrary();
+    });
+    document.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape" && !$("lib").hidden) {
+        ev.stopPropagation();
+        closeLibrary();
+      }
+    }, true);
+    $("libChips").addEventListener("click", (ev) => {
+      const b = ev.target.closest("[data-c]");
+      if (!b) return;
+      cat = b.dataset.c;
+      applyFilter();
+    });
+    $("libGrid").addEventListener("click", (ev) => {
+      const b = ev.target.closest("[data-ex]");
+      if (!b) return;
+      const id = b.dataset.ex, f = EXAMPLES[id];
+      closeLibrary();
+      if (f) whenDiscarded(() => {
+        f();
+        setName(id === "empty" ? "Naamloos" : EXAMPLE_META[id].title);
+        markClean();
+        showUitleg(id);
+      });
+    });
+    $("uitClose").addEventListener("click", hideUitleg);
+  }
+
+  // src/ui/tour.js
+  var FLAG = "mechschets.tour1";
+  var STEPS = [
+    { sel: "#rail", title: "Teken met deze gereedschappen", text: "Kies een gereedschap en klik op het canvas om punten, schakels en veren te plaatsen.", side: "right" },
+    { sel: "#modeSeg", title: "Kies hoe je rekent", text: "Kinematisch laat het mechanisme draaien. Dynamisch en Evenwicht gebruiken krachten, FRF kijkt naar trillingen.", side: "below" },
+    { sel: ".inspector", title: "Resultaat en uitleg", text: "Hier staat of je model klopt, wat je geselecteerd hebt en hoe er gerekend wordt.", side: "left" }
+  ];
+  var box2 = null;
+  var ring = null;
+  var idx = 0;
+  var prevFocus = null;
+  function seen() {
+    try {
+      return !!localStorage.getItem(FLAG);
+    } catch (_) {
+      return false;
+    }
+  }
+  function markSeen() {
+    try {
+      localStorage.setItem(FLAG, "1");
+    } catch (_) {
+    }
+  }
+  function visibleEl(sel) {
+    const e = document.querySelector(sel);
+    if (!e) return null;
+    const r = e.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 ? e : null;
+  }
+  function place() {
+    if (!box2) return;
+    const st = STEPS[idx], el = visibleEl(st.sel);
+    if (!el) {
+      ring.hidden = true;
+      return;
+    }
+    const r = el.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight, pad = 3, gap = 12, m = 8;
+    ring.hidden = false;
+    ring.style.left = r.left - pad + "px";
+    ring.style.top = r.top - pad + "px";
+    ring.style.width = r.width + 2 * pad + "px";
+    ring.style.height = r.height + 2 * pad + "px";
+    const bw = box2.offsetWidth, bh = box2.offsetHeight;
+    const cx = (x) => Math.max(m, Math.min(x, vw - bw - m));
+    const cands = {
+      right: [r.right + gap, r.top],
+      below: [cx(r.left), r.bottom + gap],
+      left: [r.left - gap - bw, r.top],
+      above: [cx(r.left), r.top - gap - bh]
+    };
+    const fits = ([x, y]) => x >= m && y >= m && x + bw <= vw - m && y + bh <= vh - m;
+    let pos = null;
+    for (const k of [st.side, "below", "above", "right", "left"]) if (fits(cands[k])) {
+      pos = cands[k];
+      break;
+    }
+    if (!pos) pos = cands[st.side];
+    box2.style.left = Math.max(m, Math.min(pos[0], vw - bw - m)) + "px";
+    box2.style.top = Math.max(m, Math.min(pos[1], vh - bh - m)) + "px";
+  }
+  function render() {
+    const st = STEPS[idx], last = idx === STEPS.length - 1;
+    box2.querySelector(".tn").textContent = idx + 1 + " van " + STEPS.length;
+    box2.querySelector("h3").textContent = st.title;
+    box2.querySelector("p").textContent = st.text;
+    box2.querySelector(".tnext").textContent = last ? "Klaar" : "Volgende";
+    box2.querySelector(".tskip").hidden = last;
+    place();
+    box2.querySelector(".tnext").focus({ preventScroll: true });
+  }
+  function endTour() {
+    if (!box2) return;
+    window.removeEventListener("resize", place);
+    document.removeEventListener("keydown", onKey, true);
+    box2.remove();
+    ring.remove();
+    box2 = ring = null;
+    markSeen();
+    if (prevFocus && prevFocus.focus) {
+      try {
+        prevFocus.focus({ preventScroll: true });
+      } catch (_) {
+      }
+    }
+  }
+  function onKey(ev) {
+    if (ev.key === "Escape") {
+      ev.stopPropagation();
+      endTour();
+    }
+  }
+  function next() {
+    if (idx >= STEPS.length - 1) endTour();
+    else {
+      idx++;
+      render();
+    }
+  }
+  function startTour(force) {
+    if (box2) return;
+    if (!force && seen()) return;
+    if (document.querySelector(".modal:not([hidden])")) return;
+    prevFocus = document.activeElement;
+    ring = document.createElement("div");
+    ring.className = "tour-ring";
+    ring.setAttribute("aria-hidden", "true");
+    box2 = document.createElement("div");
+    box2.className = "tour-bubble";
+    box2.setAttribute("role", "dialog");
+    box2.setAttribute("aria-label", "Rondleiding");
+    box2.innerHTML = '<div class="tn"></div><h3></h3><p></p><div class="tacts"><button type="button" class="btn tskip">Overslaan</button><button type="button" class="btn primary tnext">Volgende</button></div>';
+    document.body.appendChild(ring);
+    document.body.appendChild(box2);
+    box2.querySelector(".tskip").addEventListener("click", endTour);
+    box2.querySelector(".tnext").addEventListener("click", next);
+    window.addEventListener("resize", place);
+    document.addEventListener("keydown", onKey, true);
+    idx = 0;
+    markSeen();
+    render();
+  }
+
   // src/ui/menu.js
   var menus = [
-    { btn: document.getElementById("menuBtn"), menu: document.getElementById("menu") },
-    { btn: document.getElementById("libBtn"), menu: document.getElementById("libMenu") }
+    { btn: document.getElementById("menuBtn"), menu: document.getElementById("menu") }
   ];
   function closeMenus(except) {
     menus.forEach((m) => {
@@ -6988,21 +7907,13 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         const b = ev.target.closest("button");
         if (!b) return;
         closeMenus();
-        if (b.dataset.ex) {
-          const f = EXAMPLES[b.dataset.ex];
-          if (f) whenDiscarded(() => {
-            f();
-            setName(b.dataset.ex === "empty" ? "Naamloos" : b.textContent.trim());
-            markClean();
-          });
-          return;
-        }
         if (b.dataset.a === "open") openFile();
         if (b.dataset.a === "save") openSave();
         if (b.dataset.a === "restore") restoreSession();
         if (b.dataset.a === "copy") copyModel();
         if (b.dataset.a === "paste") openPaste();
         if (b.dataset.a === "link") copyLink();
+        if (b.dataset.a === "tour") startTour(true);
       });
     });
     document.addEventListener("click", (ev) => {
@@ -7022,6 +7933,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   initPicker();
   initOptions();
   initMenu();
+  initLibrary();
   initPersist();
   initFiles();
   initLayout();
@@ -7058,6 +7970,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     ui.lastSnap = JSON.stringify(doc());
     syncHistoryBtns();
+    setTimeout(() => startTour(false), 500);
   });
 })();
 </script>
