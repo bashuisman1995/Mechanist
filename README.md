@@ -81,6 +81,11 @@ NODE_PATH=<map met playwright>/node_modules node tests/e2e/run.mjs   # browserte
   langst en daarbuiten een aanslag (stijfheid + demping) raakt. Werkt in
   Dynamisch en Evenwicht; in Kinematisch als kracht; in de FRF als stijfheid
   wanneer hij in evenwicht tegen een aanslag ligt.
+- **Contact** (toets K): een bal (het punt) op een star vlak, met Hertz-normaalkracht
+  F = 4/3·E*·√R·δ^(3/2) (materialen staal, RVS, aluminium, keramiek, hardmetaal) en
+  Mindlin-achtig plakken en slippen: een tangentiële veer k_t = 8·G*·a die tot μ·F_n
+  plakt en daarna slipt (hysterese). Werkt in Dynamisch en Evenwicht; Kinematisch
+  geeft alleen F_n, FRF alleen de Hertz-stijfheid.
 - **Bewerken op t = 0:** buiten t = 0 kun je alleen kijken; een balk en de
   oranje knop brengen je terug naar t = 0 (of druk op Home).
 - **Metingen:** kies grootheden in een compacte tabel (één regel per onderdeel),

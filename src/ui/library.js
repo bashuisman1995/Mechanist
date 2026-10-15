@@ -53,6 +53,9 @@ const THUMB = {
   },
   gaplimit: () => ln(14, 10, 46, 24) + `<path class="d" stroke-dasharray="3 2" d="M70 40L46 24"/>` + `<path class="g" d="M58 28l4-5M62 31l4-5"/>` + pin(14, 10) + pin(70, 40) + mass(46, 24),
   shakerfrf: () => shakerBase(10) + `<path class="f" d="M6 18Q22 17 32 16Q40 4 46 16Q60 18 74 18"/><path class="g" d="M6 20H74"/>`,
+  virtualplay: () => `<path class="g" d="M8 14L40 40L72 14"/>` + `<path class="g" d="M10 11l-3 3M16 17l-3 3M22 23l-3 3M28 29l-3 3M72 14l3 3M66 20l3 3M60 26l3 3M54 32l3 3"/>` +
+    `<circle class="m" cx="40" cy="30" r="7.5"/>` + arrow(2, 30, 20, 30) + arrow(78, 30, 62, 30),
+  preload: () => ln(8, 44, 72, 44, "g") + `<circle class="m" cx="40" cy="36" r="6"/>` + spring(40, 14, 40, 29) + ln(34, 4, 46, 4, "g") + arrow(58, 38, 58, 8),
   pendfrf: () => ln(30, 8, 30, 38) + pin(30, 8) + mass(30, 38) + arrow(38, 38, 70, 38),
   empty: () => `<rect class="dd" x="10" y="8" width="60" height="34" rx="4"/><path class="k" d="M40 20v10M35 25h10"/>`
 };

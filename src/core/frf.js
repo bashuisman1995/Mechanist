@@ -1,4 +1,5 @@
 // Frequentieresponsie rond het statische evenwicht (zonder DOM).
+import { contactPot } from "./contact.js";
 import { actLen, actuators, drivers, E, gapPen, isBar, jointDamper, N } from "./elements.js";
 import { bounds, G, MM, relax } from "./kinematics.js";
 import { backSubT, cholesky, congruence, gauss, jacobiEig, lsq } from "./linalg.js";
@@ -116,6 +117,8 @@ export function* computeFrf() {
       } else if (e.type === "gap") {                 // aanslag telt alleen mee als hij raakt
         const P = pos(q, e.a), Q = pos(q, e.b), d = gapPen(e, Math.hypot(Q.x - P.x, Q.y - P.y));
         v += 0.5 * (e.kc || 0) * d * d;
+      } else if (e.type === "contact" && fi.has(e.node)) {
+        v += contactPot(e, pos(q, e.node));
       } else if (e.type === "force" && fi.has(e.node)) {
         const P = pos(q, e.node), th = e.ang * Math.PI / 180;
         v -= e.mag * (Math.cos(th) * P.x + Math.sin(th) * P.y);

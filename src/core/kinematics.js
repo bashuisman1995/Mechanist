@@ -1,4 +1,5 @@
 // Kinematica: randvoorwaarden, relaxatie, sweep, krachten, beweeglijkheid (zonder DOM).
+import { contactForce } from "./contact.js";
 import { actLen, actuators, curLen, drivers, frictionLoads, gapForce, hasFriction, isBar, N, omega } from "./elements.js";
 import { gauss, lsq } from "./linalg.js";
 import { model, sim } from "./state.js";
@@ -208,7 +209,7 @@ export function computeSweep() {
   }
   for (const e of model.elems) {
     if (isBar(e)) S.N[e.id] = new Array(361);
-    if (e.type === "spring" || e.type === "damper" || e.type === "gap") S.EF[e.id] = new Array(361);
+    if (e.type === "spring" || e.type === "damper" || e.type === "gap" || e.type === "contact") S.EF[e.id] = new Array(361);
   }
 
   let Rmax = 0, Nmax = 0;
@@ -307,6 +308,12 @@ function forcesAt(vel, acc) {
       const p = ri.get(P.id), q = ri.get(Q.id);
       kn[p].x += F * ux; kn[p].y += F * uy;
       kn[q].x -= F * ux; kn[q].y -= F * uy;
+    } else if (e.type === "contact") {
+      const i = ri.get(e.node), P = N(e.node);
+      if (i === undefined || !P) continue;
+      const c = contactForce(e, P, { x: 0, y: 0 }, 0);     // alleen de normaalkracht (statisch)
+      EF[e.id] = c.Fn;
+      kn[i].x += c.Fn * c.nx; kn[i].y += c.Fn * c.ny;
     } else if (e.type === "force") {
       const i = ri.get(e.node);
       if (i === undefined) continue;

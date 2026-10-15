@@ -1,9 +1,10 @@
 // Aanwijzen, slepen en pannen op het canvas.
+import { frame } from "../core/contact.js";
 import { drivers, N } from "../core/elements.js";
 import { relax } from "../core/kinematics.js";
 import { eid, model, ui, view } from "../core/state.js";
 import { draw } from "./draw.js";
-import { addNode, addTwoNode, anchorHere, crankAngle, reharvest, removeElem, removeNode, setDriver, snapPt } from "./edit.js";
+import { addContact, addNode, addTwoNode, anchorHere, crankAngle, reharvest, removeElem, removeNode, setDriver, snapPt } from "./edit.js";
 import { syncDof, syncInspector } from "./inspector.js";
 import { pick, renderPick } from "./picker.js";
 import { atT0, lockNudge } from "./playback.js";
@@ -32,6 +33,10 @@ function pickElem(sp) {
       const s = toScr(n), th = e.ang * Math.PI / 180;
       const tip = { x: s.x + Math.cos(th) * 58, y: s.y - Math.sin(th) * 58 };
       d = segDist(sp, s, tip);
+    } else if (e.type === "contact") {
+      const n = N(e.node); if (!n) continue;
+      const f = frame(e, n), s = toScr({ x: f.fx, y: f.fy }), u = { x: f.tx, y: -f.ty };
+      d = segDist(sp, { x: s.x - u.x * 26, y: s.y - u.y * 26 }, { x: s.x + u.x * 26, y: s.y + u.y * 26 });
     } else {
       const A = toScr(N(e.a)), B = toScr(N(e.b));
       d = segDist(sp, A, B);
@@ -169,6 +174,14 @@ export function initInteract() {
         if (hitN) {
           const e = { id: eid(), type: "force", node: hitN.id, mag: 100, ang: -90 };
           model.elems.push(e); ui.sel = { kind: "elem", id: e.id };
+          edited = true;
+        }
+        break;
+
+      case "contact":
+        if (hitN) {
+          const e = addContact(hitN.id);
+          ui.sel = { kind: "elem", id: e.id };
           edited = true;
         }
         break;

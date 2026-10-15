@@ -1,4 +1,5 @@
 // Dynamica: tijdsintegratie als generator (zonder DOM).
+import { contactForce, contactPot } from "./contact.js";
 import { actLen, drivers, gapForce, gapPen, hasFriction, isBar, jointDamper, N, omega } from "./elements.js";
 import { G, MM, relax } from "./kinematics.js";
 import { gauss, lsq } from "./linalg.js";
@@ -81,8 +82,22 @@ export function* computeDyn() {
     return { rows, phi, gam, phit, kind };
   }
 
-  function loads(q, v) {
-    const F = new Float64Array(nq), EF = {};
+  // contacten: bal op vlak, met een borstel (z) per contact als extra toestand
+  const cons = model.elems.filter(e => e.type === "contact" && fi.has(e.node));
+  let zCur = new Float64Array(cons.length);
+  const pv = (q, v, id) => ({ p: pos(q, id), v: vel(v, id) });
+  // z terug binnen de grens μ·F_n/k_t (na elke stap; bij losraken nul)
+  function clampZ(q, v, z) {
+    cons.forEach((e, k) => { const s = pv(q, v, e.node), c = contactForce(e, s.p, s.v, z[k]); z[k] = c.z; });
+  }
+
+  function loads(q, v, zv) {
+    const F = new Float64Array(nq), EF = {}, CF = {}, dz = new Float64Array(cons.length);
+    cons.forEach((e, k) => {
+      const s = pv(q, v, e.node), c = contactForce(e, s.p, s.v, zv[k]), i = fi.get(e.node);
+      F[2 * i] += c.fx; F[2 * i + 1] += c.fy;
+      EF[e.id] = c.Fn; CF[e.id] = c; dz[k] = c.dz;
+    });
     if (model.gravity) fr.forEach((n, i) => { F[2 * i + 1] -= dm(n) * G; });
     const cv = model.cVisc || 0;
     if (cv) for (let i = 0; i < nq; i++) F[i] -= cv * v[i];   // demping op elk vrij punt
@@ -110,7 +125,7 @@ export function* computeDyn() {
       if (!fi.has(id)) return;
       const i = fi.get(id); F[2 * i] += fx; F[2 * i + 1] += fy;
     });
-    return { F, EF };
+    return { F, EF, CF, dz };
   }
 
   function kkt(J, F, v) {
@@ -212,8 +227,8 @@ export function* computeDyn() {
     return { c, row, w, sv: w * scale, lim: N0 * scale };     // lim·μ = grootste kracht of moment
   }
   const muSlip = (n, a) => (n.muk || 0) + ((n.mus || 0) - (n.muk || 0)) * Math.exp(-(a / vS) * (a / vS));
-  function deriv(t, q, v) {
-    const J = jac(t, q, v), { F, EF } = loads(q, v);
+  function deriv(t, q, v, zv) {
+    const J = jac(t, q, v), { F, EF, CF, dz } = loads(q, v, zv || zCur);
     let x = kkt(J, F, v);
     if (!x) return null;
     let fpin = null;
@@ -270,7 +285,7 @@ export function* computeDyn() {
         }
       });
     }
-    return { a: x.subarray(0, nq), lam: x.subarray(nq), J, EF, fpin };
+    return { a: x.subarray(0, nq), lam: x.subarray(nq), J, EF, CF, dz, fpin };
   }
 
   /* ---- time march ---- */
@@ -284,7 +299,7 @@ export function* computeDyn() {
   let dur = Math.max(0.01, model.simDur || 2);
   let settled = null;
   if (model.durMode === "equil") {
-    const q0 = q.slice(), v0 = v.slice();
+    const q0 = q.slice(), v0 = v.slice(), z0 = zCur.slice();
     const maxT = Math.max(0.2, model.maxT || 30);
     const VTOL = 0.5, ATOL = 50;       // mm/s en mm/s²
     let t = 0, calm = 0, k = 0;
@@ -304,7 +319,7 @@ export function* computeDyn() {
     }
     settled = Math.min(maxT, Math.max(0.05, t));
     dur = settled;
-    q.set(q0); v.set(v0);
+    q.set(q0); v.set(v0); zCur = z0;
   }
   const dtF = dur / 360;
   let sub = Math.max(1, Math.ceil(dtF / h0));
@@ -322,6 +337,8 @@ export function* computeDyn() {
     if (isBar(e)) S.N[e.id] = new Array(361);
     if (e.type === "spring" || e.type === "damper" || e.type === "gap") S.EF[e.id] = new Array(361);
   }
+  S.C = {};
+  for (const e of cons) { S.C[e.id] = new Array(361); S.EF[e.id] = new Array(361); }
   for (const d of ds) S.T[d.id] = new Array(361).fill(NaN);
 
   let Rmax = 0, Nmax = 0, bad = false;
@@ -347,18 +364,20 @@ export function* computeDyn() {
   return S.ok.some(Boolean) ? S : null;
 
   function rk4(t, q, v, h) {
-    const n = nq;
-    const k1 = deriv(t, q, v); if (!k1) return false;
-    const q2 = add(q, v, h / 2), v2 = add(v, k1.a, h / 2);
-    const k2 = deriv(t + h / 2, q2, v2); if (!k2) return false;
-    const q3 = add(q, v2, h / 2), v3 = add(v, k2.a, h / 2);
-    const k3 = deriv(t + h / 2, q3, v3); if (!k3) return false;
-    const q4 = add(q, v3, h), v4 = add(v, k3.a, h);
-    const k4 = deriv(t + h, q4, v4); if (!k4) return false;
+    const n = nq, z = zCur;
+    const k1 = deriv(t, q, v, z); if (!k1) return false;
+    const q2 = add(q, v, h / 2), v2 = add(v, k1.a, h / 2), z2 = add(z, k1.dz, h / 2);
+    const k2 = deriv(t + h / 2, q2, v2, z2); if (!k2) return false;
+    const q3 = add(q, v2, h / 2), v3 = add(v, k2.a, h / 2), z3 = add(z, k2.dz, h / 2);
+    const k3 = deriv(t + h / 2, q3, v3, z3); if (!k3) return false;
+    const q4 = add(q, v3, h), v4 = add(v, k3.a, h), z4 = add(z, k3.dz, h);
+    const k4 = deriv(t + h, q4, v4, z4); if (!k4) return false;
     for (let i = 0; i < n; i++) {
       q[i] += h / 6 * (v[i] + 2 * v2[i] + 2 * v3[i] + v4[i]);
       v[i] += h / 6 * (k1.a[i] + 2 * k2.a[i] + 2 * k3.a[i] + k4.a[i]);
     }
+    for (let k = 0; k < z.length; k++) z[k] += h / 6 * (k1.dz[k] + 2 * k2.dz[k] + 2 * k3.dz[k] + k4.dz[k]);
+    if (z.length) clampZ(q, v, z);
     return true;
   }
   function add(a, b, s) {
@@ -399,6 +418,10 @@ export function* computeDyn() {
         ? { x: D.a[2 * fi.get(n.id)], y: D.a[2 * fi.get(n.id) + 1] } : { x: 0, y: 0 };
     }
     for (const id in S.EF) S.EF[id][f] = D.EF[id];
+    for (const e of cons) {
+      const c = D.CF[e.id];
+      S.C[e.id][f] = { Fn: c.Fn, Ft: c.Ft, d: Math.max(0, c.delta) * 1000, a: c.a, kn: c.kn, kt: c.kt, z: c.z * 1000, slip: c.slip, open: c.open };
+    }
 
     // constraint multipliers -> bar forces, reactions, torques
     const onPin = {}, jPin = {};
@@ -460,6 +483,7 @@ export function* computeDyn() {
       E += 0.5 * m * (vv.x * vv.x + vv.y * vv.y) * 1e-6;
       if (model.gravity) E += m * G * S.pos[n.id][f].y * 1e-3;
     }
+    for (const e of cons) E += contactPot(e, S.pos[e.node][f]) * 1e-3;
     for (const e of model.elems) {
       if (e.type !== "spring" && e.type !== "gap") continue;
       const P = S.pos[e.a][f], Q = S.pos[e.b][f];

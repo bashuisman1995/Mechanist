@@ -1,4 +1,5 @@
 // Bewerken van het model: knopen, elementen, aandrijvers.
+import { contactDefaults } from "../core/contact.js";
 import { dist, drivers, E, isBar, N } from "../core/elements.js";
 import { eid, model, nid, ui } from "../core/state.js";
 import { changed } from "./solver.js";
@@ -46,6 +47,15 @@ export function addTwoNode(type, a, b) {
     e.len = round2(L);                               // lengte op t = 0
     e.min = round2(L * 0.85); e.max = round2(L * 1.15); e.freq = 0.5;
   }
+  model.elems.push(e);
+  return e;
+}
+
+// contact: bal (het punt) op een vlak dat er precies onder ligt (hoek 0°); verschuif/draai het vlak in de inspector
+export function addContact(nodeId) {
+  const n = N(nodeId); if (!n) return null;
+  const e = { id: eid(), type: "contact", node: nodeId, ...contactDefaults() };
+  e.ax = n.x; e.ay = round2(n.y - e.R);
   model.elems.push(e);
   return e;
 }

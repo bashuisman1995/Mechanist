@@ -1,4 +1,5 @@
 // Voorbeelden.
+import { contactDefaults, deltaFor } from "../core/contact.js";
 import { asyncMode, N } from "../core/elements.js";
 import { eid, model, sim, ui } from "../core/state.js";
 import { addNode, addTwoNode, crankAngle } from "./edit.js";
@@ -10,6 +11,12 @@ import { fit } from "./view.js";
 /* ============================================================
    Examples
    ============================================================ */
+const G0 = 9.81;
+function addContact(nodeId, ax, ay, ang, c0) {
+  const e = { id: eid(), type: "contact", node: nodeId, ...c0, ax, ay, ang };
+  model.elems.push(e);
+  return e;
+}
 function build(nodes, elems, after) {
   if (ui.playing) togglePlay();
   cancelJob(); sim.solved = null;
@@ -212,6 +219,45 @@ export const EXAMPLES = {
       model.series.push({ key: "n|" + g("B").id + "|y" }, { key: "s|" + model.elems.find(e => e.type === "gap").id + "|F" });
     }
   ),
+  // 2D-kinematische koppeling: een stalen bal in een V-groef (twee vlakken van ±45°), horizontaal heen en weer getrokken
+  virtualplay: () => {
+    const c0 = contactDefaults(), Fn = 100;                       // preload per contact, N
+    const y0 = (c0.R - deltaFor(c0, Fn)) / Math.SQRT1_2;           // middelpunt op de as van de groef, met de Hertz-indringing
+    build(
+      [["A", 0, y0, "free"], ["B", 200, y0, "pin"], ["C", 80, y0, "slider", 0]],
+      [["spring", "C", "A", { k: 2, L0: 80 }], ["actuator", "B", "C", { len: 120, min: 70, max: 170, freq: 1 }]],
+      g => {
+        const A = g("A"), C = g("C");
+        A.y = y0; g("B").y = y0; C.y = y0; C.ax = 80; C.ay = y0;
+        A.m = 2 * Fn * Math.SQRT1_2 / G0;                          // gewicht = twee flankkrachten (verticaal)
+        addContact(A.id, 0, 0, -45, c0); addContact(A.id, 0, 0, 45, c0);
+        model.gravity = true; model.simDur = 2; model.dtStep = 0.2;
+        document.getElementById("gravChk").checked = true;
+        setModeUI("dyn");
+        const sp = model.elems.find(e => e.type === "spring");
+        model.series.push({ expr: "A.x*1000" }, { key: "c|" + model.elems.find(e => e.type === "contact").id + "|Ft" });
+        model.xAxis = "ch|s|" + sp.id + "|F";                      // x tegen de trekkracht: de hysteresislus
+      }
+    );
+  },
+  // een zachte voorspanveer drukt een bal op een hard vlak; een kracht trekt hem eraf: knik in de stijfheid
+  preload: () => {
+    const c0 = contactDefaults(), Fp = 50, ks = 10, R = c0.R;
+    build(
+      [["A", 0, 0, "slider", 90], ["B", 0, -60, "pin"], ["C", 0, 200, "pin"], ["D", 0, 20, "slider", 90]],
+      [["spring", "A", "B", { k: ks, L0: 60 - Fp / ks }], ["spring", "D", "A", { k: 1, L0: 20 }],
+       ["actuator", "C", "D", { len: 180, min: 75, max: 180, freq: 0.1 }]],
+      g => {
+        g("A").m = 5;
+        addContact(g("A").id, 0, -R + deltaFor(c0, Fp), 0, c0);
+        model.simDur = 5; model.dtStep = 0.25;
+        setModeUI("dyn");
+        const pull = model.elems.filter(e => e.type === "spring")[1];
+        model.series.push({ expr: "A.y*1000" });
+        model.xAxis = "ch|s|" + pull.id + "|F";                    // verplaatsing tegen de trekkracht
+      }
+    );
+  },
   // stoommachine: actuator → veer → kruiskop → drijfstang → kruk met vliegwielmassa;
   // de kant van het dode punt waar de krukpen start bepaalt de draairichting
   steamL: () => steam(1),
@@ -326,6 +372,16 @@ export const EXAMPLE_META = {
     title: "Slinger aan een kracht", cat: "frf", modes: ["frf"],
     desc: "Frequentieresponsie van een slinger met zwaartekracht als stijfheid.",
     text: "Een horizontale kracht stoot de slinger aan; de zwaartekracht werkt als veer. De resonantie ligt bij de slingerfrequentie, die alleen van de lengte afhangt. Verleng de slinger en kijk hoe de piek omlaag in frequentie gaat."
+  },
+  virtualplay: {
+    title: "Virtuele speling", cat: "fric", modes: ["dyn"],
+    desc: "Stalen bal in een V-groef, heen en weer getrokken: plakken en slippen geeft een hysteresislus.",
+    text: "De bal ligt met zo'n 100 N per flank in de groef, dus er is geen echte speling. Toch wijkt de bal een paar micrometer op de heenweg anders af dan op de terugweg, doordat de contacten eerst plakken en dan slippen. Plot de x-positie tegen de trekkracht: de lus is de virtuele speling. Maak \u03bc of de voorspanning kleiner en zie hoe de lus verandert."
+  },
+  preload: {
+    title: "Voorspanning en stijfheid", cat: "fric", modes: ["dyn"],
+    desc: "Bal op een hard vlak, voorgespannen door een zachte veer en weggetrokken met een oplopende kracht.",
+    text: "Zolang de trekkracht kleiner is dan de voorspanning (50 N) beweegt de bal nauwelijks: het harde contact en de veer werken samen. Bij F = F\u209a komt de bal los en blijft alleen de zachte veer over, dus de grafiek van verplaatsing tegen kracht knikt. De voorspanning bepaalt dus het krachtbereik waarin de hoge stijfheid geldt. Pas de veerstijfheid of voorspanning aan en zie de knik schuiven."
   },
   empty: {
     title: "Leeg canvas", cat: "empty", modes: ["kin"],

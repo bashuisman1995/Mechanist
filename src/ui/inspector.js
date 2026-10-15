@@ -1,4 +1,5 @@
 // Eigenschappenpaneel.
+import { frame as cFrame, hertz, liveContact, MATERIALS } from "../core/contact.js";
 import { asyncMode, dist, E, hasFriction, isBar, N } from "../core/elements.js";
 import { frfInputs } from "../core/frf.js";
 import { mobility, placeAt, relax } from "../core/kinematics.js";
@@ -308,6 +309,42 @@ function buildInspector() {
     return;
   }
 
+  if (e.type === "contact") {
+    stSel.textContent = "contact";
+    const P = N(e.node);
+    const opts = cur => Object.keys(MATERIALS).map(k => '<option value="' + k + '"' + (k === cur ? " selected" : "") + ">" + MATERIALS[k].nm + "</option>").join("");
+    const selRow = (id, lab, cur) => '<div class="row"><label for="' + id + '">' + lab + '</label><select id="' + id + '">' + opts(cur) + "</select></div>";
+    props.innerHTML =
+      kind(ui.C.ink2, "Contact bal \u2013 vlak") +
+      '<p class="empty" style="margin:-4px 0 10px">Bal op punt ' + P.name + '</p>' +
+      numRow("cr", "Straal bal R", e.R, "mm", .5) +
+      selRow("cm1", "Materiaal bal", e.m1) + selRow("cm2", "Materiaal vlak", e.m2) +
+      numRow("cmu", "Wrijving \u03bc", e.mu, "", .01) +
+      numRow("cchi", "Normale demping \u03c7", e.chi, "s/mm", .005) +
+      numRow("cang", "Hoek vlak", e.ang, "\u00b0", 5) +
+      numRow("cax", "Vlak door x", e.ax, "mm", 1) + numRow("cay", "Vlak door y", e.ay, "mm", 1) +
+      '<p class="empty" style="margin:10px 0 0"><b>Nu</b></p>' +
+      '<p class="empty" id="ctLive" data-e="' + e.id + '" style="margin-top:2px">' + contactLive(e) + '</p>' +
+      '<p class="empty" style="margin-top:8px">De bal kan alleen duwen (geen kracht als hij loskomt). Normaal: Hertz, F\u2099 = 4/3\u00b7E*\u00b7\u221aR\u00b7\u03b4<sup>3/2</sup>. ' +
+      'Tangentiaal: een veer k\u209c = 8\u00b7G*\u00b7a die plakt tot \u03bc\u00b7F\u2099 en dan slipt (hysterese). ' +
+      'Werkt in Dynamisch en Evenwicht; in Kinematisch alleen als normaalkracht. Een stijf contact vraagt een kleine tijdstap (\u2248 0,2 ms of minder).</p>';
+    bindNum("cr", v => { e.R = Math.max(.01, v); });
+    bindNum("cmu", v => { e.mu = Math.max(0, v); });
+    bindNum("cchi", v => { e.chi = Math.max(0, v); });
+    bindNum("cang", v => { e.ang = v; });
+    bindNum("cax", v => { e.ax = v; });
+    bindNum("cay", v => { e.ay = v; });
+    for (const [id, key] of [["cm1", "m1"], ["cm2", "m2"]]) {
+      const el = document.getElementById(id);
+      el.addEventListener("change", () => {
+        if (!atT0()) { el.value = e[key]; lockNudge(); return; }
+        cancelJob(); e[key] = el.value; if (!asyncMode()) ui.frame = 0;
+        rebuild(); syncDof(); draw(); pushHistory(); save(); buildInspector();
+      });
+    }
+    return;
+  }
+
   if (e.type === "spring") {
     stSel.textContent = "veer";
     props.innerHTML =
@@ -343,6 +380,21 @@ function buildInspector() {
     bindNum("fm", v => { e.mag = v; });
     bindNum("fa", v => { e.ang = v; });
   }
+}
+
+// live uitlezing van een contact: statisch uit de stand, plak/slip uit de laatste dynamica
+function contactLive(e) {
+  const P = N(e.node), f = cFrame(e, P), h = hertz(e, f.delta), st = liveContact(e);
+  const Fn = st ? st.Fn : h.Fn;
+  const state = st ? (st.open ? "los" : st.slip ? "slip" : "plakt") : f.delta > 0 ? "in contact (statisch)" : "los";
+  return "F\u2099 <b>" + fmt(Fn) + "</b> N \u00b7 \u03b4 <b>" + fmt(Math.max(0, f.delta) * 1000) + "</b> \u00b5m \u00b7 a <b>" +
+    fmt(h.a) + "</b> mm<br>k\u2099 <b>" + fmt(h.kn) + "</b> N/mm \u00b7 k\u209c <b>" + fmt(h.kt) + "</b> N/mm<br>Toestand: <b>" + state +
+    "</b>" + (st && !st.open ? " \u00b7 F\u209c " + fmt(st.Ft) + " N" : "");
+}
+export function syncContactLive() {
+  const el = document.getElementById("ctLive"); if (!el) return;
+  const e = E(el.dataset.e); if (e && e.type === "contact" && N(e.node)) el.innerHTML = contactLive(e);
+  renderHowNow();
 }
 
 // wrijving heeft zin bij een glijder, een oplegging met een stang, of een punt waar twee stangen samenkomen

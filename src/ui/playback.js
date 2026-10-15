@@ -4,7 +4,7 @@ import { bounds, mobility } from "../core/kinematics.js";
 import { model, sim, ui } from "../core/state.js";
 import { draw } from "./draw.js";
 import { fmtHz, fmtTime } from "./format.js";
-import { syncInspector, syncResult } from "./inspector.js";
+import { syncContactLive, syncInspector, syncResult } from "./inspector.js";
 import { syncSeriesValues } from "./picker.js";
 import { drawPlot } from "./plot.js";
 import { cancelJob, solveNow } from "./solver.js";
@@ -158,6 +158,7 @@ export function goto(deg) {
   angOut.textContent = fmtNow(Math.round(ui.frame));
   const f1 = document.getElementById("ethNow");
   if (f1) { const d = E(f1.dataset.e); if (d) f1.textContent = Math.round(d.theta) + "°"; }
+  syncContactLive();
   ui.hoverI = null;
   syncSeriesValues();
   drawPlot();

@@ -46,6 +46,13 @@ export function channels() {
       out.push({ key: "a|" + e.id + "|L", lab: "speling " + pair(e) + " · L", q: "L", u: "mm",
                  al: "Ls_" + pair(e), g: "Krachtelementen", o, obj: e.id, frf: true });
     }
+    if (e.type === "contact" && N(e.node)) {
+      const nm = N(e.node).name, o = "Contact " + nm;
+      out.push({ key: "s|" + e.id + "|F", lab: "contact " + nm + " · Fₙ", q: "Fₙ", u: "N", al: "Fn_" + nm, g: "Krachtelementen", o, obj: e.id });
+      out.push({ key: "c|" + e.id + "|Ft", lab: "contact " + nm + " · Fₜ", q: "Fₜ", u: "N", al: "Ft_" + nm, g: "Krachtelementen", o, obj: e.id });
+      out.push({ key: "c|" + e.id + "|d", lab: "contact " + nm + " · δ", q: "δ", u: "µm", al: "dc_" + nm, g: "Krachtelementen", o, obj: e.id });
+      out.push({ key: "c|" + e.id + "|z", lab: "contact " + nm + " · borstel z", q: "z", u: "µm", al: "zc_" + nm, g: "Krachtelementen", o, obj: e.id });
+    }
     if (e.type === "spring") out.push({ key: "s|" + e.id + "|F", lab: "veer " + pair(e) + " · F", q: "F", u: "N",
                                         al: "F_" + pair(e), g: "Krachtelementen", o: "Veer " + pair(e), obj: e.id, frf: true });
     if (e.type === "damper") out.push({ key: "s|" + e.id + "|F", lab: "demper " + pair(e) + " · F", q: "F", u: "N",
@@ -66,6 +73,10 @@ export function chVal(S, key, i) {
   }
   if (t === "l") return S.N[id] ? S.N[id][i] : NaN;
   if (t === "s") return S.EF[id] ? S.EF[id][i] : NaN;
+  if (t === "c") {
+    const c = S.C && S.C[id] ? S.C[id][i] : null;
+    return c ? c[k] : NaN;
+  }
   if (t === "r") {
     const R = S.R[id] ? S.R[id][i] : null;
     if (!R) return NaN;

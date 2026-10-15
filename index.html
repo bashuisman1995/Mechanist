@@ -1127,6 +1127,91 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     userEdited: false
   };
 
+  // src/core/contact.js
+  var MATERIALS = {
+    staal: { nm: "Staal", E: 21e4, nu: 0.3 },
+    rvs: { nm: "RVS", E: 193e3, nu: 0.29 },
+    alu: { nm: "Aluminium", E: 7e4, nu: 0.33 },
+    keramiek: { nm: "Keramiek (Si\u2083N\u2084)", E: 31e4, nu: 0.27 },
+    hardmetaal: { nm: "Hardmetaal", E: 6e5, nu: 0.22 }
+  };
+  var mat = (k) => MATERIALS[k] || MATERIALS.staal;
+  var eStar = (k1, k2) => {
+    const a = mat(k1), b = mat(k2);
+    return 1 / ((1 - a.nu * a.nu) / a.E + (1 - b.nu * b.nu) / b.E);
+  };
+  var gStar = (k1, k2) => {
+    const a = mat(k1), b = mat(k2), Ga = a.E / (2 * (1 + a.nu)), Gb = b.E / (2 * (1 + b.nu));
+    return 1 / ((2 - a.nu) / Ga + (2 - b.nu) / Gb);
+  };
+  function liveContact(e) {
+    const S = sim.sweep;
+    return S && S.dyn && S.C && S.C[e.id] ? S.C[e.id][ui.frame] || null : null;
+  }
+  var contactDefaults = () => ({ R: 5, m1: "staal", m2: "staal", mu: 0.15, chi: 0.02, ang: 0 });
+  function hertz(e, delta) {
+    const R = Math.max(1e-6, e.R || 5), Es = eStar(e.m1, e.m2), Gs = gStar(e.m1, e.m2);
+    if (!(delta > 0)) return { Fn: 0, a: 0, kn: 0, kt: 0, Es, Gs };
+    const a = Math.sqrt(R * delta);
+    return { Fn: 4 / 3 * Es * Math.sqrt(R) * Math.pow(delta, 1.5), a, kn: 2 * Es * a, kt: 8 * Gs * a, Es, Gs };
+  }
+  function deltaFor(e, F) {
+    const R = Math.max(1e-6, e.R || 5);
+    return Math.pow(3 * F / (4 * eStar(e.m1, e.m2) * Math.sqrt(R)), 2 / 3);
+  }
+  function contactPot(e, p) {
+    const f = frame(e, p);
+    return f.delta > 0 ? 8 / 15 * eStar(e.m1, e.m2) * Math.sqrt(Math.max(1e-6, e.R || 5)) * Math.pow(f.delta, 2.5) : 0;
+  }
+  function frame(e, p) {
+    const th = (e.ang || 0) * Math.PI / 180, tx = Math.cos(th), ty = Math.sin(th), nx = -ty, ny = tx;
+    const d = (p.x - e.ax) * nx + (p.y - e.ay) * ny;
+    return { tx, ty, nx, ny, d, delta: (e.R || 5) - d, fx: p.x - d * nx, fy: p.y - d * ny };
+  }
+  function contactForce(e, p, v, z) {
+    const f = frame(e, p), out = {
+      open: !(f.delta > 0),
+      delta: f.delta,
+      Fn: 0,
+      Ft: 0,
+      a: 0,
+      kn: 0,
+      kt: 0,
+      zmax: 0,
+      z: 0,
+      slip: false,
+      dz: 0,
+      fx: 0,
+      fy: 0,
+      nx: f.nx,
+      ny: f.ny,
+      tx: f.tx,
+      ty: f.ty
+    };
+    if (out.open) return out;
+    const h = hertz(e, f.delta), chi = e.chi === void 0 ? 0.02 : e.chi, mu = e.mu === void 0 ? 0.15 : e.mu;
+    const vn = v.x * f.nx + v.y * f.ny, vt = v.x * f.tx + v.y * f.ty;
+    const Fn = Math.max(0, h.Fn * (1 - chi * vn));
+    out.Fn = Fn;
+    out.a = h.a;
+    out.kn = h.kn;
+    out.kt = h.kt;
+    if (!(Fn > 0)) {
+      out.open = true;
+      return out;
+    }
+    const zmax = mu * Fn / h.kt, zc = Math.max(-zmax, Math.min(zmax, z || 0));
+    out.zmax = zmax;
+    out.z = zc;
+    const lim = mu * Fn;
+    out.Ft = Math.max(-lim, Math.min(lim, -(h.kt * zc + chi * Fn * vt)));
+    out.slip = Math.abs(zc) >= zmax * (1 - 1e-9) && zc * vt > 0;
+    out.dz = out.slip ? 0 : vt;
+    out.fx = Fn * f.nx + out.Ft * f.tx;
+    out.fy = Fn * f.ny + out.Ft * f.ty;
+    return out;
+  }
+
   // src/core/elements.js
   var N = (id) => model.nodes.find((n) => n.id === id);
   var E = (id) => model.elems.find((e) => e.id === id);
@@ -1601,7 +1686,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     for (const e of model.elems) {
       if (isBar(e)) S.N[e.id] = new Array(361);
-      if (e.type === "spring" || e.type === "damper" || e.type === "gap") S.EF[e.id] = new Array(361);
+      if (e.type === "spring" || e.type === "damper" || e.type === "gap" || e.type === "contact") S.EF[e.id] = new Array(361);
     }
     let Rmax = 0, Nmax = 0;
     for (let i = 0; i <= 360; i++) {
@@ -1710,6 +1795,13 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         kn[p].y += F * uy;
         kn[q].x -= F * ux;
         kn[q].y -= F * uy;
+      } else if (e.type === "contact") {
+        const i = ri.get(e.node), P = N(e.node);
+        if (i === void 0 || !P) continue;
+        const c2 = contactForce(e, P, { x: 0, y: 0 }, 0);
+        EF[e.id] = c2.Fn;
+        kn[i].x += c2.Fn * c2.nx;
+        kn[i].y += c2.Fn * c2.ny;
       } else if (e.type === "force") {
         const i = ri.get(e.node);
         if (i === void 0) continue;
@@ -1928,8 +2020,25 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       }
       return { rows, phi, gam, phit, kind: kind2 };
     }
-    function loads(q2, v2) {
-      const F = new Float64Array(nq), EF = {};
+    const cons = model.elems.filter((e) => e.type === "contact" && fi.has(e.node));
+    let zCur = new Float64Array(cons.length);
+    const pv = (q2, v2, id) => ({ p: pos(q2, id), v: vel(v2, id) });
+    function clampZ(q2, v2, z) {
+      cons.forEach((e, k) => {
+        const s = pv(q2, v2, e.node), c2 = contactForce(e, s.p, s.v, z[k]);
+        z[k] = c2.z;
+      });
+    }
+    function loads(q2, v2, zv) {
+      const F = new Float64Array(nq), EF = {}, CF = {}, dz = new Float64Array(cons.length);
+      cons.forEach((e, k) => {
+        const s = pv(q2, v2, e.node), c2 = contactForce(e, s.p, s.v, zv[k]), i = fi.get(e.node);
+        F[2 * i] += c2.fx;
+        F[2 * i + 1] += c2.fy;
+        EF[e.id] = c2.Fn;
+        CF[e.id] = c2;
+        dz[k] = c2.dz;
+      });
       if (model.gravity) fr.forEach((n, i) => {
         F[2 * i + 1] -= dm(n) * G;
       });
@@ -1970,7 +2079,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         F[2 * i] += fx;
         F[2 * i + 1] += fy;
       });
-      return { F, EF };
+      return { F, EF, CF, dz };
     }
     function kkt(J, F, v2) {
       const m = J.rows.length, n = nq + m;
@@ -2096,8 +2205,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       return { c: c2, row, w, sv: w * scale, lim: N0 * scale };
     }
     const muSlip = (n, a) => (n.muk || 0) + ((n.mus || 0) - (n.muk || 0)) * Math.exp(-(a / vS) * (a / vS));
-    function deriv(t, q2, v2) {
-      const J = jac(t, q2, v2), { F, EF } = loads(q2, v2);
+    function deriv(t, q2, v2, zv) {
+      const J = jac(t, q2, v2), { F, EF, CF, dz } = loads(q2, v2, zv || zCur);
       let x = kkt(J, F, v2);
       if (!x) return null;
       let fpin = null;
@@ -2167,7 +2276,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           }
         });
       }
-      return { a: x.subarray(0, nq), lam: x.subarray(nq), J, EF, fpin };
+      return { a: x.subarray(0, nq), lam: x.subarray(nq), J, EF, CF, dz, fpin };
     }
     const keep = model.nodes.map((n) => ({ n, x: n.x, y: n.y }));
     const h0 = Math.max(1e-6, (model.dtStep || 0.2) / 1e3);
@@ -2180,7 +2289,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     let dur = Math.max(0.01, model.simDur || 2);
     let settled = null;
     if (model.durMode === "equil") {
-      const q0 = q.slice(), v0 = v.slice();
+      const q0 = q.slice(), v0 = v.slice(), z0 = zCur.slice();
       const maxT = Math.max(0.2, model.maxT || 30);
       const VTOL2 = 0.5, ATOL2 = 50;
       let t = 0, calm = 0, k = 0;
@@ -2205,6 +2314,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       dur = settled;
       q.set(q0);
       v.set(v0);
+      zCur = z0;
     }
     const dtF = dur / 360;
     let sub = Math.max(1, Math.ceil(dtF / h0));
@@ -2235,6 +2345,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     for (const e of model.elems) {
       if (isBar(e)) S.N[e.id] = new Array(361);
       if (e.type === "spring" || e.type === "damper" || e.type === "gap") S.EF[e.id] = new Array(361);
+    }
+    S.C = {};
+    for (const e of cons) {
+      S.C[e.id] = new Array(361);
+      S.EF[e.id] = new Array(361);
     }
     for (const d of ds) S.T[d.id] = new Array(361).fill(NaN);
     let Rmax = 0, Nmax = 0, bad = false;
@@ -2273,22 +2388,24 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     sim.solveOK = S.ok.some(Boolean);
     return S.ok.some(Boolean) ? S : null;
     function rk4(t, q2, v2, h2) {
-      const n = nq;
-      const k1 = deriv(t, q2, v2);
+      const n = nq, z = zCur;
+      const k1 = deriv(t, q2, v2, z);
       if (!k1) return false;
-      const q22 = add(q2, v2, h2 / 2), v22 = add(v2, k1.a, h2 / 2);
-      const k2 = deriv(t + h2 / 2, q22, v22);
+      const q22 = add(q2, v2, h2 / 2), v22 = add(v2, k1.a, h2 / 2), z2 = add(z, k1.dz, h2 / 2);
+      const k2 = deriv(t + h2 / 2, q22, v22, z2);
       if (!k2) return false;
-      const q3 = add(q2, v22, h2 / 2), v3 = add(v2, k2.a, h2 / 2);
-      const k3 = deriv(t + h2 / 2, q3, v3);
+      const q3 = add(q2, v22, h2 / 2), v3 = add(v2, k2.a, h2 / 2), z3 = add(z, k2.dz, h2 / 2);
+      const k3 = deriv(t + h2 / 2, q3, v3, z3);
       if (!k3) return false;
-      const q4 = add(q2, v3, h2), v4 = add(v2, k3.a, h2);
-      const k4 = deriv(t + h2, q4, v4);
+      const q4 = add(q2, v3, h2), v4 = add(v2, k3.a, h2), z4 = add(z, k3.dz, h2);
+      const k4 = deriv(t + h2, q4, v4, z4);
       if (!k4) return false;
       for (let i = 0; i < n; i++) {
         q2[i] += h2 / 6 * (v2[i] + 2 * v22[i] + 2 * v3[i] + v4[i]);
         v2[i] += h2 / 6 * (k1.a[i] + 2 * k2.a[i] + 2 * k3.a[i] + k4.a[i]);
       }
+      for (let k = 0; k < z.length; k++) z[k] += h2 / 6 * (k1.dz[k] + 2 * k2.dz[k] + 2 * k3.dz[k] + k4.dz[k]);
+      if (z.length) clampZ(q2, v2, z);
       return true;
     }
     function add(a, b, s) {
@@ -2337,6 +2454,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         S.acc[n.id][f] = fi.has(n.id) ? { x: D.a[2 * fi.get(n.id)], y: D.a[2 * fi.get(n.id) + 1] } : { x: 0, y: 0 };
       }
       for (const id in S.EF) S.EF[id][f] = D.EF[id];
+      for (const e of cons) {
+        const c2 = D.CF[e.id];
+        S.C[e.id][f] = { Fn: c2.Fn, Ft: c2.Ft, d: Math.max(0, c2.delta) * 1e3, a: c2.a, kn: c2.kn, kt: c2.kt, z: c2.z * 1e3, slip: c2.slip, open: c2.open };
+      }
       const onPin = {}, jPin = {};
       for (const n of model.nodes) if (n.support === "pin") {
         onPin[n.id] = { x: 0, y: 0 };
@@ -2419,6 +2540,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         E2 += 0.5 * m * (vv.x * vv.x + vv.y * vv.y) * 1e-6;
         if (model.gravity) E2 += m * G * S.pos[n.id][f].y * 1e-3;
       }
+      for (const e of cons) E2 += contactPot(e, S.pos[e.node][f]) * 1e-3;
       for (const e of model.elems) {
         if (e.type !== "spring" && e.type !== "gap") continue;
         const P = S.pos[e.a][f], Q = S.pos[e.b][f];
@@ -2585,6 +2707,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         } else if (e.type === "gap") {
           const P = pos(q, e.a), Q = pos(q, e.b), d = gapPen(e, Math.hypot(Q.x - P.x, Q.y - P.y));
           v += 0.5 * (e.kc || 0) * d * d;
+        } else if (e.type === "contact" && fi.has(e.node)) {
+          v += contactPot(e, pos(q, e.node));
         } else if (e.type === "force" && fi.has(e.node)) {
           const P = pos(q, e.node), th = e.ang * Math.PI / 180;
           v -= e.mag * (Math.cos(th) * P.x + Math.sin(th) * P.y);
@@ -3027,6 +3151,13 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           frf: true
         });
       }
+      if (e.type === "contact" && N(e.node)) {
+        const nm = N(e.node).name, o = "Contact " + nm;
+        out.push({ key: "s|" + e.id + "|F", lab: "contact " + nm + " \xB7 F\u2099", q: "F\u2099", u: "N", al: "Fn_" + nm, g: "Krachtelementen", o, obj: e.id });
+        out.push({ key: "c|" + e.id + "|Ft", lab: "contact " + nm + " \xB7 F\u209C", q: "F\u209C", u: "N", al: "Ft_" + nm, g: "Krachtelementen", o, obj: e.id });
+        out.push({ key: "c|" + e.id + "|d", lab: "contact " + nm + " \xB7 \u03B4", q: "\u03B4", u: "\xB5m", al: "dc_" + nm, g: "Krachtelementen", o, obj: e.id });
+        out.push({ key: "c|" + e.id + "|z", lab: "contact " + nm + " \xB7 borstel z", q: "z", u: "\xB5m", al: "zc_" + nm, g: "Krachtelementen", o, obj: e.id });
+      }
       if (e.type === "spring") out.push({
         key: "s|" + e.id + "|F",
         lab: "veer " + pair(e) + " \xB7 F",
@@ -3080,6 +3211,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     if (t === "l") return S.N[id] ? S.N[id][i] : NaN;
     if (t === "s") return S.EF[id] ? S.EF[id][i] : NaN;
+    if (t === "c") {
+      const c2 = S.C && S.C[id] ? S.C[id][i] : null;
+      return c2 ? c2[k] : NaN;
+    }
     if (t === "r") {
       const R = S.R[id] ? S.R[id][i] : null;
       if (!R) return NaN;
@@ -3499,6 +3634,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     actuator: '<path d="M2.5 13.8L9.6 8.2" stroke="currentColor" stroke-width="4.2" stroke-linecap="round"/><path d="M9 8.6l8-6.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M12.8 14.8l3.6-2.8M14.4 17l3.6-2.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>',
     spring: '<path d="M2.5 10h2.6l1.5-4 2.4 8 2.4-8 1.5 4h2.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
     gap: '<path d="M2.4 10h4.2M11.6 10h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M13.6 6.4H6.6v7.2h7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 7.6v4.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8.2 4.2h3.6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-dasharray="1 1.2"/>',
+    contact: '<circle cx="10" cy="7.4" r="3.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2.6 11.8h14.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 13.6l-1.4 2M7.6 13.6l-1.4 2M11.2 13.6l-1.4 2M14.8 13.6l-1.4 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>',
     damper: '<path d="M2.4 10h3.4M14.2 10h3.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M5.8 6.2h5.6v7.6H5.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 6.9v6.2M10 10h4.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
     force: '<path d="M10 17V4.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M10 2.4l3.4 4.2H6.6z" fill="currentColor"/>',
     mass: '<circle cx="10" cy="10" r="4.6" fill="currentColor"/><path d="M4 16.6h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
@@ -3519,6 +3655,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     { id: "spring", nm: "Veer", kb: "R", ic: "spring", hint: "Klik twee punten om er een <b>veer</b> tussen te zetten." },
     { id: "damper", nm: "Demper", kb: "C", ic: "damper", hint: "Klik twee punten om er een <b>demper</b> tussen te zetten." },
     { id: "gap", nm: "Speling", kb: "G", ic: "gap", hint: "Klik twee punten voor een <b>lineaire speling</b>: vrij tussen kortst en langst, daarbuiten een aanslag." },
+    { id: "contact", nm: "Contact", kb: "K", ic: "contact", hint: "Klik een punt voor een <b>contact</b>: een bal (Hertz) op een vlak, met plakken en slippen. Het vlak ligt eerst recht onder de bal; hoek en plek stel je in bij Eigenschappen." },
     { id: "force", nm: "Kracht", kb: "F", ic: "force", hint: "Klik een punt om er een <b>kracht</b> op te zetten." },
     { id: "mass", nm: "Massa", kb: "M", ic: "mass", hint: "Klik een punt om er een <b>puntmassa</b> aan toe te kennen." },
     { id: "trace", nm: "Spoor", kb: "T", ic: "trace", hint: "Klik een punt om zijn <b>baan</b> te tonen of te verbergen." },
@@ -3590,7 +3727,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     document.addEventListener("keydown", (e) => {
       if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
       const k = e.key.toLowerCase();
-      const map = { v: "select", n: "node", l: "link", p: "pin", s: "slider", d: "driver", a: "actuator", r: "spring", c: "damper", g: "gap", f: "force", m: "mass", t: "trace", x: "del" };
+      const map = { v: "select", n: "node", l: "link", p: "pin", s: "slider", d: "driver", a: "actuator", r: "spring", c: "damper", g: "gap", k: "contact", f: "force", m: "mass", t: "trace", x: "del" };
       if (map[k]) {
         setTool(map[k]);
         e.preventDefault();
@@ -3640,7 +3777,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return nl(+v.toPrecision(d));
   };
   var hz = (f) => f === void 0 || !isFinite(f) ? "\u2013" : nl(f < 10 ? f.toPrecision(3) : f < 1e3 ? f.toFixed(1) : f.toFixed(0)) + " Hz";
-  var mat = (rows) => '<span class="mat">' + rows.map((r) => "<span>" + r.map((c2) => "<i>" + c2 + "</i>").join("") + "</span>").join("") + "</span>";
+  var mat2 = (rows) => '<span class="mat">' + rows.map((r) => "<span>" + r.map((c2) => "<i>" + c2 + "</i>").join("") + "</span>").join("") + "</span>";
   var c = (s) => "<code>" + s + "</code>";
   var name = (id) => {
     const n = N(id);
@@ -3753,7 +3890,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const out = [block({
       title: eq ? "Evenwicht: bewegen tot het stil ligt" : "Dynamica: beweging in de tijd",
       eq: [
-        mat([["M", "\u03A6<sub>q</sub>\u1D40"], ["\u03A6<sub>q</sub>", "0"]]) + mat([["q\u0308"], ["\u03BB"]]) + " = " + mat([["Q"], ["\u03B3 \u2212 2\u03B1\xB7\u03A6\u0307 \u2212 \u03B2\xB2\xB7\u03A6"]]),
+        mat2([["M", "\u03A6<sub>q</sub>\u1D40"], ["\u03A6<sub>q</sub>", "0"]]) + mat2([["q\u0308"], ["\u03BB"]]) + " = " + mat2([["Q"], ["\u03B3 \u2212 2\u03B1\xB7\u03A6\u0307 \u2212 \u03B2\xB2\xB7\u03A6"]]),
         "Randvoorwaarden: " + c("\u03A6(q, t) = |p\u2212q|\xB2 \u2212 L\xB2 = 0") + " (stang, glijder, kruk als in kinematica)",
         "Stangkracht: " + c("N = 2L\xB7\u03BB"),
         "Tijdstap RK4: " + c("y\u2032 = (q\u0307, q\u0308)") + ", vier KKT-stelsels per stap",
@@ -3931,6 +4068,51 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           src: "src/core/elements.js (gapForce)"
         });
       }
+      case "contact": {
+        const P = N(e.node);
+        if (!P) return "";
+        const f = frame(e, P), h = hertz(e, f.delta), st = liveContact(e), mu = e.mu === void 0 ? 0.15 : e.mu;
+        const Fn = st ? st.Fn : h.Fn;
+        const live = [
+          kv("R", num2(e.R) + " mm"),
+          kv("Materialen", esc(mat(e.m1).nm) + " op " + esc(mat(e.m2).nm)),
+          kv("E*", num2(h.Es) + " N/mm\xB2"),
+          kv("G*", num2(h.Gs) + " N/mm\xB2"),
+          kv("\u03B4", num2(Math.max(0, f.delta) * 1e3) + " \xB5m"),
+          kv("F<sub>n</sub>", num2(Fn) + " N"),
+          kv("a = \u221A(R\xB7\u03B4)", num2(h.a) + " mm"),
+          kv("k<sub>n</sub> = 2E*\xB7a", num2(h.kn) + " N/mm"),
+          kv("k<sub>t</sub> = 8G*\xB7a", num2(h.kt) + " N/mm"),
+          kv("\u03BC\xB7F<sub>n</sub>", num2(mu * Fn) + " N")
+        ];
+        if (st) live.push(kv("Toestand", st.open ? "los" : st.slip ? "slip" : "plakt"), kv("F<sub>t</sub>", num2(st.Ft) + " N"), kv("z (borstel)", num2(st.z) + " \xB5m"));
+        return block({
+          title: "Contact bal \u2013 vlak " + esc(name(e.node)),
+          eq: [
+            c("\u03B4 = R \u2212 (p \u2212 p<sub>0</sub>)\xB7n") + ", " + c("n = (\u2212sin \u03B1, cos \u03B1)"),
+            c("F<sub>n</sub> = 4/3\xB7E*\xB7\u221AR\xB7\u03B4<sup>3/2</sup>\xB7(1 \u2212 \u03C7\xB7v<sub>n</sub>)") + "  voor \u03B4 > 0, anders 0",
+            c("1/E* = (1\u2212\u03BD<sub>1</sub>\xB2)/E<sub>1</sub> + (1\u2212\u03BD<sub>2</sub>\xB2)/E<sub>2</sub>"),
+            c("a = \u221A(R\xB7\u03B4)") + ", " + c("k<sub>n</sub> = dF<sub>n</sub>/d\u03B4 = 2E*\xB7a"),
+            c("1/G* = (2\u2212\u03BD<sub>1</sub>)/G<sub>1</sub> + (2\u2212\u03BD<sub>2</sub>)/G<sub>2</sub>") + ", " + c("k<sub>t</sub> = 8\xB7G*\xB7a"),
+            "Borstel: " + c("\u017C = v<sub>t</sub>") + " zolang " + c("|k<sub>t</sub>z| < \u03BCF<sub>n</sub>") + " (plakt), anders " + c("\u017C = 0") + " en " + c("z = \xB1\u03BCF<sub>n</sub>/k<sub>t</sub>") + " (slip)",
+            c("F<sub>t</sub> = \u2212(k<sub>t</sub>z + \u03C7F<sub>n</sub>v<sub>t</sub>)") + ", begrensd op " + c("\xB1\u03BCF<sub>n</sub>")
+          ],
+          sym: [
+            [c("R"), "straal van de bal, mm"],
+            [c("E*, G*"), "gecombineerde elasticiteits- en glijdingsmodulus, N/mm\xB2"],
+            [c("\u03B4, a"), "indringing en contactstraal, mm"],
+            [c("z"), "tangenti\xEBle verplaatsing van het plakpunt (borstel)"],
+            [c("\u03C7"), "kleine normale demping (Hunt-Crossley), s/mm"]
+          ],
+          live,
+          ass: [
+            "Het vlak is star en vast; de bal duwt alleen (geen kracht bij loslaten).",
+            "Hysterese ontstaat doordat z bij slip blijft staan: heen en terug geeft een verschuiving.",
+            "FRF: alleen Hertz-stijfheid (potenti\xEBle energie), geen tangenti\xEBle veer. Kinematisch: alleen F<sub>n</sub>."
+          ],
+          src: "src/core/contact.js (contactForce), src/core/dynamics.js (loads, rk4)"
+        });
+      }
       case "force": {
         const th = e.ang * Math.PI / 180;
         return block({
@@ -4021,6 +4203,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       model.frfIn,
       model.mode === "kin" ? ui.frame : 0,
       sel ? JSON.stringify(sel) : "",
+      sel && sel.type === "contact" ? ui.frame : 0,
       model.mode === "kin" ? model.nodes.map((n) => n.x + "," + n.y).join(";") : ""
     ].join("|");
   }
@@ -4347,6 +4530,51 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       });
       return;
     }
+    if (e.type === "contact") {
+      stSel.textContent = "contact";
+      const P = N(e.node);
+      const opts = (cur) => Object.keys(MATERIALS).map((k) => '<option value="' + k + '"' + (k === cur ? " selected" : "") + ">" + MATERIALS[k].nm + "</option>").join("");
+      const selRow = (id, lab, cur) => '<div class="row"><label for="' + id + '">' + lab + '</label><select id="' + id + '">' + opts(cur) + "</select></div>";
+      props.innerHTML = kind(ui.C.ink2, "Contact bal \u2013 vlak") + '<p class="empty" style="margin:-4px 0 10px">Bal op punt ' + P.name + "</p>" + numRow("cr", "Straal bal R", e.R, "mm", 0.5) + selRow("cm1", "Materiaal bal", e.m1) + selRow("cm2", "Materiaal vlak", e.m2) + numRow("cmu", "Wrijving \u03BC", e.mu, "", 0.01) + numRow("cchi", "Normale demping \u03C7", e.chi, "s/mm", 5e-3) + numRow("cang", "Hoek vlak", e.ang, "\xB0", 5) + numRow("cax", "Vlak door x", e.ax, "mm", 1) + numRow("cay", "Vlak door y", e.ay, "mm", 1) + '<p class="empty" style="margin:10px 0 0"><b>Nu</b></p><p class="empty" id="ctLive" data-e="' + e.id + '" style="margin-top:2px">' + contactLive(e) + '</p><p class="empty" style="margin-top:8px">De bal kan alleen duwen (geen kracht als hij loskomt). Normaal: Hertz, F\u2099 = 4/3\xB7E*\xB7\u221AR\xB7\u03B4<sup>3/2</sup>. Tangentiaal: een veer k\u209C = 8\xB7G*\xB7a die plakt tot \u03BC\xB7F\u2099 en dan slipt (hysterese). Werkt in Dynamisch en Evenwicht; in Kinematisch alleen als normaalkracht. Een stijf contact vraagt een kleine tijdstap (\u2248 0,2 ms of minder).</p>';
+      bindNum("cr", (v) => {
+        e.R = Math.max(0.01, v);
+      });
+      bindNum("cmu", (v) => {
+        e.mu = Math.max(0, v);
+      });
+      bindNum("cchi", (v) => {
+        e.chi = Math.max(0, v);
+      });
+      bindNum("cang", (v) => {
+        e.ang = v;
+      });
+      bindNum("cax", (v) => {
+        e.ax = v;
+      });
+      bindNum("cay", (v) => {
+        e.ay = v;
+      });
+      for (const [id, key] of [["cm1", "m1"], ["cm2", "m2"]]) {
+        const el = document.getElementById(id);
+        el.addEventListener("change", () => {
+          if (!atT0()) {
+            el.value = e[key];
+            lockNudge();
+            return;
+          }
+          cancelJob();
+          e[key] = el.value;
+          if (!asyncMode()) ui.frame = 0;
+          rebuild();
+          syncDof();
+          draw();
+          pushHistory();
+          save();
+          buildInspector();
+        });
+      }
+      return;
+    }
     if (e.type === "spring") {
       stSel.textContent = "veer";
       props.innerHTML = kind(ui.C.spring, "Veer") + '<p class="empty" style="margin:-4px 0 10px">' + N(e.a).name + " \u2013 " + N(e.b).name + "</p>" + numRow("sk", "Stijfheid k", e.k, "N/mm", 0.1) + numRow("sl", "Rustlengte L\u2080", e.L0, "mm", 0.5) + '<p class="empty" style="margin-top:8px">Huidige lengte ' + fmt(dist(N(e.a), N(e.b))) + " mm. Veerkracht volgt straks uit de kinematica \u2014 geen tijdsintegratie nodig.</p>";
@@ -4376,6 +4604,19 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         e.ang = v;
       });
     }
+  }
+  function contactLive(e) {
+    const P = N(e.node), f = frame(e, P), h = hertz(e, f.delta), st = liveContact(e);
+    const Fn = st ? st.Fn : h.Fn;
+    const state = st ? st.open ? "los" : st.slip ? "slip" : "plakt" : f.delta > 0 ? "in contact (statisch)" : "los";
+    return "F\u2099 <b>" + fmt(Fn) + "</b> N \xB7 \u03B4 <b>" + fmt(Math.max(0, f.delta) * 1e3) + "</b> \xB5m \xB7 a <b>" + fmt(h.a) + "</b> mm<br>k\u2099 <b>" + fmt(h.kn) + "</b> N/mm \xB7 k\u209C <b>" + fmt(h.kt) + "</b> N/mm<br>Toestand: <b>" + state + "</b>" + (st && !st.open ? " \xB7 F\u209C " + fmt(st.Ft) + " N" : "");
+  }
+  function syncContactLive() {
+    const el = document.getElementById("ctLive");
+    if (!el) return;
+    const e = E(el.dataset.e);
+    if (e && e.type === "contact" && N(e.node)) el.innerHTML = contactLive(e);
+    renderHowNow();
   }
   function fricApplies(n) {
     const k = model.elems.filter((e) => isBar(e) && (e.a === n.id || e.b === n.id)).length;
@@ -4586,6 +4827,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const d = E(f12.dataset.e);
       if (d) f12.textContent = Math.round(d.theta) + "\xB0";
     }
+    syncContactLive();
     ui.hoverI = null;
     syncSeriesValues();
     drawPlot();
@@ -6079,6 +6321,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     for (const e of model.elems) if (e.type === "spring") drawSpring(e);
     for (const e of model.elems) if (e.type === "damper") drawDamper(e);
     for (const e of model.elems) if (e.type === "gap") drawGap(e);
+    for (const e of model.elems) if (e.type === "contact") drawContact(e);
     for (const e of model.elems) if (e.type === "link" && !e.driver) drawLink(e);
     for (const e of model.elems) if (e.type === "link" && e.driver) drawLink(e);
     for (const e of model.elems) if (e.type === "actuator") drawActuator(e);
@@ -6497,6 +6740,59 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       2
     );
   }
+  function drawContact(e) {
+    const n = N(e.node);
+    if (!n) return;
+    const f = frame(e, n), s = toScr(n), foot = toScr({ x: f.fx, y: f.fy });
+    const ux = f.tx, uy = -f.ty, nx = f.nx, ny = -f.ny;
+    const st = liveContact(e), slip = !!(st && st.slip), open = !!(st && st.open) || f.delta <= 0;
+    const hl = isSel(e.id) || isHov(e.id), col = slip ? ui.C.force : open ? ui.C.ink3 : ui.C.ink2, half = 26;
+    ctx.lineCap = "round";
+    if (hl) {
+      ctx.strokeStyle = ui.C.accent;
+      ctx.lineWidth = 14;
+      ctx.globalAlpha = isSel(e.id) ? 0.25 : 0.13;
+      ctx.beginPath();
+      ctx.moveTo(foot.x - ux * half, foot.y - uy * half);
+      ctx.lineTo(foot.x + ux * half, foot.y + uy * half);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(foot.x - ux * half, foot.y - uy * half);
+    ctx.lineTo(foot.x + ux * half, foot.y + uy * half);
+    ctx.stroke();
+    ctx.lineWidth = 1.1;
+    for (let i = -3; i <= 3; i++) {
+      const bx = foot.x + ux * i * 7, by = foot.y + uy * i * 7;
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      ctx.lineTo(bx - nx * 6 - ux * 3, by - ny * 6 - uy * 3);
+      ctx.stroke();
+    }
+    const r = Math.max(4, (e.R || 5) * view.s);
+    ctx.fillStyle = slip ? ui.C.force : ui.C.panel;
+    ctx.globalAlpha = slip ? 0.35 : 1;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r, 0, 6.2832);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1.7;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r, 0, 6.2832);
+    ctx.stroke();
+    label(
+      foot.x - nx * 16 + ux * (half + 4),
+      foot.y - ny * 16 + uy * (half + 4),
+      "contact" + (st && !st.open ? " " + fmt(st.Fn) + " N" + (slip ? " slip" : " plakt") : ""),
+      col,
+      false,
+      2
+    );
+  }
   function drawForce(e) {
     const n = N(e.node);
     if (!n) return;
@@ -6847,6 +7143,15 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     model.elems.push(e);
     return e;
   }
+  function addContact(nodeId) {
+    const n = N(nodeId);
+    if (!n) return null;
+    const e = { id: eid(), type: "contact", node: nodeId, ...contactDefaults() };
+    e.ax = n.x;
+    e.ay = round2(n.y - e.R);
+    model.elems.push(e);
+    return e;
+  }
   function removeNode(id) {
     model.nodes = model.nodes.filter((n) => n.id !== id);
     model.elems = model.elems.filter((e) => e.a !== id && e.b !== id && e.node !== id);
@@ -6910,6 +7215,12 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   }
 
   // src/ui/examples.js
+  var G0 = 9.81;
+  function addContact2(nodeId, ax, ay, ang, c0) {
+    const e = { id: eid(), type: "contact", node: nodeId, ...c0, ax, ay, ang };
+    model.elems.push(e);
+    return e;
+  }
   function build(nodes, elems, after) {
     if (ui.playing) togglePlay();
     cancelJob();
@@ -7202,6 +7513,56 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         model.series.push({ key: "n|" + g("B").id + "|y" }, { key: "s|" + model.elems.find((e) => e.type === "gap").id + "|F" });
       }
     ),
+    // 2D-kinematische koppeling: een stalen bal in een V-groef (twee vlakken van ±45°), horizontaal heen en weer getrokken
+    virtualplay: () => {
+      const c0 = contactDefaults(), Fn = 100;
+      const y0 = (c0.R - deltaFor(c0, Fn)) / Math.SQRT1_2;
+      build(
+        [["A", 0, y0, "free"], ["B", 200, y0, "pin"], ["C", 80, y0, "slider", 0]],
+        [["spring", "C", "A", { k: 2, L0: 80 }], ["actuator", "B", "C", { len: 120, min: 70, max: 170, freq: 1 }]],
+        (g) => {
+          const A = g("A"), C = g("C");
+          A.y = y0;
+          g("B").y = y0;
+          C.y = y0;
+          C.ax = 80;
+          C.ay = y0;
+          A.m = 2 * Fn * Math.SQRT1_2 / G0;
+          addContact2(A.id, 0, 0, -45, c0);
+          addContact2(A.id, 0, 0, 45, c0);
+          model.gravity = true;
+          model.simDur = 2;
+          model.dtStep = 0.2;
+          document.getElementById("gravChk").checked = true;
+          setModeUI("dyn");
+          const sp = model.elems.find((e) => e.type === "spring");
+          model.series.push({ expr: "A.x*1000" }, { key: "c|" + model.elems.find((e) => e.type === "contact").id + "|Ft" });
+          model.xAxis = "ch|s|" + sp.id + "|F";
+        }
+      );
+    },
+    // een zachte voorspanveer drukt een bal op een hard vlak; een kracht trekt hem eraf: knik in de stijfheid
+    preload: () => {
+      const c0 = contactDefaults(), Fp = 50, ks = 10, R = c0.R;
+      build(
+        [["A", 0, 0, "slider", 90], ["B", 0, -60, "pin"], ["C", 0, 200, "pin"], ["D", 0, 20, "slider", 90]],
+        [
+          ["spring", "A", "B", { k: ks, L0: 60 - Fp / ks }],
+          ["spring", "D", "A", { k: 1, L0: 20 }],
+          ["actuator", "C", "D", { len: 180, min: 75, max: 180, freq: 0.1 }]
+        ],
+        (g) => {
+          g("A").m = 5;
+          addContact2(g("A").id, 0, -R + deltaFor(c0, Fp), 0, c0);
+          model.simDur = 5;
+          model.dtStep = 0.25;
+          setModeUI("dyn");
+          const pull = model.elems.filter((e) => e.type === "spring")[1];
+          model.series.push({ expr: "A.y*1000" });
+          model.xAxis = "ch|s|" + pull.id + "|F";
+        }
+      );
+    },
     // stoommachine: actuator → veer → kruiskop → drijfstang → kruk met vliegwielmassa;
     // de kant van het dode punt waar de krukpen start bepaalt de draairichting
     steamL: () => steam(1),
@@ -7355,6 +7716,20 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       desc: "Frequentieresponsie van een slinger met zwaartekracht als stijfheid.",
       text: "Een horizontale kracht stoot de slinger aan; de zwaartekracht werkt als veer. De resonantie ligt bij de slingerfrequentie, die alleen van de lengte afhangt. Verleng de slinger en kijk hoe de piek omlaag in frequentie gaat."
     },
+    virtualplay: {
+      title: "Virtuele speling",
+      cat: "fric",
+      modes: ["dyn"],
+      desc: "Stalen bal in een V-groef, heen en weer getrokken: plakken en slippen geeft een hysteresislus.",
+      text: "De bal ligt met zo'n 100 N per flank in de groef, dus er is geen echte speling. Toch wijkt de bal een paar micrometer op de heenweg anders af dan op de terugweg, doordat de contacten eerst plakken en dan slippen. Plot de x-positie tegen de trekkracht: de lus is de virtuele speling. Maak \u03BC of de voorspanning kleiner en zie hoe de lus verandert."
+    },
+    preload: {
+      title: "Voorspanning en stijfheid",
+      cat: "fric",
+      modes: ["dyn"],
+      desc: "Bal op een hard vlak, voorgespannen door een zachte veer en weggetrokken met een oplopende kracht.",
+      text: "Zolang de trekkracht kleiner is dan de voorspanning (50 N) beweegt de bal nauwelijks: het harde contact en de veer werken samen. Bij F = F\u209A komt de bal los en blijft alleen de zachte veer over, dus de grafiek van verplaatsing tegen kracht knikt. De voorspanning bepaalt dus het krachtbereik waarin de hoge stijfheid geldt. Pas de veerstijfheid of voorspanning aan en zie de knik schuiven."
+    },
     empty: {
       title: "Leeg canvas",
       cat: "empty",
@@ -7387,6 +7762,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         const s = toScr(n), th = e.ang * Math.PI / 180;
         const tip = { x: s.x + Math.cos(th) * 58, y: s.y - Math.sin(th) * 58 };
         d = segDist(sp, s, tip);
+      } else if (e.type === "contact") {
+        const n = N(e.node);
+        if (!n) continue;
+        const f = frame(e, n), s = toScr({ x: f.fx, y: f.fy }), u = { x: f.tx, y: -f.ty };
+        d = segDist(sp, { x: s.x - u.x * 26, y: s.y - u.y * 26 }, { x: s.x + u.x * 26, y: s.y + u.y * 26 });
       } else {
         const A = toScr(N(e.a)), B = toScr(N(e.b));
         d = segDist(sp, A, B);
@@ -7525,6 +7905,13 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           if (hitN) {
             const e = { id: eid(), type: "force", node: hitN.id, mag: 100, ang: -90 };
             model.elems.push(e);
+            ui.sel = { kind: "elem", id: e.id };
+            edited = true;
+          }
+          break;
+        case "contact":
+          if (hitN) {
+            const e = addContact(hitN.id);
             ui.sel = { kind: "elem", id: e.id };
             edited = true;
           }
@@ -7669,6 +8056,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     },
     gaplimit: () => ln(14, 10, 46, 24) + `<path class="d" stroke-dasharray="3 2" d="M70 40L46 24"/><path class="g" d="M58 28l4-5M62 31l4-5"/>` + pin(14, 10) + pin(70, 40) + mass(46, 24),
     shakerfrf: () => shakerBase(10) + `<path class="f" d="M6 18Q22 17 32 16Q40 4 46 16Q60 18 74 18"/><path class="g" d="M6 20H74"/>`,
+    virtualplay: () => `<path class="g" d="M8 14L40 40L72 14"/><path class="g" d="M10 11l-3 3M16 17l-3 3M22 23l-3 3M28 29l-3 3M72 14l3 3M66 20l3 3M60 26l3 3M54 32l3 3"/><circle class="m" cx="40" cy="30" r="7.5"/>` + arrow(2, 30, 20, 30) + arrow(78, 30, 62, 30),
+    preload: () => ln(8, 44, 72, 44, "g") + `<circle class="m" cx="40" cy="36" r="6"/>` + spring(40, 14, 40, 29) + ln(34, 4, 46, 4, "g") + arrow(58, 38, 58, 8),
     pendfrf: () => ln(30, 8, 30, 38) + pin(30, 8) + mass(30, 38) + arrow(38, 38, 70, 38),
     empty: () => `<rect class="dd" x="10" y="8" width="60" height="34" rx="4"/><path class="k" d="M40 20v10M35 25h10"/>`
   };

@@ -1,4 +1,5 @@
 // Tekenen van het mechanisme op het canvas.
+import { frame as contactFrame, liveContact } from "../core/contact.js";
 import { dist, drivers, gapPen, isBar, N } from "../core/elements.js";
 import { model, sim, ui, view } from "../core/state.js";
 import { fmt } from "./format.js";
@@ -33,6 +34,7 @@ export function draw() {
   for (const e of model.elems) if (e.type === "spring") drawSpring(e);
   for (const e of model.elems) if (e.type === "damper") drawDamper(e);
   for (const e of model.elems) if (e.type === "gap") drawGap(e);
+  for (const e of model.elems) if (e.type === "contact") drawContact(e);
   for (const e of model.elems) if (e.type === "link" && !e.driver) drawLink(e);
   for (const e of model.elems) if (e.type === "link" && e.driver) drawLink(e);
   for (const e of model.elems) if (e.type === "actuator") drawActuator(e);
@@ -361,6 +363,34 @@ function drawGap(e) {
   ctx.beginPath(); ctx.moveTo(h.x + px * (w - 1.8), h.y + py * (w - 1.8)); ctx.lineTo(h.x - px * (w - 1.8), h.y - py * (w - 1.8)); ctx.stroke();
   label((A.x + B.x) / 2 + px * 17, (A.y + B.y) / 2 + py * 17,
     "speling " + fmt(lo) + "\u2013" + fmt(hi) + " mm", col, false, 2);
+}
+
+// bal op een vlak: het vlak met arcering aan de vaste kant, de bal rond het punt; rood bij slip
+function drawContact(e) {
+  const n = N(e.node); if (!n) return;
+  const f = contactFrame(e, n), s = toScr(n), foot = toScr({ x: f.fx, y: f.fy });
+  const ux = f.tx, uy = -f.ty, nx = f.nx, ny = -f.ny;        // schermrichtingen: langs het vlak, naar de bal
+  const st = liveContact(e), slip = !!(st && st.slip), open = !!(st && st.open) || f.delta <= 0;
+  const hl = isSel(e.id) || isHov(e.id), col = slip ? ui.C.force : open ? ui.C.ink3 : ui.C.ink2, half = 26;
+  ctx.lineCap = "round";
+  if (hl) {
+    ctx.strokeStyle = ui.C.accent; ctx.lineWidth = 14; ctx.globalAlpha = isSel(e.id) ? .25 : .13;
+    ctx.beginPath(); ctx.moveTo(foot.x - ux * half, foot.y - uy * half); ctx.lineTo(foot.x + ux * half, foot.y + uy * half); ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  ctx.strokeStyle = col; ctx.lineWidth = 2.2;
+  ctx.beginPath(); ctx.moveTo(foot.x - ux * half, foot.y - uy * half); ctx.lineTo(foot.x + ux * half, foot.y + uy * half); ctx.stroke();
+  ctx.lineWidth = 1.1;
+  for (let i = -3; i <= 3; i++) {
+    const bx = foot.x + ux * i * 7, by = foot.y + uy * i * 7;
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - nx * 6 - ux * 3, by - ny * 6 - uy * 3); ctx.stroke();
+  }
+  const r = Math.max(4, (e.R || 5) * view.s);
+  ctx.fillStyle = slip ? ui.C.force : ui.C.panel; ctx.globalAlpha = slip ? .35 : 1;
+  ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, 6.2832); ctx.fill(); ctx.globalAlpha = 1;
+  ctx.strokeStyle = col; ctx.lineWidth = 1.7;
+  ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, 6.2832); ctx.stroke();
+  label(foot.x - nx * 16 + ux * (half + 4), foot.y - ny * 16 + uy * (half + 4),
+    "contact" + (st && !st.open ? " " + fmt(st.Fn) + " N" + (slip ? " slip" : " plakt") : ""), col, false, 2);
 }
 
 function drawForce(e) {

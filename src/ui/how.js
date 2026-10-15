@@ -1,5 +1,6 @@
 // Tabblad "Hoe rekent dit?": formules, symbolen en "met jouw getallen" voor de huidige modus.
 // Alleen HTML-strings (sub/sup, CSS-breuken); herberekent alleen als de invoer veranderd is.
+import { frame as cFrame, hertz, liveContact, mat as material } from "../core/contact.js";
 import { actLen, E, N, curLen, isBar } from "../core/elements.js";
 import { mobility } from "../core/kinematics.js";
 import { model, sim, ui } from "../core/state.js";
@@ -306,6 +307,34 @@ function selBlock() {
         ass: ["De aanslag trekt nooit: de kracht duwt alleen terug."], src: "src/core/elements.js (gapForce)"
       });
     }
+    case "contact": {
+      const P = N(e.node); if (!P) return "";
+      const f = cFrame(e, P), h = hertz(e, f.delta), st = liveContact(e), mu = e.mu === undefined ? 0.15 : e.mu;
+      const Fn = st ? st.Fn : h.Fn;
+      const live = [kv("R", num(e.R) + " mm"), kv("Materialen", esc(material(e.m1).nm) + " op " + esc(material(e.m2).nm)),
+        kv("E*", num(h.Es) + " N/mm²"), kv("G*", num(h.Gs) + " N/mm²"),
+        kv("δ", num(Math.max(0, f.delta) * 1000) + " µm"), kv("F<sub>n</sub>", num(Fn) + " N"),
+        kv("a = √(R·δ)", num(h.a) + " mm"), kv("k<sub>n</sub> = 2E*·a", num(h.kn) + " N/mm"),
+        kv("k<sub>t</sub> = 8G*·a", num(h.kt) + " N/mm"), kv("μ·F<sub>n</sub>", num(mu * Fn) + " N")];
+      if (st) live.push(kv("Toestand", st.open ? "los" : st.slip ? "slip" : "plakt"), kv("F<sub>t</sub>", num(st.Ft) + " N"), kv("z (borstel)", num(st.z) + " µm"));
+      return block({
+        title: "Contact bal – vlak " + esc(name(e.node)),
+        eq: [c("δ = R − (p − p<sub>0</sub>)·n") + ", " + c("n = (−sin α, cos α)"),
+             c("F<sub>n</sub> = 4/3·E*·√R·δ<sup>3/2</sup>·(1 − χ·v<sub>n</sub>)") + "  voor δ > 0, anders 0",
+             c("1/E* = (1−ν<sub>1</sub>²)/E<sub>1</sub> + (1−ν<sub>2</sub>²)/E<sub>2</sub>"),
+             c("a = √(R·δ)") + ", " + c("k<sub>n</sub> = dF<sub>n</sub>/dδ = 2E*·a"),
+             c("1/G* = (2−ν<sub>1</sub>)/G<sub>1</sub> + (2−ν<sub>2</sub>)/G<sub>2</sub>") + ", " + c("k<sub>t</sub> = 8·G*·a"),
+             "Borstel: " + c("ż = v<sub>t</sub>") + " zolang " + c("|k<sub>t</sub>z| < μF<sub>n</sub>") + " (plakt), anders " + c("ż = 0") + " en " + c("z = ±μF<sub>n</sub>/k<sub>t</sub>") + " (slip)",
+             c("F<sub>t</sub> = −(k<sub>t</sub>z + χF<sub>n</sub>v<sub>t</sub>)") + ", begrensd op " + c("±μF<sub>n</sub>")],
+        sym: [[c("R"), "straal van de bal, mm"], [c("E*, G*"), "gecombineerde elasticiteits- en glijdingsmodulus, N/mm²"],
+              [c("δ, a"), "indringing en contactstraal, mm"], [c("z"), "tangentiële verplaatsing van het plakpunt (borstel)"],
+              [c("χ"), "kleine normale demping (Hunt-Crossley), s/mm"]],
+        live,
+        ass: ["Het vlak is star en vast; de bal duwt alleen (geen kracht bij loslaten).", "Hysterese ontstaat doordat z bij slip blijft staan: heen en terug geeft een verschuiving.",
+              "FRF: alleen Hertz-stijfheid (potentiële energie), geen tangentiële veer. Kinematisch: alleen F<sub>n</sub>."],
+        src: "src/core/contact.js (contactForce), src/core/dynamics.js (loads, rk4)"
+      });
+    }
     case "force": {
       const th = e.ang * Math.PI / 180;
       return block({
@@ -363,7 +392,7 @@ function keyOf() {
   return [model.mode, model.durMode, ui.sel ? ui.sel.kind + ui.sel.id : "", sweepId(sim.sweep), !!sim.job, ui.dynStale, sim.solveOK,
     model.nodes.length, model.elems.length, model.gravity, model.dtStep, model.simDur, model.defMass, model.cVisc, model.maxT,
     model.jointDamp, model.cJoint, model.fricVs, model.fricVe, model.frfIn, model.mode === "kin" ? ui.frame : 0,
-    sel ? JSON.stringify(sel) : "", model.mode === "kin" ? model.nodes.map(n => n.x + "," + n.y).join(";") : ""].join("|");
+    sel ? JSON.stringify(sel) : "", sel && sel.type === "contact" ? ui.frame : 0, model.mode === "kin" ? model.nodes.map(n => n.x + "," + n.y).join(";") : ""].join("|");
 }
 
 export function renderHow(el) {
