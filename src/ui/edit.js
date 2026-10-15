@@ -1,4 +1,5 @@
 // Bewerken van het model: knopen, elementen, aandrijvers.
+import { isBeam } from "../core/axial.js";
 import { contactDefaults } from "../core/contact.js";
 import { flexDefaults, flexDefaultRef, GAMMA } from "../core/flexure.js";
 import { dist, drivers, E, isBar, N } from "../core/elements.js";
@@ -53,6 +54,21 @@ export function addTwoNode(type, a, b) {
   }
   model.elems.push(e);
   return e;
+}
+
+// "Knoop op balk": splitst een Volledige balk op fractie t (0..1 vanaf a) in twee elementen met een punt ertussen.
+// Het punt ligt exact op de lijn (niet op het raster) en erft de eigenschappen van de balk; de verbinding is Auto (Star).
+export function splitBeam(id, t) {
+  const e = E(id);
+  if (!e || !isBeam(e) || !N(e.a) || !N(e.b)) return null;
+  const A = N(e.a), B = N(e.b), f = Math.max(0.02, Math.min(0.98, t === undefined ? 0.5 : t));
+  const n = addNode({ x: A.x + (B.x - A.x) * f, y: A.y + (B.y - A.y) * f });
+  n.x = A.x + (B.x - A.x) * f; n.y = A.y + (B.y - A.y) * f; n.ax = n.x; n.ay = n.y;
+  const e2 = { ...e, id: eid(), a: n.id, b: e.b };
+  e.b = n.id;
+  e.len = round2(dist(A, n)); e2.len = round2(dist(n, B));
+  model.elems.push(e2);
+  return n;
 }
 
 // contact: bal (het punt) op een vlak dat er precies onder ligt (hoek 0°); verschuif/draai het vlak in de inspector

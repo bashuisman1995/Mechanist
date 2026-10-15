@@ -4,7 +4,8 @@ import { drivers, N } from "../core/elements.js";
 import { relax } from "../core/kinematics.js";
 import { eid, model, ui, view } from "../core/state.js";
 import { draw, sensorSeg } from "./draw.js";
-import { addAccel, addContact, addDsens, addEncoder, addNode, addTwoNode, anchorHere, crankAngle, reharvest, removeElem, removeNode, setDriver, snapPt } from "./edit.js";
+import { addAccel, addContact, addDsens, addEncoder, addNode, addTwoNode, anchorHere, crankAngle, reharvest, removeElem, removeNode, setDriver, snapPt, splitBeam } from "./edit.js";
+import { isBeam } from "../core/axial.js";
 import { syncDof, syncInspector } from "./inspector.js";
 import { pick, renderPick } from "./picker.js";
 import { atT0, lockNudge } from "./playback.js";
@@ -185,6 +186,15 @@ export function initInteract() {
         edited = true;
         break;
       }
+
+      case "split":
+        if (hitE && isBeam(hitE) && N(hitE.a) && N(hitE.b)) {
+          const A = N(hitE.a), B = N(hitE.b), vx = B.x - A.x, vy = B.y - A.y;
+          const t = ((wp.x - A.x) * vx + (wp.y - A.y) * vy) / ((vx * vx + vy * vy) || 1);
+          const n = splitBeam(hitE.id, t);
+          if (n) { ui.sel = { kind: "node", id: n.id }; edited = true; }
+        } else flash("Klik op een Volledige balk (Eigenschappen \u2192 Stijfheid \u2192 Volledig).");
+        break;
 
       case "driver":
         // setDriver rekent zelf door

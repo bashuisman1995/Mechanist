@@ -57,6 +57,7 @@
         <button type="button" data-v="dyn" aria-pressed="false" title="Tijdintegratie over een vaste duur: veren en dempers sturen de beweging">Dynamisch</button>
         <button type="button" data-v="equil" aria-pressed="false" title="Dynamisch, tot het mechanisme tot rust komt: de duur volgt uit het evenwicht">Evenwicht</button>
         <button type="button" data-v="frf" aria-pressed="false" title="Frequentieresponsie: hoe een trilling van een actuator, kruk of kracht doorwerkt, per frequentie">FRF</button>
+        <button type="button" data-v="stiff" aria-pressed="false" title="Lineaire statische stijfheid: balken met buiging (EA + EI), vervorming, spanning, stijfheid in een punt en eigenfrequenties">Stijfheid</button>
       </div>
     </div>
 
@@ -116,6 +117,14 @@
           <label class="chk"><input type="checkbox" id="meetEig"> Toon eigenmode</label>
           <span id="meetOut" class="out"></span>
         </div>
+        <div class="stiffbar" id="stiffBar" hidden>
+          <label for="stiffSc">Vergroting</label>
+          <b id="stiffMag" class="mag">&times;1</b>
+          <input type="range" id="stiffSc" min="0" max="7" step="0.01" value="0" aria-label="Vergroting van de vervorming">
+          <label class="chk"><input type="checkbox" id="stiffAuto" checked> Auto</label>
+          <span id="stiffChips" class="chips"></span>
+          <span id="stiffOut" class="out"></span>
+        </div>
         <div class="transport" id="transport">
           <button class="play" id="rewBtn" title="Terug naar t = 0 om te bewerken (Home)" aria-label="Terug naar t = 0">
             <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5h2v11H3zM12 1.5l-7 5.5 7 5.5z" fill="currentColor"/></svg>
@@ -157,6 +166,7 @@
           </div>
         </div>
         <div class="drawer-body">
+          <div class="stifftab" id="stiffTab" hidden></div>
           <div class="plotwrap"><canvas id="plot"></canvas></div>
           <div class="serieslist" id="series"></div>
         </div>
@@ -173,6 +183,7 @@
         </button>
         <div class="state" id="resState"></div>
         <div id="thermBox" class="thermbox" hidden></div>
+        <div id="stiffBox" class="thermbox stiffbox" hidden></div>
         <div id="statusDetail" hidden>
           <div class="dof-note" id="dofNote"></div>
           <div class="tally" id="tally"></div>
@@ -222,6 +233,16 @@
               <p class="empty">Elke schakel rekt uit met &Delta;L = &alpha;&middot;L&middot;&Delta;T (materiaal bij Eigenschappen,
                 standaard staal). Een eigen &Delta;T per staaf stel je daar ook in. In Kinematisch verschijnt de thermische
                 verschuiving van een punt in het Resultaat; axiale staven geven in Evenwicht thermische spanning.</p>
+            </div>
+
+            <div class="sect" id="stiffSect" hidden>
+              <h2>Stijfheid</h2>
+              <p class="empty">Lineaire statica van het getekende raamwerk: de tekening is de onbelaste stand. Belasting: krachten
+                (en met Zwaartekracht ook gewicht van massa&rsquo;s en balken). Stel bij elke schakel de stijfheid in op
+                <b>Volledig (EA + EI)</b> voor een balk met buiging. In een punt kies je de verbinding:
+                <b>Star</b> (&#9632;, momentvast), <b>Scharnier</b> (&#9675;) of <b>Torsieveer</b> (spiraal). Een oplegging met
+                <b>Ingeklemd</b> houdt ook de draaiing vast. Een Oneindige schakel rekent als balk met EA en EI van
+                10<sup>5</sup>&times; de grootste elastische stijfheid van het model.</p>
             </div>
 
             <div class="sect" id="frfSect" hidden>

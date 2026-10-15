@@ -1,11 +1,12 @@
 // Tekenen van het mechanisme op het canvas.
 import { frame as contactFrame, liveContact } from "../core/contact.js";
-import { isAxial } from "../core/axial.js";
+import { isAxial, isBeam } from "../core/axial.js";
 import { dist, drivers, gapPen, isBar, N } from "../core/elements.js";
 import { flexLivePhi, flexStress } from "../core/flexure.js";
 import { encBars, loadcellDt, SENSORS, sensorLive } from "../core/sensors.js";
 import { model, sim, ui, view } from "../core/state.js";
 import { fmt } from "./format.js";
+import { drawJoints, drawStiff } from "./stiffdraw.js";
 import { ctx, toScr, toWld } from "./view.js";
 
 /* ============================================================
@@ -38,6 +39,9 @@ function drawNow() {
   drawGrid();
   drawTraces();
 
+  // Stijfheid: de getekende (onbelaste) stand wordt vervaagd, de vervormde vorm komt erbovenop
+  const fade = model.mode === "stiff" && sim.stiff && sim.stiff.ok;
+  if (fade) ctx.globalAlpha = .4;
   // order: force elements behind bars, joints on top
   for (const e of model.elems) if (e.type === "spring") drawSpring(e);
   for (const e of model.elems) if (e.type === "damper") drawDamper(e);
@@ -48,9 +52,12 @@ function drawNow() {
   for (const e of model.elems) if (e.type === "actuator") drawActuator(e);
   for (const e of model.elems) if (e.type === "flexure") drawFlexure(e);
   for (const e of model.elems) if (SENSORS[e.type]) drawSensor(e);
+  if (fade) ctx.globalAlpha = 1;
   for (const n of model.nodes) drawSupport(n);
   for (const e of model.elems) if (e.type === "force") drawForce(e);
   for (const n of model.nodes) drawNode(n);
+  drawJoints();
+  if (model.mode === "stiff") drawStiff(label);
   for (const n of model.nodes) drawNodeLabel(n);
   if (model.showForces) drawLiveForces();
 
@@ -213,13 +220,14 @@ function drawLink(e) {
     ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
     ctx.globalAlpha = 1;
   }
-  const ax = isAxial(e);
-  ctx.strokeStyle = col; ctx.lineWidth = ax ? 3.4 : 5;          // axiale staven zijn iets dunner
+  const ax = isAxial(e), bm = isBeam(e);
+  ctx.strokeStyle = col; ctx.lineWidth = ax ? 3.4 : bm ? 4.2 : 5;          // axiale staven en balken zijn iets dunner
   ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
   ctx.strokeStyle = ui.C.ground; ctx.lineWidth = ax ? 1.1 : 1.4;
   ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
 
   if (e.driver) drawCrankArrow(A, B);
+  if (bm) label((A.x + B.x) / 2, (A.y + B.y) / 2 + 26, "EA\u00b7EI", ui.C.spring, false, 2);
   if (ax) {                                                       // klein "EA"-label; oranje als de tijdstap te groot is voor de stijfheid
     const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2, bad = model.mode === "dyn" && (model.dtStep || 0.2) / 1000 > loadcellDt(e, model.defMass);
     label(mx, my + 26, "EA" + (bad ? " \u26a0 dt" : ""), bad ? ui.C.driver : ui.C.spring, false, 2);
@@ -574,7 +582,8 @@ function drawForce(e) {
 
 function drawSupport(n) {
   const s = toScr(n);
-  if (n.support === "pin") {
+  // een inklemming heeft geen scharnierdriehoek maar een wand (zie stiffdraw.js)
+  if (n.support === "pin" && !(n.clamp && model.elems.some(e => isBeam(e) && (e.a === n.id || e.b === n.id)))) {
     const w = 11, h = 15;
     ctx.strokeStyle = ui.C.ink; ctx.lineWidth = 1.8; ctx.lineJoin = "round";
     ctx.fillStyle = ui.C.ground;

@@ -12,6 +12,7 @@ import { fit } from "./view.js";
    Examples
    ============================================================ */
 const G0 = 9.81;
+const BEAM = { beam: true, prof: "rect", mat: "staal" };          // Volledig (EA + EI), rechthoekig staal
 function addContact(nodeId, ax, ay, ang, c0) {
   const e = { id: eid(), type: "contact", node: nodeId, ...c0, ax, ay, ang };
   model.elems.push(e);
@@ -305,6 +306,30 @@ export const EXAMPLES = {
       model.series.push({ key: "s|" + bs[0].id + "|F" }, { key: "w|" + bs[0].id + "|sig" });
     }
   ),
+  // Stijfheid: staalbalk 20 × 3 mm, 200 mm lang, ingeklemd links, kracht 5 N aan de tip; tussenpunt M voor sensoren of lasten
+  stiffcant: () => build(
+    [["A", 0, 0, "pin"], ["M", 100, 0], ["C", 200, 0]],
+    [["link", "A", "M", { ...BEAM, pb: 20, ph: 3 }], ["link", "M", "C", { ...BEAM, pb: 20, ph: 3 }], ["force", "C", 5, -90]],
+    g => { g("A").clamp = true; setModeUI("stiff"); model.stiffNode = g("C").id; model.stiffAng = -90; }
+  ),
+  // geleide bladveer 10 × 0,3 mm, L = 40 mm: één ingeklemd, het andere uiteinde draait niet en glijdt loodrecht; k = 12EI/L³
+  stiffleaf: () => build(
+    [["A", 0, 0, "pin"], ["B", 40, 0, "slider", 90]],
+    [["link", "A", "B", { ...BEAM, pb: 10, ph: 0.3 }], ["force", "B", 0.3, 90]],
+    g => { g("A").clamp = true; g("B").clamp = true; setModeUI("stiff"); model.stiffNode = g("B").id; model.stiffAng = 90; }
+  ),
+  // portaal: twee ingeklemde kolommen en een dwarsbalk, momentvaste hoeken (Star), horizontale kracht op de linkerhoek
+  stiffportal: () => build(
+    [["A", 0, 0, "pin"], ["B", 0, 100], ["C", 120, 100], ["D", 120, 0, "pin"]],
+    [["link", "A", "B", { ...BEAM, pb: 10, ph: 1.5 }], ["link", "B", "C", { ...BEAM, pb: 10, ph: 1.5 }], ["link", "D", "C", { ...BEAM, pb: 10, ph: 1.5 }], ["force", "B", 5, 0]],
+    g => { g("A").clamp = true; g("D").clamp = true; setModeUI("stiff"); model.stiffNode = g("B").id; model.stiffAng = 0; }
+  ),
+  // stijve arm (Oneindig) momentvast aan een elastische balk op een scharnier met torsieveer
+  stiffmixed: () => build(
+    [["A", 0, 0, "pin"], ["B", 60, 0], ["C", 60, 50]],
+    [["link", "A", "B", { ...BEAM, pb: 10, ph: 0.6 }], ["link", "B", "C"], ["force", "C", 0.2, 0]],
+    g => { g("A").joint = "spring"; g("A").kth = 500; setModeUI("stiff"); model.stiffNode = g("C").id; model.stiffAng = 0; }
+  ),
   // stoommachine: actuator → veer → kruiskop → drijfstang → kruk met vliegwielmassa;
   // de kant van het dode punt waar de krukpen start bepaalt de draairichting
   steamL: () => steam(1),
@@ -339,9 +364,10 @@ export const CATEGORIES = [
   { id: "flex", nm: "Flexures" },
   { id: "sens", nm: "Sensoren" },
   { id: "therm", nm: "Thermisch" },
+  { id: "stiff", nm: "Stijfheid" },
   { id: "empty", nm: "Leeg" }
 ];
-export const MODE_NAMES = { kin: "Kinematisch", dyn: "Dynamisch", equil: "Evenwicht", frf: "FRF" };
+export const MODE_NAMES = { kin: "Kinematisch", dyn: "Dynamisch", equil: "Evenwicht", frf: "FRF", stiff: "Stijfheid" };
 export const EXAMPLE_META = {
   fourbar: {
     title: "Vierstangenmechanisme", cat: "mech", modes: ["kin"],
@@ -452,6 +478,26 @@ export const EXAMPLE_META = {
     title: "Thermische spanning in een ingeklemde staaf", cat: "therm", modes: ["dyn", "equil"],
     desc: "Axiale stalen staaf tussen twee vaste punten: ΔT = 20 K geeft een drukkracht.",
     text: "Twee axiale stalen staven (100 mm, 2 mm\u00b2, k = EA/L = 4,2 kN/mm) zitten in serie tussen twee vaste punten; het middelste punt B glijdt langs de staafrichting. Bij \u0394T = 20 K willen ze 2 \u00d7 23 \u00b5m langer worden, maar de inklemming laat dat niet toe. Evenwicht: N = \u2212E\u00b7A\u00b7\u03b1\u00b7\u0394T = \u221296,6 N (druk) en \u03c3 = \u2212E\u00b7\u03b1\u00b7\u0394T = \u221248,3 MPa, onafhankelijk van de lengte en de ligging van B. Zet \u0394T negatief en de staven staan op trek. Een stijvere staaf (grotere A) geeft een evenredig grotere kracht; een tijdstap boven 2,8/\u03c9 geeft de oranje waarschuwing."
+  },
+  stiffcant: {
+    title: "Uitkragende balk", cat: "stiff", modes: ["stiff"],
+    desc: "Staalbalk 20 \u00d7 3 mm, ingeklemd, 5 N aan de tip: vervorming, spanning en stijfheid, naast de formule van Roark.",
+    text: "Een balk van 200 mm met een tussenpunt M (gemaakt met Knoop op balk). Analytisch is de tipuitzakking \u03b4 = F\u00b7L\u00b3/(3EI) = 1,41 mm en de stijfheid 3EI/L\u00b3 = 3,54 N/mm; het Resultaat toont beide naast de FE-uitkomst, gelijk op vier cijfers. De kleur laat \u03c3/\u03c3_toel zien: het hoogst bij de inklemming (33 MPa). De eerste eigenfrequentie volgt uit 1,875\u00b2/(2\u03c0)\u00b7\u221a(EI/(\u03c1AL\u2074)) = 63 Hz. Druk op spatie om de eerste mode te animeren, of splits de balk verder en zie de uitkomst niet veranderen: de balkelementen zijn exact voor puntlasten."
+  },
+  stiffleaf: {
+    title: "Bladveer zelf getekend", cat: "stiff", modes: ["stiff"],
+    desc: "Een geleide bladveer als Volledige balk: de stijfheid in het eindpunt moet 12EI/L\u00b3 zijn.",
+    text: "Blad van 10 \u00d7 0,3 mm en 40 mm lang, links ingeklemd en rechts geleid (de draaiing is vast, het punt glijdt loodrecht). De stijfheid in punt B is k = 12EI/L\u00b3 = 0,886 N/mm (886 N/m). Het Resultaat vergelijkt de FE-waarde met de formule. Het blad buigt in een S-vorm met een moment dat van +FL/2 naar \u2212FL/2 loopt, dus de spanning is het hoogst aan beide uiteinden. Zet de dikte op 0,6 mm: de stijfheid wordt 8\u00d7 zo groot (t\u00b3)."
+  },
+  stiffportal: {
+    title: "Portaalframe", cat: "stiff", modes: ["stiff"],
+    desc: "Twee ingeklemde kolommen en een dwarsbalk met momentvaste hoeken; een zijdelingse kracht laat het portaal scheeftrekken.",
+    text: "In de hoeken B en C staat de verbinding op Star (\u25a0): de kolommen en de dwarsbalk delen er hun hoek. De zijdelingse stijfheid ligt tussen 6EI/h\u00b3 (scharnierende dwarsbalk) en 24EI/h\u00b3 (oneindig stijve dwarsbalk). Zet bij punt B en C de verbinding op Scharnier (\u25cb) en de stijfheid zakt naar 6EI/h\u00b3; haal ook de inklemming weg en het raamwerk wordt een mechanisme, dat in het Resultaat in gewone taal wordt benoemd."
+  },
+  stiffmixed: {
+    title: "Stijf + elastisch gemengd", cat: "stiff", modes: ["stiff"],
+    desc: "Een stijve arm, momentvast aan een elastische balk op een scharnier met torsieveer.",
+    text: "Punt A is een scharnier met een torsieveer (k\u03b8 = 500 N\u00b7mm/rad), de balk AB is elastisch (10 \u00d7 0,6 mm), de arm BC is een Oneindige schakel die in B momentvast (Star) aan de balk zit. De kracht op C geeft een moment op de balk; de arm draait mee met de balk en de veer, dus de uitwijking van C is de som van veer (M/k\u03b8) en buiging (ML/EI), vergroot met de armlengte. Een stijve schakel rekent als een balk met 10\u2075\u00d7 de grootste elastische stijfheid."
   },
   empty: {
     title: "Leeg canvas", cat: "empty", modes: ["kin"],

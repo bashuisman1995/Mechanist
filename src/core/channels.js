@@ -72,6 +72,11 @@ export function channels() {
     if (e.type === "damper") out.push({ key: "s|" + e.id + "|F", lab: "demper " + pair(e) + " · F", q: "F", u: "N",
                                         al: "Fd_" + pair(e), g: "Krachtelementen", o: "Demper " + pair(e), obj: e.id, frf: true });
   }
+  if (model.mode === "stiff") for (const n of model.nodes) {          // statische verplaatsingen van de punten (modus Stijfheid)
+    const o = "Punt " + n.name;
+    [["ux", "u\u2093", "\u00b5m", "ux"], ["uy", "u_y", "\u00b5m", "uy"], ["th", "\u03c6", "\u00b5rad", "phi"]].forEach(([k, q, u, al]) =>
+      out.push({ key: "u|" + n.id + "|" + k, lab: n.name + " \u00b7 " + q + " (statisch)", q, u, al: al + "_" + n.name, g: "Verplaatsingen", o, obj: n.id, stiff: true }));
+  }
   if (model.mode === "dyn") out.push({ key: "e||E", lab: "totale energie E", q: "E", u: "J", al: "E",
                                        g: "Systeem", o: "Systeem", obj: "" });
   return sensorChannels().concat(out);        // sensoren staan bovenaan de keuzelijst
@@ -79,6 +84,10 @@ export function channels() {
 
 export function chVal(S, key, i) {
   const [t, id, k] = key.split("|");
+  if (t === "u") {            // statische verplaatsing uit de modus Stijfheid, in µm of µrad
+    const d = sim.stiff && sim.stiff.ok ? sim.stiff.nodes.get(id) : null;
+    return d ? (k === "ux" ? d.ux * 1000 : k === "uy" ? d.uy * 1000 : d.th * 1e6) : NaN;
+  }
   if (t === "n") {
     if (!S.pos[id]) return NaN;
     const p = S.pos[id][i], v = S.vel[id][i], a = S.acc[id][i];

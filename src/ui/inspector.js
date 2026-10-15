@@ -1,15 +1,16 @@
 // Eigenschappenpaneel.
 import { frame as cFrame, hertz, liveContact, MATERIALS } from "../core/contact.js";
-import { A_DEFAULT, axialA, axialE, axialK, axialSigma, alphaOf, dTOf, isAxial, matOf, thermDL } from "../core/axial.js";
+import { A_DEFAULT, axialA, axialE, axialK, axialSigma, alphaOf, beamSect, dTOf, isAxial, isBeam, matOf, PROFILES, sigAllow, thermDL } from "../core/axial.js";
 import { asyncMode, dist, E, hasFriction, isBar, N } from "../core/elements.js";
 import { FLEX_KINDS, flexK, flexLivePhi, flexRefs, flexStress, GAMMA } from "../core/flexure.js";
 import { frfInputs } from "../core/frf.js";
 import { mobility, placeAt, relax } from "../core/kinematics.js";
 import { barsAt, encRes, loadcellDt, sensorLive, SENSORS, springK } from "../core/sensors.js";
+import { jointFor } from "../core/stiffness.js";
 import { model, sim, ui } from "../core/state.js";
 import { draw } from "./draw.js";
-import { anchorHere, crankAngle, setDriver } from "./edit.js";
-import { fmt, fmtHz, fmtTime } from "./format.js";
+import { anchorHere, crankAngle, setDriver, splitBeam } from "./edit.js";
+import { fmt, fmtHz, fmtTime, sg } from "./format.js";
 import { pushHistory, save } from "./persist.js";
 import { chip, plotted, toggleSerie } from "./picker.js";
 import { atT0, lockNudge, toT0 } from "./playback.js";
@@ -18,6 +19,7 @@ import { cancelJob, changed, rebuild } from "./solver.js";
 import { flash } from "./tools.js";
 import { renderHowNow } from "./howhook.js";
 import { renderThermal } from "./thermal.js";
+import { stiffSelect } from "./stiff.js";
 import { MATERIALS as CALC_MATERIALS } from "../calc/materials.js";
 
 export function syncDynInputs() {
@@ -58,7 +60,11 @@ export function syncResult() {
   else {
     const m = mobility(), v = m.drive ? m.dofDriven : m.dof;
     const st = v === 0 ? "bepaald" : v > 0 ? "onderbepaald" : "overbepaald";
-    if (model.mode === "frf") {
+    if (model.mode === "stiff") {
+      const R = sim.stiff;
+      t = !R ? "Stijfheid \u00b7 nog niet doorgerekend" : R.empty ? "Stijfheid \u00b7 nog niets om door te rekenen" : !R.ok ? "Stijfheid \u00b7 mechanisme"
+        : "Stijfheid \u00b7 " + (R.sigMax ? "max \u03c3 " + nl(sg(R.sigMax.val)) + " MPa (" + nl(sg(R.sigMax.ratio * 100, 2)) + " %)" : "doorgerekend");
+    } else if (model.mode === "frf") {
       const md = sw && sw.modes ? sw.modes.find(x => !x.unstable && x.f > 1e-6) : null;
       t = "FRF \u00b7 " + (md ? nl(fmtHz(md.f)) : sw ? "doorgerekend" : "nog niet doorgerekend");
     } else if (model.mode === "dyn") {
@@ -73,10 +79,11 @@ export function syncResult() {
 
 export function syncDof() {
   syncResult(); renderHowNow();
-  const m = mobility();
   const el = document.getElementById("dofVal");
   const of = document.getElementById("dofOf");
   const note = document.getElementById("dofNote");
+  if (model.mode === "stiff") { stiffDof(el, of, note); return; }
+  const m = mobility();
   if (!model.nodes.length) {
     el.textContent = "–"; el.className = "big"; of.textContent = "";
     note.textContent = "Nog geen model. Plaats punten en verbind ze met schakels.";
@@ -139,15 +146,35 @@ export function syncDof() {
   function row(k, v) { return "<span>" + k + "</span><b>" + v + "</b>"; }
 }
 
+// Stijfheid: het getal is het aantal vrije bewegingen (0 = stijf genoeg)
+function stiffDof(el, of, note) {
+  const R = sim.stiff, tally = document.getElementById("tally");
+  if (!model.nodes.length || !R || R.empty) {
+    el.textContent = "\u2013"; el.className = "big"; of.textContent = "";
+    note.textContent = "Teken balken of staven en een oplegging. Zet de stijfheid van een schakel op Volledig (EA + EI) voor een balk met buiging.";
+    tally.innerHTML = ""; return;
+  }
+  const free = R.ok ? 0 : R.mech.count;
+  el.textContent = free ? "+" + free : "0"; el.className = "big " + (free ? "bad" : "ok");
+  of.textContent = free ? "vrije bewegingen (mechanisme)" : "vrije bewegingen";
+  note.innerHTML = free ? "<b style=\"color:var(--bad)\">" + R.mech.text + "</b>"
+    : "Stijf genoeg: elke belasting heeft een eenduidige vervorming. Onbekenden: " + R.nfree + " vrijheidsgraden van punten en scharnierende balkuiteinden.";
+  const rowk = (k, v) => "<span>" + k + "</span><b>" + v + "</b>";
+  tally.innerHTML = rowk("punten", model.nodes.length) + rowk("balken (EA + EI)", R.sys.mem.filter(x => x.kind === "beam").length) +
+    rowk("stijve schakels", R.sys.mem.filter(x => x.kind === "rigid").length) + rowk("staven en veren", R.sys.spr.length) +
+    rowk("vrijheidsgraden", R.sys.nd) + rowk("vrij (na opleggingen)", R.nfree);
+}
+
 /* ============================================================
    Inspector
    ============================================================ */
 const props = document.getElementById("props");
 
 export function syncInspector() {
+  stiffSelect();
   buildInspector();
   renderHowNow();
-  if (!ui.sel) return;
+  if (!ui.sel || model.mode === "stiff") return;
   // snelknoppen: grootheden van dit onderdeel direct in de grafiek zetten
   refreshChannels();
   const cs = sim.CH.filter(c => c.obj === ui.sel.id && !c.hide);
@@ -199,6 +226,7 @@ function buildInspector() {
       '</div>' +
       (n.support === "slider" ? numRow("pdir", "Richting glijbaan", n.dir, "°", 1) : "") +
       numRow("pm", "Puntmassa", n.m, "kg", .1) +
+      jointHtml(n) + nodeStiffLive(n) +
       (fricApplies(n) ? '<div class="row" style="grid-template-columns:1fr;margin-top:12px"><label><b>Wrijving</b> ' +
         '<span class="unit">' + (n.support === "slider" ? "in de glijbaan en het scharnier" : "in het scharnier") + '</span></label></div>' +
         numRow("pmus", "\u03bc statisch", n.mus || 0, "\u2013", .01) +
@@ -226,6 +254,7 @@ function buildInspector() {
       const b = ev.target.closest("button"); if (!b) return;
       n.support = b.dataset.v; anchorHere(n); relax(); changed();
     });
+    bindJoint(n);
     return;
   }
 
@@ -237,7 +266,7 @@ function buildInspector() {
     if (e.driver && e.theta0 === undefined) e.theta0 = crankAngle(e);
     if (e.driver && e.rpm === undefined) e.rpm = 60;
     props.innerHTML =
-      kind(e.driver ? ui.C.driver : ui.C.ink, e.driver ? "Kruk (aandrijving)" : "Stijve schakel") +
+      kind(e.driver ? ui.C.driver : ui.C.ink, e.driver ? "Kruk (aandrijving)" : isBeam(e) ? "Balk (EA + EI)" : "Stijve schakel") +
       '<p class="empty" style="margin:-4px 0 10px">' + N(e.a).name + " → " + N(e.b).name + '</p>' +
       numRow("el", "Lengte", e.len, "mm", .1) +
       (e.driver ? "" : linkThermHtml(e)) +
@@ -253,6 +282,7 @@ function buildInspector() {
           '<button type="button" data-v="cw" aria-pressed="' + (e.cw === true) + '">Rechtsom</button>' +
         '</div>'
       ) : "") +
+      (isBeam(e) ? beamTail(e) : "") +
       '<button class="btn" id="drvBtn" style="width:100%;margin-top:10px">' +
         (e.driver ? "Aandrijving verwijderen" : "Maak dit de kruk") + '</button>' +
       (e.driver ? '<p class="empty" style="margin-top:8px">Draaipunt ' + N(e.a).name +
@@ -265,6 +295,7 @@ function buildInspector() {
       else relax();                      // andere stangen houden hun lengte
     });
     if (!e.driver) bindLinkTherm(e);
+    if (isBeam(e)) bindBeamTail(e);
     bindNum("eth", v => { e.theta0 = v; });
     bindNum("erpm", v => { e.rpm = v; });
     const ds = document.getElementById("dirSeg");
@@ -440,22 +471,36 @@ function buildInspector() {
 const selH = (id, lab, opts, cur) => '<div class="row"><label for="' + id + '">' + lab + '</label><select id="' + id + '">' +
   opts.map(o => '<option value="' + o[0] + '"' + (o[0] === cur ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></div>";
 function linkThermHtml(e) {
-  const ax = isAxial(e);
+  const ax = isAxial(e), bm = isBeam(e);
   return selH("lmat", "Materiaal", CALC_MATERIALS.map(m => [m.id, m.naam]), e.mat || "staal") +
     '<div class="row"><label for="ldt">\u0394T eigen <span class="unit">K, leeg = model</span></label>' +
     '<input type="number" id="ldt" step="1" placeholder="' + nlf(model.dT || 0) + '" value="' + (typeof e.dT === "number" ? e.dT : "") + '"></div>' +
-    selH("lst", "Stijfheid", [["inf", "Oneindig (stijf)"], ["axial", "Axiaal (EA/L)"]], ax ? "axial" : "inf") +
+    selH("lst", "Stijfheid", [["inf", "Oneindig (stijf)"], ["axial", "Axiaal (EA/L)"], ["beam", "Volledig (EA + EI)"]], bm ? "beam" : ax ? "axial" : "inf") +
     (ax ? selH("lsect", "Doorsnede", [["A", "Oppervlak A"], ["bh", "Profiel b \u00d7 h"]], e.sect === "bh" ? "bh" : "A") +
       (e.sect === "bh" ? numRow("lsb", "Breedte b", e.sb > 0 ? e.sb : 5, "mm", .5) + numRow("lsh", "Hoogte h", e.sh > 0 ? e.sh : 4, "mm", .5)
                        : numRow("lA", "Oppervlak A", axialA(e), "mm\u00b2", 1)) : "") +
+    (bm ? beamProfileHtml(e) : "") +
     '<p class="empty" id="axLive" data-e="' + e.id + '" style="margin-top:6px">' + axialLiveHtml(e) + "</p>" +
-    '<p class="empty" style="margin-top:6px">' + (ax
+    '<p class="empty" style="margin-top:6px">' + (bm
+      ? "Volledig: een Euler\u2013Bernoulli-balk met axiale (EA) en buigstijfheid (EI). Alleen de modus Stijfheid rekent met de buiging; in de andere modi is hij een stijve schakel."
+      : ax
       ? "Axiaal: een veer k = E\u00b7A/L langs de staaf (Dynamisch, Evenwicht, FRF); in Kinematisch blijft hij stijf maar de kracht N, \u0394L en \u03c3 worden getoond. Rustlengte L\u2080\u00b7(1 + \u03b1\u00b7\u0394T)."
       : "Oneindig: een stijve randvoorwaarde. Met \u0394T \u2260 0 krijgt hij de lengte L\u00b7(1 + \u03b1\u00b7\u0394T).") + "</p>";
+}
+// profiel van een balk: rechthoek, rond, buis of eigen A en I
+function beamProfileHtml(e) {
+  const p = beamSect(e).prof;
+  return selH("lprof", "Profiel", Object.keys(PROFILES).map(k => [k, PROFILES[k]]), p) +
+    (p === "rect" ? numRow("lpb", "Breedte b <span class=\"unit\">dwars op het vlak</span>", e.pb > 0 ? e.pb : 10, "mm", .5) + numRow("lph", "Hoogte h <span class=\"unit\">in het buigvlak</span>", e.ph > 0 ? e.ph : 2, "mm", .1)
+      : p === "round" ? numRow("lpd", "Diameter d", e.pd > 0 ? e.pd : 4, "mm", .5)
+      : p === "tube" ? numRow("lpD", "Buitendiameter D", e.pD > 0 ? e.pD : 10, "mm", .5) + numRow("lpdi", "Binnendiameter d", e.pdi >= 0 ? e.pdi : 8, "mm", .5)
+      : numRow("lpA", "Oppervlak A", e.A > 0 ? e.A : A_DEFAULT, "mm\u00b2", 1) + numRow("lpI", "Kwadratisch moment I", e.I > 0 ? e.I : 50, "mm\u2074", 5)) +
+    numRow("lsig", "\u03c3 toelaatbaar <span class=\"unit\">0 = materiaal</span>", e.sig || 0, "MPa", 10);
 }
 function axialLiveHtml(e) {
   const m = matOf(e), dth = thermDL(e) * 1000;
   let h = "\u03b1 <b>" + nlf(m.alpha) + "</b> \u00b5m/(m\u00b7K) \u00b7 \u0394T <b>" + nlf(dTOf(e)) + "</b> K \u2192 thermische rek \u0394L = \u03b1\u00b7L\u00b7\u0394T = <b>" + nlf(dth) + "</b> \u00b5m";
+  if (isBeam(e)) return h + "<br>" + beamLiveHtml(e);
   if (!isAxial(e)) return h;
   const k = axialK(e), S = sim.sweep, i = Math.round(ui.frame);
   const F = S && !S.frf && S.EF && S.EF[e.id] ? S.EF[e.id][i] : NaN;
@@ -477,7 +522,16 @@ function bindLinkTherm(e) {
     el.addEventListener("change", () => { if (guard(el, () => { el.value = cur(); })) { fn(el.value); redo(); } });
   };
   onSel("lmat", v => { e.mat = v; }, () => e.mat || "staal");
-  onSel("lst", v => { e.axial = v === "axial"; if (e.axial && !(e.A > 0)) e.A = A_DEFAULT; }, () => isAxial(e) ? "axial" : "inf");
+  onSel("lst", v => { e.axial = v === "axial"; e.beam = v === "beam"; if (e.axial && !(e.A > 0)) e.A = A_DEFAULT; if (e.beam && !e.prof) e.prof = "rect"; }, () => isBeam(e) ? "beam" : isAxial(e) ? "axial" : "inf");
+  onSel("lprof", v => { e.prof = v; }, () => beamSect(e).prof);
+  bindNum("lpb", v => { e.pb = Math.max(1e-3, v); });
+  bindNum("lph", v => { e.ph = Math.max(1e-3, v); });
+  bindNum("lpd", v => { e.pd = Math.max(1e-3, v); });
+  bindNum("lpD", v => { e.pD = Math.max(1e-3, v); });
+  bindNum("lpdi", v => { e.pdi = Math.max(0, v); });
+  bindNum("lpA", v => { e.A = Math.max(1e-3, v); });
+  bindNum("lpI", v => { e.I = Math.max(1e-6, v); });
+  bindNum("lsig", v => { e.sig = Math.max(0, v); });
   onSel("lsect", v => { e.sect = v; if (v === "bh") { if (!(e.sb > 0)) e.sb = 5; if (!(e.sh > 0)) e.sh = Math.max(.1, Math.round(axialA(e) / e.sb * 100) / 100); } else e.A = axialA(e); }, () => e.sect === "bh" ? "bh" : "A");
   bindNum("lA", v => { e.A = Math.max(1e-3, v); });
   bindNum("lsb", v => { e.sb = Math.max(1e-3, v); });
@@ -491,6 +545,67 @@ function bindLinkTherm(e) {
   };
   dt.addEventListener("change", commit);
   dt.addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); commit(); dt.blur(); } });
+}
+
+/* ---- Stijfheid: verbinding in een punt, balkresultaten ---- */
+function jointHtml(n) {
+  const nb = model.elems.filter(e => isBeam(e) && (e.a === n.id || e.b === n.id)).length, sup = n.support !== "free";
+  if (!nb && !(sup && n.clamp)) return "";
+  const j = jointFor(n), cur = n.joint === "star" || n.joint === "pin" || n.joint === "spring" ? n.joint : "auto";
+  const sym = { star: "\u25a0 Star", pin: "\u25cb Scharnier", spring: "\u27f2 Torsieveer" };
+  return '<div class="row" style="grid-template-columns:1fr;margin-top:12px"><label><b>Verbinding van de balken</b> <span class="unit">modus Stijfheid</span></label></div>' +
+    '<div class="seg joint-seg" id="jointSeg">' + segBtn("auto", "Auto", cur) + segBtn("star", "\u25a0 Star", cur) + segBtn("pin", "\u25cb Scharnier", cur) + segBtn("spring", "\u27f2 Torsieveer", cur) + "</div>" +
+    (j.type === "spring" ? numRow("pkth", "Torsiestijfheid k\u03b8", n.kth > 0 ? n.kth : 0, "N\u00b7mm/rad", 100) : "") +
+    (sup ? '<div class="chk" style="margin-top:6px"><input type="checkbox" id="pclamp"' + (n.clamp ? " checked" : "") + '><label for="pclamp">Ingeklemd (draaiing vast)</label></div>' : "") +
+    '<p class="empty" style="margin:4px 0 0">Nu: <b>' + sym[j.type] + "</b>" + (j.auto ? " (automatisch)" : "") + ". " +
+    (j.type === "star" ? "Momentvast: de balken delen de knoophoek. " : j.type === "pin" ? "Elke balk draait vrij in dit punt. " : "Elke balk draait tegen een veer k\u03b8 ten opzichte van het punt (op een oplegging: de grond). ") +
+    "Auto: Star in een vrij punt met een balk; Scharnier bij een oplegging, tenzij ingeklemd.</p>";
+}
+function bindJoint(n) {
+  const go = fn => () => { if (!atT0()) { lockNudge(); buildInspector(); return; } cancelJob(); fn(); changed(); };
+  const seg = document.getElementById("jointSeg");
+  if (seg) seg.addEventListener("click", ev => {
+    const b = ev.target.closest("button"); if (!b) return;
+    go(() => { if (b.dataset.v === "auto") delete n.joint; else n.joint = b.dataset.v; if (n.joint === "spring" && !(n.kth > 0)) n.kth = 1000; })();
+  });
+  bindNum("pkth", v => { n.kth = Math.max(0, v); });
+  const cl = document.getElementById("pclamp");
+  if (cl) cl.addEventListener("change", go(() => { n.clamp = cl.checked; }));
+}
+function nodeStiffLive(n) {
+  const R = sim.stiff, d = model.mode === "stiff" && R && R.ok ? R.nodes.get(n.id) : null;
+  if (!d) return "";
+  return '<p class="empty" style="margin:10px 0 0"><b>Verplaatsing</b></p><p class="empty" style="margin-top:2px">u\u2093 <b>' + nlf(d.ux * 1000) + "</b> \u00b5m \u00b7 u<sub>y</sub> <b>" + nlf(d.uy * 1000) +
+    "</b> \u00b5m" + (Number.isNaN(d.th) ? "" : " \u00b7 \u03c6 <b>" + nlf(d.th * 1e6) + "</b> \u00b5rad") + "</p>";
+}
+function beamLiveHtml(e) {
+  if (!N(e.a) || !N(e.b)) return "";
+  const s = beamSect(e), m = matOf(e), L = dist(N(e.a), N(e.b));
+  let h = "A <b>" + nlf(s.A) + "</b> mm\u00b2 \u00b7 I <b>" + nlf(s.I) + "</b> mm\u2074 \u00b7 EI <b>" + nlf(m.E * s.I) + "</b> N\u00b7mm\u00b2<br>" +
+    "EA/L <b>" + nlf(m.E * s.A / L) + "</b> N/mm \u00b7 12EI/L\u00b3 <b>" + nlf(12 * m.E * s.I / L ** 3) + "</b> N/mm \u00b7 3EI/L\u00b3 <b>" + nlf(3 * m.E * s.I / L ** 3) + "</b> N/mm";
+  const R = sim.stiff, rec = model.mode === "stiff" && R && R.ok ? R.members.find(x => x.e === e) : null;
+  if (rec && rec.kind === "beam") {
+    const warn = rec.ratio > 1;
+    h += '<br><span style="' + (warn ? "color:var(--driver);font-weight:600" : "") + '">N <b>' + nlf(rec.NN) + "</b> N \u00b7 M<sub>max</sub> <b>" + nlf(rec.Mmax / 1000) + "</b> N\u00b7m \u00b7 \u03c3<sub>max</sub> <b>" +
+      nlf(rec.sigMax) + "</b> MPa = <b>" + nlf(rec.ratio * 100) + " %</b> van " + nlf(rec.allow) + " MPa" + (warn ? " \u2014 boven de toelaatbare spanning" : "") + "</span>";
+  }
+  return h;
+}
+function beamTail(e) {
+  return '<div class="row" style="margin-top:10px"><label for="splitPct">Knoop op balk <span class="unit">% van A</span></label>' +
+    '<span style="display:flex;gap:6px"><input type="number" id="splitPct" min="5" max="95" step="5" value="50" style="width:64px">' +
+    '<button class="btn" id="splitBtn" type="button" title="Splitst de balk in twee elementen met een punt ertussen">Splits</button></span></div>' +
+    '<p class="empty" style="margin-top:2px">Een punt op de balk om een kracht, massa of sensor neer te zetten, en voor een nauwkeuriger vervormde lijn.</p>';
+}
+function bindBeamTail(e) {
+  const b = document.getElementById("splitBtn"); if (!b) return;
+  b.addEventListener("click", () => {
+    if (!atT0()) { lockNudge(); return; }
+    const p = parseFloat(document.getElementById("splitPct").value);
+    cancelJob();
+    const n = splitBeam(e.id, (isFinite(p) ? Math.max(5, Math.min(95, p)) : 50) / 100);
+    if (n) { ui.sel = { kind: "node", id: n.id }; changed(); }
+  });
 }
 
 /* ---- sensoren ---- */

@@ -8,6 +8,7 @@ import { draw } from "./draw.js";
 import { fmtHz, fmtTime } from "./format.js";
 import { syncContactLive, syncInspector, syncResult } from "./inspector.js";
 import { syncSeriesValues } from "./picker.js";
+import { stiffMessage } from "./stiff.js";
 import { drawPlot } from "./plot.js";
 import { cancelJob, solveNow } from "./solver.js";
 import { flash } from "./tools.js";
@@ -82,7 +83,27 @@ const speedSel = document.getElementById("speedSel");
 // De afspeelkop loopt als gebroken getal door. Vroeger werd hij elk beeld
 // afgerond, waardoor hij bij lage snelheid of een lange simulatie op 0 bleef staan.
 let playPos = 0;
+// Stijfheid: de spatie laat de vervorming (of een eigenvorm) heen en weer bewegen; er is geen tijdas
+let stiffT0 = 0;
+function toggleStiffPlay() {
+  const R = sim.stiff;
+  if (!ui.playing && !(R && R.ok)) return;
+  ui.playing = !ui.playing;
+  playIco.setAttribute("d", ui.playing ? "M3 1.5h3.4v11H3zM7.6 1.5H11v11H7.6z" : "M3 1.5l9 5.5-9 5.5z");
+  playBtn.title = ui.playing ? "Pauzeren (spatie)" : "Animeren (spatie)";
+  cancelAnimationFrame(ui.raf);
+  if (ui.playing) { stiffT0 = performance.now(); ui.raf = requestAnimationFrame(stiffTick); }
+  else { ui.stiffAmp = 1; draw(); }
+}
+function stiffTick(t) {
+  if (!ui.playing || model.mode !== "stiff") return;
+  ui.stiffAmp = Math.sin(2 * Math.PI * (t - stiffT0) / 1000 * 0.6);
+  draw();
+  ui.raf = requestAnimationFrame(stiffTick);
+}
+
 export function togglePlay() {
+  if (model.mode === "stiff") return toggleStiffPlay();
   if (!sim.sweep && !ui.playing) return;
   ui.playing = !ui.playing;
   playIco.setAttribute("d", ui.playing ? "M3 1.5h3.4v11H3zM7.6 1.5H11v11H7.6z" : "M3 1.5l9 5.5-9 5.5z");
@@ -275,6 +296,16 @@ export function goto(deg) {
 }
 
 export function syncTransport() {
+  if (model.mode === "stiff") {
+    const R = sim.stiff, ok = !!(R && R.ok);
+    playBtn.disabled = !ok; scrub.hidden = true; angOut.hidden = true; speedSel.hidden = true;
+    document.getElementById("rewBtn").hidden = true;
+    for (const id of ["stopBtn", "tprog", "solveBtn"]) document.getElementById(id).hidden = true;
+    const m = document.getElementById("tmsg"); m.hidden = false; m.textContent = stiffMessage();
+    if (!ok && ui.playing) togglePlay();
+    syncLock(); syncResult(); syncMeet();
+    return;
+  }
   const on = !!sim.sweep, busy = !!sim.job;
   playBtn.disabled = !on;
   scrub.disabled = !on;
