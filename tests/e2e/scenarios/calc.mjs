@@ -54,6 +54,75 @@ export default async ({ browser, url, check }) => {
   await p.click('[data-c="leaf"]');
   await p.click('summary:has-text("Formules")'); await frame();
   check('formules uitklapbaar met eigen getallen', (await p.$$('#calcFormulas .fm')).length >= 4 && /met jouw getallen/.test(await p.$eval('#calcFormulas', e => e.textContent)));
+  // aandrijving: stijf <-> zacht verandert c_z
+  const cz = () => p.$eval('[data-res="Steunstijfheid c_z bij u"]', e => e.textContent);
+  const czStiff = await cz();
+  await p.selectOption('[data-in="drive"]', 'soft');
+  const czSoft = await cz();
+  check('aandrijving zacht: c_z verandert (kleiner)', czStiff !== czSoft && /zacht/.test(czSoft) && /stijf/.test(czStiff), czStiff + ' -> ' + czSoft);
+  const val = t => parseFloat(t.replace(/ /g, '').replace(',', '.'));
+  check('c_z stijf ~19,0 kN/mm, zacht ~2,08 kN/mm', Math.abs(val(czStiff) - 18.97) < 0.1 && Math.abs(val(czSoft) - 2.08) < 0.1, czStiff + ' / ' + czSoft);
+  // geen punt als duizendtalscheiding: notch geeft 4 228 N·mm/rad
+  await p.click('[data-c="notch"]');
+  const cphi = await p.$eval('[data-res="Draaistijfheid c_φ"]', e => e.textContent);
+  check('getalnotatie: dunne spatie, geen punt (4 228)', /^4 228\s/.test(cphi) && !/\d\.\d{3}/.test(cphi), JSON.stringify(cphi));
+  check('draaistijfheid ook in N·m/rad', /4,23\s*N·m\/rad/.test(await p.$eval('[data-res="Draaistijfheid c_φ (SI)"]', e => e.textContent)));
+  check('veiligheidsfactor n aanwezig', /^\d/.test(await p.$eval('[data-res="Veiligheidsfactor n = σ_toel/σ"]', e => e.textContent)));
+  await p.click('[data-c="cross"]');
+  check('kruisveer: belastingafhankelijke stijfheid als notitie', /niet meegenomen/.test(await p.$eval('[data-res="Stijfheid onder belasting"]', e => e.parentElement.textContent)));
+  await p.click('[data-c="leaf"]');
+  check('stijfheid in N/µm', /^0,0021\s*N\/µm/.test(await p.$eval('[data-res="Stijfheid c_x in N/µm"]', e => e.textContent)));
+  // materiaal: α, ρ, bron; σ_toel aanpasbaar
+  const mi = await p.$eval('#calcMatInfo', e => e.textContent), ms = await p.$eval('#calcMatSrc', e => e.textContent);
+  check('materiaalregel met α, ρ en σ_toel-uitleg', /α =/.test(mi) && /ρ =/.test(mi) && /vermoeiingssterkte/.test(mi));
+  check('Bron materiaalgegevens', /^Bron materiaalgegevens:/.test(ms) && /MatWeb/.test(ms));
+  const opts = await p.$$eval('#calcMat option', o => o.map(x => x.textContent));
+  check('CuBe2 en fosforbrons apart', opts.some(x => /CuBe2/.test(x)) && opts.some(x => /Fosforbrons/.test(x)) && !opts.some(x => /Brons \/ CuBe/.test(x)), opts.join('|'));
+  const nOf = () => p.$eval('[data-res="Veiligheidsfactor n = σ_toel/σ"]', e => e.textContent);
+  const n0 = await nOf();
+  await p.fill('#calcSigma', '600');
+  check('σ_toel aanpasbaar: n verdubbelt', Math.abs(val(await nOf()) / val(n0) - 2) < 0.05, n0 + ' -> ' + await nOf());
+  await p.fill('#calcSigma', '300');
+  // waarschuwingen
+  await p.fill('[data-in="u"]', '3');
+  check('waarschuwing u/L > 0,1', /u\/L/.test(await p.$eval('#calcWarn', e => e.textContent)));
+  await p.fill('[data-in="u"]', '0.5'); await p.fill('[data-in="L"]', '3');
+  check('waarschuwing L/t < 20', /L\/t/.test(await p.$eval('#calcWarn', e => e.textContent)));
+  await p.fill('[data-in="L"]', '20');
+  await p.fill('[data-in="F"]', '10');
+  check('c_x(F) = 2,1 - 1,2*10/20 = 1,5 N/mm', /^1,5\s*N\/mm/.test(await p.$eval('[data-res="Dwarsstijfheid onder F: c_x(F)"]', e => e.textContent)));
+  await p.fill('[data-in="F"]', '0');
+  // Formules: bronnen zijn literatuur
+  await frame();
+  const fsrc = await p.$$eval('#calcFormulas .fm-s', e => e.map(x => x.textContent));
+  check('elke formule met literatuurbron, geen bestandsnamen', fsrc.length >= 10 && fsrc.every(x => !/\.(js|mjs)\b/.test(x)) && fsrc.some(x => /Soemers/.test(x)), String(fsrc.length));
+  check('Formules tonen afleiding van de 700', /700/.test(await p.$eval('#calcFormulas', e => e.textContent)));
+
+  // Kopieer: platte tekst
+  await p.selectOption('[data-in="drive"]', 'stiff');
+  await p.click('#calcCopy');
+  const sheet = await p.$eval('#calcCopy', e => e.dataset.sheet || '');
+  check('Kopieer: rekenblad met invoer, uitkomsten, formules, bronnen, versie', /INVOER/.test(sheet) && /UITKOMSTEN/.test(sheet) && /FORMULES/.test(sheet) && /BRONNEN/.test(sheet) && /Soemers/.test(sheet) && /L = 20 mm/.test(sheet) && /Stijfheid c_x = 2,1 N\/mm/.test(sheet) && /v0\.\d/.test(sheet) && /20\d\d-\d\d-\d\d/.test(sheet) && !/<[a-z]+>/.test(sheet), sheet.slice(0, 200));
+  check('Kopieer: melding getoond', /gekopieerd|geweigerd/i.test(await p.$eval('#calcActMsg', e => e.textContent)));
+
+  // Link: invoer in hash, nieuwe pagina herstelt waarden
+  await p.fill('[data-in="L"]', '33'); await p.fill('[data-in="t"]', '0.15'); await p.selectOption('[data-in="drive"]', 'soft');
+  await p.selectOption('#calcMat', 'cube'); await p.fill('#calcSigma', '450');
+  await p.click('#calcLink');
+  const link = await p.$eval('#calcLink', e => e.dataset.url || '');
+  check('Link: hash met invoer', /#calc=leaf&/.test(link) && /L=33/.test(link) && /drive=soft/.test(link) && /mat=cube/.test(link) && /sig=450/.test(link), link);
+  const ctx2 = await browser.newContext({ viewport: { width: 1366, height: 768 } });
+  await ctx2.addInitScript(() => { try { localStorage.setItem('mechschets.tour1', '1'); } catch (e) {} });
+  const p2 = await ctx2.newPage(); p2.errs = [];
+  p2.on('pageerror', e => p2.errs.push(e.message));
+  await p2.goto(link); await p2.waitForSelector('#calcDetail [data-in="L"]');
+  const back = await p2.evaluate(() => ({ L: document.querySelector('[data-in="L"]').value, t: document.querySelector('[data-in="t"]').value, drive: document.querySelector('[data-in="drive"]').value, mat: document.querySelector('#calcMat').value, sig: document.querySelector('#calcSigma').value, on: !document.getElementById('calcRoot').hidden }));
+  check('Link: calculator en waarden hersteld bij laden', back.on && back.L === '33' && back.t === '0.15' && back.drive === 'soft' && back.mat === 'cube' && back.sig === '450', JSON.stringify(back));
+  check('Link: geen page errors', p2.errs.length === 0, p2.errs.join('|'));
+  await ctx2.close();
+  // terug naar beginwaarden voor de rest
+  await p.fill('[data-in="L"]', '20'); await p.fill('[data-in="t"]', '0.2'); await p.selectOption('[data-in="drive"]', 'stiff'); await p.selectOption('#calcMat', 'staal');
+  await p.screenshot({ path: SHOT + 'calc3.png' });
   await p.screenshot({ path: SHOT + 'calc2_desktop.png' });
   await p.emulateMedia({ colorScheme: 'dark' });
   await p.click('[data-c="notch"]');

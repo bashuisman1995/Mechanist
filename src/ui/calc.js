@@ -1,182 +1,247 @@
 // Werkplek "Calculators": flexure-rekenhulpen naast de schets. Alleen UI; de formules staan in src/calc/.
-import { MATERIALS, material } from "../calc/materials.js";
+import { MATERIALS, MATERIAL_SOURCE, material } from "../calc/materials.js";
 import { crossPivot, leafSpring, notchHinge, parallelLeaf, wireFlexure } from "../calc/flexures.js";
 
 const $ = id => document.getElementById(id);
 const DEG = Math.PI / 180;
+const NNBSP = " ";                      // dunne, niet-brekende spatie als duizendtalscheiding
 
 // ---------- opmaak ----------
+// Komma als decimaalteken; duizendtallen (vanaf 4 cijfers) met een dunne spatie, nooit met een punt:
+// "4.228" zou voor een decimaal doorgaan. Alles wat boven 1000 komt blijft dus ondubbelzinnig: "4 228".
 function sig(x, n) {
   if (!isFinite(x)) return x > 0 ? "∞" : "—";
   if (x === 0) return "0";
-  const a = Math.abs(x), d = Math.max(0, n - 1 - Math.floor(Math.log10(a)));
-  return x.toLocaleString("nl-NL", { minimumFractionDigits: 0, maximumFractionDigits: Math.min(d, 8) });
+  const a = Math.abs(x), d = Math.min(8, Math.max(0, n - 1 - Math.floor(Math.log10(a))));
+  let s = Math.abs(x).toFixed(d);
+  if (s.indexOf(".") >= 0) s = s.replace(/0+$/, "").replace(/\.$/, "");
+  const parts = s.split("."), ip = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, NNBSP);
+  const out = parts.length > 1 ? ip + "," + parts[1] : ip;
+  return (x < 0 && /[1-9]/.test(s) ? "−" : "") + out;
 }
 const num = (x, n) => sig(x, n || 3);
 function fr(a, b) { return '<span class="fr"><span>' + a + "</span><span>" + b + "</span></span>"; }
 const sub = (s, t) => s + "<sub>" + t + "</sub>";
 const sup = (s, t) => s + "<sup>" + t + "</sup>";
 
+// ---------- literatuur ----------
+const LIT = {
+  soemers: 'Soemers, <i>Design Principles for Precision Mechanisms</i> (T-Pointprint, 2010), par. bladveren',
+  roark: 'Young &amp; Budynas, <i>Roark’s Formulas for Stress and Strain</i> (McGraw-Hill, 7e, 2002), balkformules',
+  gere: 'Gere &amp; Goodno, <i>Mechanics of Materials</i> (Cengage), buiging en axiale belasting',
+  tim: 'Timoshenko &amp; Gere, <i>Theory of Elastic Stability</i> (McGraw-Hill, 2e, 1961), knik en balk-kolom',
+  smith: 'Smith, <i>Flexures: Elements of Elastic Mechanisms</i> (Gordon &amp; Breach, 2000)',
+  henein: 'Henein, <i>Conception des guidages flexibles</i> (PPUR, 2001)',
+  pw: 'Paros &amp; Weisbord, <i>How to design flexure hinges</i>, Machine Design 37 (1965) 151–156',
+  lobontiu: 'Lobontiu, <i>Compliant Mechanisms: Design of Flexure Hinges</i> (CRC Press, 2002)',
+  schot: 'Schotborgh e.a., <i>Dimensionless design graphs for flexure elements</i>, Precision Engineering 29 (2005) 41–47',
+  wittrick: 'Wittrick, <i>The properties of crossed flexure pivots</i>, Aeronautical Quarterly 2 (1951) 272–292',
+  haringx: 'Haringx, <i>The cross-spring pivot as a constructional element</i>, Applied Scientific Research A1 (1949) 313–332',
+  denhartog: 'Den Hartog, <i>Mechanical Vibrations</i> (Dover, 1985)',
+  awtar: 'Awtar, <i>Synthesis and Analysis of Parallel Kinematic XY Flexure Mechanisms</i> (PhD, MIT, 2004)',
+  howell: 'Howell, <i>Compliant Mechanisms</i> (Wiley, 2001)',
+};
+const SRC_S = LIT.soemers;
+const SRC_H = LIT.smith + "; " + LIT.henein;
+
 // ---------- invoervelden ----------
-const MAT = { id: "mat", type: "material" };
 const f = (id, label, unit, def, min) => ({ id, label, unit, def, min: min == null ? 0 : min });
 const IN_M = f("m", "Massa m op de vrije kant", "kg", 0.1);
-const IN_F = f("F", "Axiale drukkracht F", "N", 0);
+const IN_F = f("F", "Axiale drukkracht F (druk positief)", "N", 0);
 const IN_PLATE = { id: "plate", type: "check", label: "Brede strip (b ≫ t): E′ = E/(1−ν²)", def: false };
+const IN_DRIVE = { id: "drive", type: "select", label: "Aandrijving", def: "stiff",
+  options: [["stiff", "stijf (positie vast)"], ["soft", "zacht (kracht vast)"]] };
 
-// ---------- calculators ----------
-function warn(r, sigma, sigmaToel, extra) {
+// ---------- waarschuwingen (kort) ----------
+function warn(r, sigmaToel, extra) {
   const w = [];
   if (r.sigma > sigmaToel) w.push("Spanning " + num(r.sigma) + " MPa is hoger dan σ_toel = " + num(sigmaToel) + " MPa.");
   if (r.margin < 2) w.push("Knikveiligheid " + num(r.margin) + " is lager dan 2.");
   return w.concat(extra || []);
 }
+// geldigheid van de kleine-doorbuiging-formules voor bladveren en draden
+function geomWarn(p, kind) {
+  const w = [];
+  if (p.u / p.L > 0.1) w.push("u/L = " + num(p.u / p.L) + " > 0,1: geometrische niet-lineariteit, c_x en Δz worden onnauwkeurig.");
+  if (kind === "wire") {
+    if (p.L / p.d < 20) w.push("L/d = " + num(p.L / p.d) + " < 20: dikke draad, afschuiving niet meegenomen.");
+    return w;
+  }
+  if (p.L / p.t < 20) w.push("L/t = " + num(p.L / p.t) + " < 20: dikke bladveer, afschuiving niet meegenomen.");
+  const bt = p.b / p.t;
+  if (bt < 5) w.push("b/t = " + num(bt) + " < 5: smal blad" + (p.plate ? ", E′ voor een brede strip is hier niet van toepassing." : "; dwarscontractie en afschuiving worden belangrijk."));
+  else if (bt >= 10 && !p.plate) w.push("b/t = " + num(bt) + ": breed blad, overweeg E′ = E/(1−ν²) (vink ‘Brede strip’ aan).");
+  return w;
+}
+function massWarn(p, r) {
+  return r.mLeaf > 0.05 * p.m ? ["Bladmassa is " + num(100 * r.mLeaf / p.m) + " % van m: eigenfrequentie wordt te hoog geschat."] : [];
+}
 const res = (k, v, unit, bad) => ({ k, v, unit, bad });
 const stressBad = (r, M) => r.sigma > M.sigma;
+const nFac = (r, M) => (r.sigma > 0 ? M.sigma / r.sigma : Infinity);
+const nRes = (r, M) => res("Veiligheidsfactor n = σ_toel/σ", isFinite(nFac(r, M)) ? num(nFac(r, M)) : "∞", "", nFac(r, M) < 1);
 const marginRes = r => res("Knikveiligheid P_cr/F", isFinite(r.margin) ? num(r.margin) : "∞ (F = 0)", "", r.margin < 2);
-
-const SRC_S = 'Soemers, <i>Design Principles for Precision Mechanisms</i> (T-Pointprint, 2010), hoofdstuk bladveren';
-const SRC_H = 'Smith, <i>Flexures: Elements of Elastic Mechanisms</i> (Gordon &amp; Breach, 2000); Henein, <i>Flexure pivot for aerospace mechanisms</i>';
+const driveTxt = d => (d === "soft" ? "zacht" : "stijf");
 
 const CALCS = [
   {
-    id: "leaf", group: "Flexures", name: "Bladveer", short: "Enkele bladveer, geleid eind (S-vorm)", 
-    inputs: [f("L", "Lengte L", "mm", 20, 0.01), f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dikte t", "mm", 0.2, 0.001), f("u", "Uitwijking u", "mm", 0.5, 0), IN_F, IN_M, IN_PLATE],
+    id: "leaf", group: "Flexures", name: "Bladveer", short: "Enkele bladveer, geleid eind (S-vorm)",
+    inputs: [f("L", "Lengte L", "mm", 20, 0.01), f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dikte t", "mm", 0.2, 0.001), f("u", "Uitwijking u", "mm", 0.5, 0), IN_F, IN_M, IN_DRIVE, IN_PLATE],
     run: (p, M) => {
       const r = leafSpring(Object.assign({}, p, M));
       return { r,
-        out: [res("Stijfheid c_x", num(r.cx), "N/mm"), res("Kracht bij u", num(r.force), "N"),
-          res("Axiale stijfheid c_z0", num(r.cz0 / 1000), "kN/mm"), res("Stijfheid c_z bij u", num(r.cz / 1000), "kN/mm"),
-          res("Zakking Δz bij u", num(r.dz * 1000), "µm"), res("Maximale uitwijking u_max", num(r.uMax), "mm"),
-          res("Spanning bij u", num(r.sigma), "MPa", stressBad(r, M)), res("Knikbelasting P_cr", num(r.Pcr), "N"),
+        out: [res("Stijfheid c_x", num(r.cx), "N/mm"), res("Stijfheid c_x in N/µm", num(r.cx / 1000), "N/µm"),
+          res("Dwarsstijfheid onder F: c_x(F)", num(r.cxF), "N/mm", r.cxF <= 0), res("Kracht bij u", num(r.force), "N"),
+          res("Axiale stijfheid c_z0", num(r.cz0 / 1000), "kN/mm"), res("Steunstijfheid c_z bij u", num(r.cz / 1000), "kN/mm (" + driveTxt(p.drive) + ")"),
+          res("Parasitaire verkorting Δz bij u", num(r.dz * 1000), "µm"), res("Maximale uitwijking u_max", num(r.uMax), "mm"),
+          res("Spanning bij u", num(r.sigma), "MPa", stressBad(r, M)), nRes(r, M), res("Knikbelasting P_cr", num(r.Pcr), "N"),
           marginRes(r), res("Eigenfrequentie f", num(r.f), "Hz")],
-        warn: warn(r, r.sigma, M.sigma) };
+        warn: warn(r, M.sigma, geomWarn(p, "leaf").concat(massWarn(p, r))) };
     },
     formulas: (p, M, r) => [
-      ["Buigstijfheid", "I = " + fr("b·t³", "12"), "I = " + fr(num(p.b) + "·" + num(p.t) + "³", "12") + " = " + num(r.I) + " mm⁴"],
-      ["Dwarsstijfheid", sub("c", "x") + " = " + fr("12·E·I", "L³") + " = " + fr("E·b·t³", "L³"), sub("c", "x") + " = " + fr("12·" + num(r.E) + "·" + num(r.I), num(p.L) + "³") + " = " + num(r.cx) + " N/mm"],
-      ["Axiale stijfheid", sub("c", "z0") + " = " + fr("E·b·t", "L"), sub("c", "z0") + " = " + fr(num(r.E) + "·" + num(p.b) + "·" + num(p.t), num(p.L)) + " = " + num(r.cz0) + " N/mm"],
-      ["Steunstijfheid bij u (Soemers)", fr("1", sub("c", "z")) + " ≈ " + fr("L", "E·b·t") + " + " + fr("u²·L", "700·E·I"), sub("c", "z") + " = " + num(r.cz) + " N/mm"],
-      ["Zakking", "Δz ≈ 0,6·" + fr("u²", "L"), "Δz = 0,6·" + fr(num(p.u) + "²", num(p.L)) + " = " + num(r.dz * 1000) + " µm"],
-      ["Maximale uitwijking", sub("u", "max") + " = " + fr(sub("σ", "toel") + "·L²", "3·E·t"), sub("u", "max") + " = " + fr(num(M.sigma) + "·" + num(p.L) + "²", "3·" + num(r.E) + "·" + num(p.t)) + " = " + num(r.uMax) + " mm"],
-      ["Buigspanning", "σ = " + fr("3·E·t·u", "L²") + " + " + fr("F", "b·t"), "σ = " + num(r.sb) + " + " + num(r.sa) + " = " + num(r.sigma) + " MPa"],
-      ["Knik (geleid: één uiteinde mag zijwaarts)", sub("P", "cr") + " = " + fr("π²·E·I", "L²"), sub("P", "cr") + " = " + fr("π²·" + num(r.E) + "·" + num(r.I), num(p.L) + "²") + " = " + num(r.Pcr) + " N"],
-      ["Eigenfrequentie", "f = " + fr("1", "2π") + "·√" + fr(sub("c", "x") + "·1000", "m"), "f = " + num(r.f) + " Hz (c in N/m = N/mm·1000)"],
+      ["Buigstijfheid", "I = " + fr("b·t³", "12"), "I = " + fr(num(p.b) + "·" + num(p.t) + "³", "12") + " = " + num(r.I) + " mm⁴", LIT.roark],
+      ["Dwarsstijfheid", sub("c", "x") + " = " + fr("12·E·I", "L³") + " = " + fr("E·b·t³", "L³"), sub("c", "x") + " = " + fr("12·" + num(r.E) + "·" + num(r.I), num(p.L) + "³") + " = " + num(r.cx) + " N/mm", LIT.soemers + "; " + LIT.roark],
+      ["Dwarsstijfheid onder axiale druk F", sub("c", "x") + "(F) = " + fr("12·E·I", "L³") + " − " + fr("6", "5") + "·" + fr("F", "L"), sub("c", "x") + "(F) = " + num(r.cx) + " − 1,2·" + num(p.F) + "/" + num(p.L) + " = " + num(r.cxF) + " N/mm", LIT.tim + ". De 6/5 is ∫(y₀′)² dx van de S-vorm y₀ = u(3ξ²−2ξ³) (consistent met Δz = 0,6·u²/L)"],
+      ["Axiale stijfheid", sub("c", "z0") + " = " + fr("E·b·t", "L"), sub("c", "z0") + " = " + fr(num(r.E) + "·" + num(p.b) + "·" + num(p.t), num(p.L)) + " = " + num(r.cz0) + " N/mm", LIT.gere],
+      ["Steunstijfheid, stijve aandrijving (u vast)" + (p.drive === "soft" ? "" : " ← actief"), fr("1", sub("c", "z")) + " = " + fr("L", "E·b·t") + " + " + fr("u²·L", "700·E·I"), sub("c", "z") + " = " + num(r.czStiff) + " N/mm (" + num(r.czStiff / r.cz0 * 100) + " % van c_z0)", LIT.soemers + ". Coëfficiënt 700 hieronder afgeleid en numeriek bevestigd"],
+      ["Steunstijfheid, zachte aandrijving (kracht vast)" + (p.drive === "soft" ? " ← actief" : ""), fr("1", sub("c", "z")) + " = " + fr("L", "E·b·t") + " + " + fr("u²·L", "700·E·I") + " + " + fr("3·u²·L", "25·E·I"), sub("c", "z") + " = " + num(r.czSoft) + " N/mm (" + num(r.czSoft / r.cz0 * 100) + " % van c_z0)", LIT.soemers + " (Δz = 0,6·u²/L); de koppelterm (1,2·u/L)²/c_x volgt uit d(Δz)/du = 1,2·u/L, afgeleid in de unit test"],
+      ["Afleiding van de coëfficiënt 700", "EI·y⁗ + F·y″ = 0, y = y₀ + F·y₁, y₀ = u(3ξ² − 2ξ³), EI·y₁⁗ = −y₀″ ⇒ " + fr("ds", "dF") + " = ∫ y₀′·y₁′ dx = " + fr("u²·L", "700·E·I"), "u²·L/(700·E·I) = " + num(p.u ** 2 * p.L / (700 * r.E * r.I), 3) + " mm/N, " + num(p.u ** 2 * p.L / (700 * r.E * r.I) / (p.L / (r.E * p.b * p.t)) * 100) + " % van L/(E·b·t)", LIT.soemers + "; nagerekend met Rayleigh–Ritz (unit test): 1/700 = 0,001428…"],
+      ["Parasitaire verkorting", "Δz ≈ 0,6·" + fr("u²", "L"), "Δz = 0,6·" + fr(num(p.u) + "²", num(p.L)) + " = " + num(r.dz * 1000) + " µm", LIT.awtar + "; Soemers"],
+      ["Maximale uitwijking", sub("u", "max") + " = " + fr(sub("σ", "toel") + "·L²", "3·E·t"), sub("u", "max") + " = " + fr(num(M.sigma) + "·" + num(p.L) + "²", "3·" + num(r.E) + "·" + num(p.t)) + " = " + num(r.uMax) + " mm", LIT.roark],
+      ["Buigspanning", "σ = " + fr("3·E·t·u", "L²") + " + " + fr("F", "b·t"), "σ = " + num(r.sb) + " + " + num(r.sa) + " = " + num(r.sigma) + " MPa", LIT.roark],
+      ["Veiligheidsfactor", "n = " + fr(sub("σ", "toel"), "σ"), "n = " + fr(num(M.sigma), num(r.sigma)) + " = " + (isFinite(nFac(r, M)) ? num(nFac(r, M)) : "∞"), "Gebruikelijke definitie (bijv. Gere &amp; Goodno, <i>Mechanics of Materials</i>)"],
+      ["Knik (geleid: één uiteinde mag zijwaarts)", sub("P", "cr") + " = " + fr("π²·E·I", "L²"), sub("P", "cr") + " = " + fr("π²·" + num(r.E) + "·" + num(r.I), num(p.L) + "²") + " = " + num(r.Pcr) + " N", LIT.tim],
+      ["Eigenfrequentie", "f = " + fr("1", "2π") + "·√" + fr(sub("c", "x") + "·1000", "m"), "f = " + num(r.f) + " Hz (c in N/m = N/mm·1000)", LIT.denhartog],
     ],
-    assume: ["Twee ingeklemde uiteinden; het ene uiteinde blijft evenwijdig (geleid), dus S-vorm met het buigmoment L/2 op de inklemming.",
-      "Kleine doorbuiging (u ≪ L), lineair-elastisch; schuifvervorming en massa van het blad zijn verwaarloosd.",
+    assume: ["Twee ingeklemde uiteinden; het ene uiteinde blijft evenwijdig (geleid), dus S-vorm met het buigmoment F·L/2 op de inklemming.",
+      "Kleine doorbuiging (u/L ≤ 0,1), lineair-elastisch; schuifvervorming (L/t ≥ 20) en massa van het blad zijn verwaarloosd.",
+      "Steunstijfheid c_z hangt af van de aandrijving. Stijf: de actuator houdt u vast; alleen de S-vorm past zich aan onder axiale last (coëfficiënt 700). Zacht: de dwarskracht is vast en u geeft mee door de kinematische koppeling Δz = 0,6·u²/L; dat is veel slapper.",
+      "De axiale druk F verlaagt de dwarsstijfheid: c_x(F) = 12EI/L³ − 1,2·F/L (eerste orde, F ≪ P_cr). Trek (F < 0) verhoogt hem.",
       "Knikrandvoorwaarde: ingeklemd–geleid (zijwaarts vrij), effectieve lengte L: P_cr = π²EI/L². Een volledig ingeklemd uiteinde zonder zijwaartse beweging geeft 4π²EI/L².",
-      "Het steunstijfheidsterm met 700 is een benadering uit Soemers; Δz = 0,6·u²/L is de kinematische verkorting van het blad.",
-      "Aangegeven spanning is buiging plus de gemiddelde drukspanning F/(b·t)."],
+      "σ_toel is een toelaatbare spanning, ≈ vermoeiingssterkte met veiligheid (geen vloeigrens); pas hem aan voor je eigen materiaaltoestand. Spanning is buiging plus F/(b·t)."],
     source: SRC_S + ".",
   },
   {
-    id: "par", group: "Flexures", name: "Parallelle bladveer", short: "Twee bladen, geleide tafel", 
-    inputs: [f("L", "Lengte L per blad", "mm", 20, 0.01), f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dikte t", "mm", 0.2, 0.001), f("u", "Uitwijking u", "mm", 0.5, 0), IN_F, IN_M, IN_PLATE],
+    id: "par", group: "Flexures", name: "Parallelle bladveer", short: "Twee bladen, geleide tafel",
+    inputs: [f("L", "Lengte L per blad", "mm", 20, 0.01), f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dikte t", "mm", 0.2, 0.001), f("u", "Uitwijking u", "mm", 0.5, 0), IN_F, IN_M, IN_DRIVE, IN_PLATE],
     run: (p, M) => {
       const r = parallelLeaf(Object.assign({}, p, M));
       return { r,
-        out: [res("Stijfheid c_x (2 bladen)", num(r.cx), "N/mm"), res("Kracht bij u", num(r.force), "N"),
-          res("Axiale stijfheid c_z0", num(r.cz0 / 1000), "kN/mm"), res("Stijfheid c_z bij u", num(r.cz / 1000), "kN/mm"),
-          res("Zakking Δz van de tafel", num(r.dz * 1000), "µm"), res("Maximale uitwijking u_max", num(r.uMax), "mm"),
-          res("Spanning per blad bij u", num(r.sigma), "MPa", stressBad(r, M)), res("Knikbelasting P_cr (totaal)", num(r.Pcr), "N"),
+        out: [res("Stijfheid c_x (2 bladen)", num(r.cx), "N/mm"), res("Stijfheid c_x in N/µm", num(r.cx / 1000), "N/µm"),
+          res("Dwarsstijfheid onder F: c_x(F)", num(r.cxF), "N/mm", r.cxF <= 0), res("Kracht bij u", num(r.force), "N"),
+          res("Axiale stijfheid c_z0", num(r.cz0 / 1000), "kN/mm"), res("Steunstijfheid c_z bij u", num(r.cz / 1000), "kN/mm (" + driveTxt(p.drive) + ")"),
+          res("Parasitaire verkorting Δz van de tafel", num(r.dz * 1000), "µm"), res("Maximale uitwijking u_max", num(r.uMax), "mm"),
+          res("Spanning per blad bij u", num(r.sigma), "MPa", stressBad(r, M)), nRes(r, M), res("Knikbelasting P_cr (totaal)", num(r.Pcr), "N"),
           marginRes(r), res("Eigenfrequentie f", num(r.f), "Hz")],
-        warn: warn(r, r.sigma, M.sigma) };
+        warn: warn(r, M.sigma, geomWarn(p, "par")) };
     },
     formulas: (p, M, r) => [
-      ["Stijfheid", sub("c", "x") + " = 2·" + fr("12·E·I", "L³") + " = " + fr("2·E·b·t³", "L³"), sub("c", "x") + " = 2·" + fr("12·" + num(r.E) + "·" + num(r.I), num(p.L) + "³") + " = " + num(r.cx) + " N/mm"],
-      ["Zakking van de tafel", "Δz ≈ 0,6·" + fr("u²", "L"), "Δz = " + num(r.dz * 1000) + " µm (geen draaiing van de tafel)"],
-      ["Maximale uitwijking", sub("u", "max") + " = " + fr(sub("σ", "toel") + "·L²", "3·E·t"), sub("u", "max") + " = " + num(r.uMax) + " mm"],
-      ["Spanning per blad", "σ = " + fr("3·E·t·u", "L²") + " + " + fr("F", "2·b·t"), "σ = " + num(r.sb) + " + " + num(r.sa) + " = " + num(r.sigma) + " MPa"],
-      ["Knik", sub("P", "cr") + " = 2·" + fr("π²·E·I", "L²"), sub("P", "cr") + " = " + num(r.Pcr) + " N"],
-      ["Eigenfrequentie", "f = " + fr("1", "2π") + "·√" + fr(sub("c", "x") + "·1000", "m"), "f = " + num(r.f) + " Hz"],
+      ["Stijfheid", sub("c", "x") + " = 2·" + fr("12·E·I", "L³") + " = " + fr("2·E·b·t³", "L³"), sub("c", "x") + " = 2·" + fr("12·" + num(r.E) + "·" + num(r.I), num(p.L) + "³") + " = " + num(r.cx) + " N/mm", LIT.soemers + "; " + LIT.roark],
+      ["Onder axiale druk F (F/2 per blad)", sub("c", "x") + "(F) = 2·" + fr("12·E·I", "L³") + " − " + fr("6", "5") + "·" + fr("F", "L"), sub("c", "x") + "(F) = " + num(r.cxF) + " N/mm", LIT.tim],
+      ["Steunstijfheid (2 bladen)" + " – " + driveTxt(p.drive), fr("1", sub("c", "z")) + " = " + fr("L", "2·E·b·t") + " + " + fr("u²·L", "2·700·E·I") + (p.drive === "soft" ? " + " + fr("3·u²·L", "2·25·E·I") : ""), sub("c", "z") + " = " + num(r.cz) + " N/mm (stijf " + num(r.czStiff) + ", zacht " + num(r.czSoft) + ")", LIT.soemers],
+      ["Parasitaire verkorting van de tafel", "Δz ≈ 0,6·" + fr("u²", "L"), "Δz = " + num(r.dz * 1000) + " µm (geen draaiing van de tafel)", LIT.awtar + "; Soemers"],
+      ["Maximale uitwijking", sub("u", "max") + " = " + fr(sub("σ", "toel") + "·L²", "3·E·t"), sub("u", "max") + " = " + num(r.uMax) + " mm", LIT.roark],
+      ["Spanning per blad", "σ = " + fr("3·E·t·u", "L²") + " + " + fr("F", "2·b·t"), "σ = " + num(r.sb) + " + " + num(r.sa) + " = " + num(r.sigma) + " MPa", LIT.roark],
+      ["Veiligheidsfactor", "n = " + fr(sub("σ", "toel"), "σ"), "n = " + (isFinite(nFac(r, M)) ? num(nFac(r, M)) : "∞"), "Gere &amp; Goodno, <i>Mechanics of Materials</i>"],
+      ["Knik", sub("P", "cr") + " = 2·" + fr("π²·E·I", "L²"), sub("P", "cr") + " = " + num(r.Pcr) + " N", LIT.tim],
+      ["Eigenfrequentie", "f = " + fr("1", "2π") + "·√" + fr(sub("c", "x") + "·1000", "m"), "f = " + num(r.f) + " Hz", LIT.denhartog],
     ],
     assume: ["Twee identieke, evenwijdige bladen met een stijve tafel: de tafel blijft evenwijdig en zakt alleen (Δz).",
-      "Kleine doorbuiging, lineair-elastisch; de axiale kracht wordt gelijk over de bladen verdeeld.",
-      "De zakking Δz is de kinematische verkorting van een geleid blad (3/5·u²/L); zonder tweede stel bladen (tussenlichaam) is dit niet te compenseren.",
-      "Knik: twee bladen, elk ingeklemd–geleid (effectieve lengte L)."],
+      "Kleine doorbuiging, lineair-elastisch; de axiale kracht wordt gelijk over de bladen verdeeld. Stijf/zacht werkt als bij de enkele bladveer, per blad.",
+      "De verkorting Δz is de kinematische verkorting van een geleid blad (3/5·u²/L); zonder tweede stel bladen (tussenlichaam) is dit niet te compenseren.",
+      "Knik: twee bladen, elk ingeklemd–geleid (effectieve lengte L). σ_toel ≈ vermoeiingssterkte met veiligheid; pas aan."],
     source: SRC_S + ".",
   },
   {
-    id: "cross", group: "Flexures", name: "Kruisveerscharnier", short: "Twee gekruiste bladen, kruising op 50 %", 
+    id: "cross", group: "Flexures", name: "Kruisveerscharnier", short: "Twee gekruiste bladen, kruising op 50 %",
     inputs: [f("L", "Lengte L per blad", "mm", 20, 0.01), f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dikte t", "mm", 0.2, 0.001), f("phi", "Rotatie φ", "°", 5, 0), f("r", "Afstand massa tot draaipunt", "mm", 50, 0.01), IN_F, IN_M, IN_PLATE],
     run: (p, M) => {
       const q = Object.assign({}, p, M, { phi: p.phi * DEG });
       const r = crossPivot(q);
+      const w = warn(r, M.sigma, []);
+      if (p.L / p.t < 20) w.push("L/t = " + num(p.L / p.t) + " < 20: dikke bladveer, afschuiving niet meegenomen.");
+      if (p.F > 0) w.push("Onder belasting daalt c_φ (niet meegenomen); knik is hier niet gecontroleerd.");
       return { r,
-        out: [res("Draaistijfheid c_φ", num(r.c), "Nmm/rad"), res("Moment bij φ", num(r.moment), "Nmm"),
-          res("Maximale rotatie φ_max", num(r.phiMax / DEG), "°"), res("Spanning bij φ", num(r.sigma), "MPa", stressBad(r, M)),
-          res("Verschuiving draaipunt", "≈ 0", "(eerste orde)"), res("Knikbelasting (indicatief)", num(r.Pcr), "N"),
-          marginRes(r), res("Eigenfrequentie f", num(r.f), "Hz")],
-        warn: warn(r, r.sigma, M.sigma) };
+        out: [res("Draaistijfheid c_φ", num(r.c), "N·mm/rad"), res("Draaistijfheid c_φ (SI)", num(r.c / 1000), "N·m/rad"),
+          res("Moment bij φ", num(r.moment), "N·mm"),
+          res("Maximale rotatie φ_max", num(r.phiMax / DEG), "°"), res("Spanning bij φ", num(r.sigma), "MPa", stressBad(r, M)), nRes(r, M),
+          res("Verschuiving draaipunt", "niet berekend", "(2e orde in φ)"), res("Stijfheid onder belasting", "daalt", "(niet meegenomen)"),
+          res("Eigenfrequentie f", num(r.f), "Hz")],
+        warn: w };
     },
     formulas: (p, M, r) => [
-      ["Per blad (relatieve eindrotatie φ, zijwaartse verplaatsing Lφ/2)", sub("c", "φ,blad") + " = " + fr("E·I", "L"), "I = " + num(r.I) + " mm⁴"],
-      ["Twee bladen", sub("c", "φ") + " = 2·" + fr("E·I", "L") + " = " + fr("E·b·t³", "6·L"), sub("c", "φ") + " = 2·" + fr(num(r.E) + "·" + num(r.I), num(p.L)) + " = " + num(r.c) + " Nmm/rad"],
-      ["Maximale rotatie", sub("φ", "max") + " = " + fr("2·" + sub("σ", "toel") + "·L", "E·t"), sub("φ", "max") + " = " + fr("2·" + num(M.sigma) + "·" + num(p.L), num(r.E) + "·" + num(p.t)) + " = " + num(r.phiMax) + " rad = " + num(r.phiMax / DEG) + "°"],
-      ["Spanning", "σ = " + fr("E·t·φ", "2·L") + " + " + fr("F", "2·b·t"), "σ = " + num(r.sb) + " + " + num(r.sa) + " = " + num(r.sigma) + " MPa"],
-      ["Eigenfrequentie (massa m op arm r)", "f = " + fr("1", "2π") + "·√" + fr(sub("c", "φ"), "m·r²"), "f = " + num(r.f) + " Hz (c in Nm/rad, r in m)"],
+      ["Per blad (relatieve eindrotatie φ, zijwaartse verplaatsing Lφ/2)", sub("c", "φ,blad") + " = " + fr("E·I", "L"), "I = " + num(r.I) + " mm⁴", LIT.soemers + "; " + LIT.smith],
+      ["Twee bladen", sub("c", "φ") + " = 2·" + fr("E·I", "L") + " = " + fr("E·b·t³", "6·L"), sub("c", "φ") + " = 2·" + fr(num(r.E) + "·" + num(r.I), num(p.L)) + " = " + num(r.c) + " N·mm/rad = " + num(r.c / 1000) + " N·m/rad", LIT.soemers + "; " + LIT.henein],
+      ["Maximale rotatie", sub("φ", "max") + " = " + fr("2·" + sub("σ", "toel") + "·L", "E·t"), sub("φ", "max") + " = " + fr("2·" + num(M.sigma) + "·" + num(p.L), num(r.E) + "·" + num(p.t)) + " = " + num(r.phiMax) + " rad = " + num(r.phiMax / DEG) + "°", LIT.roark],
+      ["Spanning", "σ = " + fr("E·t·φ", "2·L") + " + " + fr("F", "2·b·t"), "σ = " + num(r.sb) + " + " + num(r.sa) + " = " + num(r.sigma) + " MPa", LIT.roark],
+      ["Veiligheidsfactor", "n = " + fr(sub("σ", "toel"), "σ"), "n = " + (isFinite(nFac(r, M)) ? num(nFac(r, M)) : "∞"), "Gere &amp; Goodno, <i>Mechanics of Materials</i>"],
+      ["Belastingafhankelijke stijfheid", sub("c", "φ") + "(F) < " + sub("c", "φ"), "niet berekend: de stijfheid daalt bij axiale belasting", LIT.wittrick + "; " + LIT.haringx],
+      ["Eigenfrequentie (massa m op arm r)", "f = " + fr("1", "2π") + "·√" + fr(sub("c", "φ"), "m·r²"), "f = " + num(r.f) + " Hz (c in N·m/rad, r in m)", LIT.denhartog],
     ],
-    assume: ["Twee identieke bladen, kruising op het midden (50 %); het draaipunt ligt dan in de kruising en verschuift in eerste orde niet. Bij een andere kruispositie verschuift het draaipunt.",
+    assume: ["Twee identieke bladen, kruising op het midden (50 %); het draaipunt ligt dan in de kruising en verschuift in eerste orde niet. In tweede orde (orde L·φ²) verschuift het wel; dat is hier niet berekend. Bij een andere kruispositie verschuift het draaipunt al in eerste orde.",
       "Afleiding: elk blad krijgt een eindrotatie φ en een zijwaartse verplaatsing Lφ/2 (stijve rotatie om het kruispunt); met de inklemmingsformule U = (2EI/L)(θ_B² − 3ψθ_B + 3ψ²), ψ = φ/2 volgt c = EI/L per blad.",
-      "Het blad is een balk met alleen buiging; axiale en schuifbijdragen en de belastingsafhankelijke stijfheidsvermindering zijn verwaarloosd.",
-      "Knikbelasting is indicatief: 2·π²EI/L² (twee bladen, effectieve lengte L). Een gekruist scharnier onder druk verliest in werkelijkheid draaistijfheid voordat het knikt."],
-    source: SRC_S + "; " + SRC_H + ".",
+      "Het blad is een balk met alleen buiging; axiale en schuifbijdragen zijn verwaarloosd. De stijfheid daalt bij belasting (niet meegenomen; zie Wittrick 1951, Haringx 1949), daarom is er geen knikveiligheid getoond.",
+      "σ_toel ≈ vermoeiingssterkte met veiligheid; pas aan."],
+    source: SRC_S + "; " + SRC_H + "; " + LIT.wittrick + ".",
   },
   {
-    id: "notch", group: "Flexures", name: "Scharnier met inkeping", short: "Cirkelvormige inkeping (notch hinge)", 
+    id: "notch", group: "Flexures", name: "Scharnier met inkeping", short: "Cirkelvormige inkeping (notch hinge)",
     inputs: [f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dunste doorsnede t", "mm", 0.3, 0.001), f("R", "Inkepingsstraal R", "mm", 3, 0.01), f("phi", "Rotatie φ", "°", 0.3, 0), f("Kt", "Spanningsconcentratie K_t", "–", 1.5, 1), f("r", "Afstand massa tot draaipunt", "mm", 50, 0.01), IN_M, IN_PLATE],
     run: (p, M) => {
       const r = notchHinge(Object.assign({}, p, M, { phi: p.phi * DEG }));
-      const w = warn({ sigma: r.sigma, margin: Infinity }, 0, M.sigma);
-      if (r.ratio > 0.5) w.push("t/(2R) = " + num(r.ratio) + " valt buiten het geldige bereik van de Paros–Weisbord-formule (ruim ≤ 0,5).");
+      const w = warn({ sigma: r.sigma, margin: Infinity }, M.sigma);
+      if (r.ratio > 0.2) w.push("t/(2R) = " + num(r.ratio) + " > 0,2: Paros–Weisbord minder nauwkeurig (afwijking loopt snel op).");
       return { r,
-        out: [res("Draaistijfheid c_φ", num(r.c), "Nmm/rad"), res("Moment bij φ", num(r.moment), "Nmm"),
-          res("Nominale spanning", num(r.sNom), "MPa"), res("Piekspanning K_t·σ", num(r.sigma), "MPa", stressBad(r, M)),
+        out: [res("Draaistijfheid c_φ", num(r.c), "N·mm/rad"), res("Draaistijfheid c_φ (SI)", num(r.c / 1000), "N·m/rad"), res("Moment bij φ", num(r.moment), "N·mm"),
+          res("Nominale spanning", num(r.sNom), "MPa"), res("Piekspanning K_t·σ", num(r.sigma), "MPa", stressBad(r, M)), nRes(r, M),
           res("Maximale rotatie φ_max", num(r.phiMax / DEG), "°"), res("Maximale rotatie φ_max", num(r.phiMax * 1000), "mrad"),
           res("Eigenfrequentie f", num(r.f), "Hz")],
         warn: w };
     },
     formulas: (p, M, r) => [
-      ["Draaistijfheid (Paros–Weisbord)", sub("c", "φ") + " ≈ " + fr("2·E·b·" + sup("t", "5/2"), "9π·√R"), sub("c", "φ") + " = " + fr("2·" + num(r.E) + "·" + num(p.b) + "·" + num(p.t) + "<sup>5/2</sup>", "9π·√" + num(p.R)) + " = " + num(r.c) + " Nmm/rad"],
-      ["Nominale buigspanning", sub("σ", "nom") + " = " + fr("6·M", "b·t²") + " = " + fr("4", "3π") + "·E·√" + fr("t", "R") + "·φ", sub("σ", "nom") + " = " + num(r.sNom) + " MPa"],
-      ["Piekspanning", sub("σ", "max") + " = " + sub("K", "t") + "·" + sub("σ", "nom"), sub("σ", "max") + " = " + num(p.Kt) + "·" + num(r.sNom) + " = " + num(r.sigma) + " MPa"],
-      ["Maximale rotatie", sub("φ", "max") + " = " + fr(sub("σ", "toel"), sub("K", "t") + "·" + fr("4", "3π") + "·E·√(t/R)"), sub("φ", "max") + " = " + num(r.phiMax * 1000) + " mrad = " + num(r.phiMax / DEG) + "°"],
-      ["Eigenfrequentie", "f = " + fr("1", "2π") + "·√" + fr(sub("c", "φ"), "m·r²"), "f = " + num(r.f) + " Hz"],
+      ["Draaistijfheid (Paros–Weisbord)", sub("c", "φ") + " ≈ " + fr("2·E·b·" + sup("t", "5/2"), "9π·√R"), sub("c", "φ") + " = " + fr("2·" + num(r.E) + "·" + num(p.b) + "·" + num(p.t) + "<sup>5/2</sup>", "9π·√" + num(p.R)) + " = " + num(r.c) + " N·mm/rad = " + num(r.c / 1000) + " N·m/rad", LIT.pw],
+      ["Nominale buigspanning", sub("σ", "nom") + " = " + fr("6·M", "b·t²") + " = " + fr("4", "3π") + "·E·√" + fr("t", "R") + "·φ", sub("σ", "nom") + " = " + num(r.sNom) + " MPa", LIT.pw + "; " + LIT.smith],
+      ["Piekspanning", sub("σ", "max") + " = " + sub("K", "t") + "·" + sub("σ", "nom"), sub("σ", "max") + " = " + num(p.Kt) + "·" + num(r.sNom) + " = " + num(r.sigma) + " MPa", LIT.smith],
+      ["Veiligheidsfactor", "n = " + fr(sub("σ", "toel"), sub("σ", "max")), "n = " + (isFinite(nFac(r, M)) ? num(nFac(r, M)) : "∞"), "Gere &amp; Goodno, <i>Mechanics of Materials</i>"],
+      ["Maximale rotatie", sub("φ", "max") + " = " + fr(sub("σ", "toel"), sub("K", "t") + "·" + fr("4", "3π") + "·E·√(t/R)"), sub("φ", "max") + " = " + num(r.phiMax * 1000) + " mrad = " + num(r.phiMax / DEG) + "°", LIT.pw],
+      ["Geldigheid", "t/(2R) ≤ 0,2", "t/(2R) = " + num(r.ratio), LIT.schot + "; " + LIT.lobontiu],
+      ["Eigenfrequentie", "f = " + fr("1", "2π") + "·√" + fr(sub("c", "φ"), "m·r²"), "f = " + num(r.f) + " Hz", LIT.denhartog],
     ],
-    assume: ["Cirkelvormige inkeping aan beide zijden, t ≪ R; de formule is de gesloten vorm van Paros en Weisbord (1965) voor t/(2R) tot ongeveer 0,5, met enkele procenten afwijking.",
-      "Rotatie om het midden van de inkeping; parasitaire verplaatsing van het draaipunt en axiale stijfheid zijn niet berekend.",
-      "K_t is een invoer (schatting; voor diepe ronde inkepingen ca. 1,3 tot 3). Zie Smith voor grafieken. Bij vermoeiing en hoge φ de waarde conservatief kiezen."],
-    source: SRC_H + "; Paros &amp; Weisbord, <i>How to design flexure hinges</i>, Machine Design 37 (1965).",
+    assume: ["Cirkelvormige inkeping aan beide zijden, t ≪ R; de vereenvoudigde gesloten vorm van Paros en Weisbord (1965) is een reeksontwikkeling voor kleine t/(2R). Zij is bruikbaar tot ongeveer 0,2; daarboven loopt de afwijking snel op (tientallen procenten).",
+      "Rotatie om het midden van de inkeping; parasitaire verplaatsing van het draaipunt, schuif- en axiale stijfheid zijn niet berekend.",
+      "K_t is een invoer (schatting; voor diepe ronde inkepingen ca. 1,3 tot 3). Zie Smith voor grafieken. Bij vermoeiing en hoge φ de waarde conservatief kiezen.",
+      "σ_toel ≈ vermoeiingssterkte met veiligheid; pas aan."],
+    source: SRC_H + "; " + LIT.pw + "; " + LIT.lobontiu + ".",
   },
   {
-    id: "wire", group: "Flexures", name: "Draadflexure", short: "Dunne draad als scharnier of veer", 
+    id: "wire", group: "Flexures", name: "Draadflexure", short: "Dunne draad als scharnier of veer",
     inputs: [f("L", "Lengte L", "mm", 50, 0.01), f("d", "Diameter d", "mm", 1, 0.001), f("u", "Zijwaartse uitwijking u", "mm", 0.5, 0), IN_F, IN_M,
       { id: "bc", type: "select", label: "Uiteinden", def: "guided", options: [["guided", "Beide ingeklemd, eind geleid (12EI/L³)"], ["free", "Eén eind ingeklemd, ander vrij (3EI/L³)"]] }],
     run: (p, M) => {
       const r = wireFlexure(Object.assign({}, p, M));
       return { r,
-        out: [res("Axiale stijfheid c_ax", num(r.cax / 1000), "kN/mm"), res("Buigstijfheid c_b", num(r.cb), "N/mm"),
+        out: [res("Axiale stijfheid c_ax", num(r.cax / 1000), "kN/mm"), res("Buigstijfheid c_b", num(r.cb), "N/mm"), res("Buigstijfheid c_b in N/µm", num(r.cb / 1000), "N/µm"),
           res("Kracht bij u", num(r.force), "N"), res("Maximale uitwijking u_max", num(r.uMax), "mm"),
-          res("Spanning bij u", num(r.sigma), "MPa", stressBad(r, M)), res("Knikbelasting P_cr", num(r.Pcr), "N"),
+          res("Spanning bij u", num(r.sigma), "MPa", stressBad(r, M)), nRes(r, M), res("Knikbelasting P_cr", num(r.Pcr), "N"),
           marginRes(r), res("f zijwaarts", num(r.f), "Hz"), res("f axiaal", num(r.fax), "Hz")],
-        warn: warn(r, r.sigma, M.sigma) };
+        warn: warn(r, M.sigma, geomWarn(p, "wire")) };
     },
     formulas: (p, M, r) => {
       const g = p.bc === "guided";
       return [
-        ["Doorsnede", "A = " + fr("π·d²", "4") + ", I = " + fr("π·d⁴", "64"), "A = " + num(r.A) + " mm², I = " + num(r.I) + " mm⁴"],
-        ["Axiale stijfheid", sub("c", "ax") + " = " + fr("E·A", "L"), sub("c", "ax") + " = " + fr(num(p.E) + "·" + num(r.A), num(p.L)) + " = " + num(r.cax) + " N/mm"],
-        ["Buigstijfheid", sub("c", "b") + " = " + (g ? fr("12·E·I", "L³") : fr("3·E·I", "L³")), sub("c", "b") + " = " + num(r.cb) + " N/mm"],
-        ["Maximale uitwijking", sub("u", "max") + " = " + (g ? fr(sub("σ", "toel") + "·L²", "3·E·d") : fr("2·" + sub("σ", "toel") + "·L²", "3·E·d")), sub("u", "max") + " = " + num(r.uMax) + " mm"],
-        ["Spanning", "σ = " + (g ? fr("3·E·d·u", "L²") : fr("3·E·d·u", "2·L²")) + " + " + fr("F", "A"), "σ = " + num(r.sb) + " + " + num(r.sa) + " = " + num(r.sigma) + " MPa"],
-        ["Knik", sub("P", "cr") + " = " + fr("π²·E·I", (g ? "" : "4·") + "L²"), sub("P", "cr") + " = " + num(r.Pcr) + " N"],
-        ["Eigenfrequenties", "f = " + fr("1", "2π") + "·√" + fr("c·1000", "m"), "f<sub>zijw</sub> = " + num(r.f) + " Hz, f<sub>ax</sub> = " + num(r.fax) + " Hz"],
+        ["Doorsnede", "A = " + fr("π·d²", "4") + ", I = " + fr("π·d⁴", "64"), "A = " + num(r.A) + " mm², I = " + num(r.I) + " mm⁴", LIT.gere],
+        ["Axiale stijfheid", sub("c", "ax") + " = " + fr("E·A", "L"), sub("c", "ax") + " = " + fr(num(p.E) + "·" + num(r.A), num(p.L)) + " = " + num(r.cax) + " N/mm", LIT.gere],
+        ["Buigstijfheid", sub("c", "b") + " = " + (g ? fr("12·E·I", "L³") : fr("3·E·I", "L³")), sub("c", "b") + " = " + num(r.cb) + " N/mm", LIT.roark],
+        ["Maximale uitwijking", sub("u", "max") + " = " + (g ? fr(sub("σ", "toel") + "·L²", "3·E·d") : fr("2·" + sub("σ", "toel") + "·L²", "3·E·d")), sub("u", "max") + " = " + num(r.uMax) + " mm", LIT.roark],
+        ["Spanning", "σ = " + (g ? fr("3·E·d·u", "L²") : fr("3·E·d·u", "2·L²")) + " + " + fr("F", "A"), "σ = " + num(r.sb) + " + " + num(r.sa) + " = " + num(r.sigma) + " MPa", LIT.roark],
+        ["Veiligheidsfactor", "n = " + fr(sub("σ", "toel"), "σ"), "n = " + (isFinite(nFac(r, M)) ? num(nFac(r, M)) : "∞"), "Gere &amp; Goodno, <i>Mechanics of Materials</i>"],
+        ["Knik", sub("P", "cr") + " = " + fr("π²·E·I", (g ? "" : "4·") + "L²"), sub("P", "cr") + " = " + num(r.Pcr) + " N", LIT.tim],
+        ["Eigenfrequenties", "f = " + fr("1", "2π") + "·√" + fr("c·1000", "m"), "f<sub>zijw</sub> = " + num(r.f) + " Hz, f<sub>ax</sub> = " + num(r.fax) + " Hz", LIT.denhartog],
       ];
     },
-    assume: ["Ronde, rechte draad met gelijke diameter; lineair-elastisch en kleine doorbuiging.",
-      "Geleid eind (S-vorm): moment L/2·F op de inklemming. Eén eind vrij: moment F·L, knik met effectieve lengte 2L (P_cr = π²EI/(4L²)).",
-      "Spanning is buiging plus F/A; de uiteinden zijn ideaal ingeklemd, praktijk is slapper.",
+    assume: ["Ronde, rechte draad met gelijke diameter; lineair-elastisch en kleine doorbuiging (u/L ≤ 0,1).",
+      "Geleid eind (S-vorm): moment F·L/2 op de inklemming. Eén eind vrij: moment F·L, knik met effectieve lengte 2L (P_cr = π²EI/(4L²)).",
+      "Spanning is buiging plus F/A; de uiteinden zijn ideaal ingeklemd, praktijk is slapper. σ_toel ≈ vermoeiingssterkte met veiligheid; pas aan.",
       "Een draad is stijf op trek/druk en slap op buiging: c_ax/c_b ≈ (4/3)·(L/d)² voor de geleide draad."],
     source: SRC_S + "; " + SRC_H + ".",
   },
@@ -387,7 +452,7 @@ function fromPos(c, i, pos) {
 // ---------- belangrijkste uitkomsten ----------
 const KEYS = {
   leaf: r => [["Stijfheid c_x", "N/mm", num(r.cx)], ["Max. uitwijking u_max", "mm", num(r.uMax)]],
-  cross: r => [["Draaistijfheid c_φ", "Nmm/rad", num(r.c)], ["Max. rotatie φ_max", "°", num(r.phiMax / DEG)]],
+  cross: r => [["Draaistijfheid c_φ", "N·mm/rad", num(r.c)], ["Max. rotatie φ_max", "°", num(r.phiMax / DEG)]],
   wire: r => [["Buigstijfheid c_b", "N/mm", num(r.cb)], ["Max. uitwijking u_max", "mm", num(r.uMax)]],
 };
 KEYS.par = KEYS.leaf; KEYS.notch = KEYS.cross;
@@ -398,9 +463,9 @@ function safety(r, M) {
 }
 
 // ---------- toestand (in het geheugen, per calculator) ----------
-const state = { cur: "leaf", mats: {}, vals: {}, open: { Geometrie: true, Materiaal: true, Belasting: true, Formules: false, Aannames: false }, raf: 0 };
+const state = { cur: "leaf", mats: {}, sigmas: {}, vals: {}, open: { Geometrie: true, Materiaal: true, Belasting: true, Formules: false, Aannames: false }, raf: 0 };
 const defaults = c => { const o = {}; c.inputs.forEach(i => { o[i.id] = i.def; }); return o; };
-CALCS.forEach(c => { state.vals[c.id] = defaults(c); state.mats[c.id] = "staal"; });
+CALCS.forEach(c => { state.vals[c.id] = defaults(c); state.mats[c.id] = "staal"; state.sigmas[c.id] = null; });
 const calcOf = id => CALCS.find(c => c.id === id) || CALCS[0];
 
 function params(c) {
@@ -410,7 +475,10 @@ function params(c) {
 }
 const invalid = (c, p) => c.inputs.filter(i => typeof i.def === "number" &&
   !(isFinite(p[i.id]) && p[i.id] >= i.min && (i.min === 0 || p[i.id] > 0)));
-function matParams() { const m = material(state.mats[state.cur]); return { E: m.E, nu: m.nu, sigma: m.sigma }; }
+function matParams() {
+  const m = material(state.mats[state.cur]), sg = state.sigmas[state.cur];
+  return { E: m.E, nu: m.nu, sigma: sg > 0 ? sg : m.sigma, alpha: m.alpha, rho: m.rho };
+}
 const fmtv = v => String(+Number(v).toPrecision(3));
 
 // ---------- weergave ----------
@@ -424,10 +492,12 @@ function render() {
     REF.warn.innerHTML = '<div class="calc-warn" role="alert">Controleer de invoer: ' + bad.map(i => i.label).join(", ") + ".</div>";
     REF.warnH = "";
     REF.root.classList.add("is-bad");
+    REF.last = null;
     return;
   }
   REF.root.classList.remove("is-bad");
   const o = c.run(p, M), r = o.r;
+  REF.last = { c, p, M, o, r };
   const wh = o.warn.length ? '<div class="calc-warn" role="alert">' + o.warn.map(w => "<div>⚠ " + w + "</div>").join("") + "</div>" : "";
   if (wh !== REF.warnH) { REF.warn.innerHTML = wh; REF.warnH = wh; }
   o.out.forEach((x, k) => {
@@ -447,7 +517,8 @@ function render() {
   if (state.open.Formules) renderFormulas(c, p, M, r);
 }
 function renderFormulas(c, p, M, r) {
-  REF.formulas.innerHTML = c.formulas(p, M, r).map(x => '<div class="fm"><div class="fm-h">' + x[0] + '</div><div class="fm-g">' + x[1] + '</div><div class="fm-n"><span class="fm-lab">met jouw getallen</span> ' + x[2] + "</div></div>").join("");
+  REF.formulas.innerHTML = c.formulas(p, M, r).map(x => '<div class="fm"><div class="fm-h">' + x[0] + '</div><div class="fm-g">' + x[1] + '</div><div class="fm-n"><span class="fm-lab">met jouw getallen</span> ' + x[2] + "</div>" +
+    (x[3] ? '<div class="fm-s"><span class="fm-lab">bron</span> ' + x[3] + "</div>" : "") + "</div>").join("");
 }
 const schedule = () => { if (!state.raf) state.raf = requestAnimationFrame(render); };
 
@@ -463,9 +534,12 @@ function renderDetail() {
   if (state.raf) { cancelAnimationFrame(state.raf); state.raf = 0; }
   const c = calcOf(state.cur), v = state.vals[c.id], M0 = matParams();
   const body = { Geometrie: "", Materiaal: "", Belasting: "" };
-  body.Materiaal += '<label class="fld"><span>Materiaal</span><select id="calcMat">' + MATERIALS.map(m => '<option value="' + m.id + '"' + (m.id === state.mats[c.id] ? " selected" : "") + ">" + m.naam + "</option>").join("") + "</select></label>" + '<div class="mat-info" id="calcMatInfo"></div>';
+  body.Materiaal += '<label class="fld"><span>Materiaal</span><select id="calcMat">' + MATERIALS.map(m => '<option value="' + m.id + '"' + (m.id === state.mats[c.id] ? " selected" : "") + ">" + m.naam + "</option>").join("") + "</select></label>" +
+    '<div class="fld"><div class="fld-row"><label for="calcSigma">Toelaatbare spanning σ_toel</label><span class="inp"><input id="calcSigma" type="number" inputmode="decimal" step="any" min="0" value="' + fmtv(M0.sigma) + '"><b>MPa</b></span></div>' +
+    "</div>" +
+    '<div class="mat-info" id="calcMatInfo"></div><div class="mat-src" id="calcMatSrc"></div>';
   c.inputs.forEach(i => { body[grpOf(i)] += inputHtml(c, i, v); });
-  let h = '<div class="calc-head"><div><h2>' + c.name + '</h2><p class="calc-sub">' + c.short + '</p></div><button type="button" class="calc-reset" id="calcReset" title="Zet deze calculator terug op de beginwaarden">↺ Reset</button></div>';
+  let h = '<div class="calc-head"><div><h2>' + c.name + '</h2><p class="calc-sub">' + c.short + '</p></div><div class="calc-acts"><button type="button" class="calc-reset" id="calcCopy" title="Kopieer een rekenblad (invoer, uitkomsten, formules, bronnen) als tekst">Kopieer</button><button type="button" class="calc-reset" id="calcLink" title="Kopieer een link met deze invoerwaarden">Link</button><button type="button" class="calc-reset" id="calcReset" title="Zet deze calculator terug op de beginwaarden">↺ Reset</button></div></div><div class="calc-actmsg" id="calcActMsg" role="status" aria-live="polite"></div>';
   h += '<div class="calc-grid" id="calcGrid"><div class="calc-keys">' +
     [0, 1, 2].map(n => '<div class="calc-key" data-key="' + n + '"><span class="k"></span><b class="v">0<span class="u"></span></b><span class="s"></span></div>').join("") + "</div>";
   h += '<div class="calc-left"><figure class="calc-fig"><svg id="calcSvg" viewBox="0 0 320 245" role="img" aria-label="Schets met afmetingen"></svg></figure><div id="calcWarn" class="calc-warnbox"></div><dl class="calc-res" id="calcOut"></dl></div>';
@@ -495,8 +569,9 @@ function renderDetail() {
   render();
 }
 function updMatInfo() {
-  const m = material(state.mats[state.cur]);
-  $("calcMatInfo").textContent = "E = " + num(m.E / 1000) + " GPa · ν = " + num(m.nu) + " · σ_toel = " + num(m.sigma) + " MPa";
+  const m = material(state.mats[state.cur]), M = matParams();
+  $("calcMatInfo").textContent = "E = " + num(m.E / 1000) + " GPa · ν = " + num(m.nu) + " · α = " + num(m.alpha) + " µm/(m·K) · ρ = " + num(m.rho) + " kg/m³ · σ_toel = " + num(M.sigma) + " MPa (toelaatbaar, ≈ vermoeiingssterkte met veiligheid; pas aan)";
+  $("calcMatSrc").textContent = "Bron materiaalgegevens: " + m.bron + ". " + MATERIAL_SOURCE;
 }
 
 function renderList() {
@@ -531,7 +606,17 @@ export function initCalc() {
   const det = $("calcDetail");
   det.addEventListener("input", e => {
     const t = e.target, c = calcOf(state.cur);
-    if (t.id === "calcMat") { state.mats[c.id] = t.value; updMatInfo(); render(); return; }
+    if (t.id === "calcMat") {
+      state.mats[c.id] = t.value; state.sigmas[c.id] = null;
+      $("calcSigma").value = fmtv(material(t.value).sigma); $("calcSigma").removeAttribute("aria-invalid");
+      updMatInfo(); render(); return;
+    }
+    if (t.id === "calcSigma") {
+      const sg = parseFloat(String(t.value).replace(",", "."));
+      t.setAttribute("aria-invalid", String(!(sg > 0)));
+      state.sigmas[c.id] = sg > 0 ? sg : null;
+      updMatInfo(); render(); return;
+    }
     if (t.dataset.sl) {                       // slider -> getalveld; tekenen via rAF
       const inp = c.inputs.find(i => i.id === t.dataset.sl), val = fromPos(c, inp, +t.value);
       state.vals[c.id][inp.id] = val; REF.fields[inp.id].value = fmtv(val);
@@ -546,9 +631,11 @@ export function initCalc() {
     render();
   });
   det.addEventListener("click", e => {
+    if (e.target.closest("#calcCopy")) { doCopy(); return; }
+    if (e.target.closest("#calcLink")) { doLink(); return; }
     if (!e.target.closest("#calcReset")) return;
     const c = calcOf(state.cur);
-    state.vals[c.id] = defaults(c); state.mats[c.id] = "staal";
+    state.vals[c.id] = defaults(c); state.mats[c.id] = "staal"; state.sigmas[c.id] = null;
     renderDetail();
   });
   det.addEventListener("toggle", e => {
@@ -557,4 +644,109 @@ export function initCalc() {
     state.open[s] = e.target.open;
     if (s === "Formules" && e.target.open) schedule();
   }, true);
+  window.addEventListener("hashchange", () => {
+    if (applyHash()) { renderList(); setWork("calc"); renderDetail(); }
+  });
+  if (applyHash()) { renderList(); setWork("calc"); renderDetail(); }
+}
+
+// ---------- kopiëren en delen ----------
+function msg(t) {
+  const e = $("calcActMsg");
+  if (!e) return;
+  e.textContent = t;
+  clearTimeout(msg.tm); msg.tm = setTimeout(() => { e.textContent = ""; }, 3500);
+}
+async function toClipboard(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (_) { /* terugval hieronder */ }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.setAttribute("readonly", ""); ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand("copy"); ta.remove(); return ok;
+  } catch (_) { return false; }
+}
+// HTML-opmaak van een formule naar platte tekst: breuken als (a)/(b), subscript als _x, superscript als ^x
+function plain(h) {
+  const d = document.createElement("div");
+  d.innerHTML = h;
+  Array.prototype.slice.call(d.querySelectorAll(".fr")).reverse().forEach(n => {
+    n.replaceWith(document.createTextNode("(" + n.children[0].textContent + ")/(" + n.children[1].textContent + ")"));
+  });
+  d.querySelectorAll("sub").forEach(n => n.replaceWith(document.createTextNode("_" + n.textContent)));
+  d.querySelectorAll("sup").forEach(n => n.replaceWith(document.createTextNode("^" + n.textContent)));
+  return d.textContent.replace(/\s+/g, " ").trim();
+}
+function linkUrl() {
+  const c = calcOf(state.cur), v = state.vals[c.id], q = ["calc=" + c.id];
+  c.inputs.forEach(i => {
+    const x = v[i.id];
+    q.push(i.id + "=" + encodeURIComponent(i.type === "check" ? (x ? "1" : "0") : String(x)));
+  });
+  q.push("mat=" + encodeURIComponent(state.mats[c.id]));
+  if (state.sigmas[c.id] > 0) q.push("sig=" + state.sigmas[c.id]);
+  return location.href.split("#")[0] + "#" + q.join("&");
+}
+function applyHash() {
+  const h = location.hash || "";
+  if (h.indexOf("#calc=") !== 0) return false;
+  const q = {};
+  try { h.slice(1).split("&").forEach(kv => { const k = kv.indexOf("="); if (k > 0) q[kv.slice(0, k)] = decodeURIComponent(kv.slice(k + 1)); }); } catch (_) { return false; }
+  const c = CALCS.find(x => x.id === q.calc);
+  if (!c) return false;
+  const v = state.vals[c.id];
+  c.inputs.forEach(i => {
+    if (!(i.id in q)) return;
+    if (i.type === "check") v[i.id] = q[i.id] === "1";
+    else if (i.type === "select") { if (i.options.some(o => o[0] === q[i.id])) v[i.id] = q[i.id]; }
+    else { const x = parseFloat(q[i.id]); if (isFinite(x)) v[i.id] = x; }
+  });
+  if (q.mat && MATERIALS.some(m => m.id === q.mat)) state.mats[c.id] = q.mat;
+  const sg = parseFloat(q.sig);
+  state.sigmas[c.id] = sg > 0 ? sg : null;
+  state.cur = c.id;
+  return true;
+}
+function sheetText() {
+  const L = REF && REF.last;
+  if (!L) return "";
+  const c = L.c, p = L.p, M = L.M, m = material(state.mats[c.id]), out = [];
+  const ver = (document.querySelector(".brand .ver") || {}).textContent || "";
+  out.push("Mechanist rekenblad: " + c.name + " (" + c.short + ")");
+  out.push("Datum: " + new Date().toISOString().slice(0, 10) + " · app " + (ver || "onbekende versie"));
+  out.push("", "INVOER");
+  c.inputs.forEach(i => {
+    const x = p[i.id];
+    if (i.type === "check") out.push("  " + plain(i.label) + ": " + (x ? "ja" : "nee"));
+    else if (i.type === "select") out.push("  " + i.label + ": " + plain(i.options.filter(o => o[0] === x).map(o => o[1])[0] || x));
+    else out.push("  " + i.label + " = " + num(x) + " " + i.unit);
+  });
+  out.push("  Materiaal: " + m.naam + " (E = " + num(m.E / 1000) + " GPa, ν = " + num(m.nu) + ", α = " + num(m.alpha) + " µm/(m·K), ρ = " + num(m.rho) + " kg/m³)");
+  out.push("  σ_toel = " + num(M.sigma) + " MPa (toelaatbaar, ≈ vermoeiingssterkte met veiligheid" + (state.sigmas[c.id] > 0 ? "; door gebruiker aangepast" : "") + ")");
+  out.push("", "UITKOMSTEN");
+  L.o.out.forEach(x => out.push("  " + x.k + " = " + x.v + (x.unit ? " " + x.unit : "")));
+  if (L.o.warn.length) { out.push("", "WAARSCHUWINGEN"); L.o.warn.forEach(w => out.push("  ! " + w)); }
+  out.push("", "FORMULES");
+  c.formulas(p, M, L.r).forEach(x => {
+    out.push("  " + plain(x[0]) + ": " + plain(x[1]));
+    out.push("    = " + plain(x[2]));
+    if (x[3]) out.push("    bron: " + plain(x[3]));
+  });
+  out.push("", "AANNAMEN");
+  c.assume.forEach(a => out.push("  - " + plain(a)));
+  out.push("", "BRONNEN", "  " + plain(c.source), "  Bron materiaalgegevens: " + m.bron + ". " + MATERIAL_SOURCE);
+  out.push("", "LINK", "  " + linkUrl());
+  return out.join("\n");
+}
+function doCopy() {
+  const t = sheetText();
+  if (!t) { msg("Controleer eerst de invoer."); return; }
+  $("calcCopy").dataset.sheet = t;
+  toClipboard(t).then(ok => msg(ok ? "Rekenblad gekopieerd (" + t.split("\n").length + " regels)." : "Kopiëren geweigerd door de browser."));
+}
+function doLink() {
+  const u = linkUrl();
+  $("calcLink").dataset.url = u;
+  try { history.replaceState(null, "", u); } catch (_) { /* file:// of sandbox */ }
+  toClipboard(u).then(ok => msg(ok ? "Link met deze invoer gekopieerd." : "Link staat in de adresbalk."));
 }
