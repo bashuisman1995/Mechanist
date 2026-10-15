@@ -105,10 +105,17 @@ export function closeLibrary() {
 export function showUitleg(id) {
   const m = EXAMPLE_META[id], el = $("uitleg"); if (!m) return;
   $("uitTitle").textContent = m.title; $("uitText").textContent = m.text;
-  el.hidden = false; el.closest(".stage").classList.add("hasnote");
+  el.hidden = false; el.classList.remove("min"); el.closest(".stage").classList.add("hasnote"); el.closest(".stage").classList.remove("hasmin");
+  clearTimeout(minT); minT = setTimeout(() => uitlegMin(true), 6000);
+  if (window.matchMedia("(max-width: 900px)").matches) uitlegMin(true);       // daarna een compact label: de tekening blijft vrij
+}
+let minT = 0;
+export function uitlegMin(on) {
+  const el = $("uitleg"); if (el.hidden) return;
+  el.classList.toggle("min", on); el.closest(".stage").classList.toggle("hasnote", !on); el.closest(".stage").classList.toggle("hasmin", on);
 }
 export function hideUitleg() {
-  const el = $("uitleg"); el.hidden = true; el.closest(".stage").classList.remove("hasnote");
+  const el = $("uitleg"); clearTimeout(minT); el.hidden = true; el.closest(".stage").classList.remove("hasnote", "hasmin");
 }
 
 export function initLibrary() {
@@ -136,4 +143,6 @@ export function initLibrary() {
     });
   });
   $("uitClose").addEventListener("click", hideUitleg);
+  $("uitTitle").addEventListener("click", () => uitlegMin(!$("uitleg").classList.contains("min")));
+  $("cv").addEventListener("pointerdown", () => uitlegMin(true), true);
 }

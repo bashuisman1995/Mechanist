@@ -4,24 +4,20 @@ import { crossPivot, leafSpring, notchHinge, parallelLeaf, wireFlexure } from ".
 import { effModulus, effRadius, hertzSphere, kinCoupling } from "../calc/contact.js";
 import { dynAmp, fnForT, isolator, msd, overshoot, peakAmp, servo, settleInfo, settleTime, step as stepResp, transmissibility } from "../calc/dynamics.js";
 import { athermal, dLength, lumped } from "../calc/thermal.js";
+import { numStr } from "./format.js";
+import { showReport } from "./report.js";
 
 const $ = id => document.getElementById(id);
 const DEG = Math.PI / 180;
-const NNBSP = " ";                      // dunne, niet-brekende spatie als duizendtalscheiding
 
 // ---------- opmaak ----------
 // Komma als decimaalteken; duizendtallen (vanaf 4 cijfers) met een dunne spatie, nooit met een punt:
 // "4.228" zou voor een decimaal doorgaan. Alles wat boven 1000 komt blijft dus ondubbelzinnig: "4 228".
 let nonFin = 0;                          // aantal niet-eindige waarden dat tijdens deze berekening is opgemaakt
 function sig(x, n) {
-  if (!isFinite(x)) { nonFin++; return x > 0 ? "∞" : "—"; }
-  if (x === 0) return "0";
-  const a = Math.abs(x), d = Math.min(8, Math.max(0, n - 1 - Math.floor(Math.log10(a))));
-  let s = Math.abs(x).toFixed(d);
-  if (s.indexOf(".") >= 0) s = s.replace(/0+$/, "").replace(/\.$/, "");
-  const parts = s.split("."), ip = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, NNBSP);
-  const out = parts.length > 1 ? ip + "," + parts[1] : ip;
-  return (x < 0 && /[1-9]/.test(s) ? "−" : "") + out;
+  if (typeof x === "number" && !isFinite(x) && !isNaN(x)) { nonFin++; return x > 0 ? "∞" : "—"; }
+  if (isNaN(x)) { nonFin++; return "—"; }
+  return numStr(x, n);
 }
 const num = (x, n) => sig(x, n || 3);
 function fr(a, b) { return '<span class="fr"><span>' + a + "</span><span>" + b + "</span></span>"; }
@@ -1249,7 +1245,7 @@ function renderDetail() {
     (c.lim ? '<div class="fld-hint">' + c.lim.hint + "</div>" : "") + "</div>";
   if (!own || matsOf(c).length) body.Materiaal += '<div class="mat-info" id="calcMatInfo"></div><div class="mat-src" id="calcMatSrc"></div>';
   c.inputs.forEach(i => { if (i.type !== "mat") body[grpOf(i)] += inputHtml(c, i, v); });
-  let h = '<div class="calc-head"><div><h2>' + c.name + '</h2><p class="calc-sub">' + c.short + '</p></div><div class="calc-acts"><button type="button" class="calc-reset" id="calcCopy" title="Kopieer een rekenblad (invoer, uitkomsten, formules, bronnen) als tekst">Kopieer</button><button type="button" class="calc-reset" id="calcLink" title="Kopieer een link met deze invoerwaarden">Link</button><button type="button" class="calc-reset" id="calcReset" title="Zet deze calculator terug op de beginwaarden">↺ Reset</button></div></div><div class="calc-actmsg" id="calcActMsg" role="status" aria-live="polite"></div>';
+  let h = '<div class="calc-head"><div><h2>' + c.name + '</h2><p class="calc-sub">' + c.short + '</p></div><div class="calc-acts"><button type="button" class="calc-reset" id="calcCopy" title="Kopieer een rekenblad (invoer, uitkomsten, formules, bronnen) als tekst">Kopieer</button><button type="button" class="calc-reset" id="calcPrint" title="Een schoon A4-rekenblad om af te drukken of als PDF te bewaren">Rekenblad</button><button type="button" class="calc-reset" id="calcLink" title="Kopieer een link met deze invoerwaarden">Link</button><button type="button" class="calc-reset" id="calcReset" title="Zet deze calculator terug op de beginwaarden">↺ Reset</button></div></div><div class="calc-actmsg" id="calcActMsg" role="status" aria-live="polite"></div>';
   h += '<div class="calc-grid" id="calcGrid"><div class="calc-keys">' +
     [0, 1, 2].map(n => '<div class="calc-key" data-key="' + n + '"><span class="k"></span><b class="v">0<span class="u"></span></b><span class="s"></span></div>').join("") + "</div>";
   h += '<div class="calc-left"><figure class="calc-fig"><svg id="calcSvg" viewBox="0 0 320 245" role="img" aria-label="Schets met afmetingen"></svg></figure><div id="calcWarn" class="calc-warnbox"></div><dl class="calc-res" id="calcOut"></dl></div>';
@@ -1355,6 +1351,7 @@ export function initCalc() {
   });
   det.addEventListener("click", e => {
     if (e.target.closest("#calcCopy")) { doCopy(); return; }
+    if (e.target.closest("#calcPrint")) { doPrint(); return; }
     if (e.target.closest("#calcLink")) { doLink(); return; }
     if (!e.target.closest("#calcReset")) return;
     const c = calcOf(state.cur);
@@ -1465,6 +1462,44 @@ function sheetText() {
   out.push("", "LINK", "  " + linkUrl());
   return out.join("\n");
 }
+// Rekenblad voor print/PDF: dezelfde inhoud als "Kopieer", in de gedeelde A4-weergave
+export function openCalcReport() {
+  const L = REF && REF.last;
+  if (!L) { msg("Controleer eerst de invoer."); return; }
+  const c = L.c, p = L.p, M = L.M, m = material(state.mats[c.id]), own = ownMat(c);
+  const e = x => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const tb = (head, rows) => '<table class="rep-tbl"><thead><tr>' + head.map(h => "<th>" + h + "</th>").join("") + "</tr></thead><tbody>" +
+    rows.map(r => "<tr>" + r.map(x => "<td>" + x + "</td>").join("") + "</tr>").join("") + "</tbody></table>";
+  const matLine = mm => e(mm.naam) + ": E = " + num(mm.E / 1000) + " GPa, \u03bd = " + num(mm.nu) + ", \u03b1 = " + num(mm.alpha) + " \u00b5m/(m\u00b7K), \u03c1 = " + num(mm.rho) + " kg/m\u00b3";
+  const inRows = c.inputs.map(i => {
+    const x = p[i.id];
+    if (i.type === "check") return [e(plain(i.label)), x ? "ja" : "nee", ""];
+    if (i.type === "select") return [e(plain(i.label)), e(plain(i.options.filter(o => o[0] === x).map(o => o[1])[0] || x)), ""];
+    if (i.type === "mat") return [e(plain(i.label)), matLine(material(x)), ""];
+    return [e(plain(i.label)), num(x), e(plain(i.unit || ""))];
+  });
+  if (!own) inRows.push(["Materiaal", matLine(m), ""]);
+  inRows.push([e(plain(c.lim ? c.lim.label : "\u03c3_toel")), num(M.sigma), e(c.lim ? c.lim.unit : "MPa")]);
+  const svg = $("calcSvg");
+  const fig = svg ? '<figure class="rep-fig rep-svg calc-fig">' + svg.outerHTML.replace(/calcArr/g, "repArr").replace(/calcHatch/g, "repHatch").replace(/ id="calcSvg"/, "") + "<figcaption>Schets met afmetingen (niet op schaal).</figcaption></figure>" : "";
+  const warn = L.o.warn.length ? '<ul class="rep-list rep-warn">' + L.o.warn.map(w => "<li>" + e(w) + "</li>").join("") + "</ul>" : "";
+  const frm = c.formulas(p, M, L.r).map(x => [x[0], x[1] + (x[2] ? '<div class="rep-eval">= ' + x[2] + "</div>" : ""), x[3] ? e(plain(x[3])) : ""]);
+  showReport({
+    title: c.name, sub: "Rekenblad calculator \u00b7 " + plain(c.short),
+    meta: [["Calculator", c.name]],
+    sections: [
+      { h: "Schets", html: fig },
+      { h: "Invoer", html: tb(["Grootheid", "Waarde", "Eenheid"], inRows) },
+      { h: "Uitkomsten", html: tb(["Grootheid", "Waarde", "Eenheid"], L.o.out.map(x => [x.k, e(x.v), x.unit ? e(plain(x.unit)) : ""])) + warn },
+      { h: "Formules", html: tb(["Grootheid", "Formule en invulling", "Bron"], frm) },
+      { h: "Aannamen", html: '<ul class="rep-list">' + c.assume.map(a => "<li>" + a + "</li>").join("") + "</ul>" },
+      { h: "Bronnen", html: '<p>' + c.source + "</p>" + (!own || matsOf(c).length ? "<p class=\"rep-note\">Bron materiaalgegevens: " + e(own ? matsOf(c).map(i => material(p[i.id]).bron).join("; ") : m.bron) + ". " + e(MATERIAL_SOURCE) + "</p>" : "") },
+      { h: "Link met deze invoer", html: '<p class="rep-url">' + e(linkUrl()) + "</p>" }
+    ],
+    text: sheetText()
+  });
+}
+function doPrint() { openCalcReport(); }
 function doCopy() {
   const t = sheetText();
   if (!t) { msg("Controleer eerst de invoer."); return; }

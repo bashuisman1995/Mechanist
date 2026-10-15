@@ -5,6 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mechanismeschets</title>
+<meta name="mech-build" content="c3ba6ee">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -132,11 +133,11 @@ h1, h2, h3 { text-wrap: balance; }
 
 /* ---------- top bar ---------- */
 .topbar {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 14px; padding-top: calc(9px + env(safe-area-inset-top, 0px));
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 12px; padding-top: calc(9px + env(safe-area-inset-top, 0px));
   border-bottom: 1px solid var(--line); background: var(--panel);
 }
-.brand { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.brand { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 0 1 auto; overflow: hidden; }
 .brand h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
 /* topbalk in het groen van Thalomex */
 .topbar { background: var(--brand); color: var(--brand-ink); border-bottom-color: var(--brand); }
@@ -157,7 +158,7 @@ h1, h2, h3 { text-wrap: balance; }
 .topbar .menu { color: var(--ink); }
 .topbar .menu button { color: var(--ink); }
 .brand .docname {
-  font-size: 12.5px; color: var(--ink-2); max-width: 220px;
+  font-size: 12.5px; color: var(--ink-2); max-width: 180px; flex: 0 1 auto;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .brand .docname::before { content: "\00b7"; margin-right: 8px; color: var(--ink-3); }
@@ -248,7 +249,7 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; }
   pointer-events: none; max-width: calc(100% - 100px); text-align: center;
   opacity: 1; transition: opacity .45s;
 }
-.hint.dim { opacity: 0; }
+.hint.dim { opacity: 0; visibility: hidden; transition: opacity .45s, visibility 0s .45s; }
 .hint b { color: var(--ink); font-weight: 500; }
 .zoomer { position: absolute; right: 12px; top: 12px; display: flex; flex-direction: column; gap: 4px; }
 .zoomer button {
@@ -256,12 +257,16 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; }
   background: var(--panel); cursor: pointer; box-shadow: var(--shadow); font-size: 15px; line-height: 1;
 }
 .zoomer button:hover { background: var(--panel-2); }
+.zoomer #helpBtn { font-size: 13px; font-weight: 600; color: var(--ink-2); margin-top: 6px; }
 
+/* onderaan het canvas: de lockbar boven de transportbalk, samen in één kolom zodat ze elkaar nooit overlappen */
+.dock { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 5; display: flex; flex-direction: column; align-items: stretch; gap: 8px; pointer-events: none; }
+.dock > * { pointer-events: auto; }
 .transport {
-  position: absolute; left: 12px; right: 12px; bottom: 12px;
+  position: relative;
   display: flex; align-items: center; gap: 10px;
   background: var(--panel); border: 1px solid var(--line-2);
-  border-radius: 9px; padding: 7px 10px; box-shadow: var(--shadow);
+  border-radius: 9px; padding: 7px 10px; box-shadow: var(--shadow); flex-wrap: wrap;
 }
 .transport .play {
   width: 34px; height: 34px; flex: none; border-radius: 7px; border: 1px solid var(--line-2);
@@ -282,7 +287,7 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; }
 
 /* bekijken buiten t = 0 */
 .lockbar {
-  position: absolute; left: 12px; bottom: 72px; z-index: 5;
+  position: relative; align-self: flex-start;
   display: flex; align-items: center; gap: 10px; max-width: calc(100% - 80px);
   background: var(--driver-soft); border: 1px solid var(--driver); border-radius: 8px;
   padding: 5px 6px 5px 11px; font-size: 12.5px; color: var(--ink); box-shadow: var(--shadow);
@@ -389,10 +394,10 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; }
 .thleg i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; }
 .result .thermbox { grid-column: 1 / -1; }
 
-.tabs { display: flex; border-bottom: 1px solid var(--line); background: var(--panel); }
+.tabs { display: flex; border-bottom: 1px solid var(--line); background: var(--panel); overflow-x: auto; scrollbar-width: none; }
 .tabs button {
-  flex: 1; border: none; background: transparent; cursor: pointer; padding: 9px 6px;
-  font-size: 12.5px; color: var(--ink-3); border-bottom: 2px solid transparent;
+  flex: 1 1 auto; border: none; background: transparent; cursor: pointer; padding: 9px 5px;
+  font-size: 12px; color: var(--ink-3); border-bottom: 2px solid transparent;
 }
 .tabs button:hover { color: var(--ink-2); }
 .tabs button { white-space: nowrap; }
@@ -570,9 +575,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   .grip { display: none; }
   .serieslist { border-left: none; border-top: 1px solid var(--line); }
   .hint { max-width: 66%; font-size: 11.5px; padding: 5px 9px; }
-  .transport { left: 8px; right: 8px; bottom: 8px; padding: 6px 8px; gap: 7px; }
+  .dock { left: 8px; right: 8px; bottom: 8px; }
+  .transport { padding: 6px 8px; gap: 7px; }
   .transport .ang { min-width: 50px; font-size: 11px; }
-  .lockbar { left: 8px; bottom: 64px; font-size: 11.5px; max-width: calc(100% - 16px); }
+  .lockbar { font-size: 11.5px; max-width: 100%; }
   .prow { grid-template-columns: 1fr; gap: 4px; }
   #pick { place-items: end stretch; padding: 8px; }
   .pickcard { width: 100%; max-height: 50vh; padding: 12px; }
@@ -668,13 +674,20 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
 .uitleg h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
 .uitleg p { margin: 0 0 8px; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
 .uitleg .btn { padding: 3px 10px; font-size: 12px; }
+.uitleg h3 { pointer-events: auto; cursor: pointer; }
+.uitleg.min { width: auto; max-width: calc(100% - 100px); padding: 4px 10px; overflow: hidden; }
+.uitleg.min p, .uitleg.min .btn { display: none; }
+.uitleg.min h3 { margin: 0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.uitleg.min h3::before { content: "\24D8\00a0"; color: var(--accent); }
 @media (min-width: 901px) {
   /* de hint schuift op, zodat de uitleg er niet overheen ligt */
   .stage.hasnote .hint { left: 336px; transform: none; max-width: calc(100% - 336px - 60px); }
+  .stage.hasmin .hint { left: 290px; transform: none; max-width: calc(100% - 290px - 60px); }
 }
 @media (max-width: 900px) {
   .uitleg { left: 8px; top: 8px; width: auto; right: 56px; max-height: calc(100% - 130px); }
   .stage.hasnote .hint { display: none; }
+  .stage.hasmin .hint { top: 46px; max-width: calc(100% - 70px); }
 }
 
 /* ---------- rondleiding ---------- */
@@ -812,16 +825,19 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   .app.calc-on .brand .docname, .app.calc-on .brand .ver { display: none; }
 }
 
-/* FRF: meetfrequentie */
+/* FRF: meetfrequentie en Stijfheid: vergroting en modes. Beide wonen in de transportbalk, zodat er één balk onder de tekening staat. */
 .meetbar, .stiffbar {
-  position: absolute; left: 12px; right: 12px; bottom: 64px; z-index: 4;
-  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
-  background: var(--panel); border: 1px solid var(--line-2); border-radius: 9px;
-  padding: 5px 10px; box-shadow: var(--shadow); font-size: 12px; color: var(--ink-2);
+  display: flex; align-items: center; gap: 6px 8px; font-size: 12px; color: var(--ink-2); min-width: 0;
 }
 .meetbar[hidden], .stiffbar[hidden] { display: none; }
+.transport .meetbar { order: 9; flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; padding-top: 6px; border-top: 1px solid var(--line); white-space: nowrap; scrollbar-width: thin; }
+.transport .meetbar > * { flex: none; }
+.transport .stiffbar { flex: 1 1 0; flex-wrap: nowrap; }
+.transport .stiffbar > * { flex: none; }
 .meetbar input[type="number"], .stiffbar input[type="number"] { width: 88px; padding: 3px 5px; font-size: 12px; }
-.meetbar .chips, .stiffbar .chips { display: inline-flex; gap: 5px; flex-wrap: wrap; }
+.meetbar .chips, .stiffbar .chips { display: inline-flex; gap: 5px; flex-wrap: nowrap; margin: 0; }
+.stiffbar .chips { flex: 1 1 0; min-width: 0; overflow-x: auto; scrollbar-width: thin; padding: 2px 0 3px; }
+.stiffbar .chips .chip { flex: none; white-space: nowrap; }
 .meetbar .chip, .stiffbar .chip {
   border: 1px solid var(--line-2); background: var(--panel-2); color: var(--ink); border-radius: 12px;
   padding: 2px 9px; font-size: 11.5px; cursor: pointer;
@@ -829,14 +845,22 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
 .meetbar .chip.on, .stiffbar .chip.on { background: var(--driver); border-color: var(--driver); color: #fff; }
 .meetbar .chk, .stiffbar .chk { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
 .meetbar .out, .stiffbar .out { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px; color: var(--ink); }
+.stiffbar .out:empty, .stiffbar .sum:empty { display: none; }
+.stiffbar .out { max-width: 26%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stiffbar input[type="range"] { width: 120px; accent-color: var(--accent); }
+.stiffbar .fold { margin-left: auto; padding: 2px 8px; }
+.stiffbar .sum { display: none; font-weight: 500; color: var(--ink); margin-right: auto; }
+.stiffbar.fold .sb-mag, .stiffbar.fold input[type="range"], .stiffbar.fold .chk, .stiffbar.fold .chips, .stiffbar.fold .out { display: none; }
+.stiffbar.fold .sum { display: inline; }
+.stiffbar.fold .fold { transform: rotate(180deg); }
 @media (max-width: 700px) {
-  .stiffbar { flex-wrap: nowrap; overflow-x: auto; left: 8px; right: 8px; bottom: 60px; padding: 4px 8px; gap: 6px; white-space: nowrap; }
-  .stiffbar > * { flex: none; }
-  .stiffbar .chips { flex-wrap: nowrap; }
-  .stiffbar input[type="range"] { width: 90px; }
+  .stiffbar input[type="range"] { width: 64px; }
+  .stiffbar .sb-mag label { display: none; }
+  .stiffbar .out { display: none; }
+  .stiffbar .chk { font-size: 11.5px; }
+  .meetbar label[for="meetF"] { display: none; }
 }
-.stiffbar .mag { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; color: var(--ink); min-width: 62px; }
+.stiffbar .mag { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; color: var(--ink); min-width: 30px; }
 .stiffbar .legend { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--ink-3); }
 
 /* Stijfheid: uitleesblok, tabel in de lade */
@@ -888,6 +912,72 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
 .calc-fig .s-pt { fill: var(--accent); stroke: none; }
 .calc-fig .s-pt0 { fill: var(--ink-3); }
 .calc-fig .s-blk { stroke: var(--ink-2); stroke-width: 1; stroke-linejoin: round; }
+
+/* ---------- rekenblad (A4, scherm en print) ---------- */
+#report {
+  --ground: #fff; --panel: #fff; --panel-2: #F3F4F3; --ink: #1B241E; --ink-2: #3a443d; --ink-3: #5d675f; --line: #D5D9D5; --line-2: #BFC5BF;
+  --accent: #2F5B3D; --accent-soft: #E2ECE4; --driver: #D95F02; --driver-soft: #FBEDE2; --spring: #2B6CA3; --force: #C2185B; --bad: #B3261E;
+  color-scheme: light; position: fixed; inset: 0; z-index: 60; overflow: auto; background: #DDE1DD; color: var(--ink);
+}
+#report .rep-bar {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  background: var(--brand, #27352A); color: #E9EBEA; flex-wrap: wrap;
+}
+#report .rep-grow { flex: 1; }
+#report .rep-bar .btn { background: transparent; border-color: rgba(233,235,234,.4); color: #E9EBEA; }
+#report .rep-bar .btn:hover { background: rgba(233,235,234,.12); }
+#report .rep-bar .btn.primary { background: #E9EBEA; color: #27352A; border-color: #E9EBEA; font-weight: 600; }
+#report #repMsg { font-size: 12px; color: #A7ACA8; }
+.rep-page {
+  width: 210mm; max-width: calc(100% - 20px); margin: 14px auto 30px; background: #fff; padding: 14mm 14mm 12mm;
+  box-shadow: 0 2px 14px rgba(0,0,0,.18); font-size: 10pt; line-height: 1.42;
+}
+.rep-page h1 { font-size: 19pt; margin: 0 0 2px; font-weight: 600; }
+.rep-page h2 { font-size: 11.5pt; margin: 16px 0 6px; padding-bottom: 2px; border-bottom: 1.5px solid var(--accent); color: var(--accent); text-transform: uppercase; letter-spacing: .05em; break-after: avoid; }
+.rep-page h3 { font-size: 10pt; margin: 10px 0 4px; break-after: avoid; }
+.rep-sub { margin: 0 0 8px; color: var(--ink-2); }
+.rep-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 2px 14px; margin: 6px 0 0; padding: 6px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.rep-kv { display: flex; gap: 6px; } .rep-kv dt { margin: 0; color: var(--ink-3); } .rep-kv dd { margin: 0; font-weight: 500; }
+.rep-fig { margin: 4px 0 6px; break-inside: avoid; }
+.rep-fig img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line-2); }
+.rep-fig figcaption, .rep-note { font-size: 8.5pt; color: var(--ink-3); margin: 3px 0; }
+.rep-svg.calc-fig { border: 0; padding: 0; background: none; }
+.rep-svg.calc-fig svg { width: 100mm; max-width: 100%; max-height: 80mm; border: 1px solid var(--line); }
+.rep-tbl { width: 100%; border-collapse: collapse; margin: 4px 0 8px; font-size: 9pt; font-variant-numeric: tabular-nums; }
+.rep-tbl th, .rep-tbl td { border-bottom: 1px solid var(--line); padding: 2px 6px 2px 0; text-align: left; vertical-align: top; }
+.rep-tbl th { font-weight: 600; color: var(--ink-2); border-bottom: 1.2px solid var(--ink-3); }
+.rep-tbl tr { break-inside: avoid; }
+.rep-twin table { width: 100%; border-collapse: collapse; margin: 4px 0 8px; font-size: 9pt; font-variant-numeric: tabular-nums; }
+.rep-twin th, .rep-twin td { border-bottom: 1px solid var(--line); padding: 2px 6px 2px 0; text-align: right; }
+.rep-twin th:first-child, .rep-twin td:first-child { text-align: left; }
+.rep-twin h3 { margin: 10px 0 2px; font-size: 9.5pt; }
+.rep-box { border: 1px solid var(--line-2); border-left: 3px solid var(--accent); padding: 4px 10px; margin: 6px 0; background: #fafbfa; break-inside: avoid; }
+.rep-box h2, .rep-box h3 { font-size: 9.5pt; border: 0; padding: 0; margin: 6px 0 2px; color: var(--ink); text-transform: none; letter-spacing: 0; }
+.rep-box .big { font-size: 11pt; font-weight: 600; }
+.rep-box .row { display: block; }
+.rep-key { font-size: 10.5pt; font-weight: 500; margin: 4px 0; }
+.rep-list { margin: 2px 0 6px; padding-left: 18px; } .rep-list li { margin: 1px 0; }
+.rep-warn { color: var(--bad); }
+.rep-eval { color: var(--ink-2); font-size: 9pt; margin-top: 1px; }
+.rep-url { word-break: break-all; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 8pt; }
+.rep-how .hw-block { border: 1px solid var(--line-2); border-radius: 4px; padding: 6px 10px 8px; margin: 0 0 8px; break-inside: avoid-page; }
+.rep-how .hw-h { margin: 7px 0 2px; font-size: 8pt; }
+.rep-how .hw-block h3 { margin: 0 0 3px; font-size: 10pt; }
+.rep-how .hw-sym { gap: 1px 10px; }
+.rep-how .hw-sel { margin: 10px 0 4px; }
+.rep-foot { margin-top: 18px; padding-top: 6px; border-top: 1px solid var(--line-2); font-size: 8.5pt; color: var(--ink-3); text-align: center; }
+@media (max-width: 700px) { .rep-page { padding: 14px 12px; } .rep-tbl { font-size: 8.5pt; } .rep-page { overflow-x: auto; } }
+@media print {
+  @page { size: A4; margin: 14mm 14mm 16mm; }
+  html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+  body > *:not(#report) { display: none !important; }
+  #report { position: static; inset: auto; overflow: visible; background: #fff; }
+  #report .rep-bar { display: none; }
+  .rep-page { width: auto; max-width: none; margin: 0; padding: 0; box-shadow: none; }
+  .rep-how .hw-copy { display: none; }
+  .rep-sec { break-inside: auto; }
+  a { color: inherit; text-decoration: none; }
+}
 </style>
 <script>
   // Vangnet: als het script niet laadt of vastloopt, zie je dat in plaats van een lege pagina.
@@ -958,6 +1048,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           <button role="menuitem" data-a="copy">Kopieer als JSON</button>
           <button role="menuitem" data-a="paste">Plak een model…</button>
           <button role="menuitem" data-a="link">Kopieer deelbare link</button>
+          <button role="menuitem" data-a="report" title="Een schoon A4-rekenblad met tekening, model, uitkomsten en formules">Rekenblad (PDF/print)&hellip;</button>
           <div class="menu-sep"></div>
           <button role="menuitem" data-a="tour">Rondleiding</button>
         </div>
@@ -977,6 +1068,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         <div class="zoomer">
           <button id="zin" title="Inzoomen" aria-label="Inzoomen">+</button>
           <button id="zout" title="Uitzoomen" aria-label="Uitzoomen">&minus;</button>
+          <button id="helpBtn" title="Uitleg en tips (?)" aria-label="Uitleg en tips tonen">?</button>
         </div>
         <div class="hint" id="hint"></div>
         <aside class="uitleg" id="uitleg" hidden aria-label="Uitleg bij dit voorbeeld">
@@ -984,28 +1076,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           <p id="uitText"></p>
           <button class="btn" id="uitClose">Sluiten</button>
         </aside>
-        <div class="lockbar" id="lockBar" hidden>
-          <span>Alleen bekijken &mdash; bewerken kan op t&nbsp;=&nbsp;0</span>
-          <button class="btn primary" id="lockBtn" title="Terug naar t = 0 (Home)">&#9198; Naar t = 0</button>
-        </div>
-        <div class="meetbar" id="meetBar" hidden>
-          <label for="meetF">Meetfrequentie</label>
-          <button class="btn ghost ico" id="meetDn" title="Vorige rasterfrequentie" aria-label="Lagere frequentie">&#9664;</button>
-          <input type="number" id="meetF" min="0" step="any" value="" aria-label="Meetfrequentie in Hz">
-          <span class="unit">Hz</span>
-          <button class="btn ghost ico" id="meetUp" title="Volgende rasterfrequentie" aria-label="Hogere frequentie">&#9654;</button>
-          <span id="meetChips" class="chips"></span>
-          <label class="chk"><input type="checkbox" id="meetEig"> Toon eigenmode</label>
-          <span id="meetOut" class="out"></span>
-        </div>
-        <div class="stiffbar" id="stiffBar" hidden>
-          <label for="stiffSc">Vergroting</label>
-          <b id="stiffMag" class="mag">&times;1</b>
-          <input type="range" id="stiffSc" min="0" max="7" step="0.01" value="0" aria-label="Vergroting van de vervorming">
-          <label class="chk"><input type="checkbox" id="stiffAuto" checked> Auto</label>
-          <span id="stiffChips" class="chips"></span>
-          <span id="stiffOut" class="out"></span>
-        </div>
+        <div class="dock">
+          <div class="lockbar" id="lockBar" hidden>
+            <span>Alleen bekijken &mdash; bewerken kan op t&nbsp;=&nbsp;0</span>
+            <button class="btn primary" id="lockBtn" title="Terug naar t = 0 (Home)">&#9198; Naar t = 0</button>
+          </div>
         <div class="transport" id="transport">
           <button class="play" id="rewBtn" title="Terug naar t = 0 om te bewerken (Home)" aria-label="Terug naar t = 0">
             <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5h2v11H3zM12 1.5l-7 5.5 7 5.5z" fill="currentColor"/></svg>
@@ -1013,6 +1088,15 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           <button class="play" id="playBtn" title="Afspelen" aria-label="Afspelen">
             <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path id="playIco" d="M3 1.5l9 5.5-9 5.5z" fill="currentColor"/></svg>
           </button>
+        <div class="stiffbar" id="stiffBar" hidden>
+          <span class="sb-mag" title="Vergroting van de vervorming"><label for="stiffSc">Vergroting</label> <b id="stiffMag" class="mag">&times;1</b></span>
+          <input type="range" id="stiffSc" min="0" max="7" step="0.01" value="0" aria-label="Vergroting van de vervorming">
+          <label class="chk"><input type="checkbox" id="stiffAuto" checked> Auto</label>
+          <span id="stiffChips" class="chips" role="group" aria-label="Statisch of eigenvorm"></span>
+          <span id="stiffSum" class="sum"></span>
+          <span id="stiffOut" class="out"></span>
+          <button type="button" class="btn ghost ico fold" id="stiffFold" aria-expanded="true" title="Balk in- of uitklappen" aria-label="Vergroting en modes in- of uitklappen">&#9662;</button>
+        </div>
           <input type="range" id="scrub" min="0" max="360" step="1" value="0" aria-label="Positie in de cyclus">
           <span class="ang" id="angOut">0</span>
           <select id="speedSel" aria-label="Snelheid">
@@ -1028,6 +1112,17 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           <progress id="tprog" max="1" hidden></progress>
           <button class="btn" id="stopBtn" hidden title="Berekening afbreken">Stop</button>
           <button class="btn primary" id="solveBtn" hidden title="Doorrekenen (F5)">Bereken</button>
+          <div class="meetbar" id="meetBar" hidden>
+          <label for="meetF">Meetfrequentie</label>
+          <button class="btn ghost ico" id="meetDn" title="Vorige rasterfrequentie" aria-label="Lagere frequentie">&#9664;</button>
+          <input type="number" id="meetF" min="0" step="any" value="" aria-label="Meetfrequentie in Hz">
+          <span class="unit">Hz</span>
+          <button class="btn ghost ico" id="meetUp" title="Volgende rasterfrequentie" aria-label="Hogere frequentie">&#9654;</button>
+          <span id="meetChips" class="chips"></span>
+          <label class="chk"><input type="checkbox" id="meetEig"> Toon eigenmode</label>
+          <span id="meetOut" class="out"></span>
+        </div>
+        </div>
         </div>
       </div>
 
@@ -1725,10 +1820,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return model.nodes.some((n) => n.mus > 0 || n.muk > 0);
   }
   function frictionLoads(pos2, vel, q, v, load2, add) {
-    const vS = Math.max(1e-6, model.fricVs || 5), ve = Math.max(1e-6, model.fricVe || 2);
+    const vS = Math.max(1e-6, model.fricVs || 5), ve2 = Math.max(1e-6, model.fricVe || 2);
     const mu = (n, s) => {
       const a = Math.abs(s), ms = n.mus || 0, mk2 = n.muk || 0;
-      return Math.sign(s) * (mk2 + (ms - mk2) * Math.exp(-(a / vS) * (a / vS))) * Math.tanh(a / ve);
+      return Math.sign(s) * (mk2 + (ms - mk2) * Math.exp(-(a / vS) * (a / vS))) * Math.tanh(a / ve2);
     };
     const torque = (B, tau) => {
       if (!B.e) return;
@@ -2117,11 +2212,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const out = [];
     for (const e of model.elems) {
       if (!isSensor(e) || !e.name) continue;
-      const nm = e.name, o = SENSORS[e.type].nm + " " + nm, base = { g: "Sensoren", o, obj: e.id };
-      const add = (key, q, u, al, frf, lab) => out.push(Object.assign({ key, lab: lab || nm + " \xB7 " + q, q, u, al: nm + "." + al, frf }, base));
+      const nm2 = e.name, o = SENSORS[e.type].nm + " " + nm2, base = { g: "Sensoren", o, obj: e.id };
+      const add = (key, q, u, al, frf, lab) => out.push(Object.assign({ key, lab: lab || nm2 + " \xB7 " + q, q, u, al: nm2 + "." + al, frf }, base));
       if (e.type === "loadcell" && N(e.a) && N(e.b)) {
         add("s|" + e.id + "|F", "F", "N", "F", true);
-        add("m|" + e.id + "|d", "\u03B4", "\xB5m", "d", true, nm + " \xB7 vervorming opnemer \u03B4");
+        add("m|" + e.id + "|d", "\u03B4", "\xB5m", "d", true, nm2 + " \xB7 vervorming opnemer \u03B4");
       } else if (e.type === "dsens" && N(e.a)) {
         add("m|" + e.id + "|x", "x", "\xB5m", "x", true);
       } else if (e.type === "encoder" && encBars(e)) {
@@ -2411,7 +2506,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const vars = all.filter((n) => n.support !== "pin" && !tips.has(n.id));
     const vi = new Map(vars.map((n, i) => [n.id, i]));
     const nv = vars.length * 2;
-    const full = [], pair = [], act = [];
+    const full = [], pair2 = [], act = [];
     for (const e of model.elems) {
       if (!isBar(e)) continue;
       const P = N(e.a), Q = N(e.b);
@@ -2423,7 +2518,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       f2[2 * q] -= dx;
       f2[2 * q + 1] -= dy;
       full.push(f2);
-      pair.push([P, Q]);
+      pair2.push([P, Q]);
       act.push(e.type === "actuator" ? actLen(e, sim.simT) : null);
     }
     for (const n of all) {
@@ -2434,7 +2529,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       f2[2 * i] = -Math.sin(th);
       f2[2 * i + 1] = Math.cos(th);
       full.push(f2);
-      pair.push(null);
+      pair2.push(null);
       act.push(null);
     }
     function split(known, extra) {
@@ -2467,7 +2562,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (!xv) return null;
     vars.forEach((n, i) => vel.set(n.id, { x: xv[2 * i], y: xv[2 * i + 1] }));
     const sa = split(acc, (r) => {
-      const pr = pair[r];
+      const pr = pair2[r];
       if (!pr) return 0;
       const vp = vel.get(pr[0].id) || { x: 0, y: 0 }, vq = vel.get(pr[1].id) || { x: 0, y: 0 };
       const dvx = vp.x - vq.x, dvy = vp.y - vq.y;
@@ -2765,8 +2860,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const ds = drivers().filter((d) => N(d.a) && N(d.b) && N(d.a).support === "pin" && fi.has(d.b));
     const bars = model.elems.filter((e) => isBar(e) && !e.driver && N(e.a) && N(e.b) && !(N(e.a).support === "pin" && N(e.b).support === "pin"));
     const slis = model.nodes.filter((n) => n.support === "slider");
-    const nm = bars.length + slis.length + 2 * ds.length;
-    if (nm > nq) return null;
+    const nm2 = bars.length + slis.length + 2 * ds.length;
+    if (nm2 > nq) return null;
     const fixed = {};
     for (const n of model.nodes) if (n.support === "pin") fixed[n.id] = { x: n.x, y: n.y };
     const dm = (n) => (n.m > 0 ? n.m : model.defMass || 0.1) + sensorMass(n.id);
@@ -3310,14 +3405,14 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           jPin[id].y += D.fpin[id].y;
         }
       }
-      let rm = 0, nm2 = 0;
+      let rm = 0, nm22 = 0;
       D.J.kind.forEach((k, j2) => {
         const lam = D.lam[j2];
         if (k.t === "bar") {
           const P = pos2(q2, k.e.a), Q = pos2(q2, k.e.b);
           const dx = P.x - Q.x, dy = P.y - Q.y, L = Math.hypot(dx, dy) || 1;
           S.N[k.e.id][f2] = 2 * L * lam;
-          nm2 = Math.max(nm2, Math.abs(2 * L * lam));
+          nm22 = Math.max(nm22, Math.abs(2 * L * lam));
           if (onPin[k.e.a]) {
             onPin[k.e.a].x += -2 * dx * lam;
             onPin[k.e.a].y += -2 * dy * lam;
@@ -3368,7 +3463,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         rm = Math.max(rm, Math.hypot(fx, fy));
       }
       S._rmax = rm;
-      S._nmax = nm2;
+      S._nmax = nm22;
       let E2 = 0;
       for (const n of model.nodes) {
         const vv = S.vel[n.id][f2], m = n.support === "pin" ? n.m || 0 : dm(n);
@@ -3906,26 +4001,92 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   }
 
   // src/ui/format.js
-  var fmtHz = (f2) => f2 === void 0 ? "\u2013" : (f2 < 10 ? f2.toPrecision(3) : f2 < 1e3 ? f2.toFixed(1) : f2.toFixed(0)) + " Hz";
-  function fmt(v) {
-    if (v === void 0 || v === null) return "\u2013";
+  var NNBSP = "\u202F";
+  var MINUS = "\u2212";
+  var REL_ZERO = 1e-9;
+  var SUP = { "0": "\u2070", "1": "\xB9", "2": "\xB2", "3": "\xB3", "4": "\u2074", "5": "\u2075", "6": "\u2076", "7": "\u2077", "8": "\u2078", "9": "\u2079", "-": "\u207B" };
+  var sup = (n) => String(n).replace(/./g, (c2) => SUP[c2] || c2);
+  var group = (ip) => ip.length > 3 ? ip.replace(/\B(?=(\d{3})+(?!\d))/g, NNBSP) : ip;
+  function numStr(v, d, keep, scale) {
+    if (v === void 0 || v === null || typeof v === "number" && isNaN(v)) return "\u2013";
+    v = +v;
+    if (!isFinite(v)) return v > 0 ? "\u221E" : MINUS + "\u221E";
+    d = d || 3;
     const a = Math.abs(v);
-    if (a >= 100) return v.toFixed(0);
-    if (a >= 10) return v.toFixed(1);
-    return v.toFixed(2).replace(/0$/, "");
+    if (a === 0 || a < 1e-12 || scale > 0 && a < REL_ZERO * scale) return "0";
+    const neg = v < 0;
+    if (a >= 1e15) {
+      const ex = Math.floor(Math.log10(a)), m = a / Math.pow(10, ex);
+      return (neg ? MINUS : "") + String(+m.toPrecision(d)).replace(".", ",") + "\xD710" + sup(ex);
+    }
+    const dec = Math.max(0, Math.min(12, d - 1 - Math.floor(Math.log10(a))));
+    let s = a.toFixed(dec);
+    if (dec > 0 && !keep) s = s.replace(/0+$/, "").replace(/\.$/, "");
+    const p = s.split("."), body = p.length > 1 ? group(p[0]) + "," + p[1] : group(p[0]);
+    return (neg && /[1-9]/.test(s) ? MINUS : "") + body;
   }
+  var sg = (v, d, scale) => numStr(v, d, false, scale);
+  function fmt(v, scale) {
+    return numStr(v, 3, Math.abs(v) >= 1, scale);
+  }
+  var FAM = {
+    len: { base: 2, u: [["nm", 1e-6], ["\xB5m", 1e-3], ["mm", 1], ["m", 1e3]] },
+    force: { base: 2, u: [["\xB5N", 1e-6], ["mN", 1e-3], ["N", 1], ["kN", 1e3]] },
+    stiff: { base: 1, u: [["N/m", 1e-3], ["N/mm", 1], ["N/\xB5m", 1e3]] },
+    stress: { base: 1, u: [["kPa", 1e-3], ["MPa", 1], ["GPa", 1e3]] },
+    angle: { base: 2, u: [["\xB5rad", 1e-6], ["mrad", 1e-3], ["rad", 1]] },
+    moment: { base: 1, u: [["mN\xB7m", 1e-3], ["N\xB7m", 1], ["kN\xB7m", 1e3]] },
+    freq: { base: 1, u: [["mHz", 1e-3], ["Hz", 1], ["kHz", 1e3]] },
+    time: { base: 1, u: [["\xB5s", 1e-6], ["ms", 1e-3], ["s", 1]] }
+  };
+  FAM.time.base = 2;
+  function unitFor(fam, maxAbs) {
+    const F = FAM[fam], a = Math.abs(maxAbs);
+    let i = F.base;
+    if (a > 0 && isFinite(a)) {
+      while (i + 1 < F.u.length && a / F.u[i + 1][1] >= 1) i++;
+      while (i > 0 && a / F.u[i][1] < (i === F.base ? 0.1 : 1)) i--;
+    }
+    return { u: F.u[i][0], f: F.u[i][1] };
+  }
+  function fmtQ(v, fam, d, scale) {
+    if (v === void 0 || v === null || typeof v === "number" && isNaN(v)) return "\u2013";
+    if (!isFinite(v)) return numStr(v);
+    const a = Math.abs(v);
+    if (a === 0 || a < 1e-15 || scale > 0 && a < REL_ZERO * scale) return "0 " + FAM[fam].u[FAM[fam].base][0];
+    const U = unitFor(fam, v);
+    return numStr(v / U.f, d || 3, false) + " " + U.u;
+  }
+  function colUnit(values, fam, rel) {
+    let mx = 0;
+    values.forEach((v) => {
+      if (isFinite(v) && Math.abs(v) > mx) mx = Math.abs(v);
+    });
+    const U = unitFor(fam, mx), k = (rel || REL_ZERO) / REL_ZERO;
+    return { u: U.u, f: U.f, scale: mx, s: (v) => numStr(v / U.f, 3, false, mx / U.f * k) };
+  }
+  var REL_FE = 1e-5;
+  var fmtLen = (mm, d, scale) => fmtQ(mm, "len", d, scale);
+  var fmtForce = (N2, d, scale) => fmtQ(N2, "force", d, scale);
+  var fmtStiff = (k, d) => fmtQ(k, "stiff", d);
+  var fmtStress = (s, d) => fmtQ(s, "stress", d);
+  var fmtAngle = (r, d) => fmtQ(r, "angle", d);
+  var fmtMoment = (m, d) => fmtQ(m, "moment", d);
+  var fmtHz = (f2) => f2 === void 0 || f2 === null || isNaN(f2) ? "\u2013" : fmtQ(f2, "freq");
   function fmtTime(s) {
-    if (s === void 0) return "\u2013";
-    return s < 1 ? (s * 1e3).toFixed(0) + " ms" : s.toFixed(2) + " s";
+    return s === void 0 || s === null ? "\u2013" : fmtQ(s, "time");
   }
-  function sg(v, d = 3) {
-    if (v === void 0 || v === null || Number.isNaN(v)) return "\u2013";
-    if (!isFinite(v)) return v > 0 ? "\u221E" : "\u2212\u221E";
-    const a = Math.abs(v);
-    if (a === 0 || a < 1e-12) return "0";
-    if (a < 1e-3 || a >= 1e7) return String(v.toExponential(d - 1)).replace(".", ",");
-    const s = String(+v.toPrecision(d));
-    return (s.indexOf("e") >= 0 ? v.toFixed(0) : s).replace(".", ",");
+  function tickStr(v, step2) {
+    if (!(step2 > 0) || Math.abs(v) >= 1e15) return numStr(v, 3, false);
+    if (Math.abs(v) < step2 * 1e-6) return "0";
+    const dec = Math.max(0, Math.min(9, Math.ceil(-Math.log10(step2) - 1e-9)));
+    const a = Math.abs(v).toFixed(dec), p = a.split("."), body = p.length > 1 ? group(p[0]) + "," + p[1] : group(p[0]);
+    return (v < 0 ? MINUS : "") + body;
+  }
+  function powTick(r) {
+    r = Math.round(r);
+    if (r >= -2 && r <= 3) return numStr(Math.pow(10, r), 3, false);
+    return "10" + sup(r);
   }
 
   // src/core/stiffness.js
@@ -3977,8 +4138,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function jointOf(n, nBeam) {
     const p = n.joint;
     if (p === "star" || p === "pin" || p === "spring") return { type: p, k: p === "spring" ? Math.max(0, +n.kth || 0) : 0, auto: false };
-    const sup2 = n.support === "pin" || n.support === "slider";
-    return { type: sup2 ? n.clamp ? "star" : "pin" : nBeam >= 1 ? "star" : "pin", k: 0, auto: true };
+    const sup3 = n.support === "pin" || n.support === "slider";
+    return { type: sup3 ? n.clamp ? "star" : "pin" : nBeam >= 1 ? "star" : "pin", k: 0, auto: true };
   }
   var beamsAt = (id) => model.elems.filter((e) => isBeam(e) && (e.a === id || e.b === id) && N(e.a) && N(e.b));
   var jointFor = (n) => jointOf(n, beamsAt(n.id).length);
@@ -4540,8 +4701,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const mi = [], si = [];
     free.forEach((d, k) => (hasM[k] ? mi : si).push(k));
     const Kf = (a, b) => res2.Kr[free[a]][free[b]];
-    const nm = mi.length, ns = si.length;
-    if (nm > 700) return { modes: [], msg: "Te veel vrijheidsgraden voor eigenfrequenties (" + nm + ")." };
+    const nm2 = mi.length, ns = si.length;
+    if (nm2 > 700) return { modes: [], msg: "Te veel vrijheidsgraden voor eigenfrequenties (" + nm2 + ")." };
     let Kred = mi.map((a) => Float64Array.from(mi, (b) => Kf(a, b)));
     let X = null, facS = null;
     if (ns) {
@@ -4552,7 +4713,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         const col = Float64Array.from(si, (b) => Kf(b, a));
         return lsolve(facS.L, col, ns);
       });
-      for (let a = 0; a < nm; a++) for (let b = 0; b < nm; b++) {
+      for (let a = 0; a < nm2; a++) for (let b = 0; b < nm2; b++) {
         let s = 0;
         for (let k = 0; k < ns; k++) s += Kf(mi[a], si[k]) * X[b][k];
         Kred[a][b] -= s;
@@ -4562,8 +4723,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const Lm = cholesky(Mmm);
     if (!Lm) return { modes: [], msg: "De massamatrix is niet positief: voeg massa toe aan de vrije punten." };
     let eig;
-    if (nm <= 80) eig = jacobiEig(congruence(Lm, Kred)).map((e) => ({ val: e.val, vec: backSubT(Lm, e.vec) }));
-    else eig = lowModes(Kred, Mmm, Math.min(nm, Math.max(2 * nModes, nModes + 6)));
+    if (nm2 <= 80) eig = jacobiEig(congruence(Lm, Kred)).map((e) => ({ val: e.val, vec: backSubT(Lm, e.vec) }));
+    else eig = lowModes(Kred, Mmm, Math.min(nm2, Math.max(2 * nModes, nModes + 6)));
     eig.sort((p, q) => p.val - q.val);
     const modes = [];
     for (const ev of eig) {
@@ -4577,7 +4738,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       if (ns) {
         for (let k = 0; k < ns; k++) {
           let s = 0;
-          for (let a = 0; a < nm; a++) s += X[a][k] * phim[a];
+          for (let a = 0; a < nm2; a++) s += X[a][k] * phim[a];
           full[free[si[k]]] = -s;
         }
       }
@@ -4700,7 +4861,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const jointNo = (n) => n.joint !== "pin" && n.joint !== "spring";
       const mids = ids.slice(1, -1).map(N);
       if (mids.some((n) => n.support !== "free" || n.clamp)) return null;
-      const nm = model.nodes.some((n) => n.m > 0) || model.elems.some((e) => e.type === "accel" || e.type === "loadcell" && e.m > 0);
+      const nm2 = model.nodes.some((n) => n.m > 0) || model.elems.some((e) => e.type === "accel" || e.type === "loadcell" && e.m > 0);
       const perp = (f2) => f2.mag * (Math.cos(f2.ang * Math.PI / 180) * ey[0] + Math.sin(f2.ang * Math.PI / 180) * ey[1]);
       const disp = (id) => res2.nodes.get(id);
       const perpU = (id) => disp(id).ux * ey[0] + disp(id).uy * ey[1];
@@ -4730,7 +4891,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
             ] });
         }
       }
-      if (!nm && modes && modes.length) {
+      if (!nm2 && modes && modes.length) {
         if (clampedP && free) {
           const fa = 1.8751041 ** 2 / (2 * Math.PI) * Math.sqrt(EI / (mu * Ltot ** 4));
           out.push({ id: "uitkraging-f", title: "Eerste buigfrequentie uitkraging", rows: [
@@ -4772,7 +4933,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   var QU = { x: "mm", y: "mm", vx: "mm/s", vy: "mm/s", v: "mm/s", ax: "mm/s\xB2", ay: "mm/s\xB2", a: "mm/s\xB2" };
   function channels() {
     const out = [];
-    const pair = (e) => (N(e.a) ? N(e.a).name : "?") + (N(e.b) ? N(e.b).name : "?");
+    const pair2 = (e) => (N(e.a) ? N(e.a).name : "?") + (N(e.b) ? N(e.b).name : "?");
     for (const n of model.nodes) {
       const o = (n.support === "pin" ? "Scharnier " : n.support === "slider" ? "Glijder " : "Punt ") + n.name;
       for (const k in QLAB) out.push({
@@ -4811,51 +4972,51 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     for (const e of model.elems) {
       if (isAxial(e)) {
-        const o = "Axiale stang " + pair(e), p = pair(e);
+        const o = "Axiale stang " + pair2(e), p = pair2(e);
         out.push({ key: "s|" + e.id + "|F", lab: "axiale stang " + p + " \xB7 N", q: "N", u: "N", al: "N_" + p, g: "Stangen", o, obj: e.id, frf: true });
         out.push({ key: "w|" + e.id + "|dL", lab: "axiale stang " + p + " \xB7 \u0394L", q: "\u0394L", u: "\xB5m", al: "dL_" + p, g: "Stangen", o, obj: e.id, frf: true });
         out.push({ key: "w|" + e.id + "|sig", lab: "axiale stang " + p + " \xB7 \u03C3", q: "\u03C3", u: "MPa", al: "sigA_" + p, g: "Stangen", o, obj: e.id, frf: true });
       } else if (e.type === "link") {
-        const o = (e.driver ? "Kruk " : "Stang ") + pair(e);
+        const o = (e.driver ? "Kruk " : "Stang ") + pair2(e);
         out.push({
           key: "l|" + e.id + "|N",
-          lab: (e.driver ? "kruk " : "stang ") + pair(e) + " \xB7 N",
+          lab: (e.driver ? "kruk " : "stang ") + pair2(e) + " \xB7 N",
           q: "N",
           u: "N",
-          al: "N_" + pair(e),
+          al: "N_" + pair2(e),
           g: "Stangen",
           o,
           obj: e.id
         });
         if (e.driver) out.push({
           key: "t|" + e.id + "|T",
-          lab: "krukmoment " + pair(e) + " \xB7 T",
+          lab: "krukmoment " + pair2(e) + " \xB7 T",
           q: "T",
           u: "N\xB7m",
-          al: "T_" + pair(e),
+          al: "T_" + pair2(e),
           g: "Stangen",
           o,
           obj: e.id
         });
       }
       if (e.type === "actuator") {
-        const o = "Actuator " + pair(e);
+        const o = "Actuator " + pair2(e);
         out.push({
           key: "l|" + e.id + "|N",
-          lab: "actuator " + pair(e) + " \xB7 F",
+          lab: "actuator " + pair2(e) + " \xB7 F",
           q: "F",
           u: "N",
-          al: "F_" + pair(e),
+          al: "F_" + pair2(e),
           g: "Stangen",
           o,
           obj: e.id
         });
         out.push({
           key: "a|" + e.id + "|L",
-          lab: "actuator " + pair(e) + " \xB7 L",
+          lab: "actuator " + pair2(e) + " \xB7 L",
           q: "L",
           u: "mm",
-          al: "L_" + pair(e),
+          al: "L_" + pair2(e),
           g: "Stangen",
           o,
           obj: e.id,
@@ -4863,19 +5024,19 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         });
       }
       if (e.type === "flexure") {
-        const o = "Flexure " + pair(e), p = pair(e);
+        const o = "Flexure " + pair2(e), p = pair2(e);
         out.push({ key: "f|" + e.id + "|phi", lab: "flexure " + p + " \xB7 \u03C6", q: "\u03C6", u: "\xB0", al: "phi_" + p, g: "Krachtelementen", o, obj: e.id, frf: true });
         out.push({ key: "f|" + e.id + "|sig", lab: "flexure " + p + " \xB7 \u03C3", q: "\u03C3", u: "MPa", al: "sig_" + p, g: "Krachtelementen", o, obj: e.id, frf: true });
         out.push({ key: "f|" + e.id + "|M", lab: "flexure " + p + " \xB7 M", q: "M", u: "N\xB7m", al: "Mf_" + p, g: "Krachtelementen", o, obj: e.id, frf: true });
       }
       if (e.type === "gap") {
-        const o = "Speling " + pair(e);
+        const o = "Speling " + pair2(e);
         out.push({
           key: "s|" + e.id + "|F",
-          lab: "speling " + pair(e) + " \xB7 F",
+          lab: "speling " + pair2(e) + " \xB7 F",
           q: "F",
           u: "N",
-          al: "Fs_" + pair(e),
+          al: "Fs_" + pair2(e),
           g: "Krachtelementen",
           o,
           obj: e.id,
@@ -4883,10 +5044,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         });
         out.push({
           key: "a|" + e.id + "|L",
-          lab: "speling " + pair(e) + " \xB7 L",
+          lab: "speling " + pair2(e) + " \xB7 L",
           q: "L",
           u: "mm",
-          al: "Ls_" + pair(e),
+          al: "Ls_" + pair2(e),
           g: "Krachtelementen",
           o,
           obj: e.id,
@@ -4894,31 +5055,31 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         });
       }
       if (e.type === "contact" && N(e.node)) {
-        const nm = N(e.node).name, o = "Contact " + nm;
-        out.push({ key: "s|" + e.id + "|F", lab: "contact " + nm + " \xB7 F\u2099", q: "F\u2099", u: "N", al: "Fn_" + nm, g: "Krachtelementen", o, obj: e.id });
-        out.push({ key: "c|" + e.id + "|Ft", lab: "contact " + nm + " \xB7 F\u209C", q: "F\u209C", u: "N", al: "Ft_" + nm, g: "Krachtelementen", o, obj: e.id });
-        out.push({ key: "c|" + e.id + "|d", lab: "contact " + nm + " \xB7 \u03B4", q: "\u03B4", u: "\xB5m", al: "dc_" + nm, g: "Krachtelementen", o, obj: e.id });
-        out.push({ key: "c|" + e.id + "|z", lab: "contact " + nm + " \xB7 borstel z", q: "z", u: "\xB5m", al: "zc_" + nm, g: "Krachtelementen", o, obj: e.id });
+        const nm2 = N(e.node).name, o = "Contact " + nm2;
+        out.push({ key: "s|" + e.id + "|F", lab: "contact " + nm2 + " \xB7 F\u2099", q: "F\u2099", u: "N", al: "Fn_" + nm2, g: "Krachtelementen", o, obj: e.id });
+        out.push({ key: "c|" + e.id + "|Ft", lab: "contact " + nm2 + " \xB7 F\u209C", q: "F\u209C", u: "N", al: "Ft_" + nm2, g: "Krachtelementen", o, obj: e.id });
+        out.push({ key: "c|" + e.id + "|d", lab: "contact " + nm2 + " \xB7 \u03B4", q: "\u03B4", u: "\xB5m", al: "dc_" + nm2, g: "Krachtelementen", o, obj: e.id });
+        out.push({ key: "c|" + e.id + "|z", lab: "contact " + nm2 + " \xB7 borstel z", q: "z", u: "\xB5m", al: "zc_" + nm2, g: "Krachtelementen", o, obj: e.id });
       }
       if (e.type === "spring") out.push({
         key: "s|" + e.id + "|F",
-        lab: "veer " + pair(e) + " \xB7 F",
+        lab: "veer " + pair2(e) + " \xB7 F",
         q: "F",
         u: "N",
-        al: "F_" + pair(e),
+        al: "F_" + pair2(e),
         g: "Krachtelementen",
-        o: "Veer " + pair(e),
+        o: "Veer " + pair2(e),
         obj: e.id,
         frf: true
       });
       if (e.type === "damper") out.push({
         key: "s|" + e.id + "|F",
-        lab: "demper " + pair(e) + " \xB7 F",
+        lab: "demper " + pair2(e) + " \xB7 F",
         q: "F",
         u: "N",
-        al: "Fd_" + pair(e),
+        al: "Fd_" + pair2(e),
         g: "Krachtelementen",
-        o: "Demper " + pair(e),
+        o: "Demper " + pair2(e),
         obj: e.id,
         frf: true
       });
@@ -5005,7 +5166,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
 
   // src/core/formula.js
   var normAl = (s) => s.toLowerCase().replace(/_/g, ".");
-  var alias = (nm) => sim.ALIAS.get(nm) || sim.ALIASN.get(normAl(nm));
+  var alias = (nm2) => sim.ALIAS.get(nm2) || sim.ALIASN.get(normAl(nm2));
   var FN = {
     sin: Math.sin,
     cos: Math.cos,
@@ -5099,7 +5260,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const id = /^[A-Za-z_][A-Za-z0-9_.]*/.exec(src.slice(i));
       if (!id) throw new Error("onbegrijpelijk bij teken " + (i + 1));
       i += id[0].length;
-      const nm = id[0];
+      const nm2 = id[0];
       ws();
       if (src[i] === "(") {
         i++;
@@ -5111,14 +5272,14 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
             if (!eat(",")) throw new Error("komma of ) verwacht");
           }
         }
-        const fn = FN[nm];
-        if (!fn) throw new Error("onbekende functie " + nm);
+        const fn = FN[nm2];
+        if (!fn) throw new Error("onbekende functie " + nm2);
         return (g) => fn.apply(null, args.map((a) => a(g)));
       }
-      if (nm === "pi") return () => Math.PI;
-      if (nm !== "t" && !alias(nm)) throw new Error("onbekende grootheid " + nm);
-      used.push(nm);
-      return (g) => g(nm);
+      if (nm2 === "pi") return () => Math.PI;
+      if (nm2 !== "t" && !alias(nm2)) throw new Error("onbekende grootheid " + nm2);
+      used.push(nm2);
+      return (g) => g(nm2);
     }
     const f2 = expr();
     ws();
@@ -5220,14 +5381,14 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     pickList.innerHTML = html;
   }
-  function insertFx(txt2) {
+  function insertFx(txt3) {
     const el = pickFxInp;
     const a = el.selectionStart != null ? el.selectionStart : el.value.length;
     const b = el.selectionEnd != null ? el.selectionEnd : a;
     const before = el.value.slice(0, a), after = el.value.slice(b);
     const pad = before && !/[\s(+\-*/^,]$/.test(before) ? " " : "";
-    el.value = before + pad + txt2 + after;
-    const p = (before + pad + txt2).length;
+    el.value = before + pad + txt3 + after;
+    const p = (before + pad + txt3).length;
     el.focus();
     el.setSelectionRange(p, p);
     checkFx();
@@ -5306,7 +5467,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }));
     syncSeriesValues();
   }
-  var num = (v, u) => !isFinite(v) ? "\u2013" : (Math.abs(v) >= 1e4 || v !== 0 && Math.abs(v) < 0.01 ? v.toExponential(2) : v.toFixed(2)) + (u ? " " + u : "");
+  var degs = (p) => {
+    const r = Math.round(p) || 0;
+    return (r < 0 ? "\u2212" : "") + Math.abs(r);
+  };
+  var num = (v, u) => !isFinite(v) ? "\u2013" : sg(v) + (u ? " " + u : "");
   function syncSeriesValues() {
     if (!sim.sweep) return;
     if (!ui.pdata) buildPdata();
@@ -5321,7 +5486,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     seriesBox.querySelectorAll("[data-v]").forEach((el) => {
       const d = ui.pdata && ui.pdata.ss[+el.dataset.v];
       const mv = frf && ui.hoverI === null && ui.meet && d ? ui.meet.v[d.si] : null;
-      put(el, mv ? "<b>" + num(mv.amp, d.u) + "</b> \xB7 " + mv.ph.toFixed(0) + "\xB0 \xB7 " + fmtHz(ui.meet.f) : !d ? "\u2013" : d.err ? '<b style="color:var(--bad)">' + d.err + "</b>" : frf ? "<b>" + num(Math.pow(10, d.a[i]), d.u) + "</b> \xB7 " + (isFinite(d.ph[i]) ? d.ph[i].toFixed(0) + "\xB0" : "\u2013") + " \xB7 " + fmtHz(sim.sweep.f[i]) : "<b>" + num(d.a[i], d.u) + "</b>");
+      put(el, mv ? "<b>" + num(mv.amp, d.u) + "</b> \xB7 " + degs(mv.ph) + "\xB0 \xB7 " + fmtHz(ui.meet.f) : !d ? "\u2013" : d.err ? '<b style="color:var(--bad)">' + d.err + "</b>" : frf ? "<b>" + num(Math.pow(10, d.a[i]), d.u) + "</b> \xB7 " + (isFinite(d.ph[i]) ? degs(d.ph[i]) + "\xB0" : "\u2013") + " \xB7 " + fmtHz(sim.sweep.f[i]) : "<b>" + num(d.a[i], d.u) + "</b>");
     });
     seriesBox.querySelectorAll("[data-s]").forEach((el) => {
       const d = ui.pdata && ui.pdata.ss[+el.dataset.s];
@@ -5447,7 +5612,18 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const h = document.getElementById("hint");
     h.classList.remove("dim");
     clearTimeout(hintT);
-    hintT = setTimeout(() => h.classList.add("dim"), 4500);
+    hintT = setTimeout(() => h.classList.add("dim"), 6e3);
+  }
+  function showHelp() {
+    const t = TOOLS.find((x) => x.id === ui.tool);
+    document.getElementById("hint").innerHTML = t ? t.hint : "";
+    hintShow();
+    const u = document.getElementById("uitleg");
+    if (u && !u.hidden) {
+      u.classList.remove("min");
+      u.closest(".stage").classList.add("hasnote");
+      u.closest(".stage").classList.remove("hasmin");
+    }
   }
   function setTool(id) {
     ui.tool = id;
@@ -5481,6 +5657,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     hintShow();
   }
   function initTools() {
+    cv.addEventListener("pointerdown", () => {
+      clearTimeout(hintT);
+      document.getElementById("hint").classList.add("dim");
+    }, true);
+    document.getElementById("helpBtn").addEventListener("click", showHelp);
     railTop.className = "railtop";
     railTop.innerHTML = '<button class="btn ghost ico" id="railBtn" title="Gereedschapsbalk smal of breed" aria-label="Gereedschapsbalk smal of breed">&#8676;</button>';
     rail.appendChild(railTop);
@@ -5505,6 +5686,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     document.addEventListener("keydown", (e) => {
       if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
       const k = e.key.toLowerCase();
+      if (e.key === "?") {
+        showHelp();
+        e.preventDefault();
+        return;
+      }
       const map = { v: "select", n: "node", l: "link", p: "pin", s: "slider", d: "driver", a: "actuator", r: "spring", c: "damper", g: "gap", k: "contact", b: "flexure", q: "loadcell", w: "dsens", h: "encoder", j: "accel", o: "split", f: "force", m: "mass", t: "trace", x: "del" };
       if (map[k]) {
         setTool(map[k]);
@@ -5633,13 +5819,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   var CALM = 0.1;
   var esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   var nl = (x) => String(x).replace(".", ",");
-  var num2 = (v, d = 3) => {
-    if (v === void 0 || v === null || !isFinite(v)) return "\u2013";
-    const a = Math.abs(v);
-    if (a !== 0 && (a < 1e-3 || a >= 1e5)) return nl(v.toExponential(2));
-    return nl(+v.toPrecision(d));
-  };
-  var hz = (f2) => f2 === void 0 || !isFinite(f2) ? "\u2013" : nl(f2 < 10 ? f2.toPrecision(3) : f2 < 1e3 ? f2.toFixed(1) : f2.toFixed(0)) + " Hz";
+  var num2 = (v, d = 3) => v === void 0 || v === null || !isFinite(v) ? "\u2013" : sg(v, d);
+  var hz = (f2) => f2 === void 0 || !isFinite(f2) ? "\u2013" : fmtHz(f2);
   var mat2 = (rows) => '<span class="mat">' + rows.map((r) => "<span>" + r.map((c2) => "<i>" + c2 + "</i>").join("") + "</span>").join("") + "</span>";
   var c = (s) => "<code>" + s + "</code>";
   var name = (id) => {
@@ -5653,20 +5834,20 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function block(b) {
     const i = copies.length;
     const sec = (t, items, cls) => items && items.length ? '<div class="hw-h">' + t + "</div>" + (cls === "ul" ? "<ul>" + items.map((x) => "<li>" + x + "</li>").join("") + "</ul>" : items.map((x) => '<div class="hw-' + cls + '">' + x + "</div>").join("")) : "";
-    const txt2 = [b.title, ""];
+    const txt3 = [b.title, ""];
     const add = (t, items, f2) => {
       if (items && items.length) {
-        txt2.push(t + ":");
-        items.forEach((x) => txt2.push("  " + (f2 ? f2(x) : plain(x))));
-        txt2.push("");
+        txt3.push(t + ":");
+        items.forEach((x) => txt3.push("  " + (f2 ? f2(x) : plain(x))));
+        txt3.push("");
       }
     };
     add("Vergelijkingen", b.eq);
     add("Betekenis", b.sym, (x) => plain(x[0]) + " = " + plain(x[1]));
     add("Met jouw getallen", b.live);
     add("Aannames", b.ass);
-    if (b.src) txt2.push("Bron: " + plain(b.src));
-    copies.push(txt2.join("\n").replace(/\n{3,}/g, "\n\n").trim());
+    if (b.src) txt3.push("Bron: " + plain(b.src));
+    copies.push(txt3.join("\n").replace(/\n{3,}/g, "\n\n").trim());
     return '<section class="hw-block"><div class="hw-top"><h3>' + b.title + '</h3><button type="button" class="hw-copy" data-i="' + i + '">Kopieer</button></div>' + sec("Vergelijkingen", b.eq, "eq") + (b.sym && b.sym.length ? '<div class="hw-h">Betekenis</div><dl class="hw-sym">' + b.sym.map((x) => "<dt>" + x[0] + "</dt><dd>" + x[1] + "</dd>").join("") + "</dl>" : "") + sec("Met jouw getallen", b.live, "live") + sec("Aannames", b.ass, "ul") + (b.src ? '<div class="hw-src">Bron: ' + b.src + "</div>" : "") + "</section>";
   }
   var kv = (k, v) => "<span>" + k + "</span> <b>" + v + "</b>";
@@ -5724,7 +5905,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const drv = model.elems.filter((e) => e.type === "link" && e.driver && N(e.a) && N(e.b) && N(e.a).support === "pin" && N(e.b).support !== "pin").length;
     const bars = model.elems.filter((e) => isBar(e) && !e.driver && N(e.a) && N(e.b) && !(N(e.a).support === "pin" && N(e.b).support === "pin")).length;
     const sl = model.nodes.filter((n) => n.support === "slider").length;
-    const nm = bars + sl + 2 * drv;
+    const nm2 = bars + sl + 2 * drv;
     const h0 = Math.max(1e-6, (model.dtStep || 0.2) / 1e3);
     const dur = sw ? sw.dur : eq ? null : Math.max(0.01, model.simDur || 2);
     let sub2 = null, h = null;
@@ -5734,9 +5915,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     const live = [
       kv("Onbekenden q", "2\xB7" + free + " = " + nq),
-      kv("Randvoorwaarden \u03A6", bars + " stangen + " + sl + " glijders + 2\xB7" + drv + " kruk = " + nm),
-      kv("Vrijheidsgraden", nq + " \u2212 " + nm + " = " + (nq - nm) + (nq - nm < 0 ? " (overbepaald, niet te rekenen)" : "")),
-      kv("Stap h<sub>0</sub> (instelling)", nl(+(h0 * 1e3).toPrecision(3)) + " ms"),
+      kv("Randvoorwaarden \u03A6", bars + " stangen + " + sl + " glijders + 2\xB7" + drv + " kruk = " + nm2),
+      kv("Vrijheidsgraden", nq + " \u2212 " + nm2 + " = " + (nq - nm2) + (nq - nm2 < 0 ? " (overbepaald, niet te rekenen)" : "")),
+      kv("Stap h<sub>0</sub> (instelling)", sg(h0 * 1e3) + " ms"),
       kv("Baumgarte \u03B1 = \u03B2", BA2 + " 1/s"),
       kv("Zwaartekracht", model.gravity ? "aan" : "uit"),
       kv("Demping per punt c<sub>v</sub>", num2(model.cVisc || 0) + " Ns/mm"),
@@ -5836,7 +6017,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function axialBlock(e, L) {
     const k = axialK(e), A = axialA(e), E_ = axialE(e), S = sim.sweep, i = Math.round(ui.frame);
     const F = S && !S.frf && S.EF && S.EF[e.id] ? S.EF[e.id][i] : NaN;
-    const nm = esc(name(e.a) + name(e.b)), m = matOf(e);
+    const nm2 = esc(name(e.a) + name(e.b)), m = matOf(e);
     const dt = loadcellDt(e, model.defMass);
     const live = [
       kv("Materiaal", esc(m.naam) + ", E = " + num2(E_) + " MPa"),
@@ -5852,7 +6033,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       kv("Max. tijdstap Dynamisch", isFinite(dt) ? num2(dt * 1e3) + " ms (nu " + num2(model.dtStep || 0.2) + " ms)" : "\u2013")
     ];
     return block({
-      title: "Axiale stang " + nm + " (EA/L)",
+      title: "Axiale stang " + nm2 + " (EA/L)",
       eq: [
         c("k = E\xB7A / L") + "  (veer langs de staaf)",
         c("N = k\xB7(L \u2212 L<sub>0</sub>(1 + \u03B1\xB7\u0394T))") + "  (trek positief)",
@@ -5877,10 +6058,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   }
   function thermBlock(e, L) {
     if (!isThermal(e)) return "";
-    const m = matOf(e), dT = dTOf(e), nm = esc(name(e.a) + name(e.b));
+    const m = matOf(e), dT = dTOf(e), nm2 = esc(name(e.a) + name(e.b));
     if (!dT && !isAxial(e) && typeof e.dT !== "number") return "";
     return block({
-      title: "Thermische rek van stang " + nm,
+      title: "Thermische rek van stang " + nm2,
       eq: [c("\u0394L = \u03B1\xB7L\xB7\u0394T"), c("L(\u0394T) = L<sub>0</sub>\xB7(1 + \u03B1\xB7\u0394T)") + "  : de randvoorwaarde " + c("|p \u2212 q| = L(\u0394T)") + " gebruikt de nieuwe lengte"],
       sym: [
         [c("\u03B1"), "lineaire uitzettingsco\xEBffici\xEBnt van het materiaal, \xB5m/(m\xB7K)"],
@@ -5906,12 +6087,12 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (R && R.sys) {
       live.push(kv("Vrijheidsgraden", R.sys.nd + " (" + R.nfree + " vrij na opleggingen)"));
       live.push(kv("Zwaartekracht", model.gravity ? "aan (gewicht van massa\u2019s en balken)" : "uit"));
-      if (R.sys.mem.some((m) => m.rigid)) live.push(kv("Stijve schakels", "EA, EI = " + RIGID_FACTOR.toExponential(0).replace("e+", "\xD710^") + " \xD7 " + num2(R.sys.kref) + " N/mm (penalty)"));
+      if (R.sys.mem.some((m) => m.rigid)) live.push(kv("Stijve schakels", "EA, EI = 10\u2075 \xD7 " + num2(R.sys.kref) + " N/mm (penalty)"));
       if (R.ok) {
-        live.push(kv("Rest \u2016K\xB7u \u2212 F\u2016/\u2016F\u2016", num2(R.resid)));
-        live.push(kv("Evenwicht \u03A3R + \u03A3F", num2(R.eq) + " N"));
-        if (R.sigMax) live.push(kv("Max \u03C3", num2(R.sigMax.val) + " MPa (" + num2(R.sigMax.ratio * 100) + " % van \u03C3<sub>toel</sub>)"));
-        live.push(kv("Grootste verplaatsing", num2(R.maxDisp * 1e3) + " \xB5m"));
+        live.push(kv("Rest \u2016K\xB7u \u2212 F\u2016/\u2016F\u2016", R.resid < 1e-9 ? "< 10\u207B\u2079" : num2(R.resid)));
+        live.push(kv("Evenwicht \u03A3R + \u03A3F", sg(R.eq, 3, R.reactions.reduce((m, r) => Math.max(m, Math.abs(r.Rx), Math.abs(r.Ry)), 0)) + " N"));
+        if (R.sigMax) live.push(kv("Max \u03C3", fmtStress(R.sigMax.val) + " (" + num2(R.sigMax.ratio * 100) + " % van \u03C3<sub>toel</sub>)"));
+        live.push(kv("Grootste verplaatsing", fmtLen(R.maxDisp)));
         if (R.modes && R.modes.length) live.push(kv("Eigenfrequenties", R.modes.map((m) => hz(m.f)).join(", ")));
         (R.analytic || []).forEach((a) => a.rows.forEach((r) => live.push(kv(esc(a.title), esc(r.k) + ": " + num2(r.an * r.f, 4) + " " + r.unit + " (analytisch) tegen " + num2(r.fe * r.f, 4) + " " + r.unit + " (FE)"))));
       } else if (R.mech) live.push(kv("Status", esc(R.mech.text)));
@@ -5985,10 +6166,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (s.kind === "node") {
       const n = N(s.id);
       if (!n) return "";
-      const nm2 = n.name || n.id, parts = [];
+      const nm3 = n.name || n.id, parts = [];
       const sm = sensorMass(n.id), dm = (n.m > 0 ? n.m : model.defMass || 0.1) + sm;
       parts.push(block({
-        title: "Massa in punt " + esc(nm2),
+        title: "Massa in punt " + esc(nm3),
         eq: [c("\u03A3F = m\xB7a") + " ; " + c("F<sub>zwaarte</sub> = \u2212m\xB7g") + " (alleen als zwaartekracht aan staat)"],
         sym: [[c("m"), "massa van het punt in kg"], [c("g"), "9,81 m/s\xB2"]],
         live: [
@@ -5999,9 +6180,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         src: REF.nik + " (Newton\u2013Euler, massa en zwaartekracht)"
       }));
       if (n.mus > 0 || n.muk > 0) {
-        const vS = model.fricVs || 5, ve = model.fricVe || 2, r = n.rj > 0 ? n.rj : 5;
+        const vS = model.fricVs || 5, ve2 = model.fricVe || 2, r = n.rj > 0 ? n.rj : 5;
         parts.push(block({
-          title: "Wrijving in punt " + esc(nm2),
+          title: "Wrijving in punt " + esc(nm3),
           eq: [
             c("\u03BC(v) = [\u03BC<sub>k</sub> + (\u03BC<sub>s</sub> \u2212 \u03BC<sub>k</sub>)\xB7e<sup>\u2212(v/v<sub>S</sub>)\xB2</sup>]\xB7tanh(v/v<sub>\u03B5</sub>)"),
             n.support === "slider" ? "Glijder: " + c("F = \u2212\u03BC(v)\xB7N") + " langs de rail" : "",
@@ -6017,7 +6198,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           ],
           live: [
             kv("\u03BC<sub>s</sub> / \u03BC<sub>k</sub>", num2(n.mus || 0) + " / " + num2(n.muk || 0)),
-            kv("v<sub>S</sub>, v<sub>\u03B5</sub>", num2(vS) + ", " + num2(ve) + " mm/s"),
+            kv("v<sub>S</sub>, v<sub>\u03B5</sub>", num2(vS) + ", " + num2(ve2) + " mm/s"),
             kv("r", num2(r) + " mm")
           ],
           ass: ["Een door de klok gedraaide kruk kan niet plakken.", "In de kinematische modus volgt de wrijving uit dezelfde formule."],
@@ -6038,12 +6219,12 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const e = E(s.id);
     if (!e) return "";
     const A = N(e.a), B = N(e.b), L = A && B ? Math.hypot(B.x - A.x, B.y - A.y) : NaN;
-    const nm = A && B ? esc(name(e.a) + name(e.b)) : "";
+    const nm2 = A && B ? esc(name(e.a) + name(e.b)) : "";
     switch (e.type) {
       case "loadcell": {
         const ks = springK(e), live = sensorLive(e), dt = loadcellDt(e, model.defMass), k10 = 10;
         return block({
-          title: "Krachtopnemer " + esc(e.name || "") + " " + nm,
+          title: "Krachtopnemer " + esc(e.name || "") + " " + nm2,
           eq: [
             c("F = k<sub>s</sub>\xB7\u0394") + "  en  " + c("\u0394 = F/k<sub>s</sub>"),
             c("1/k<sub>tot</sub> = 1/k + 1/k<sub>s</sub>") + "  (opnemer in serie met stijfheid k)",
@@ -6135,7 +6316,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       }
       case "spring":
         return block({
-          title: "Veer " + nm,
+          title: "Veer " + nm2,
           eq: [c("F = k\xB7(L \u2212 L<sub>0</sub>)"), "Kracht werkt langs de veer: positief = trekt de punten naar elkaar"],
           sym: [[c("k"), "stijfheid in N/mm"], [c("L"), "huidige lengte tussen de punten"], [c("L<sub>0</sub>"), "lengte zonder kracht"]],
           live: [kv("k", num2(e.k) + " N/mm"), kv("L<sub>0</sub>", num2(e.L0) + " mm"), kv("L nu", num2(L) + " mm"), kv("F nu", num2(e.k * (L - e.L0)) + " N")],
@@ -6144,7 +6325,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         });
       case "damper":
         return block({
-          title: "Demper " + nm,
+          title: "Demper " + nm2,
           eq: [c("F = c\xB7L\u0307"), c("L\u0307 = (v<sub>b</sub> \u2212 v<sub>a</sub>)\xB7u") + ", u = eenheidsvector van a naar b"],
           sym: [[c("c"), "dempingsconstante in Ns/mm"], [c("L\u0307"), "lengtesnelheid, mm/s"]],
           live: [kv("c", num2(e.c) + " Ns/mm"), kv("L nu", num2(L) + " mm")],
@@ -6154,7 +6335,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       case "gap": {
         const lo = Math.min(e.min, e.max), hi = Math.max(e.min, e.max);
         return block({
-          title: "Speling " + nm,
+          title: "Speling " + nm2,
           eq: [
             c("F = 0") + "  voor " + c("L<sub>min</sub> \u2264 L \u2264 L<sub>max</sub>"),
             c("F = min(0, k<sub>c</sub>(L \u2212 L<sub>min</sub>) + c<sub>c</sub>L\u0307)") + "  als L < L<sub>min</sub>",
@@ -6203,7 +6384,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           kv("Schakel \u03B3\xB7L", num2(GAMMA * e.L) + " mm (getekend " + num2(e.len) + " mm)")
         );
         return block({
-          title: "Flexure " + nm + " (" + esc(FLEX_KINDS[kind2] || kind2) + ")",
+          title: "Flexure " + nm2 + " (" + esc(FLEX_KINDS[kind2] || kind2) + ")",
           eq,
           sym,
           live,
@@ -6275,7 +6456,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         const lo = Math.min(e.min, e.max), hi = Math.max(e.min, e.max), f2 = e.freq || 0;
         const a = actLen(e, sim.simT);
         return block({
-          title: "Actuator " + nm,
+          title: "Actuator " + nm2,
           eq: [
             c("L(t) = L<sub>m</sub> + L<sub>a</sub>\xB7sin(\u03C6<sub>0</sub> + 2\u03C0ft)"),
             c("L<sub>m</sub> = (max+min)/2") + ", " + c("L<sub>a</sub> = (max\u2212min)/2"),
@@ -6298,7 +6479,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         if (e.driver) {
           const om = (e.cw ? -1 : 1) * (e.rpm || 0) * Math.PI / 30;
           return block({
-            title: "Kruk " + nm,
+            title: "Kruk " + nm2,
             eq: [c("\u03B8 = \u03B8<sub>0</sub> + \u03C9t"), c("p = A + L\xB7(cos \u03B8, sin \u03B8)"), c("v = \u03C9\xB7(\u2212r<sub>y</sub>, r<sub>x</sub>)") + ", " + c("a = \u2212\u03C9\xB2r")],
             sym: [[c("\u03C9"), "hoeksnelheid = toerental\xB7\u03C0/30, rad/s"], [c("r"), "vector van het draaipunt naar de tip"]],
             live: [kv("L", num2(e.len) + " mm"), kv("\u03B8<sub>0</sub>", num2(e.theta0 || 0) + "\xB0"), kv("\u03C9", num2(om) + " rad/s (" + num2(e.rpm || 0) + " rpm, " + (e.cw ? "rechtsom" : "linksom") + ")")],
@@ -6307,7 +6488,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           });
         }
         return block({
-          title: "Stang " + nm,
+          title: "Stang " + nm2,
           eq: [c("|p \u2212 q|\xB2 = L\xB2"), "Tweekrachtenstaaf: alleen axiale kracht N"],
           sym: [[c("L"), "stanglengte"], [c("N"), "stangkracht (trek positief)"]],
           live: [kv("L", num2(e.len) + " mm"), kv("L nu", num2(L) + " mm")],
@@ -6389,6 +6570,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const key = keyOf();
     if (key === lastKey && el.firstChild) return;
     lastKey = key;
+    el.innerHTML = howHtml();
+  }
+  function howHtml() {
+    const keep = copies;
     copies = [];
     let h;
     if (model.mode === "stiff") h = [stiffBlock()];
@@ -6396,7 +6581,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     else if (model.mode === "dyn") h = dynBlocks();
     else h = [kinBlock(), shiftBlock()];
     const extra = selBlock();
-    el.innerHTML = h.join("") + (extra ? '<div class="hw-sel">Geselecteerd onderdeel</div>' + extra : "");
+    const out = h.join("") + (extra ? '<div class="hw-sel">Geselecteerd onderdeel</div>' + extra : "");
+    copies = keep;
+    return out;
   }
 
   // src/ui/howhook.js
@@ -6417,10 +6604,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   }
 
   // src/ui/thermal.js
-  var nl2 = (s) => String(s).replace(".", ",");
   var um = (v) => {
     const x = v * 1e3;
-    return (x >= 0 ? "+" : "\u2212") + nl2(Math.abs(x) >= 100 ? Math.abs(x).toFixed(0) : Math.abs(x) >= 10 ? Math.abs(x).toFixed(1) : Math.abs(x).toFixed(2));
+    return (x >= 0 ? "+" : "\u2212") + sg(Math.abs(x));
   };
   var esc2 = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
   var thermalOn = () => model.elems.some((e) => isThermal(e) && dTOf(e) !== 0);
@@ -6452,7 +6638,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       document.getElementById("thChart").innerHTML = "";
       return;
     }
-    res2.innerHTML = '\u0394x <b id="thDx">' + um(r.dx) + '</b> \xB5m \xB7 \u0394y <b id="thDy">' + um(r.dy) + '</b> \xB5m \xB7 |\u0394| <b id="thD">' + nl2((Math.hypot(r.dx, r.dy) * 1e3).toPrecision(3)) + "</b> \xB5m";
+    res2.innerHTML = '\u0394x <b id="thDx">' + um(r.dx) + '</b> \xB5m \xB7 \u0394y <b id="thDy">' + um(r.dy) + '</b> \xB5m \xB7 |\u0394| <b id="thD">' + sg(Math.hypot(r.dx, r.dy) * 1e3) + "</b> \xB5m";
     document.getElementById("thChart").innerHTML = chart(r);
   }
   function chart(r) {
@@ -6466,18 +6652,15 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     };
     let g = '<text x="' + mid + '" y="10" text-anchor="middle" class="thl">bijdrage in \xB5m</text><line x1="' + mid + '" y1="' + (top - 4) + '" x2="' + mid + '" y2="' + (H - 4) + '" style="stroke:var(--line-2)"></line>';
     r.parts.forEach((p, i) => {
-      const y = top + i * rowH, e = p.e, A = N(e.a), B = N(e.b), nm = (A ? A.name : "?") + (B ? B.name : "?");
-      g += "<g><title>" + esc2(nm) + ": \u2202x/\u2202L = " + nl2(p.sx.toFixed(3)) + ", \u2202y/\u2202L = " + nl2(p.sy.toFixed(3)) + ", \u0394L = " + nl2((p.dL * 1e3).toFixed(2)) + ' \xB5m</title><text x="0" y="' + (y + 8) + '" class="thl thn">' + esc2(nm) + " \xB7 " + esc2(matOf(e).naam.split(" ")[0]) + "</text>" + bar(p.cx, y + 12, "var(--spring)") + bar(p.cy, y + 21, "var(--driver)") + "</g>";
+      const y = top + i * rowH, e = p.e, A = N(e.a), B = N(e.b), nm2 = (A ? A.name : "?") + (B ? B.name : "?");
+      g += "<g><title>" + esc2(nm2) + ": \u2202x/\u2202L = " + sg(p.sx) + ", \u2202y/\u2202L = " + sg(p.sy) + ", \u0394L = " + sg(p.dL * 1e3) + ' \xB5m</title><text x="0" y="' + (y + 8) + '" class="thl thn">' + esc2(nm2) + " \xB7 " + esc2(matOf(e).naam.split(" ")[0]) + "</text>" + bar(p.cx, y + 12, "var(--spring)") + bar(p.cy, y + 21, "var(--driver)") + "</g>";
     });
     return '<svg class="thsvg" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Bijdrage per staaf aan de thermische verschuiving">' + g + '</svg><div class="thleg"><span><i style="background:var(--spring)"></i>x</span><span><i style="background:var(--driver)"></i>y</span> \u2202x/\u2202L\xB7\u03B1\xB7L\xB7\u0394T per staaf</div>';
   }
 
   // src/ui/stiff.js
-  var nl3 = (s) => String(s).replace(".", ",");
   var esc3 = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
-  var fscale = (v) => "\xD7" + (v >= 100 ? nl3(String(Math.round(v))) : sg(v, 2));
-  var um2 = (v) => sg(v * 1e3);
-  var urad = (v) => sg(v * 1e6);
+  var fscale = (v) => "\xD7" + sg(v, v >= 100 ? 3 : 2);
   var eigenTimer = 0;
   function solveStiff() {
     clearTimeout(eigenTimer);
@@ -6514,7 +6697,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (!R) return "";
     if (R.empty) return "Stijfheid: teken balken (stijfheid Volledig), axiale staven of veren, een oplegging en een kracht.";
     if (!R.ok) return R.mech.text;
-    if (ui.stiffMode >= 0 && R.modes && R.modes[ui.stiffMode]) return "Eigenvorm " + (ui.stiffMode + 1) + " \xB7 " + sg(R.modes[ui.stiffMode].f) + " Hz \xB7 spatie animeert";
+    if (ui.stiffMode >= 0 && R.modes && R.modes[ui.stiffMode]) return "Eigenvorm " + (ui.stiffMode + 1) + " \xB7 " + fmtHz(R.modes[ui.stiffMode].f) + " \xB7 spatie animeert";
     return "Statische vervorming" + (R.modes && R.modes.length ? " \xB7 kies een mode onder het canvas" : "") + " \xB7 spatie animeert";
   }
   function nodeName(id) {
@@ -6539,18 +6722,18 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const ms = res2.sigMax;
     if (ms) {
       const e = ms.e, bm = isBeam(e), rec = res2.members.find((m) => m.e === e), L = rec ? rec.L : 0;
-      h += '<div class="thres">Maximale spanning <b>' + sg(ms.val) + "</b> MPa = <b>" + sg(ms.ratio * 100, 2) + " %</b> van \u03C3<sub>toel</sub>" + (ms.ratio > 1 ? ' <span class="warn">\u2014 boven de toelaatbare spanning</span>' : "") + "<br>in " + (bm ? "balk " : e.type === "flexure" ? "flexure " : "staaf ") + esc3(elemName(e)) + (bm ? " op " + sg(ms.frac * L) + " mm van " + esc3(nodeName(e.a)) : "") + "</div>";
+      h += '<div class="thres">Maximale spanning <b>' + fmtStress(ms.val) + "</b> = <b>" + sg(ms.ratio * 100, 2) + " %</b> van \u03C3<sub>toel</sub>" + (ms.ratio > 1 ? ' <span class="warn">\u2014 boven de toelaatbare spanning</span>' : "") + "<br>in " + (bm ? "balk " : e.type === "flexure" ? "flexure " : "staaf ") + esc3(elemName(e)) + (bm ? " op " + fmtLen(ms.frac * L) + " van " + esc3(nodeName(e.a)) : "") + "</div>";
     } else h += '<div class="thres">Geen spanning te berekenen: geen balken of axiale staven.</div>';
     let big = null;
     res2.nodes.forEach((d) => {
       const m = Math.hypot(d.ux, d.uy);
       if (!big || m > big.m) big = { m, d };
     });
-    h += '<div class="thres">Grootste verplaatsing <b>' + um2(big ? big.m : 0) + "</b> \xB5m" + (big && big.m > 0 ? " in punt " + esc3(big.d.name) : "") + "</div>";
+    h += '<div class="thres">Grootste verplaatsing <b>' + fmtLen(big ? big.m : 0) + "</b>" + (big && big.m > 0 ? " in punt " + esc3(big.d.name) : "") + "</div>";
     const nd = pointNode(), ang = isFinite(model.stiffAng) ? model.stiffAng : 90;
     if (nd) {
       const pk = res2.pointK(nd.id, ang);
-      h += '<h3>Stijfheid in punt</h3><div class="row"><label for="skNode">Punt</label><select id="skNode">' + model.nodes.map((n) => '<option value="' + n.id + '"' + (n.id === nd.id ? " selected" : "") + ">" + esc3(n.name) + "</option>").join("") + '</select></div><div class="row"><label for="skAng">Richting <span class="unit">\xB0, 0 = +x, 90 = +y</span></label><input type="number" id="skAng" step="15" value="' + Math.round(ang * 100) / 100 + '"></div>' + (pk && isFinite(pk.k) ? '<div class="big" id="skVal">k = ' + sg(pk.k) + " N/mm = " + sg(pk.kUm) + ' N/\xB5m</div><div class="ana" id="skCmp">slapte 1/k = ' + sg(pk.compliance * 1e3) + " \xB5m/N</div>" : '<div class="big" id="skVal">k = \u221E</div><div class="ana" id="skCmp">het punt is in deze richting vast</div>');
+      h += '<h3>Stijfheid in punt</h3><div class="row"><label for="skNode">Punt</label><select id="skNode">' + model.nodes.map((n) => '<option value="' + n.id + '"' + (n.id === nd.id ? " selected" : "") + ">" + esc3(n.name) + "</option>").join("") + '</select></div><div class="row"><label for="skAng">Richting <span class="unit">\xB0, 0 = +x, 90 = +y</span></label><input type="number" id="skAng" step="15" value="' + Math.round(ang * 100) / 100 + '"></div>' + (pk && isFinite(pk.k) ? '<div class="big" id="skVal">k = ' + fmtStiff(pk.k) + '</div><div class="ana" id="skCmp">slapte 1/k = ' + fmtQ(pk.compliance, "len") + "/N</div>" : '<div class="big" id="skVal">k = \u221E</div><div class="ana" id="skCmp">het punt is in deze richting vast</div>');
     }
     if (res2.analytic && res2.analytic.length) {
       h += "<h3>Analytische controle</h3>";
@@ -6558,7 +6741,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         h += '<div class="ana"><b>' + esc3(a.title) + "</b>";
         for (const r of a.rows) {
           const an = r.an * r.f, fe = r.fe * r.f, d = Math.abs(an) > 0 ? (fe - an) / an * 100 : 0, ad = Math.abs(d);
-          h += "<br>" + esc3(r.k) + ": analytisch <b>" + sg(an, 4) + "</b> " + r.unit + " \xB7 FE <b>" + sg(fe, 4) + "</b> " + r.unit + ' <span class="' + (ad < 1 ? "ok" : "warn") + '">(' + (ad < 5e-5 ? "verschil 0,00" : (d >= 0 ? "+" : "\u2212") + nl3(ad.toFixed(ad < 0.01 ? 4 : 2))) + " %)</span>";
+          h += "<br>" + esc3(r.k) + ": analytisch <b>" + sg(an, 4) + "</b> " + r.unit + " \xB7 FE <b>" + sg(fe, 4) + "</b> " + r.unit + ' <span class="' + (ad < 1 ? "ok" : "warn") + '">(' + (ad < 5e-5 ? "verschil 0,00" : (d >= 0 ? "+" : "\u2212") + sg(ad, 3)) + " %)</span>";
         }
         h += "</div>";
       }
@@ -6613,21 +6796,47 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       tab.innerHTML = '<div><h3>Verplaatsingen</h3><p class="empty">' + esc3(res2 ? stiffMessage() : "Nog geen oplossing.") + "</p></div>";
       return;
     }
-    const disp = ["<h3>Verplaatsingen</h3><table><tr><th>Punt</th><th>u<sub>x</sub> (\xB5m)</th><th>u<sub>y</sub> (\xB5m)</th><th>\u03C6 (\xB5rad)</th></tr>"];
+    tab.innerHTML = tablesHtml(res2);
+  }
+  function tablesHtml(res2) {
+    const nds = Array.from(res2.nodes.values());
+    const lu = colUnit(nds.map((d) => d.ux).concat(nds.map((d) => d.uy)), "len");
+    const ct = colUnit(nds.map((d) => d.th).filter((v) => !Number.isNaN(v)), "angle");
+    const disp = ["<h3>Verplaatsingen</h3><table><tr><th>Punt</th><th>u<sub>x</sub> (" + lu.u + ")</th><th>u<sub>y</sub> (" + lu.u + ")</th><th>\u03C6 (" + ct.u + ")</th></tr>"];
     res2.nodes.forEach((d) => {
-      disp.push("<tr><td>" + esc3(d.name) + "</td><td>" + um2(d.ux) + "</td><td>" + um2(d.uy) + "</td><td>" + (Number.isNaN(d.th) ? "\u2013" : urad(d.th)) + "</td></tr>");
+      disp.push("<tr><td>" + esc3(d.name) + "</td><td>" + lu.s(d.ux) + "</td><td>" + lu.s(d.uy) + "</td><td>" + (Number.isNaN(d.th) ? "\u2013" : ct.s(d.th)) + "</td></tr>");
     });
     disp.push("</table>");
     let reac = "";
     if (res2.reactions.length) {
-      reac = "<h3>Reacties op de opleggingen</h3><table><tr><th>Punt</th><th>R<sub>x</sub> (N)</th><th>R<sub>y</sub> (N)</th><th>M (N\xB7m)</th></tr>" + res2.reactions.map((r) => "<tr><td>" + esc3(r.name) + "</td><td>" + sg(r.Rx) + "</td><td>" + sg(r.Ry) + "</td><td>" + (r.clamp ? sg(r.Mz / 1e3) : "\u2013") + "</td></tr>").join("") + "</table>";
+      const rf = colUnit(res2.reactions.reduce((a, r) => a.concat([r.Rx, r.Ry]), []), "force", REL_FE);
+      const rm = colUnit(res2.reactions.filter((r) => r.clamp).map((r) => r.Mz / 1e3), "moment", REL_FE);
+      reac = "<h3>Reacties op de opleggingen</h3><table><tr><th>Punt</th><th>R<sub>x</sub> (" + rf.u + ")</th><th>R<sub>y</sub> (" + rf.u + ")</th><th>M (" + rm.u + ")</th></tr>" + res2.reactions.map((r) => "<tr><td>" + esc3(r.name) + "</td><td>" + rf.s(r.Rx) + "</td><td>" + rf.s(r.Ry) + "</td><td>" + (r.clamp ? rm.s(r.Mz / 1e3) : "\u2013") + "</td></tr>").join("") + "</table>";
     }
     const rows = res2.members.filter((m) => m.kind === "beam" || m.kind === "axial" || m.kind === "flex");
     let bars = "";
     if (rows.length) {
-      bars = "<h3>Balken en staven</h3><table><tr><th>Element</th><th>N (N)</th><th>M<sub>max</sub> (N\xB7m)</th><th>\u03C3<sub>max</sub> (MPa)</th><th>\u03C3/\u03C3<sub>toel</sub></th></tr>" + rows.map((m) => "<tr><td>" + esc3(elemName(m.e)) + "</td><td>" + (m.kind === "flex" ? "\u2013" : sg(m.NN)) + "</td><td>" + (m.kind === "beam" ? sg(m.Mmax / 1e3) : m.kind === "flex" ? sg(m.Mf / 1e3) : "\u2013") + "</td><td>" + sg(m.sigMax) + "</td><td>" + sg(m.ratio * 100, 2) + " %</td></tr>").join("") + "</table>";
+      const bN = colUnit(rows.filter((m) => m.kind !== "flex").map((m) => m.NN), "force");
+      const bM = colUnit(rows.map((m) => m.kind === "beam" ? m.Mmax / 1e3 : m.kind === "flex" ? m.Mf / 1e3 : NaN), "moment");
+      const bS = colUnit(rows.map((m) => m.sigMax), "stress");
+      bars = "<h3>Balken en staven</h3><table><tr><th>Element</th><th>N (" + bN.u + ")</th><th>M<sub>max</sub> (" + bM.u + ")</th><th>\u03C3<sub>max</sub> (" + bS.u + ")</th><th>\u03C3/\u03C3<sub>toel</sub></th></tr>" + rows.map((m) => "<tr><td>" + esc3(elemName(m.e)) + "</td><td>" + (m.kind === "flex" ? "\u2013" : bN.s(m.NN)) + "</td><td>" + (m.kind === "beam" ? bM.s(m.Mmax / 1e3) : m.kind === "flex" ? bM.s(m.Mf / 1e3) : "\u2013") + "</td><td>" + bS.s(m.sigMax) + "</td><td>" + sg(m.ratio * 100, 2) + " %</td></tr>").join("") + "</table>";
     }
-    tab.innerHTML = "<div>" + disp.join("") + "</div><div>" + reac + bars + "</div>";
+    return "<div>" + disp.join("") + "</div><div>" + reac + bars + "</div>";
+  }
+  function stiffKeyHtml(res2) {
+    const d = document.createElement("div");
+    d.innerHTML = boxHtml(res2);
+    const sel = d.querySelector("#skNode"), ang = d.querySelector("#skAng");
+    if (sel) {
+      const r = sel.closest(".row");
+      const n = model.nodes.find((x) => x.id === sel.value);
+      r.outerHTML = "<div>Punt: <b>" + esc3(n ? n.name : "?") + "</b></div>";
+    }
+    if (ang) {
+      const r = ang.closest(".row");
+      r.outerHTML = "<div>Richting: <b>" + sg(parseFloat(ang.value)) + "\xB0</b> (0 = +x, 90 = +y)</div>";
+    }
+    return d.innerHTML;
   }
   function renderBar(res2) {
     const bar = document.getElementById("stiffBar");
@@ -6643,7 +6852,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     auto.disabled = inMode;
     mag.textContent = inMode ? "vorm" : fscale(eff2);
     const ms = res2.modes || [];
-    const chips = ['<button class="chip' + (ui.stiffMode < 0 ? " on" : "") + '" data-m="-1" title="Vervorming door de belasting">Statisch</button>'].concat(ms.map((m, i) => '<button class="chip' + (ui.stiffMode === i ? " on" : "") + '" data-m="' + i + '" title="Eigenvorm ' + (i + 1) + '">Mode ' + (i + 1) + " \xB7 " + nl3(m.f < 10 ? m.f.toPrecision(3) : m.f < 1e3 ? m.f.toFixed(1) : m.f.toFixed(0)) + " Hz</button>")).join("");
+    const chips = ['<button class="chip' + (ui.stiffMode < 0 ? " on" : "") + '" data-m="-1" title="Vervorming door de belasting">Statisch</button>'].concat(ms.map((m, i) => '<button class="chip' + (ui.stiffMode === i ? " on" : "") + '" data-m="' + i + '" title="Eigenvorm ' + (i + 1) + '">Mode ' + (i + 1) + " \xB7 " + fmtHz(m.f) + "</button>")).join("");
     const key = chips + "|" + (res2.modes ? 1 : 0);
     const ce = document.getElementById("stiffChips");
     if (ce.__k !== key) {
@@ -6652,7 +6861,12 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     document.getElementById("stiffOut").textContent = !res2.modes ? "eigenfrequenties worden berekend\u2026" : !ms.length ? res2.modesMsg || "geen eigenfrequenties" : inMode ? "vorm genormeerd \xB7 animatie vertraagd" : "";
     const tm = document.getElementById("tmsg");
-    if (tm) tm.textContent = stiffMessage();
+    if (tm) {
+      tm.textContent = stiffMessage();
+      tm.hidden = true;
+    }
+    document.getElementById("stiffSum").textContent = inMode && ms[ui.stiffMode] ? "Mode " + (ui.stiffMode + 1) + " \xB7 " + fmtHz(ms[ui.stiffMode].f) + " \xB7 vergroting vorm" : "Statisch \xB7 " + fscale(eff2);
+    document.getElementById("playBtn").title = stiffMessage();
   }
   function renderStiffUI() {
     const on = model.mode === "stiff", res2 = sim.stiff;
@@ -6697,6 +6911,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       draw();
       save();
     });
+    const fold = document.getElementById("stiffFold"), bar = document.getElementById("stiffBar");
+    fold.addEventListener("click", () => {
+      const f2 = bar.classList.toggle("fold");
+      fold.setAttribute("aria-expanded", String(!f2));
+    });
     chips.addEventListener("click", (ev) => {
       const b = ev.target.closest(".chip");
       if (!b) return;
@@ -6731,7 +6950,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     document.getElementById("frfMaxInp").value = model.frfMax || 0;
     document.getElementById("dTInp").value = model.dT || 0;
   }
-  var nl4 = (x) => String(x).replace(".", ",");
+  var nl2 = (x) => String(x).replace(".", ",");
   function syncResult() {
     const el = document.getElementById("resState");
     if (!el) return;
@@ -6745,13 +6964,13 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const st = v === 0 ? "bepaald" : v > 0 ? "onderbepaald" : "overbepaald";
       if (model.mode === "stiff") {
         const R = sim.stiff;
-        t = !R ? "Stijfheid \xB7 nog niet doorgerekend" : R.empty ? "Stijfheid \xB7 nog niets om door te rekenen" : !R.ok ? "Stijfheid \xB7 mechanisme" : "Stijfheid \xB7 " + (R.sigMax ? "max \u03C3 " + nl4(sg(R.sigMax.val)) + " MPa (" + nl4(sg(R.sigMax.ratio * 100, 2)) + " %)" : "doorgerekend");
+        t = !R ? "Stijfheid \xB7 nog niet doorgerekend" : R.empty ? "Stijfheid \xB7 nog niets om door te rekenen" : !R.ok ? "Stijfheid \xB7 mechanisme" : "Stijfheid \xB7 " + (R.sigMax ? "max \u03C3 " + fmtStress(R.sigMax.val) + " (" + nl2(sg(R.sigMax.ratio * 100, 2)) + " %)" : "doorgerekend");
       } else if (model.mode === "frf") {
         const md = sw && sw.modes ? sw.modes.find((x) => !x.unstable && x.f > 1e-6) : null;
-        t = "FRF \xB7 " + (md ? nl4(fmtHz(md.f)) : sw ? "doorgerekend" : "nog niet doorgerekend");
+        t = "FRF \xB7 " + (md ? nl2(fmtHz(md.f)) : sw ? "doorgerekend" : "nog niet doorgerekend");
       } else if (model.mode === "dyn") {
         const eq = model.durMode === "equil";
-        t = (eq ? "Evenwicht" : "Dynamisch") + " \xB7 " + (sw ? (eq && sw.settled ? "tot rust na " : "") + nl4(sw.dur.toFixed(1)) + " s" + (eq && sw.settled ? "" : " doorgerekend") : "nog niet doorgerekend");
+        t = (eq ? "Evenwicht" : "Dynamisch") + " \xB7 " + (sw ? (eq && sw.settled ? "tot rust na " : "") + fmtTime(sw.dur) + (eq && sw.settled ? "" : " doorgerekend") : "nog niet doorgerekend");
       } else t = "Kinematisch \xB7 " + (sim.solveOK === false ? "niet samen te stellen" : st);
     }
     el.textContent = t;
@@ -6795,14 +7014,14 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         note.textContent = "Bepaald \u2014 de beweging ligt al vast; tijdintegratie voegt hier niets toe.";
       }
       if (dn && sim.sweep && sim.sweep.settled)
-        dn.innerHTML = "Evenwicht na <b>" + sim.sweep.settled.toFixed(2) + " s</b>. Punten zonder massa rekenen met " + fmt(model.defMass) + " kg.";
+        dn.innerHTML = "Evenwicht na <b>" + fmtTime(sim.sweep.settled) + "</b>. Punten zonder massa rekenen met " + fmt(model.defMass) + " kg.";
       else if (dn) dn.innerHTML = sim.sweep ? "Punten zonder eigen massa rekenen met " + fmt(model.defMass) + " kg. Kleinere tijdstap = nauwkeuriger en trager. Plot <b>totale energie E</b> om drift te zien." : "Nog geen oplossing \u2014 het stelsel is overbepaald of de integratie liep vast.";
     }
     if (model.mode === "frf") {
       const fn = document.getElementById("frfNote");
       if (sim.sweep && sim.sweep.frf) {
         const ms = sim.sweep.modes;
-        fn.innerHTML = (hasFriction() ? '<b style="color:var(--driver)">Wrijving telt in de FRF niet mee</b> (niet lineair). ' : "") + (sim.sweep.eqOK ? "Gelineariseerd rond het statische evenwicht" : '<b style="color:var(--driver)">Geen evenwicht gevonden</b>; gelineariseerd rond de stand op t = 0') + " \u2014 " + sim.sweep.k + " vrijheidsgra" + (sim.sweep.k === 1 ? "ad" : "den") + "." + (ms.length ? "<br>Eigenfrequenties: " + ms.map((m2) => m2.unstable ? '<b style="color:var(--bad)">instabiel</b>' : m2.f < 1e-6 ? "0 (vrij)" : "<b>" + fmtHz(m2.f) + "</b>" + (isFinite(m2.zeta) ? " (\u03B6 " + (m2.zeta * 100).toFixed(1) + "%)" : "")).join(", ") : "");
+        fn.innerHTML = (hasFriction() ? '<b style="color:var(--driver)">Wrijving telt in de FRF niet mee</b> (niet lineair). ' : "") + (sim.sweep.eqOK ? "Gelineariseerd rond het statische evenwicht" : '<b style="color:var(--driver)">Geen evenwicht gevonden</b>; gelineariseerd rond de stand op t = 0') + " \u2014 " + sim.sweep.k + " vrijheidsgra" + (sim.sweep.k === 1 ? "ad" : "den") + "." + (ms.length ? "<br>Eigenfrequenties: " + ms.map((m2) => m2.unstable ? '<b style="color:var(--bad)">instabiel</b>' : m2.f < 1e-6 ? "0 (vrij)" : "<b>" + fmtHz(m2.f) + "</b>" + (isFinite(m2.zeta) ? " (\u03B6 " + sg(m2.zeta * 100, 2) + " %)" : "")).join(", ") : "");
       } else fn.textContent = sim.frfMsg || "Kies een ingang en druk op Bereken.";
       note.innerHTML = "FRF: hoe een kleine trilling van de ingang doorwerkt, per frequentie. Veren, zwaartekracht en krachten bepalen de stijfheid; massa en dempers de rest.";
     }
@@ -7058,7 +7277,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       stSel.textContent = "flexure";
       const sel = (id, lab, opts, cur) => '<div class="row"><label for="' + id + '">' + lab + '</label><select id="' + id + '">' + opts.map((o) => '<option value="' + o[0] + '"' + (o[0] === cur ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></div>";
       const refs = flexRefs(e), cant = e.kind === "cantilever";
-      props.innerHTML = kind(ui.C.ink2, "Flexure (PRBM)") + '<p class="empty" style="margin:-4px 0 10px">Scharnier in ' + N(e.a).name + ", schakel naar " + N(e.b).name + "</p>" + sel("fk", "Type", Object.keys(FLEX_KINDS).map((k) => [k, FLEX_KINDS[k]]), e.kind) + numRow("fL", cant ? "Bladlengte L" : "Lengte bladen L", e.L, "mm", 1) + numRow("fwd", "Breedte b", e.wd, "mm", 0.5) + numRow("ft", "Dikte t", e.t, "mm", 0.01) + (e.kind === "notch" ? numRow("fR", "Inkepingsstraal R", e.R, "mm", 0.1) + numRow("fKt", "Spanningsconc. K\u209C", e.Kt, "\u2013", 0.1) : "") + sel("fm", "Materiaal", MATERIALS2.map((m) => [m.id, m.naam]), e.mat) + numRow("fsig", "\u03C3 toelaatbaar (0 = materiaal)", e.sig || 0, "MPa", 10) + numRow("fpre", "Voorspanning", e.pre || 0, "\xB0", 0.1) + sel("fref", "Draait ten opzichte van", [["", "de grond"]].concat(refs.map((r) => [r.id, "schakel " + N(r.a).name + N(r.b).name])), e.ref || "") + '<p class="empty" style="margin:10px 0 0"><b>Nu</b></p><p class="empty" id="fxLive" data-e="' + e.id + '" style="margin-top:2px">' + flexLive(e) + '</p><p class="empty" style="margin-top:8px">' + (cant ? "Pseudo-starre-lichaammodel (Howell): het karakteristieke scharnier ligt op " + nl4(fmt((1 - GAMMA) * e.L)) + " mm van de inklemming (a); de getekende schakel is \u03B3\xB7L = " + nl4(fmt(GAMMA * e.L)) + " mm lang. Teken a dus op die plek, niet op de inklemming zelf. " : "Het scharnier draait om punt a; de getekende schakel hoeft niet even lang te zijn als het blad. ") + "De draaiveer werkt in Dynamisch, Evenwicht en FRF. In Kinematisch telt de stijfheid niet mee (puur scharnier), maar de spanning wel.</p>";
+      props.innerHTML = kind(ui.C.ink2, "Flexure (PRBM)") + '<p class="empty" style="margin:-4px 0 10px">Scharnier in ' + N(e.a).name + ", schakel naar " + N(e.b).name + "</p>" + sel("fk", "Type", Object.keys(FLEX_KINDS).map((k) => [k, FLEX_KINDS[k]]), e.kind) + numRow("fL", cant ? "Bladlengte L" : "Lengte bladen L", e.L, "mm", 1) + numRow("fwd", "Breedte b", e.wd, "mm", 0.5) + numRow("ft", "Dikte t", e.t, "mm", 0.01) + (e.kind === "notch" ? numRow("fR", "Inkepingsstraal R", e.R, "mm", 0.1) + numRow("fKt", "Spanningsconc. K\u209C", e.Kt, "\u2013", 0.1) : "") + sel("fm", "Materiaal", MATERIALS2.map((m) => [m.id, m.naam]), e.mat) + numRow("fsig", "\u03C3 toelaatbaar (0 = materiaal)", e.sig || 0, "MPa", 10) + numRow("fpre", "Voorspanning", e.pre || 0, "\xB0", 0.1) + sel("fref", "Draait ten opzichte van", [["", "de grond"]].concat(refs.map((r) => [r.id, "schakel " + N(r.a).name + N(r.b).name])), e.ref || "") + '<p class="empty" style="margin:10px 0 0"><b>Nu</b></p><p class="empty" id="fxLive" data-e="' + e.id + '" style="margin-top:2px">' + flexLive(e) + '</p><p class="empty" style="margin-top:8px">' + (cant ? "Pseudo-starre-lichaammodel (Howell): het karakteristieke scharnier ligt op " + nl2(fmt((1 - GAMMA) * e.L)) + " mm van de inklemming (a); de getekende schakel is \u03B3\xB7L = " + nl2(fmt(GAMMA * e.L)) + " mm lang. Teken a dus op die plek, niet op de inklemming zelf. " : "Het scharnier draait om punt a; de getekende schakel hoeft niet even lang te zijn als het blad. ") + "De draaiveer werkt in Dynamisch, Evenwicht en FRF. In Kinematisch telt de stijfheid niet mee (puur scharnier), maar de spanning wel.</p>";
       bindNum("fL", (v) => {
         e.L = Math.max(0.01, v);
         if (cant) {
@@ -7156,7 +7375,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (!isAxial(e)) return h;
     const k = axialK(e), S = sim.sweep, i = Math.round(ui.frame);
     const F = S && !S.frf && S.EF && S.EF[e.id] ? S.EF[e.id][i] : NaN;
-    h += "<br>E <b>" + nlf(axialE(e)) + "</b> MPa \xB7 A <b>" + nlf(axialA(e)) + "</b> mm\xB2 \xB7 k = EA/L <b>" + nlf(k) + "</b> N/mm = <b>" + nlf(k / 1e3) + "</b> N/\xB5m<br>" + (isFinite(F) ? "N <b>" + nlf(F) + "</b> N \xB7 \u0394L = N/k <b>" + nlf(F / k * 1e3) + "</b> \xB5m \xB7 \u03C3 <b>" + nlf(axialSigma(e, F)) + "</b> MPa" : "N \u2013 \xB7 \u0394L \u2013 \xB7 \u03C3 \u2013 \xB7 nog geen doorgerekende stand");
+    h += "<br>E <b>" + nlf(axialE(e)) + "</b> MPa \xB7 A <b>" + nlf(axialA(e)) + "</b> mm\xB2 \xB7 k = EA/L <b>" + nlf(k) + "</b> N/mm = <b>" + fmtStiff(k) + "</b><br>" + (isFinite(F) ? "N <b>" + nlf(F) + "</b> N \xB7 \u0394L = N/k <b>" + nlf(F / k * 1e3) + "</b> \xB5m \xB7 \u03C3 <b>" + nlf(axialSigma(e, F)) + "</b> MPa" : "N \u2013 \xB7 \u0394L \u2013 \xB7 \u03C3 \u2013 \xB7 nog geen doorgerekende stand");
     if (model.mode === "dyn" && N(e.a) && N(e.b)) {
       const dt = loadcellDt(e, model.defMass), now = (model.dtStep || 0.2) / 1e3;
       h += '<br><span style="' + (now > dt ? "color:var(--driver);font-weight:600" : "") + '">Tijdstap \u2264 <b>' + nlf(dt * 1e3) + "</b> ms voor een stabiele integratie (nu " + nlf(now * 1e3) + " ms)" + (now > dt ? " \u2014 verklein hem in Instellingen" : "") + "</span>";
@@ -7266,11 +7485,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     });
   }
   function jointHtml(n) {
-    const nb = model.elems.filter((e) => isBeam(e) && (e.a === n.id || e.b === n.id)).length, sup2 = n.support !== "free";
-    if (!nb && !(sup2 && n.clamp)) return "";
+    const nb = model.elems.filter((e) => isBeam(e) && (e.a === n.id || e.b === n.id)).length, sup3 = n.support !== "free";
+    if (!nb && !(sup3 && n.clamp)) return "";
     const j = jointFor(n), cur = n.joint === "star" || n.joint === "pin" || n.joint === "spring" ? n.joint : "auto";
     const sym = { star: "\u25A0 Star", pin: "\u25CB Scharnier", spring: "\u27F2 Torsieveer" };
-    return '<div class="row" style="grid-template-columns:1fr;margin-top:12px"><label><b>Verbinding van de balken</b> <span class="unit">modus Stijfheid</span></label></div><div class="seg joint-seg" id="jointSeg">' + segBtn("auto", "Auto", cur) + segBtn("star", "\u25A0 Star", cur) + segBtn("pin", "\u25CB Scharnier", cur) + segBtn("spring", "\u27F2 Torsieveer", cur) + "</div>" + (j.type === "spring" ? numRow("pkth", "Torsiestijfheid k\u03B8", n.kth > 0 ? n.kth : 0, "N\xB7mm/rad", 100) : "") + (sup2 ? '<div class="chk" style="margin-top:6px"><input type="checkbox" id="pclamp"' + (n.clamp ? " checked" : "") + '><label for="pclamp">Ingeklemd (draaiing vast)</label></div>' : "") + '<p class="empty" style="margin:4px 0 0">Nu: <b>' + sym[j.type] + "</b>" + (j.auto ? " (automatisch)" : "") + ". " + (j.type === "star" ? "Momentvast: de balken delen de knoophoek. " : j.type === "pin" ? "Elke balk draait vrij in dit punt. " : "Elke balk draait tegen een veer k\u03B8 ten opzichte van het punt (op een oplegging: de grond). ") + "Auto: Star in een vrij punt met een balk; Scharnier bij een oplegging, tenzij ingeklemd.</p>";
+    return '<div class="row" style="grid-template-columns:1fr;margin-top:12px"><label><b>Verbinding van de balken</b> <span class="unit">modus Stijfheid</span></label></div><div class="seg joint-seg" id="jointSeg">' + segBtn("auto", "Auto", cur) + segBtn("star", "\u25A0 Star", cur) + segBtn("pin", "\u25CB Scharnier", cur) + segBtn("spring", "\u27F2 Torsieveer", cur) + "</div>" + (j.type === "spring" ? numRow("pkth", "Torsiestijfheid k\u03B8", n.kth > 0 ? n.kth : 0, "N\xB7mm/rad", 100) : "") + (sup3 ? '<div class="chk" style="margin-top:6px"><input type="checkbox" id="pclamp"' + (n.clamp ? " checked" : "") + '><label for="pclamp">Ingeklemd (draaiing vast)</label></div>' : "") + '<p class="empty" style="margin:4px 0 0">Nu: <b>' + sym[j.type] + "</b>" + (j.auto ? " (automatisch)" : "") + ". " + (j.type === "star" ? "Momentvast: de balken delen de knoophoek. " : j.type === "pin" ? "Elke balk draait vrij in dit punt. " : "Elke balk draait tegen een veer k\u03B8 ten opzichte van het punt (op een oplegging: de grond). ") + "Auto: Star in een vrij punt met een balk; Scharnier bij een oplegging, tenzij ingeklemd.</p>";
   }
   function bindJoint(n) {
     const go = (fn) => () => {
@@ -7304,7 +7523,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function nodeStiffLive(n) {
     const R = sim.stiff, d = model.mode === "stiff" && R && R.ok ? R.nodes.get(n.id) : null;
     if (!d) return "";
-    return '<p class="empty" style="margin:10px 0 0"><b>Verplaatsing</b></p><p class="empty" style="margin-top:2px">u\u2093 <b>' + nlf(d.ux * 1e3) + "</b> \xB5m \xB7 u<sub>y</sub> <b>" + nlf(d.uy * 1e3) + "</b> \xB5m" + (Number.isNaN(d.th) ? "" : " \xB7 \u03C6 <b>" + nlf(d.th * 1e6) + "</b> \xB5rad") + "</p>";
+    return '<p class="empty" style="margin:10px 0 0"><b>Verplaatsing</b></p><p class="empty" style="margin-top:2px">u\u2093 <b>' + fmtLen(d.ux) + "</b> \xB7 u<sub>y</sub> <b>" + fmtLen(d.uy) + "</b>" + (Number.isNaN(d.th) ? "" : " \xB7 \u03C6 <b>" + fmtAngle(d.th) + "</b>") + "</p>";
   }
   function beamLiveHtml(e) {
     if (!N(e.a) || !N(e.b)) return "";
@@ -7341,7 +7560,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const props2 = document.getElementById("props"), stSel = document.getElementById("stSel");
     const nmOf = (id) => N(id) ? N(id).name : "?";
     const sel = (id, lab, opts, cur) => '<div class="row"><label for="' + id + '">' + lab + '</label><select id="' + id + '">' + opts.map((o) => '<option value="' + o[0] + '"' + (o[0] === cur ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></div>";
-    const head = (txt2, sub2) => kind(ui.C.ink2, SENSORS[e.type].nm + " " + (e.name || "")) + '<p class="empty" style="margin:-4px 0 10px">' + sub2 + "</p>";
+    const head = (txt3, sub2) => kind(ui.C.ink2, SENSORS[e.type].nm + " " + (e.name || "")) + '<p class="empty" style="margin:-4px 0 10px">' + sub2 + "</p>";
     const tail = '<p class="empty" style="margin:10px 0 0"><b>Nu</b></p><p class="empty" id="snLive" data-e="' + e.id + '" style="margin-top:2px">' + sensorLiveHtml(e) + "</p>";
     stSel.textContent = SENSORS[e.type].short;
     if (e.type === "loadcell") {
@@ -7365,8 +7584,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         e.res = Math.max(0, v);
       });
     } else if (e.type === "encoder") {
-      const here = barsAt(e.node), nm = (b) => "schakel " + nmOf(b.a) + nmOf(b.b);
-      props2.innerHTML = head("", "in punt " + nmOf(e.node)) + sel("ene1", "Hoek van", here.map((b) => [b.id, nm(b)]), e.e1) + sel("ene2", "ten opzichte van", [["", "de grond"]].concat(here.filter((b) => b.id !== e.e1).map((b) => [b.id, nm(b)])), e.e2 || "") + numRow("encpr", "Resolutie", e.cpr, "counts/omw.", 256) + tail + '<p class="empty" style="margin-top:8px">E\xE9n count is 360\xB0/' + nl4(fmt(e.cpr)) + " = <b>" + nl4(fmt(encRes(e) * 180 / Math.PI)) + "\xB0</b> = <b>" + nl4(fmt(encRes(e) * 1e6)) + " \xB5rad</b>. De getoonde \u201Cgeteld\u201D hoek is afgerond op hele counts: dat is wat de encoder werkelijk kan zien. De hoek is relatief ten opzichte van de getekende stand. De encoder heeft geen massa of stijfheid.</p>";
+      const here = barsAt(e.node), nm2 = (b) => "schakel " + nmOf(b.a) + nmOf(b.b);
+      props2.innerHTML = head("", "in punt " + nmOf(e.node)) + sel("ene1", "Hoek van", here.map((b) => [b.id, nm2(b)]), e.e1) + sel("ene2", "ten opzichte van", [["", "de grond"]].concat(here.filter((b) => b.id !== e.e1).map((b) => [b.id, nm2(b)])), e.e2 || "") + numRow("encpr", "Resolutie", e.cpr, "counts/omw.", 256) + tail + '<p class="empty" style="margin-top:8px">E\xE9n count is 360\xB0/' + nl2(fmt(e.cpr)) + " = <b>" + nl2(fmt(encRes(e) * 180 / Math.PI)) + "\xB0</b> = <b>" + nl2(fmt(encRes(e) * 1e6)) + " \xB5rad</b>. De getoonde \u201Cgeteld\u201D hoek is afgerond op hele counts: dat is wat de encoder werkelijk kan zien. De hoek is relatief ten opzichte van de getekende stand. De encoder heeft geen massa of stijfheid.</p>";
       bindNum("encpr", (v) => {
         e.cpr = Math.max(1, Math.round(v));
       });
@@ -7401,13 +7620,13 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       });
     }
   }
-  var nlf = (v) => nl4(fmt(v));
+  var nlf = (v) => nl2(fmt(v));
   function sensorLiveHtml(e) {
     if (sim.sweep && sim.sweep.frf) return "FRF: de uitgang staat in het Bode-diagram (kies hem bij Metingen).";
     const L = sensorLive(e), none = " \xB7 nog geen doorgerekende beweging";
     let h = "";
     if (e.type === "loadcell") {
-      h = "k\u209B <b>" + nlf(springK(e)) + "</b> N/mm = <b>" + nlf(springK(e) / 1e3) + "</b> N/\xB5m<br>" + (L ? "F <b>" + nlf(L.F) + "</b> N \xB7 \u03B4 = F/k\u209B <b>" + nlf(L.d) + "</b> \xB5m" : "F \u2013 \xB7 \u03B4 \u2013" + none);
+      h = "k\u209B <b>" + nlf(springK(e)) + "</b> N/mm = <b>" + fmtStiff(springK(e)) + "</b><br>" + (L ? "F <b>" + nlf(L.F) + "</b> N \xB7 \u03B4 = F/k\u209B <b>" + nlf(L.d) + "</b> \xB5m" : "F \u2013 \xB7 \u03B4 \u2013" + none);
       if (model.mode === "dyn" && N(e.a) && N(e.b)) {
         const dt = loadcellDt(e, model.defMass), now = (model.dtStep || 0.2) / 1e3;
         h += '<br><span style="' + (now > dt ? "color:var(--driver);font-weight:600" : "") + '">Tijdstap \u2264 <b>' + nlf(dt * 1e3) + "</b> ms voor een stabiele integratie (nu " + nlf(now * 1e3) + " ms)" + (now > dt ? " \u2014 verklein hem in Instellingen" : "") + "</span>";
@@ -7415,9 +7634,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     } else if (e.type === "dsens") {
       h = L ? 'x <b style="' + (L.oor ? "color:var(--bad)" : "") + '">' + nlf(L.x) + "</b> \xB5m \xB7 afgerond op resolutie <b>" + nlf(L.q) + "</b> \xB5m<br>" + (L.oor ? '<span style="color:var(--bad);font-weight:600">buiten bereik (\xB1' + nlf(e.range) + " \xB5m)</span>" : "binnen bereik (\xB1" + nlf(e.range) + " \xB5m)") : "x \u2013" + none;
     } else if (e.type === "encoder") {
-      h = L ? "\u03B8 <b>" + nl4(L.th.toFixed(4)) + "</b>\xB0 = <b>" + nlf(L.thu) + "</b> \xB5rad<br>geteld <b>" + nl4(L.thq.toFixed(4)) + "</b>\xB0 (kwantisatiefout " + nlf((L.thq - L.th) * Math.PI / 180 * 1e6) + " \xB5rad)" : "\u03B8 \u2013" + none;
+      h = L ? "\u03B8 <b>" + sg(L.th, 5) + "</b>\xB0 = <b>" + nlf(L.thu) + "</b> \xB5rad<br>geteld <b>" + sg(L.thq, 5) + "</b>\xB0 (kwantisatiefout " + nlf((L.thq - L.th) * Math.PI / 180 * 1e6) + " \xB5rad)" : "\u03B8 \u2013" + none;
     } else if (e.type === "accel") {
-      h = L ? "a <b>" + nlf(L.a) + "</b> m/s\xB2 = <b>" + nl4(L.g.toFixed(3)) + "</b> g" : "a \u2013" + none;
+      h = L ? "a <b>" + nlf(L.a) + "</b> m/s\xB2 = <b>" + sg(L.g) + "</b> g" : "a \u2013" + none;
     }
     return h;
   }
@@ -7463,8 +7682,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function kind(color, text) {
     return '<span class="kind"><span class="dot" style="background:' + color + '"></span>' + text + "</span>";
   }
-  function segBtn(v, nm, cur) {
-    return '<button type="button" data-v="' + v + '" aria-pressed="' + (cur === v) + '">' + nm + "</button>";
+  function segBtn(v, nm2, cur) {
+    return '<button type="button" data-v="' + v + '" aria-pressed="' + (cur === v) + '">' + nm2 + "</button>";
   }
   function numRow(id, lab, val, unit, step2) {
     return '<div class="row"><label for="' + id + '">' + lab + ' <span class="unit">' + unit + '</span></label><input type="number" id="' + id + '" step="' + step2 + '" value="' + Math.round(val * 1e3) / 1e3 + '"></div>';
@@ -7668,7 +7887,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const r = odsRate(), f2 = curF(sim.sweep);
     if (!ui.playing) return fmtHz(f2);
     const k = r.factor;
-    return fmtHz(f2) + " \xB7 " + (k >= 0.995 ? "echte tijd" : k >= 0.1 ? +k.toFixed(2) + "\xD7" : "1/" + Math.round(1 / k) + "\xD7");
+    return fmtHz(f2) + " \xB7 " + (k >= 0.995 ? "echte tijd" : k >= 0.1 ? sg(k, 2) + "\xD7" : "1/" + Math.round(1 / k) + "\xD7");
   }
   function applyOds(ph) {
     const S = sim.sweep, o = shownOds(S), X = o.X;
@@ -7731,7 +7950,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       if (!(m > 1e-300)) return;
       a[si] = Math.log10(m);
       v[si] = { amp: m, ph: Math.atan2(z[1], z[0]) * 180 / Math.PI };
-      if (!first) first = chLab(sr.key) + ": " + nlc(m >= 1e4 || m < 0.01 ? m.toExponential(2) : m.toFixed(2)) + " " + (chU(sr.key) || "?") + "/" + S.inUnit + " \xB7 " + Math.round(v[si].ph) + "\xB0";
+      if (!first) first = chLab(sr.key) + ": " + sg(m) + " " + (chU(sr.key) || "?") + "/" + S.inUnit + " \xB7 " + Math.round(v[si].ph) + "\xB0";
     });
     ui.meet = ui.meetOn ? { f: f2, a, v } : null;
     if (document.activeElement !== meetFEl) meetFEl.value = +f2.toPrecision(5);
@@ -7841,7 +8060,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       document.getElementById("rewBtn").hidden = true;
       for (const id of ["stopBtn", "tprog", "solveBtn"]) document.getElementById(id).hidden = true;
       const m = document.getElementById("tmsg");
-      m.hidden = false;
+      m.hidden = ok;
       m.textContent = stiffMessage();
       if (!ok && ui.playing) togglePlay();
       syncLock();
@@ -7860,41 +8079,41 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     document.getElementById("stopBtn").hidden = !busy;
     document.getElementById("tprog").hidden = !busy;
     if (!on && ui.playing) togglePlay();
-    const msg2 = document.getElementById("tmsg");
+    const msg3 = document.getElementById("tmsg");
     scrub.hidden = !on;
     angOut.hidden = !on;
     speedSel.hidden = !on;
-    msg2.hidden = on;
+    msg3.hidden = on;
     if (on) angOut.textContent = fmtNow(Math.round(ui.frame));
     else if (busy) showProgress(sim.job.p);
-    else msg2.textContent = sweepReason();
+    else msg3.textContent = sweepReason();
     syncLock();
     syncResult();
     syncMeet();
   }
   var rewBtnEl = document.getElementById("rewBtn");
   function showProgress(p) {
-    const msg2 = document.getElementById("tmsg"), bar = document.getElementById("tprog");
+    const msg3 = document.getElementById("tmsg"), bar = document.getElementById("tprog");
     if (!p) {
-      msg2.textContent = "Rekenen\u2026";
+      msg3.textContent = "Rekenen\u2026";
       bar.removeAttribute("value");
       return;
     }
     if (p.phase === "frfeq") {
-      msg2.textContent = "Evenwicht zoeken\u2026 stap " + (p.it + 1);
+      msg3.textContent = "Evenwicht zoeken\u2026 stap " + (p.it + 1);
       bar.value = Math.min(0.5, p.it / 20);
       return;
     }
     if (p.phase === "frf") {
-      msg2.textContent = "Frequenties doorrekenen\u2026 " + Math.round(p.f / 3.6) + " %";
+      msg3.textContent = "Frequenties doorrekenen\u2026 " + Math.round(p.f / 3.6) + " %";
       bar.value = 0.5 + 0.5 * p.f / 360;
       return;
     }
     if (p.phase === "equil") {
-      msg2.textContent = "Evenwicht zoeken\u2026 t = " + p.t.toFixed(2) + " s";
+      msg3.textContent = "Evenwicht zoeken\u2026 t = " + fmtTime(p.t);
       bar.value = model.durMode === "equil" ? 0.5 * p.t / p.maxT : p.t / p.maxT;
     } else {
-      msg2.textContent = "Rekenen\u2026 " + Math.round(p.f / 3.6) + " %";
+      msg3.textContent = "Rekenen\u2026 " + Math.round(p.f / 3.6) + " %";
       bar.value = model.durMode === "equil" ? 0.5 + 0.5 * p.f / 360 : p.f / 360;
     }
   }
@@ -7941,8 +8160,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function markClean() {
     ui.unsaved = false;
   }
-  function setName(nm) {
-    model.name = (nm || "").trim() || "Naamloos";
+  function setName(nm2) {
+    model.name = (nm2 || "").trim() || "Naamloos";
     document.getElementById("docName").textContent = model.name;
     document.title = model.name + " \u2014 Mechanismeschets";
   }
@@ -7958,11 +8177,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     document.getElementById("askSave").focus();
   }
   var afterSave = null;
-  var fileNameOf = (nm) => (String(nm || "").replace(/[\\/:*?"<>|]+/g, "").trim() || "mechanisme") + ".mech.json";
+  var fileNameOf = (nm2) => (String(nm2 || "").replace(/[\\/:*?"<>|]+/g, "").trim() || "mechanisme") + ".mech.json";
   var dlCap = null;
-  function downloadModel(nm) {
-    const data = { app: "mechanismeschets", versie: 1, naam: nm, opgeslagen: (/* @__PURE__ */ new Date()).toISOString(), model: doc() };
-    const text = JSON.stringify(data, null, 1), fname = fileNameOf(nm);
+  function downloadModel(nm2) {
+    const data = { app: "mechanismeschets", versie: 1, naam: nm2, opgeslagen: (/* @__PURE__ */ new Date()).toISOString(), model: doc() };
+    const text = JSON.stringify(data, null, 1), fname = fileNameOf(nm2);
     const done = () => {
       markClean();
       toast("Opgeslagen als " + fname + " (in je map Downloads).");
@@ -7992,11 +8211,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     saveName.select();
   }
   function doSave() {
-    const nm = saveName.value.trim() || "mechanisme";
+    const nm2 = saveName.value.trim() || "mechanisme";
     saveModal.hidden = true;
-    setName(nm);
+    setName(nm2);
     save();
-    downloadModel(nm);
+    downloadModel(nm2);
     if (afterSave) {
       const f2 = afterSave;
       afterSave = null;
@@ -8742,7 +8961,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   var xUnit = "s";
   function fmtX(v) {
     if ((model.xAxis || "time") !== "time") return fmtTick(v);
-    return xUnit === "ms" ? (v * 1e3).toFixed(0) : v.toFixed(2);
+    return xUnit === "ms" ? tickStr(v * 1e3, 1) : tickStr(v, 0.01);
   }
   var serieLab = (sr) => sr.expr ? sr.expr : chLab(sr.key);
   function buildPdata() {
@@ -8758,7 +8977,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         try {
           const c2 = compile(sr.expr);
           u = exprUnit(c2.used, sr.expr);
-          get = (i) => c2.f((nm) => nm === "t" ? sim.sweep.t[i] : chVal(sim.sweep, alias(nm).key, i));
+          get = (i) => c2.f((nm2) => nm2 === "t" ? sim.sweep.t[i] : chVal(sim.sweep, alias(nm2).key, i));
         } catch (e) {
           err = e.message;
         }
@@ -8860,11 +9079,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   }
   function fmtPow(v) {
     const x = Math.pow(10, v);
-    if (Math.abs(v - Math.round(v)) < 1e-9) {
-      const r = Math.round(v);
-      return r >= -2 && r <= 3 ? String(+x.toFixed(Math.max(0, -r))) : "1e" + r;
-    }
-    return x >= 1e4 || x < 0.01 ? x.toExponential(1) : String(+x.toPrecision(2));
+    if (Math.abs(v - Math.round(v)) < 1e-9) return powTick(v);
+    return sg(x, 2);
   }
   var PAD = { L: 46, R: 12, T: 20, B: 22 };
   function xRange() {
@@ -8993,8 +9209,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         hx += pctx.measureText("[" + (sb.u || "\u2013") + "]").width + 10;
         pctx.font = '400 10.5px "IBM Plex Sans", ui-sans-serif, sans-serif';
         for (const s of sb.set) {
-          const nm = serieLab(model.series[s.si]);
-          const nw = pctx.measureText(nm).width;
+          const nm2 = serieLab(model.series[s.si]);
+          const nw = pctx.measureText(nm2).width;
           if (hx + 14 + nw > w - PAD.R) {
             pctx.fillStyle = ui.C.ink3;
             pctx.fillText("\u2026", hx, top + 9);
@@ -9003,7 +9219,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           pctx.fillStyle = serieColor(s.si);
           pctx.fillRect(hx, top + 8, 9, 2.5);
           pctx.fillStyle = ui.C.ink2;
-          pctx.fillText(nm, hx + 13, top + 9);
+          pctx.fillText(nm2, hx + 13, top + 9);
           hx += 13 + nw + 12;
         }
         pctx.font = '400 10px "IBM Plex Mono", ui-monospace, monospace';
@@ -9178,17 +9394,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return out;
   }
   function fmtTick(v, step2) {
+    if (step2 > 0) return tickStr(v, step2);
     const a = Math.abs(v);
-    if (step2 > 0) {
-      if (a >= 1e5) return v.toExponential(1);
-      if (step2 < 1e-4) return Math.abs(v) < step2 / 2 ? "0" : v.toExponential(1);
-      const d = Math.max(0, Math.min(6, Math.ceil(-Math.log10(step2)) + 1));
-      return v.toFixed(d);
-    }
-    if (a >= 1e5 || a > 0 && a < 0.01) return v.toExponential(0);
-    if (a >= 100) return v.toFixed(0);
-    if (a >= 10) return v.toFixed(1);
-    return v.toFixed(2);
+    if (a >= 100) return tickStr(v, 1);
+    if (a >= 10) return tickStr(v, 0.1);
+    return sg(v, 2);
   }
   function initPlot() {
     xSel.addEventListener("change", () => {
@@ -9240,8 +9450,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         }
         lines.push(r.join(","));
       }
-      const txt2 = lines.join("\n");
-      navigator.clipboard.writeText(txt2).then(
+      const txt3 = lines.join("\n");
+      navigator.clipboard.writeText(txt3).then(
         () => {
           document.getElementById("hint").innerHTML = "<b>CSV naar klembord</b> \u2014 " + (lines.length - 1) + " regels.";
         },
@@ -9318,7 +9528,6 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   }
 
   // src/ui/stiffdraw.js
-  var nl5 = (s) => String(s).replace(".", ",");
   var STOPS = [[0, [58, 110, 190]], [0.12, [38, 168, 160]], [0.32, [128, 198, 66]], [0.62, [240, 190, 40]], [1, [214, 56, 47]]];
   function stressColor(r) {
     const t = Math.max(0, Math.min(1, isFinite(r) ? r : 0));
@@ -9403,7 +9612,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         const mag = Math.hypot(d.ux, d.uy) * 1e3;
         if (!(mag > 1e-6) || mag < res2.maxDisp * 1e3 * 0.2) continue;
         const i = sys.nIdx.get(n.id), p = toScr({ x: n.x + sh.scale * u[3 * i], y: n.y + sh.scale * u[3 * i + 1] });
-        label2(p.x + 10, p.y + 16, sg(mag) + " \xB5m", ui.C.driver, true, 1);
+        label2(p.x + 10, p.y + 16, fmtLen(mag / 1e3), ui.C.driver, true, 1);
       }
       if (model.showForces) drawReactions(res2, label2);
       legend(res2);
@@ -9413,7 +9622,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       ctx.font = '500 12px "IBM Plex Sans", system-ui, sans-serif';
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
-      ctx.fillText("Mode " + (ui.stiffMode + 1) + " \xB7 " + nl5(m.f < 10 ? m.f.toPrecision(3) : m.f < 1e3 ? m.f.toFixed(1) : m.f.toFixed(0)) + " Hz", 14, 12);
+      ctx.fillText("Mode " + (ui.stiffMode + 1) + " \xB7 " + fmtHz(m.f), 14, 12);
     }
   }
   function drawReactions(res2, label2) {
@@ -9440,7 +9649,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       ctx.lineTo(tip.x - ux * 8 - px * 4.4, tip.y - uy * 8 - py * 4.4);
       ctx.closePath();
       ctx.fill();
-      label2(tip.x + ux * 14, tip.y + uy * 14, sg(mag) + " N" + (r.clamp && Math.abs(r.Mz) > 1e-9 ? " \xB7 " + sg(r.Mz / 1e3) + " N\xB7m" : ""), ui.C.accent, false, 1);
+      label2(tip.x + ux * 14, tip.y + uy * 14, fmtForce(mag, 3, mx * REL_FE / 1e-9) + (r.clamp && Math.abs(r.Mz / 1e3) > 1e-9 * mx ? " \xB7 " + fmtMoment(r.Mz / 1e3) : ""), ui.C.accent, false, 1);
     }
   }
   function legend(res2) {
@@ -9488,10 +9697,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     ctx.setLineDash([]);
     for (const n of model.nodes) {
       const bs = model.elems.filter((e) => isBeam(e) && (e.a === n.id || e.b === n.id) && N(e.a) && N(e.b));
-      const sup2 = n.support === "pin" || n.support === "slider";
-      if (!bs.length && !(sup2 && n.clamp)) continue;
+      const sup3 = n.support === "pin" || n.support === "slider";
+      if (!bs.length && !(sup3 && n.clamp)) continue;
       const j = jointFor(n), s = toScr(n);
-      if (sup2 && n.clamp && bs.length) {
+      if (sup3 && n.clamp && bs.length) {
         const e = bs[0], o = N(e.a === n.id ? e.b : e.a), so = toScr(o);
         let ux = so.x - s.x, uy = so.y - s.y;
         const L = Math.hypot(ux, uy) || 1;
@@ -9513,7 +9722,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           ctx.stroke();
         }
       }
-      if (j.type === "star" && bs.length && !(sup2 && n.clamp)) {
+      if (j.type === "star" && bs.length && !(sup3 && n.clamp)) {
         ctx.fillStyle = ui.C.ink;
         ctx.strokeStyle = ui.C.ground;
         ctx.lineWidth = 1.2;
@@ -9731,7 +9940,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       ctx.lineTo(tip.x - ux * 9 - px * 4.8, tip.y - uy * 9 - py * 4.8);
       ctx.closePath();
       ctx.fill();
-      label(tip.x + ux * 14, tip.y + uy * 14, fmt(mag) + " N", ui.C.accent, false, 1);
+      label(tip.x + ux * 14, tip.y + uy * 14, fmtForce(mag), ui.C.accent, false, 1);
     }
     for (const e of model.elems) {
       if (!isBar(e) && !isAxial(e) || e.type === "loadcell") continue;
@@ -9741,7 +9950,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       label(
         (A.x + B.x) / 2,
         (A.y + B.y) / 2 + 13,
-        (v >= 0 ? "+" : "") + fmt(v) + " N",
+        (v >= 0 ? "+" : "") + fmtForce(v),
         v >= 0 ? ui.C.spring : ui.C.force,
         false,
         1
@@ -9751,7 +9960,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const T = sim.sweep.T[d.id] ? sim.sweep.T[d.id][i] : NaN;
       if (!isFinite(T)) continue;
       const p = toScr(N(d.a));
-      label(p.x, p.y - 34, "T = " + T.toFixed(3) + " N\xB7m", ui.C.driver, false, 1);
+      label(p.x, p.y - 34, "T = " + fmtMoment(T), ui.C.driver, false, 1);
     }
   }
   function isSel(id) {
@@ -9872,7 +10081,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     );
   }
   var GL = 34;
-  var nf = (v) => fmt(v).replace(".", ",");
+  var nf = (v) => fmt(v);
   function sensorSeg(e) {
     const A = N(e.type === "encoder" || e.type === "accel" ? e.node : e.a);
     if (!A) return null;
@@ -9885,8 +10094,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function drawSensor(e) {
     const g = sensorSeg(e);
     if (!g) return;
-    const live = sensorLive(e), hl = isSel(e.id) || isHov(e.id), nm = e.name || SENSORS[e.type].pre;
-    let col = ui.C.ink2, txt2 = nm, sub2 = "", bad = false;
+    const live = sensorLive(e), hl = isSel(e.id) || isHov(e.id), nm2 = e.name || SENSORS[e.type].pre;
+    let col = ui.C.ink2, txt3 = nm2, sub2 = "", bad = false;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     const halo = (w2, f2) => {
@@ -9933,10 +10142,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         ctx.stroke();
       } else col = ui.C.ink3;
       if (live) {
-        txt2 += " " + nf(live.th) + "\xB0";
+        txt3 += " " + nf(live.th) + "\xB0";
         sub2 = "\xB5rad " + nf(live.thu) + " \xB7 geteld " + nf(live.thq) + "\xB0";
       }
-      label(g.a.x, g.a.y + r + 13, txt2, col, false, 0);
+      label(g.a.x, g.a.y + r + 13, txt3, col, false, 0);
       if (sub2) label(g.a.x, g.a.y + r + 27, sub2, ui.C.ink3, false, 2);
       return;
     }
@@ -9974,11 +10183,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       ctx.lineTo(...at(t0 + bl * 0.75, w2 * 0.6));
       ctx.stroke();
       if (live) {
-        txt2 += " " + nf(live.F) + " N";
+        txt3 += " " + nf(live.F) + " N";
         sub2 = "\u03B4 " + nf(live.d) + " \xB5m";
       }
       const m = at(L / 2, 0);
-      label(m[0] + px * 19, m[1] + py * 19, txt2, col, false, 0);
+      label(m[0] + px * 19, m[1] + py * 19, txt3, col, false, 0);
       if (sub2) label(m[0] + px * 33, m[1] + py * 33, sub2, ui.C.ink3, false, 2);
       return;
     }
@@ -10023,12 +10232,12 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       ctx.lineTo(tip[0] - ax * 5 + ay * 3, tip[1] - ay * 5 - ax * 3);
       ctx.stroke();
       if (live) {
-        txt2 += live.oor ? " buiten bereik" : " " + nf(live.x) + " \xB5m";
+        txt3 += live.oor ? " buiten bereik" : " " + nf(live.x) + " \xB5m";
         bad = live.oor;
         sub2 = "\xB1" + nf(e.range) + " \xB5m \xB7 res " + nf(e.res) + " \xB5m";
       }
       const q2 = at(m, 0);
-      label(q2[0] + px * 17, q2[1] + py * 17, txt2, bad ? ui.C.bad : col, false, 0);
+      label(q2[0] + px * 17, q2[1] + py * 17, txt3, bad ? ui.C.bad : col, false, 0);
       if (sub2) label(q2[0] + px * 31, q2[1] + py * 31, sub2, ui.C.ink3, false, 2);
       return;
     }
@@ -10055,11 +10264,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     ctx.lineTo(...at(12 + 2 * h + 3, -3.5));
     ctx.stroke();
     if (live) {
-      txt2 += " " + nf(live.a) + " m/s\xB2";
+      txt3 += " " + nf(live.a) + " m/s\xB2";
       sub2 = nf(live.g) + " g \xB7 +" + nf((e.m >= 0 ? e.m : 0.01) * 1e3) + " g massa";
     }
     const q = at(12 + h, 0);
-    label(q[0] + px * 22, q[1] + py * 22, txt2, col, false, 0);
+    label(q[0] + px * 22, q[1] + py * 22, txt3, col, false, 0);
     if (sub2) label(q[0] + px * 36, q[1] + py * 36, sub2, ui.C.ink3, false, 2);
   }
   function drawActuator(e) {
@@ -10167,7 +10376,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     ctx.lineTo(A.x + ux * (lead + coilL), A.y + uy * (lead + coilL));
     ctx.lineTo(B.x, B.y);
     ctx.stroke();
-    label((A.x + B.x) / 2, (A.y + B.y) / 2 + 20, "k = " + fmt(e.k) + " N/mm", ui.C.spring);
+    label((A.x + B.x) / 2, (A.y + B.y) / 2 + 20, "k = " + fmtStiff(e.k), ui.C.spring);
   }
   function drawDamper(e) {
     const A = toScr(N(e.a)), B = toScr(N(e.b));
@@ -10323,7 +10532,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     label(
       foot.x - nx * 16 + ux * (half + 4),
       foot.y - ny * 16 + uy * (half + 4),
-      "contact" + (st && !st.open ? " " + fmt(st.Fn) + " N" + (slip ? " slip" : " plakt") : ""),
+      "contact" + (st && !st.open ? " " + fmtForce(st.Fn) + (slip ? " slip" : " plakt") : ""),
       col,
       false,
       2
@@ -10354,7 +10563,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     ctx.lineTo(tail.x + ux * 11 - pxv * 4.6, tail.y + uy * 11 - pyv * 4.6);
     ctx.closePath();
     ctx.fill();
-    label(tip.x + ux * 12, tip.y + uy * 12, fmt(e.mag) + " N", ui.C.force, false, 1);
+    label(tip.x + ux * 12, tip.y + uy * 12, fmtForce(e.mag), ui.C.force, false, 1);
   }
   function drawSupport(n) {
     const s = toScr(n);
@@ -10869,7 +11078,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     ui.sel = null;
     ui.pending = null;
-    if (after) after((nm) => model.nodes.find((n) => n.name === nm));
+    if (after) after((nm2) => model.nodes.find((n) => n.name === nm2));
     fit();
     changed();
     if (asyncMode()) solveNow();
@@ -11675,30 +11884,198 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return { V, A, m, C, tau: C / (h * A), Lc: V / A, Bi: h * (V / A) / k, dTss: P / (h * A) };
   }
 
+  // src/ui/report.js
+  var FOOT = "Thalomex Precision Toolbox \u2014 controleer kritische waarden altijd onafhankelijk";
+  var esc4 = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  function buildInfo() {
+    const ver = (document.querySelector(".brand .ver") || {}).textContent || "";
+    const m = document.querySelector('meta[name="mech-build"]');
+    const hash = m && /^[0-9a-f]{4,40}$/i.test(m.content) ? m.content : "";
+    return { ver, hash, text: (ver || "onbekende versie") + (hash ? " \xB7 " + hash : "") };
+  }
+  function dateText() {
+    const d = /* @__PURE__ */ new Date(), p = (n) => String(n).padStart(2, "0");
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+  var root = null;
+  var prevTitle = "";
+  var prevFocus = null;
+  function ensure() {
+    if (root) return root;
+    root = document.createElement("div");
+    root.id = "report";
+    root.hidden = true;
+    root.setAttribute("role", "dialog");
+    root.setAttribute("aria-modal", "true");
+    root.setAttribute("aria-label", "Rekenblad");
+    root.innerHTML = '<div class="rep-bar"><b>Rekenblad</b><span class="rep-grow"></span><span id="repMsg" role="status" aria-live="polite"></span><button type="button" class="btn primary" id="repPrint" title="Afdrukken of bewaren als PDF (A4)">Afdrukken / PDF</button><button type="button" class="btn" id="repCopy" title="Het hele rekenblad als platte tekst naar het klembord">Kopieer als tekst</button><button type="button" class="btn" id="repClose" title="Sluiten (Esc)">Sluiten</button></div><article class="rep-page" id="repPage"></article>';
+    document.body.appendChild(root);
+    root.querySelector("#repClose").addEventListener("click", closeReport);
+    root.querySelector("#repPrint").addEventListener("click", () => {
+      window.print();
+    });
+    root.querySelector("#repCopy").addEventListener("click", () => {
+      const t = textOf();
+      toClipboard(t).then((ok) => msg(ok ? "Gekopieerd (" + t.split("\n").length + " regels)." : "Kopi\xEBren geweigerd door de browser."));
+    });
+    document.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape" && !root.hidden) {
+        ev.stopPropagation();
+        closeReport();
+      }
+    }, true);
+    return root;
+  }
+  var customText = "";
+  function msg(t) {
+    const m = document.getElementById("repMsg");
+    m.textContent = t;
+    setTimeout(() => {
+      if (m.textContent === t) m.textContent = "";
+    }, 2500);
+  }
+  function toClipboard(t) {
+    const fallback = () => {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = t;
+        ta.style.cssText = "position:fixed;opacity:0";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        ta.remove();
+        return ok;
+      } catch (_) {
+        return false;
+      }
+    };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t).then(() => true, () => fallback());
+    } catch (_) {
+    }
+    return Promise.resolve(fallback());
+  }
+  var INLINE = /^(SPAN|B|I|EM|STRONG|SUB|SUP|CODE|A|SMALL|BR|LABEL)$/;
+  function inl(n) {
+    if (n.nodeType === 3) return n.textContent;
+    if (n.nodeType !== 1) return "";
+    if (n.tagName === "BR") return "; ";
+    const t = Array.prototype.map.call(n.childNodes, inl).join("");
+    return n.tagName === "SUB" ? "_" + t : n.tagName === "SUP" ? "^" + t : t;
+  }
+  var clean = (t) => t.replace(/\s+/g, " ").trim();
+  function walk(node, out) {
+    let buf = "";
+    const flush = () => {
+      const t = clean(buf);
+      if (t) out.push(t);
+      buf = "";
+    };
+    Array.prototype.forEach.call(node.childNodes, (ch) => {
+      if (ch.nodeType === 3) {
+        buf += ch.textContent;
+        return;
+      }
+      if (ch.nodeType !== 1 || ch.hidden) return;
+      const tag = ch.tagName;
+      if (INLINE.test(tag) && !ch.querySelector("table, div, p, ul")) {
+        buf += inl(ch);
+        return;
+      }
+      flush();
+      if (tag === "IMG" || tag === "SVG" || tag === "svg" || tag === "CANVAS") return;
+      if (/^H[12]$/.test(tag)) {
+        out.push("", tag === "H1" ? clean(ch.textContent) : clean(ch.textContent).toUpperCase());
+        return;
+      }
+      if (/^H[3-6]$/.test(tag)) {
+        out.push("", clean(ch.textContent));
+        return;
+      }
+      if (tag === "TABLE") {
+        Array.prototype.forEach.call(ch.rows, (r) => out.push(Array.prototype.map.call(r.cells, (c2) => clean(inl(c2))).join("	")));
+        return;
+      }
+      if (tag === "UL" || tag === "OL") {
+        Array.prototype.forEach.call(ch.children, (li) => {
+          const t = clean(inl(li));
+          if (t) out.push("  - " + t);
+        });
+        return;
+      }
+      if (tag === "DL") {
+        if (ch.classList.contains("rep-meta")) {
+          Array.prototype.forEach.call(ch.children, (kv2) => out.push(clean(inl(kv2.children[0])) + ": " + clean(inl(kv2.children[1]))));
+          return;
+        }
+        const kids = Array.prototype.slice.call(ch.children);
+        for (let i = 0; i < kids.length; i++) if (kids[i].tagName === "DT") out.push("  " + clean(inl(kids[i])) + (kids[i + 1] && kids[i + 1].tagName === "DD" ? ": " + clean(inl(kids[i + 1])) : ""));
+        return;
+      }
+      walk(ch, out);
+    });
+    flush();
+  }
+  function textOf() {
+    if (customText) return customText;
+    const out = [];
+    walk(document.getElementById("repPage"), out);
+    return out.join("\n").replace(/^\n+/, "");
+  }
+  function showReport(spec) {
+    ensure();
+    const bi = buildInfo();
+    const meta = [["Datum", dateText()], ["App", "Mechanismeschets " + bi.text]].concat(spec.meta || []);
+    const h = ['<header class="rep-head"><h1>' + esc4(spec.title) + "</h1>" + (spec.sub ? '<p class="rep-sub">' + esc4(spec.sub) + "</p>" : "") + '<dl class="rep-meta">' + meta.map((m) => '<div class="rep-kv"><dt>' + esc4(m[0]) + "</dt><dd>" + esc4(m[1]) + "</dd></div>").join("") + "</dl></header>"];
+    spec.sections.forEach((s) => {
+      if (s && s.html) h.push('<section class="rep-sec"><h2>' + esc4(s.h) + "</h2>" + s.html + "</section>");
+    });
+    h.push('<footer class="rep-foot">' + esc4(FOOT) + "</footer>");
+    const page = document.getElementById("repPage");
+    page.innerHTML = h.join("");
+    page.querySelectorAll(".hw-copy").forEach((b) => b.remove());
+    customText = spec.text || "";
+    prevTitle = document.title;
+    prevFocus = document.activeElement;
+    document.title = "Rekenblad \u2013 " + spec.title;
+    root.hidden = false;
+    root.scrollTop = 0;
+    document.getElementById("repPrint").focus();
+    return root;
+  }
+  function closeReport() {
+    if (!root || root.hidden) return;
+    root.hidden = true;
+    document.title = prevTitle;
+    if (prevFocus && prevFocus.focus) {
+      try {
+        prevFocus.focus();
+      } catch (_) {
+      }
+    }
+  }
+
   // src/ui/calc.js
   var $ = (id) => document.getElementById(id);
   var DEG2 = Math.PI / 180;
-  var NNBSP = "\u202F";
   var nonFin = 0;
   function sig(x, n) {
-    if (!isFinite(x)) {
+    if (typeof x === "number" && !isFinite(x) && !isNaN(x)) {
       nonFin++;
       return x > 0 ? "\u221E" : "\u2014";
     }
-    if (x === 0) return "0";
-    const a = Math.abs(x), d = Math.min(8, Math.max(0, n - 1 - Math.floor(Math.log10(a))));
-    let s = Math.abs(x).toFixed(d);
-    if (s.indexOf(".") >= 0) s = s.replace(/0+$/, "").replace(/\.$/, "");
-    const parts = s.split("."), ip = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, NNBSP);
-    const out = parts.length > 1 ? ip + "," + parts[1] : ip;
-    return (x < 0 && /[1-9]/.test(s) ? "\u2212" : "") + out;
+    if (isNaN(x)) {
+      nonFin++;
+      return "\u2014";
+    }
+    return numStr(x, n);
   }
   var num3 = (x, n) => sig(x, n || 3);
   function fr(a, b) {
     return '<span class="fr"><span>' + a + "</span><span>" + b + "</span></span>";
   }
   var sub = (s, t) => s + "<sub>" + t + "</sub>";
-  var sup = (s, t) => s + "<sup>" + t + "</sup>";
+  var sup2 = (s, t) => s + "<sup>" + t + "</sup>";
   var LIT = {
     soemers: "Soemers, <i>Design Principles for Precision Mechanisms</i> (T-Pointprint, 2010), par. bladveren",
     roark: "Young &amp; Budynas, <i>Roark\u2019s Formulas for Stress and Strain</i> (McGraw-Hill, 7e, 2002), balkformules",
@@ -11940,7 +12317,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         };
       },
       formulas: (p, M, r) => [
-        ["Draaistijfheid (Paros\u2013Weisbord)", sub("c", "\u03C6") + " \u2248 " + fr("2\xB7E\xB7b\xB7" + sup("t", "5/2"), "9\u03C0\xB7\u221AR"), sub("c", "\u03C6") + " = " + fr("2\xB7" + num3(r.E) + "\xB7" + num3(p.b) + "\xB7" + num3(p.t) + "<sup>5/2</sup>", "9\u03C0\xB7\u221A" + num3(p.R)) + " = " + num3(r.c) + " N\xB7mm/rad = " + num3(r.c / 1e3) + " N\xB7m/rad", LIT.pw],
+        ["Draaistijfheid (Paros\u2013Weisbord)", sub("c", "\u03C6") + " \u2248 " + fr("2\xB7E\xB7b\xB7" + sup2("t", "5/2"), "9\u03C0\xB7\u221AR"), sub("c", "\u03C6") + " = " + fr("2\xB7" + num3(r.E) + "\xB7" + num3(p.b) + "\xB7" + num3(p.t) + "<sup>5/2</sup>", "9\u03C0\xB7\u221A" + num3(p.R)) + " = " + num3(r.c) + " N\xB7mm/rad = " + num3(r.c / 1e3) + " N\xB7m/rad", LIT.pw],
         ["Nominale buigspanning", sub("\u03C3", "nom") + " = " + fr("6\xB7M", "b\xB7t\xB2") + " = " + fr("4", "3\u03C0") + "\xB7E\xB7\u221A" + fr("t", "R") + "\xB7\u03C6", sub("\u03C3", "nom") + " = " + num3(r.sNom) + " MPa", LIT.pw + "; " + LIT.smith],
         ["Piekspanning", sub("\u03C3", "max") + " = " + sub("K", "t") + "\xB7" + sub("\u03C3", "nom"), sub("\u03C3", "max") + " = " + num3(p.Kt) + "\xB7" + num3(r.sNom) + " = " + num3(r.sigma) + " MPa", LIT.smith],
         ["Veiligheidsfactor", "n = " + fr(sub("\u03C3", "toel"), sub("\u03C3", "max")), "n = " + (isFinite(nFac(r, M)) ? num3(nFac(r, M)) : "\u221E"), "Gere &amp; Goodno, <i>Mechanics of Materials</i>"],
@@ -13468,7 +13845,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     c2.inputs.forEach((i) => {
       if (i.type !== "mat") body[grpOf(i)] += inputHtml(c2, i, v);
     });
-    let h = '<div class="calc-head"><div><h2>' + c2.name + '</h2><p class="calc-sub">' + c2.short + '</p></div><div class="calc-acts"><button type="button" class="calc-reset" id="calcCopy" title="Kopieer een rekenblad (invoer, uitkomsten, formules, bronnen) als tekst">Kopieer</button><button type="button" class="calc-reset" id="calcLink" title="Kopieer een link met deze invoerwaarden">Link</button><button type="button" class="calc-reset" id="calcReset" title="Zet deze calculator terug op de beginwaarden">\u21BA Reset</button></div></div><div class="calc-actmsg" id="calcActMsg" role="status" aria-live="polite"></div>';
+    let h = '<div class="calc-head"><div><h2>' + c2.name + '</h2><p class="calc-sub">' + c2.short + '</p></div><div class="calc-acts"><button type="button" class="calc-reset" id="calcCopy" title="Kopieer een rekenblad (invoer, uitkomsten, formules, bronnen) als tekst">Kopieer</button><button type="button" class="calc-reset" id="calcPrint" title="Een schoon A4-rekenblad om af te drukken of als PDF te bewaren">Rekenblad</button><button type="button" class="calc-reset" id="calcLink" title="Kopieer een link met deze invoerwaarden">Link</button><button type="button" class="calc-reset" id="calcReset" title="Zet deze calculator terug op de beginwaarden">\u21BA Reset</button></div></div><div class="calc-actmsg" id="calcActMsg" role="status" aria-live="polite"></div>';
     h += '<div class="calc-grid" id="calcGrid"><div class="calc-keys">' + [0, 1, 2].map((n) => '<div class="calc-key" data-key="' + n + '"><span class="k"></span><b class="v">0<span class="u"></span></b><span class="s"></span></div>').join("") + "</div>";
     h += '<div class="calc-left"><figure class="calc-fig"><svg id="calcSvg" viewBox="0 0 320 245" role="img" aria-label="Schets met afmetingen"></svg></figure><div id="calcWarn" class="calc-warnbox"></div><dl class="calc-res" id="calcOut"></dl></div>';
     h += '<div class="calc-right"><div class="calc-inputs">' + secHtml("Geometrie", body.Geometrie) + (body.Materiaal ? secHtml("Materiaal", body.Materiaal) : "") + secHtml("Belasting", body.Belasting) + "</div>";
@@ -13608,6 +13985,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         doCopy();
         return;
       }
+      if (e.target.closest("#calcPrint")) {
+        doPrint();
+        return;
+      }
       if (e.target.closest("#calcLink")) {
         doLink();
         return;
@@ -13638,16 +14019,16 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       renderDetail();
     }
   }
-  function msg(t) {
+  function msg2(t) {
     const e = $("calcActMsg");
     if (!e) return;
     e.textContent = t;
-    clearTimeout(msg.tm);
-    msg.tm = setTimeout(() => {
+    clearTimeout(msg2.tm);
+    msg2.tm = setTimeout(() => {
       e.textContent = "";
     }, 3500);
   }
-  async function toClipboard(text) {
+  async function toClipboard2(text) {
     try {
       await navigator.clipboard.writeText(text);
       return true;
@@ -13759,14 +14140,56 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     out.push("", "LINK", "  " + linkUrl());
     return out.join("\n");
   }
+  function openCalcReport() {
+    const L = REF2 && REF2.last;
+    if (!L) {
+      msg2("Controleer eerst de invoer.");
+      return;
+    }
+    const c2 = L.c, p = L.p, M = L.M, m = material(state.mats[c2.id]), own = ownMat(c2);
+    const e = (x) => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    const tb = (head, rows) => '<table class="rep-tbl"><thead><tr>' + head.map((h) => "<th>" + h + "</th>").join("") + "</tr></thead><tbody>" + rows.map((r) => "<tr>" + r.map((x) => "<td>" + x + "</td>").join("") + "</tr>").join("") + "</tbody></table>";
+    const matLine = (mm) => e(mm.naam) + ": E = " + num3(mm.E / 1e3) + " GPa, \u03BD = " + num3(mm.nu) + ", \u03B1 = " + num3(mm.alpha) + " \xB5m/(m\xB7K), \u03C1 = " + num3(mm.rho) + " kg/m\xB3";
+    const inRows = c2.inputs.map((i) => {
+      const x = p[i.id];
+      if (i.type === "check") return [e(plain2(i.label)), x ? "ja" : "nee", ""];
+      if (i.type === "select") return [e(plain2(i.label)), e(plain2(i.options.filter((o) => o[0] === x).map((o) => o[1])[0] || x)), ""];
+      if (i.type === "mat") return [e(plain2(i.label)), matLine(material(x)), ""];
+      return [e(plain2(i.label)), num3(x), e(plain2(i.unit || ""))];
+    });
+    if (!own) inRows.push(["Materiaal", matLine(m), ""]);
+    inRows.push([e(plain2(c2.lim ? c2.lim.label : "\u03C3_toel")), num3(M.sigma), e(c2.lim ? c2.lim.unit : "MPa")]);
+    const svg = $("calcSvg");
+    const fig = svg ? '<figure class="rep-fig rep-svg calc-fig">' + svg.outerHTML.replace(/calcArr/g, "repArr").replace(/calcHatch/g, "repHatch").replace(/ id="calcSvg"/, "") + "<figcaption>Schets met afmetingen (niet op schaal).</figcaption></figure>" : "";
+    const warn2 = L.o.warn.length ? '<ul class="rep-list rep-warn">' + L.o.warn.map((w) => "<li>" + e(w) + "</li>").join("") + "</ul>" : "";
+    const frm = c2.formulas(p, M, L.r).map((x) => [x[0], x[1] + (x[2] ? '<div class="rep-eval">= ' + x[2] + "</div>" : ""), x[3] ? e(plain2(x[3])) : ""]);
+    showReport({
+      title: c2.name,
+      sub: "Rekenblad calculator \xB7 " + plain2(c2.short),
+      meta: [["Calculator", c2.name]],
+      sections: [
+        { h: "Schets", html: fig },
+        { h: "Invoer", html: tb(["Grootheid", "Waarde", "Eenheid"], inRows) },
+        { h: "Uitkomsten", html: tb(["Grootheid", "Waarde", "Eenheid"], L.o.out.map((x) => [x.k, e(x.v), x.unit ? e(plain2(x.unit)) : ""])) + warn2 },
+        { h: "Formules", html: tb(["Grootheid", "Formule en invulling", "Bron"], frm) },
+        { h: "Aannamen", html: '<ul class="rep-list">' + c2.assume.map((a) => "<li>" + a + "</li>").join("") + "</ul>" },
+        { h: "Bronnen", html: "<p>" + c2.source + "</p>" + (!own || matsOf(c2).length ? '<p class="rep-note">Bron materiaalgegevens: ' + e(own ? matsOf(c2).map((i) => material(p[i.id]).bron).join("; ") : m.bron) + ". " + e(MATERIAL_SOURCE) + "</p>" : "") },
+        { h: "Link met deze invoer", html: '<p class="rep-url">' + e(linkUrl()) + "</p>" }
+      ],
+      text: sheetText()
+    });
+  }
+  function doPrint() {
+    openCalcReport();
+  }
   function doCopy() {
     const t = sheetText();
     if (!t) {
-      msg("Controleer eerst de invoer.");
+      msg2("Controleer eerst de invoer.");
       return;
     }
     $("calcCopy").dataset.sheet = t;
-    toClipboard(t).then((ok) => msg(ok ? "Rekenblad gekopieerd (" + t.split("\n").length + " regels)." : "Kopi\xEBren geweigerd door de browser."));
+    toClipboard2(t).then((ok) => msg2(ok ? "Rekenblad gekopieerd (" + t.split("\n").length + " regels)." : "Kopi\xEBren geweigerd door de browser."));
   }
   function doLink() {
     const u = linkUrl();
@@ -13775,7 +14198,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       history.replaceState(null, "", u);
     } catch (_) {
     }
-    toClipboard(u).then((ok) => msg(ok ? "Link met deze invoer gekopieerd." : "Link staat in de adresbalk."));
+    toClipboard2(u).then((ok) => msg2(ok ? "Link met deze invoer gekopieerd." : "Link staat in de adresbalk."));
   }
 
   // src/ui/interact.js
@@ -14047,7 +14470,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       }
       const sp = localPt(ev);
       const wp = toWld(sp);
-      document.getElementById("stPos").textContent = wp.x.toFixed(1).padStart(7) + " , " + wp.y.toFixed(1).padStart(7) + " mm";
+      document.getElementById("stPos").textContent = tickStr(wp.x, 0.1).padStart(7) + " ; " + tickStr(wp.y, 0.1).padStart(7) + " mm";
       if (drag && drag.mode === "pan") {
         view.ox = drag.ox + (sp.x - drag.sx);
         view.oy = drag.oy + (sp.y - drag.sy);
@@ -14162,7 +14585,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return `<svg class="thumb" viewBox="0 0 80 50" aria-hidden="true" focusable="false">${f2 ? f2() : ""}</svg>`;
   }
   var $2 = (id) => document.getElementById(id);
-  var esc4 = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  var esc5 = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
   var cat = "all";
   function applyFilter() {
     $2("libChips").querySelectorAll("[data-c]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.c === cat)));
@@ -14190,19 +14613,33 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     $2("uitTitle").textContent = m.title;
     $2("uitText").textContent = m.text;
     el.hidden = false;
+    el.classList.remove("min");
     el.closest(".stage").classList.add("hasnote");
+    el.closest(".stage").classList.remove("hasmin");
+    clearTimeout(minT);
+    minT = setTimeout(() => uitlegMin(true), 6e3);
+    if (window.matchMedia("(max-width: 900px)").matches) uitlegMin(true);
+  }
+  var minT = 0;
+  function uitlegMin(on) {
+    const el = $2("uitleg");
+    if (el.hidden) return;
+    el.classList.toggle("min", on);
+    el.closest(".stage").classList.toggle("hasnote", !on);
+    el.closest(".stage").classList.toggle("hasmin", on);
   }
   function hideUitleg() {
     const el = $2("uitleg");
+    clearTimeout(minT);
     el.hidden = true;
-    el.closest(".stage").classList.remove("hasnote");
+    el.closest(".stage").classList.remove("hasnote", "hasmin");
   }
   function initLibrary() {
-    $2("libChips").innerHTML = CATEGORIES.map((c2) => `<button type="button" class="chip" data-c="${c2.id}" aria-pressed="false">${esc4(c2.nm)}</button>`).join("");
+    $2("libChips").innerHTML = CATEGORIES.map((c2) => `<button type="button" class="chip" data-c="${c2.id}" aria-pressed="false">${esc5(c2.nm)}</button>`).join("");
     $2("libGrid").innerHTML = Object.keys(EXAMPLE_META).map((id) => {
       const m = EXAMPLE_META[id];
       const tags = m.modes.map((t) => `<span class="tag tag-${t}">${MODE_NAMES[t]}</span>`).join("");
-      return `<button type="button" class="libcard" data-ex="${id}">${thumb(id)}<span class="lc-body"><span class="lc-t">${esc4(m.title)}</span><span class="lc-d">${esc4(m.desc)}</span><span class="lc-tags">${tags}</span></span></button>`;
+      return `<button type="button" class="libcard" data-ex="${id}">${thumb(id)}<span class="lc-body"><span class="lc-t">${esc5(m.title)}</span><span class="lc-d">${esc5(m.desc)}</span><span class="lc-tags">${tags}</span></span></button>`;
     }).join("");
     $2("libBtn").addEventListener("click", (ev) => {
       ev.stopPropagation();
@@ -14238,6 +14675,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       });
     });
     $2("uitClose").addEventListener("click", hideUitleg);
+    $2("uitTitle").addEventListener("click", () => uitlegMin(!$2("uitleg").classList.contains("min")));
+    $2("cv").addEventListener("pointerdown", () => uitlegMin(true), true);
   }
 
   // src/ui/tour.js
@@ -14250,7 +14689,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   var box2 = null;
   var ring = null;
   var idx = 0;
-  var prevFocus = null;
+  var prevFocus2 = null;
   function seen() {
     try {
       return !!localStorage.getItem(FLAG);
@@ -14319,9 +14758,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     ring.remove();
     box2 = ring = null;
     markSeen();
-    if (prevFocus && prevFocus.focus) {
+    if (prevFocus2 && prevFocus2.focus) {
       try {
-        prevFocus.focus({ preventScroll: true });
+        prevFocus2.focus({ preventScroll: true });
       } catch (_) {
       }
     }
@@ -14343,7 +14782,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (box2) return;
     if (!force && seen()) return;
     if (document.querySelector(".modal:not([hidden])")) return;
-    prevFocus = document.activeElement;
+    prevFocus2 = document.activeElement;
     ring = document.createElement("div");
     ring.className = "tour-ring";
     ring.setAttribute("aria-hidden", "true");
@@ -14361,6 +14800,331 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     idx = 0;
     markSeen();
     render2();
+  }
+
+  // src/ui/sketchreport.js
+  var nm = (id) => {
+    const n = N(id);
+    return n ? n.name : "?";
+  };
+  var ve = (v, u, d) => sg(v, d || 4) + (u ? "\xA0" + u : "");
+  var pair = (id) => nm(id.a) + nm(id.b);
+  function tbl(head, rows, cls) {
+    return '<table class="rep-tbl ' + (cls || "") + '"><thead><tr>' + head.map((h) => "<th>" + h + "</th>").join("") + "</tr></thead><tbody>" + rows.map((r) => "<tr>" + r.map((c2) => "<td>" + c2 + "</td>").join("") + "</tr>").join("") + "</tbody></table>";
+  }
+  function snapshot(canvas, redraw) {
+    const root2 = document.documentElement, prev = root2.getAttribute("data-theme"), sel = ui.sel, hov = ui.hover, pend = ui.pending;
+    let url = "";
+    try {
+      root2.setAttribute("data-theme", "light");
+      ui.colorsDirty = true;
+      ui.sel = null;
+      ui.hover = null;
+      ui.pending = null;
+      redraw();
+      url = canvas.toDataURL("image/png");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      if (prev === null) root2.removeAttribute("data-theme");
+      else root2.setAttribute("data-theme", prev);
+      ui.sel = sel;
+      ui.hover = hov;
+      ui.pending = pend;
+      ui.colorsDirty = true;
+      redraw();
+    }
+    return url;
+  }
+  function figure(url, cap, alt) {
+    return url ? '<figure class="rep-fig"><img src="' + url + '" alt="' + esc4(alt) + '"><figcaption>' + esc4(cap) + "</figcaption></figure>" : "";
+  }
+  var SUPPORT = { free: "vrij", pin: "scharnier", slider: "glijder" };
+  function nodeRows() {
+    const stiff = model.mode === "stiff";
+    const head = ["Punt", "x (mm)", "y (mm)", "Oplegging", "Massa (kg)", stiff ? "Verbinding" : "Overig"];
+    const rows = model.nodes.map((n) => {
+      const o = [];
+      if (n.support === "slider") o.push("richting " + sg(n.dir || 0) + "\xB0");
+      if (n.support !== "free" && n.clamp) o.push("ingeklemd");
+      if (n.mus > 0 || n.muk > 0) o.push("\u03BC<sub>s</sub> " + sg(n.mus || 0) + ", \u03BC<sub>k</sub> " + sg(n.muk || 0) + (n.rj > 0 ? ", penstraal " + ve(n.rj, "mm") : ""));
+      if (n.trace) o.push("spoor");
+      let j = "";
+      if (stiff) {
+        const jf = jointFor(n);
+        j = jf.type === "star" ? "star" : jf.type === "pin" ? "scharnier" : "torsieveer k<sub>\u03B8</sub> " + ve(jf.k, "N\xB7mm/rad") + (jf.auto ? " (auto)" : "");
+        if (jf.auto && jf.type !== "spring") j += " (auto)";
+      }
+      return [
+        esc4(n.name),
+        sg(n.x, 5),
+        sg(n.y, 5),
+        esc4(SUPPORT[n.support] || n.support) + (n.support === "slider" ? ", " + sg(n.dir || 0) + "\xB0" : "") + (n.support !== "free" && n.clamp ? ", ingeklemd" : ""),
+        n.m > 0 ? sg(n.m) : "\u2013",
+        stiff ? j : o.filter((x) => !/^richting|^ingeklemd/.test(x)).join("; ") || "\u2013"
+      ];
+    });
+    return tbl(head, rows);
+  }
+  function linkParams(e) {
+    const p = [];
+    p.push("L = " + ve(e.len, "mm"));
+    if (e.driver) {
+      p.push("kruk: \u03B8<sub>0</sub> = " + ve(e.theta0 || 0, "\xB0"), "toerental " + ve(e.rpm || 0, "rpm") + ", " + (e.cw ? "rechtsom" : "linksom"));
+      return p;
+    }
+    if (isBeam(e)) {
+      const s = beamSect(e), pr = s.prof;
+      p.push("balk Volledig (EA + EI), profiel " + ({ rect: "rechthoek", round: "rond", tube: "buis", custom: "eigen A en I" }[pr] || pr));
+      if (pr === "round") p.push("\xD8 " + ve(e.pd > 0 ? e.pd : 4, "mm"));
+      else if (pr === "tube") p.push("D \xD7 d = " + sg(e.pD > 0 ? e.pD : 10, 4) + " \xD7 " + sg(e.pdi >= 0 ? e.pdi : 8, 4) + "\xA0mm");
+      else if (pr === "custom") p.push("A = " + ve(s.A, "mm\xB2") + ", I = " + ve(s.I, "mm\u2074"));
+      else p.push("b \xD7 h = " + sg(e.pb > 0 ? e.pb : 10, 4) + " \xD7 " + sg(e.ph > 0 ? e.ph : 2, 4) + "\xA0mm");
+      p.push("A = " + ve(s.A, "mm\xB2") + ", I = " + ve(s.I, "mm\u2074") + " (afgeleid)");
+    } else if (isAxial(e)) {
+      p.push("axiale staaf (EA/L), A = " + ve(axialA(e), "mm\xB2"));
+    } else p.push("stijve staaf");
+    if (isBeam(e) || isAxial(e) || typeof e.dT === "number") p.push("materiaal " + esc4(matOf(e).naam));
+    if (e.sig > 0) p.push("\u03C3<sub>toel</sub> = " + ve(e.sig, "MPa") + " (eigen)");
+    if (typeof e.dT === "number") p.push("\u0394T = " + ve(e.dT, "K") + " (eigen)");
+    return p;
+  }
+  function elemRow(e) {
+    const a = N(e.a), b = N(e.b), ln2 = a && b ? esc4(pair(e)) : e.node ? esc4(nm(e.node)) : "";
+    let type = e.type, p = [];
+    switch (e.type) {
+      case "link":
+        type = e.driver ? "Kruk" : isBeam(e) ? "Balk" : isAxial(e) ? "Axiale staaf" : "Stang";
+        p = linkParams(e);
+        break;
+      case "spring":
+        type = "Veer";
+        p = ["k = " + ve(e.k, "N/mm"), "rustlengte L<sub>0</sub> = " + ve(e.L0, "mm")];
+        break;
+      case "damper":
+        type = "Demper";
+        p = ["c = " + ve(e.c, "N\xB7s/mm")];
+        break;
+      case "actuator":
+        type = "Actuator";
+        p = ["lengte " + ve(e.len, "mm") + " (getekend)", "bereik " + sg(Math.min(e.min, e.max), 4) + "\u2013" + sg(Math.max(e.min, e.max), 4) + "\xA0mm", "f = " + ve(e.freq || 0, "Hz")];
+        break;
+      case "gap":
+        type = "Speling";
+        p = ["vrij tussen " + sg(Math.min(e.min, e.max), 4) + " en " + sg(Math.max(e.min, e.max), 4) + "\xA0mm", "aanslag k = " + ve(e.kc, "N/mm") + ", c = " + ve(e.cc, "N\xB7s/mm")];
+        break;
+      case "force":
+        type = "Kracht";
+        p = ["F = " + ve(e.mag, "N") + " onder " + ve(e.ang, "\xB0") + " vanaf +x"];
+        break;
+      case "contact": {
+        type = "Contact";
+        const m1 = mat(e.m1), m2 = mat(e.m2);
+        p = [
+          "bal R = " + ve(e.R, "mm") + " (" + esc4(m1.nm) + ", E = " + ve(m1.E / 1e3, "GPa", 3) + ", \u03BD = " + sg(m1.nu) + ")",
+          "vlak " + esc4(m2.nm) + " (E = " + ve(m2.E / 1e3, "GPa", 3) + ", \u03BD = " + sg(m2.nu) + "), hoek " + ve(e.ang || 0, "\xB0"),
+          "\u03BC = " + sg(e.mu) + ", \u03C7 = " + sg(e.chi)
+        ];
+        break;
+      }
+      case "flexure": {
+        type = "Flexure";
+        const m = flexMat(e);
+        p = [
+          esc4(FLEX_KINDS[e.kind] || e.kind),
+          "L = " + ve(e.L, "mm") + ", breedte " + ve(e.wd, "mm") + ", dikte t = " + ve(e.t, "mm") + (e.kind !== "cantilever" ? ", R = " + ve(e.R, "mm") + (e.kind === "notch" ? ", K<sub>t</sub> = " + sg(e.Kt) : "") : ""),
+          "materiaal " + esc4(m.naam) + ", \u03C3<sub>toel</sub> = " + ve(m.sigma, "MPa") + (e.pre ? ", voorspanning " + ve(e.pre, "\xB0") : "")
+        ];
+        break;
+      }
+      case "loadcell":
+        type = "Krachtopnemer";
+        p = [esc4(e.name || ""), "k<sub>s</sub> = " + ve(e.ks, "N/\xB5m"), "massa " + ve(e.m || 0, "kg")];
+        break;
+      case "dsens":
+        type = "Verplaatsingssensor";
+        p = [esc4(e.name || ""), "richting " + ve(e.ang || 0, "\xB0"), "bereik \xB1" + ve(e.range, "\xB5m") + ", resolutie " + ve(e.res, "\xB5m")];
+        break;
+      case "encoder":
+        type = "Hoekencoder";
+        p = [esc4(e.name || ""), sg(e.cpr) + " counts per omwenteling"];
+        break;
+      case "accel":
+        type = "Versnellingsopnemer";
+        p = [esc4(e.name || ""), "richting " + ve(e.ang || 0, "\xB0"), "massa " + ve(e.m >= 0 ? e.m : 0.01, "kg")];
+        break;
+    }
+    return [esc4(type), ln2, p.join("<br>")];
+  }
+  function elemTable() {
+    if (!model.elems.length) return '<p class="rep-note">Geen elementen.</p>';
+    return tbl(["Element", "Tussen", "Parameters"], model.elems.map(elemRow), "rep-elem");
+  }
+  function materialTable() {
+    const used = [], seen2 = {};
+    const add = (id) => {
+      id = id || "staal";
+      if (!seen2[id]) {
+        seen2[id] = 1;
+        used.push(material(id));
+      }
+    };
+    model.elems.forEach((e) => {
+      if (e.type === "link" && (isBeam(e) || isAxial(e) || typeof e.dT === "number")) add(e.mat);
+      if (e.type === "flexure") add(e.mat);
+    });
+    const cm = {};
+    model.elems.forEach((e) => {
+      if (e.type === "contact") {
+        cm[e.m1 || "staal"] = 1;
+        cm[e.m2 || "staal"] = 1;
+      }
+    });
+    let h = "";
+    if (used.length) {
+      h += tbl(
+        ["Materiaal", "E (GPa)", "\u03BD", "\u03C3<sub>toel</sub> (MPa)", "\u03B1 (\xB5m/(m\xB7K))", "\u03C1 (kg/m\xB3)", "Bron"],
+        used.map((m) => [esc4(m.naam), sg(m.E / 1e3), sg(m.nu), sg(m.sigma), sg(m.alpha), sg(m.rho), esc4(m.bron)])
+      );
+    }
+    const ck = Object.keys(cm);
+    if (ck.length) {
+      h += tbl(["Contactmateriaal", "E (GPa)", "\u03BD"], ck.map((k) => {
+        const m = mat(k);
+        return [esc4(m.nm), sg(m.E / 1e3), sg(m.nu)];
+      }));
+    }
+    if (!h) return '<p class="rep-note">Geen materiaalafhankelijke elementen; stangen zijn stijf.</p>';
+    return h + '<p class="rep-note">' + esc4(MATERIAL_SOURCE) + "</p>";
+  }
+  function settingsTable() {
+    const r = [["Modus", MODE_NAMES[model.mode] || model.mode]];
+    r.push(["Zwaartekracht", model.gravity ? "aan (9,81 m/s\xB2)" : "uit"]);
+    if (model.dT) r.push(["Temperatuurverschil \u0394T", ve(model.dT, "K")]);
+    if (model.mode === "dyn" || model.mode === "equil") {
+      r.push(model.durMode === "equil" ? ["Duur", "tot evenwicht, hoogstens " + ve(model.maxT, "s")] : ["Duur", ve(model.simDur, "s")]);
+      r.push(["Tijdstap", ve(model.dtStep, "ms")]);
+    }
+    if (model.mode !== "kin" && model.mode !== "stiff") r.push(["Standaardmassa", ve(model.defMass, "kg")]);
+    if (model.jointDamp && model.mode !== "kin") r.push(["Demping in scharnieren", ve(model.cJoint, "N\xB7m\xB7s/rad")]);
+    if (model.cVisc > 0 && model.mode !== "kin") r.push(["Luchtweerstand per punt", ve(model.cVisc, "N\xB7s/mm")]);
+    if (model.nodes.some((n) => n.mus > 0 || n.muk > 0)) r.push(["Wrijving", "Stribeck-snelheid " + ve(model.fricVs, "mm/s") + ", plakgrens " + ve(model.fricVe, "mm/s")]);
+    if (model.mode === "frf" && sim.sweep && sim.sweep.frf) r.push(["FRF-ingang", sim.sweep.inLab || model.frfIn]);
+    if (model.mode === "stiff") {
+      const nd = N(model.stiffNode);
+      r.push(["Vergroting vervorming", model.stiffScale > 0 ? "\xD7" + sg(model.stiffScale) + " (vast)" : "automatisch"]);
+      if (nd) r.push(["Stijfheid in punt", esc4(nd.name) + ", richting " + ve(isFinite(model.stiffAng) ? model.stiffAng : 90, "\xB0")]);
+    }
+    r.push(["Eenheden", "mm \xB7 N \xB7 N/mm \xB7 kg"]);
+    return tbl(["Instelling", "Waarde"], r.map((x) => [esc4(x[0]), /<|&/.test(x[1]) ? x[1] : esc4(x[1])]), "rep-kvt");
+  }
+  function loadsHtml() {
+    const f2 = model.elems.filter((e) => e.type === "force" && N(e.node));
+    let h = "";
+    if (f2.length) {
+      h += tbl(["Kracht op", "F (N)", "Hoek (\xB0)", "F<sub>x</sub> (N)", "F<sub>y</sub> (N)"], f2.map((e) => {
+        const t = e.ang * Math.PI / 180;
+        return [esc4(nm(e.node)), sg(e.mag, 4), sg(e.ang, 4), sg(e.mag * Math.cos(t), 4, e.mag), sg(e.mag * Math.sin(t), 4, e.mag)];
+      }));
+    } else h += '<p class="rep-note">Geen uitwendige krachten getekend.</p>';
+    const ms = model.nodes.filter((n) => n.m > 0);
+    const extra = [];
+    extra.push("Zwaartekracht: " + (model.gravity ? "aan (g = 9,81 m/s\xB2)" : "uit"));
+    if (ms.length) extra.push("Puntmassa\u2019s: " + ms.map((n) => esc4(n.name) + " " + sg(n.m, 4) + "\xA0kg").join(", "));
+    const act = model.elems.filter((e) => e.type === "actuator" && N(e.a));
+    const dr = model.elems.filter((e) => e.type === "link" && e.driver && N(e.a));
+    if (dr.length) extra.push("Aandrijving: " + dr.map((e) => "kruk " + esc4(pair(e)) + " " + sg(e.rpm || 0) + "\xA0rpm").join(", "));
+    if (act.length) extra.push("Actuatoren: " + act.map((e) => esc4(pair(e)) + " " + sg(e.freq || 0) + "\xA0Hz").join(", "));
+    if (model.dT) extra.push("Temperatuurverschil: \u0394T = " + sg(model.dT) + "\xA0K");
+    return h + '<ul class="rep-list">' + extra.map((x) => "<li>" + x + "</li>").join("") + "</ul>";
+  }
+  var txt2 = (id) => {
+    const el = document.getElementById(id);
+    return el ? el.textContent.replace(/\s+/g, " ").trim() : "";
+  };
+  function statusHtml() {
+    const a = [txt2("dofVal") + " " + txt2("dofOf"), txt2("resState")].filter(Boolean);
+    const th = document.getElementById("thRes");
+    if (th && !document.getElementById("thermBox").hidden) a.push("Thermische verschuiving: " + th.textContent.replace(/\s+/g, " ").trim());
+    return a.length ? '<p class="rep-key">' + a.map(esc4).join("<br>") + "</p>" : "";
+  }
+  function seriesHtml() {
+    if (!sim.sweep) return '<p class="rep-note">Nog geen oplossing: er zijn geen meetwaarden.</p>';
+    if (!model.series.length) return '<p class="rep-note">Geen metingen gekozen.</p>';
+    if (!ui.pdata) buildPdata();
+    const ss = ui.pdata && ui.pdata.ss || [], frf = ui.pdata && ui.pdata.frf;
+    const i = Math.max(0, Math.min(360, Math.round(ui.frame || 0)));
+    if (frf) {
+      return tbl(["Meting", "Eenheid", "Piek (amplitude)", "bij frequentie"], model.series.map((sr, k) => {
+        const d = ss[k];
+        return [esc4(serieLab(sr)), esc4(d ? d.u : ""), d && d.ok ? sg(d.peak) : "\u2013", d && d.ok ? fmtHz(sim.sweep.f[d.pk]) : esc4(d && d.err || "\u2013")];
+      }));
+    }
+    const when = sim.sweep.dyn ? "t = " + fmtTime(sim.sweep.t[i]) : "stand " + sg(i) + "\xB0 van de cyclus";
+    return tbl(["Meting", "Eenheid", "Waarde (" + when + ")", "Min", "Max", "RMS"], model.series.map((sr, k) => {
+      const d = ss[k];
+      if (!d || !d.ok) return [esc4(serieLab(sr)), esc4(d ? d.u : ""), esc4(d && d.err || "\u2013"), "", "", ""];
+      const sc = Math.max(Math.abs(d.mn), Math.abs(d.mx));
+      return [esc4(serieLab(sr)), esc4(d.u), sg(d.a[i], 3, sc), sg(d.mn, 3, sc), sg(d.mx, 3, sc), sg(d.rms, 3, sc)];
+    }));
+  }
+  function modesHtml() {
+    const ms = sim.sweep && sim.sweep.modes;
+    if (!ms || !ms.length) return "";
+    return "<h3>Eigenfrequenties</h3>" + tbl(["Nr", "f", "\u03B6 (demping)", "Opmerking"], ms.map((m, k) => [
+      String(k + 1),
+      m.f < 1e-6 ? "0" : fmtHz(m.f),
+      isFinite(m.zeta) ? sg(m.zeta * 100, 3) + "\xA0%" : "\u2013",
+      m.unstable ? "instabiel" : m.f < 1e-6 ? "vrije beweging" : ""
+    ]));
+  }
+  function stiffResults() {
+    const R = sim.stiff;
+    if (!R) return '<p class="rep-note">Nog niet doorgerekend.</p>';
+    if (R.empty || !R.ok) return statusHtml() + '<div class="rep-box">' + stiffKeyHtml(R) + "</div>";
+    let h = statusHtml() + '<div class="rep-box">' + stiffKeyHtml(R) + "</div>";
+    if (R.modes && R.modes.length) h += "<h3>Eigenfrequenties (ongedempt)</h3>" + tbl(["Mode", "f"], R.modes.map((m, k) => [String(k + 1), fmtHz(m.f)]));
+    return h + '<div class="rep-twin">' + tablesHtml(R) + "</div>";
+  }
+  function resultsHtml() {
+    if (model.mode === "stiff") return stiffResults();
+    let h = statusHtml();
+    if (model.mode === "frf") h += modesHtml();
+    if (sim.sweep && sim.sweep.dyn) {
+      h += '<p class="rep-key">' + (sim.sweep.settled ? "Tot rust na " + fmtTime(sim.sweep.settled) : "Doorgerekend over " + fmtTime(sim.sweep.dur)) + ".</p>";
+    }
+    h += seriesHtml();
+    if (sim.sweep && model.series.length && plotCv.offsetParent !== null && ui.plotBox) {
+      const url = snapshot(plotCv, () => {
+        drawPlot();
+      });
+      h += figure(url, "De grafieken van de gekozen metingen.", "Grafieken");
+    }
+    return h;
+  }
+  function openSketchReport() {
+    const bi = MODE_NAMES[model.mode] || model.mode;
+    const url = snapshot(cv, draw);
+    let how = "";
+    try {
+      how = howHtml();
+    } catch (err) {
+      console.error(err);
+    }
+    const empty = !model.nodes.length;
+    const stand = model.mode === "kin" ? "stand " + sg(Math.round(ui.frame || 0)) + "\xB0 van de cyclus" : model.mode === "stiff" ? ui.stiffMode >= 0 ? "eigenvorm " + (ui.stiffMode + 1) : "statische vervorming" : sim.sweep && sim.sweep.t ? "t = " + fmtTime(sim.sweep.t[Math.round(ui.frame || 0)]) : "";
+    showReport({
+      title: model.name && model.name !== "Naamloos" ? model.name : "Mechanismeschets",
+      sub: "Rekenblad \xB7 modus " + bi,
+      meta: [["Modus", bi], ["Eenheden", "mm \xB7 N \xB7 N/mm \xB7 kg"]],
+      sections: [
+        { h: "Tekening", html: figure(url, "Momentopname van het canvas (" + bi + (stand ? ", " + stand : "") + ").", "Tekening van het model") },
+        { h: "Model", html: empty ? '<p class="rep-note">Het canvas is leeg.</p>' : "<h3>Punten</h3>" + nodeRows() + "<h3>Elementen</h3>" + elemTable() + "<h3>Materialen</h3>" + materialTable() + "<h3>Instellingen</h3>" + settingsTable() },
+        { h: "Belastingen", html: empty ? "" : loadsHtml() },
+        { h: "Uitkomsten \xB7 " + bi, html: empty ? "" : resultsHtml() },
+        { h: "Formules, aannamen en bronnen", html: how ? '<div class="rep-how">' + how + "</div>" : "" }
+      ]
+    });
   }
 
   // src/ui/menu.js
@@ -14394,6 +15158,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         if (b.dataset.a === "copy") copyModel();
         if (b.dataset.a === "paste") openPaste();
         if (b.dataset.a === "link") copyLink();
+        if (b.dataset.a === "report") {
+          if (document.getElementById("calcRoot").hidden) openSketchReport();
+          else openCalcReport();
+        }
         if (b.dataset.a === "tour") startTour(true);
       });
     });

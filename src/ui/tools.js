@@ -71,9 +71,17 @@ function hintShow() {
   const h = document.getElementById("hint");
   h.classList.remove("dim");
   clearTimeout(hintT);
-  hintT = setTimeout(() => h.classList.add("dim"), 4500);
+  hintT = setTimeout(() => h.classList.add("dim"), 6000);
 }
 
+// "?" : de hint van het huidige gereedschap en de uitleg bij het voorbeeld weer tonen
+export function showHelp() {
+  const t = TOOLS.find(x => x.id === ui.tool);
+  document.getElementById("hint").innerHTML = t ? t.hint : "";
+  hintShow();
+  const u = document.getElementById("uitleg");
+  if (u && !u.hidden) { u.classList.remove("min"); u.closest(".stage").classList.add("hasnote"); u.closest(".stage").classList.remove("hasmin"); }
+}
 export function setTool(id) {
   ui.tool = id; ui.pending = null;
   rail.querySelectorAll(".tool").forEach(b =>
@@ -108,6 +116,9 @@ export function flash(m) {
 export function toast(t) { document.getElementById("hint").innerHTML = "<b>" + t + "</b>"; hintShow(); }
 
 export function initTools() {
+  // na de eerste handeling op de tekening verdwijnt de hint; "?" haalt hem terug
+  cv.addEventListener("pointerdown", () => { clearTimeout(hintT); document.getElementById("hint").classList.add("dim"); }, true);
+  document.getElementById("helpBtn").addEventListener("click", showHelp);
   railTop.className = "railtop";
   railTop.innerHTML = '<button class="btn ghost ico" id="railBtn" title="Gereedschapsbalk smal of breed" aria-label="Gereedschapsbalk smal of breed">&#8676;</button>';
   rail.appendChild(railTop);
@@ -130,6 +141,7 @@ export function initTools() {
   document.addEventListener("keydown", e => {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
     const k = e.key.toLowerCase();
+    if (e.key === "?") { showHelp(); e.preventDefault(); return; }
     const map = { v: "select", n: "node", l: "link", p: "pin", s: "slider", d: "driver", a: "actuator", r: "spring", c: "damper", g: "gap", k: "contact", b: "flexure", q: "loadcell", w: "dsens", h: "encoder", j: "accel", o: "split", f: "force", m: "mass", t: "trace", x: "del" };
     if (map[k]) { setTool(map[k]); e.preventDefault(); return; }
     if (e.key === " ") {

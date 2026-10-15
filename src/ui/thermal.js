@@ -4,9 +4,10 @@ import { N } from "../core/elements.js";
 import { thermalNode, thermalShift } from "../core/thermal.js";
 import { model } from "../core/state.js";
 import { save } from "./persist.js";
+import { fmt, sg } from "./format.js";
 
 const nl = s => String(s).replace(".", ",");
-const um = v => { const x = v * 1000; return (x >= 0 ? "+" : "−") + nl(Math.abs(x) >= 100 ? Math.abs(x).toFixed(0) : Math.abs(x) >= 10 ? Math.abs(x).toFixed(1) : Math.abs(x).toFixed(2)); };
+const um = v => { const x = v * 1000; return (x >= 0 ? "+" : "\u2212") + sg(Math.abs(x)); };
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
 // is er een temperatuurverschil dat iets doet?
@@ -35,7 +36,7 @@ export function renderThermal() {
     document.getElementById("thChart").innerHTML = ""; return;
   }
   res.innerHTML = "Δx <b id=\"thDx\">" + um(r.dx) + "</b> µm · Δy <b id=\"thDy\">" + um(r.dy) + "</b> µm · |Δ| <b id=\"thD\">" +
-    nl((Math.hypot(r.dx, r.dy) * 1000).toPrecision(3)) + "</b> µm";
+    sg(Math.hypot(r.dx, r.dy) * 1000) + "</b> µm";
   document.getElementById("thChart").innerHTML = chart(r);
 }
 
@@ -54,7 +55,7 @@ function chart(r) {
     '<line x1="' + mid + '" y1="' + (top - 4) + '" x2="' + mid + '" y2="' + (H - 4) + '" style="stroke:var(--line-2)"></line>';
   r.parts.forEach((p, i) => {
     const y = top + i * rowH, e = p.e, A = N(e.a), B = N(e.b), nm = (A ? A.name : "?") + (B ? B.name : "?");
-    g += '<g><title>' + esc(nm) + ': ∂x/∂L = ' + nl(p.sx.toFixed(3)) + ', ∂y/∂L = ' + nl(p.sy.toFixed(3)) + ', ΔL = ' + nl((p.dL * 1000).toFixed(2)) + ' µm</title>' +
+    g += '<g><title>' + esc(nm) + ': ∂x/∂L = ' + sg(p.sx) + ', ∂y/∂L = ' + sg(p.sy) + ', ΔL = ' + sg(p.dL * 1000) + ' µm</title>' +
       '<text x="0" y="' + (y + 8) + '" class="thl thn">' + esc(nm) + " · " + esc(matOf(e).naam.split(" ")[0]) + "</text>" +
       bar(p.cx, y + 12, "var(--spring)") + bar(p.cy, y + 21, "var(--driver)") + "</g>";
   });

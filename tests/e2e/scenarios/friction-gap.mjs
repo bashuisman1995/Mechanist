@@ -43,7 +43,7 @@ export default async ({ browser, url, check }) => {
   await loadExample(p, 'gaplimit');
   const g = await stats(p);
   check('gaplimit heeft statistieken (2 reeksen)', g.length === 2 && g.every(s => /min .* max/.test(s)), g.join('|'));
-  check('gaplimit: max-waarden 0.00 (speling begrenst)', g.every(s => /max 0\.00/.test(s)), g.join('|'));
+  check('gaplimit: max-waarden 0.00 (speling begrenst)', g.every(s => /max 0\b/.test(s)), g.join('|'));
   await loadExample(p, 'frictionslide');
   const f = await stats(p);
   check('frictionslide heeft statistieken', f.length === 2 && f.every(s => /min .* max/.test(s)), f.join('|'));

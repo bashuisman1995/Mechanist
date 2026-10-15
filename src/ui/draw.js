@@ -5,7 +5,7 @@ import { dist, drivers, gapPen, isBar, N } from "../core/elements.js";
 import { flexLivePhi, flexStress } from "../core/flexure.js";
 import { encBars, loadcellDt, SENSORS, sensorLive } from "../core/sensors.js";
 import { model, sim, ui, view } from "../core/state.js";
-import { fmt } from "./format.js";
+import { fmt, fmtForce, fmtMoment, fmtStiff } from "./format.js";
 import { drawJoints, drawStiff } from "./stiffdraw.js";
 import { ctx, toScr, toWld } from "./view.js";
 
@@ -187,7 +187,7 @@ function drawLiveForces() {
     ctx.lineTo(tip.x - ux * 9 + px * 4.8, tip.y - uy * 9 + py * 4.8);
     ctx.lineTo(tip.x - ux * 9 - px * 4.8, tip.y - uy * 9 - py * 4.8);
     ctx.closePath(); ctx.fill();
-    label(tip.x + ux * 14, tip.y + uy * 14, fmt(mag) + " N", ui.C.accent, false, 1);
+    label(tip.x + ux * 14, tip.y + uy * 14, fmtForce(mag), ui.C.accent, false, 1);
   }
 
   for (const e of model.elems) {
@@ -196,14 +196,14 @@ function drawLiveForces() {
     if (!isFinite(v)) continue;
     const A = toScr(N(e.a)), B = toScr(N(e.b));
     label((A.x + B.x) / 2, (A.y + B.y) / 2 + 13,
-      (v >= 0 ? "+" : "") + fmt(v) + " N", v >= 0 ? ui.C.spring : ui.C.force, false, 1);
+      (v >= 0 ? "+" : "") + fmtForce(v), v >= 0 ? ui.C.spring : ui.C.force, false, 1);
   }
 
   for (const d of drivers()) {
     const T = sim.sweep.T[d.id] ? sim.sweep.T[d.id][i] : NaN;
     if (!isFinite(T)) continue;
     const p = toScr(N(d.a));
-    label(p.x, p.y - 34, "T = " + T.toFixed(3) + " N·m", ui.C.driver, false, 1);
+    label(p.x, p.y - 34, "T = " + fmtMoment(T), ui.C.driver, false, 1);
   }
 }
 
@@ -289,7 +289,7 @@ function drawFlexure(e) {
 
 /* ---- sensoren: compacte symbolen met een label dat live meeloopt ---- */
 const GL = 34;                                        // lengte van de verbinding naar de grond bij een verplaatsingssensor (px)
-const nf = v => fmt(v).replace(".", ",");
+const nf = v => fmt(v);
 // segment (of cirkel) op het scherm waarop je een sensor aanwijst
 export function sensorSeg(e) {
   const A = N(e.type === "encoder" || e.type === "accel" ? e.node : e.a); if (!A) return null;
@@ -457,7 +457,7 @@ function drawSpring(e) {
   ctx.lineTo(A.x + ux * (lead + coilL), A.y + uy * (lead + coilL));
   ctx.lineTo(B.x, B.y);
   ctx.stroke();
-  label((A.x + B.x) / 2, (A.y + B.y) / 2 + 20, "k = " + fmt(e.k) + " N/mm", ui.C.spring);
+  label((A.x + B.x) / 2, (A.y + B.y) / 2 + 20, "k = " + fmtStiff(e.k), ui.C.spring);
 }
 
 function drawDamper(e) {
@@ -555,7 +555,7 @@ function drawContact(e) {
   ctx.strokeStyle = col; ctx.lineWidth = 1.7;
   ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, 6.2832); ctx.stroke();
   label(foot.x - nx * 16 + ux * (half + 4), foot.y - ny * 16 + uy * (half + 4),
-    "contact" + (st && !st.open ? " " + fmt(st.Fn) + " N" + (slip ? " slip" : " plakt") : ""), col, false, 2);
+    "contact" + (st && !st.open ? " " + fmtForce(st.Fn) + (slip ? " slip" : " plakt") : ""), col, false, 2);
 }
 
 function drawForce(e) {
@@ -577,7 +577,7 @@ function drawForce(e) {
   ctx.lineTo(tail.x + ux * 11 + pxv * 4.6, tail.y + uy * 11 + pyv * 4.6);
   ctx.lineTo(tail.x + ux * 11 - pxv * 4.6, tail.y + uy * 11 - pyv * 4.6);
   ctx.closePath(); ctx.fill();
-  label(tip.x + ux * 12, tip.y + uy * 12, fmt(e.mag) + " N", ui.C.force, false, 1);
+  label(tip.x + ux * 12, tip.y + uy * 12, fmtForce(e.mag), ui.C.force, false, 1);
 }
 
 function drawSupport(n) {

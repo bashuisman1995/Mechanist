@@ -12,6 +12,7 @@ import { atT0, lockNudge } from "./playback.js";
 import { cancelJob, changed, touched } from "./solver.js";
 import { cursorFor, flash } from "./tools.js";
 import { cv, toScr, toWld, zoomAt } from "./view.js";
+import { tickStr } from "./format.js";
 
 /* ============================================================
    Picking
@@ -254,7 +255,7 @@ export function initInteract() {
     const sp = localPt(ev);
     const wp = toWld(sp);
     document.getElementById("stPos").textContent =
-      wp.x.toFixed(1).padStart(7) + " , " + wp.y.toFixed(1).padStart(7) + " mm";
+      tickStr(wp.x, 0.1).padStart(7) + " ; " + tickStr(wp.y, 0.1).padStart(7) + " mm";
 
     if (drag && drag.mode === "pan") {
       view.ox = drag.ox + (sp.x - drag.sx);

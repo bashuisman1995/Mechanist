@@ -10,7 +10,7 @@ import { jointFor } from "../core/stiffness.js";
 import { model, sim, ui } from "../core/state.js";
 import { draw } from "./draw.js";
 import { anchorHere, crankAngle, setDriver, splitBeam } from "./edit.js";
-import { fmt, fmtHz, fmtTime, sg } from "./format.js";
+import { fmt, fmtAngle, fmtHz, fmtLen, fmtStiff, fmtStress, fmtTime, sg } from "./format.js";
 import { pushHistory, save } from "./persist.js";
 import { chip, plotted, toggleSerie } from "./picker.js";
 import { atT0, lockNudge, toT0 } from "./playback.js";
@@ -63,14 +63,14 @@ export function syncResult() {
     if (model.mode === "stiff") {
       const R = sim.stiff;
       t = !R ? "Stijfheid \u00b7 nog niet doorgerekend" : R.empty ? "Stijfheid \u00b7 nog niets om door te rekenen" : !R.ok ? "Stijfheid \u00b7 mechanisme"
-        : "Stijfheid \u00b7 " + (R.sigMax ? "max \u03c3 " + nl(sg(R.sigMax.val)) + " MPa (" + nl(sg(R.sigMax.ratio * 100, 2)) + " %)" : "doorgerekend");
+        : "Stijfheid \u00b7 " + (R.sigMax ? "max \u03c3 " + fmtStress(R.sigMax.val) + " (" + nl(sg(R.sigMax.ratio * 100, 2)) + " %)" : "doorgerekend");
     } else if (model.mode === "frf") {
       const md = sw && sw.modes ? sw.modes.find(x => !x.unstable && x.f > 1e-6) : null;
       t = "FRF \u00b7 " + (md ? nl(fmtHz(md.f)) : sw ? "doorgerekend" : "nog niet doorgerekend");
     } else if (model.mode === "dyn") {
       const eq = model.durMode === "equil";
       t = (eq ? "Evenwicht" : "Dynamisch") + " \u00b7 " +
-        (sw ? (eq && sw.settled ? "tot rust na " : "") + nl(sw.dur.toFixed(1)) + " s" + (eq && sw.settled ? "" : " doorgerekend") : "nog niet doorgerekend");
+        (sw ? (eq && sw.settled ? "tot rust na " : "") + fmtTime(sw.dur) + (eq && sw.settled ? "" : " doorgerekend") : "nog niet doorgerekend");
     } else t = "Kinematisch \u00b7 " + (sim.solveOK === false ? "niet samen te stellen" : st);
   }
   el.textContent = t;
@@ -114,7 +114,7 @@ export function syncDof() {
       note.textContent = "Bepaald — de beweging ligt al vast; tijdintegratie voegt hier niets toe.";
     }
     if (dn && sim.sweep && sim.sweep.settled)
-      dn.innerHTML = "Evenwicht na <b>" + sim.sweep.settled.toFixed(2) + " s</b>. " +
+      dn.innerHTML = "Evenwicht na <b>" + fmtTime(sim.sweep.settled) + "</b>. " +
         "Punten zonder massa rekenen met " + fmt(model.defMass) + " kg.";
     else if (dn) dn.innerHTML = sim.sweep
       ? "Punten zonder eigen massa rekenen met " + fmt(model.defMass) + " kg. " +
@@ -130,7 +130,7 @@ export function syncDof() {
           '<b style="color:var(--driver)">Geen evenwicht gevonden</b>; gelineariseerd rond de stand op t = 0') +
         " \u2014 " + sim.sweep.k + " vrijheidsgra" + (sim.sweep.k === 1 ? "ad" : "den") + "." +
         (ms.length ? "<br>Eigenfrequenties: " + ms.map(m => m.unstable ? '<b style="color:var(--bad)">instabiel</b>'
-          : m.f < 1e-6 ? "0 (vrij)" : "<b>" + fmtHz(m.f) + "</b>" + (isFinite(m.zeta) ? " (\u03b6 " + (m.zeta * 100).toFixed(1) + "%)" : "")).join(", ") : "");
+          : m.f < 1e-6 ? "0 (vrij)" : "<b>" + fmtHz(m.f) + "</b>" + (isFinite(m.zeta) ? " (\u03b6 " + sg(m.zeta * 100, 2) + " %)" : "")).join(", ") : "");
     } else fn.textContent = sim.frfMsg || "Kies een ingang en druk op Bereken.";
     note.innerHTML = "FRF: hoe een kleine trilling van de ingang doorwerkt, per frequentie. " +
       "Veren, zwaartekracht en krachten bepalen de stijfheid; massa en dempers de rest.";
@@ -504,7 +504,7 @@ function axialLiveHtml(e) {
   if (!isAxial(e)) return h;
   const k = axialK(e), S = sim.sweep, i = Math.round(ui.frame);
   const F = S && !S.frf && S.EF && S.EF[e.id] ? S.EF[e.id][i] : NaN;
-  h += "<br>E <b>" + nlf(axialE(e)) + "</b> MPa \u00b7 A <b>" + nlf(axialA(e)) + "</b> mm\u00b2 \u00b7 k = EA/L <b>" + nlf(k) + "</b> N/mm = <b>" + nlf(k / 1000) + "</b> N/\u00b5m<br>" +
+  h += "<br>E <b>" + nlf(axialE(e)) + "</b> MPa \u00b7 A <b>" + nlf(axialA(e)) + "</b> mm\u00b2 \u00b7 k = EA/L <b>" + nlf(k) + "</b> N/mm = <b>" + fmtStiff(k) + "</b><br>" +
     (isFinite(F) ? "N <b>" + nlf(F) + "</b> N \u00b7 \u0394L = N/k <b>" + nlf(F / k * 1000) + "</b> \u00b5m \u00b7 \u03c3 <b>" + nlf(axialSigma(e, F)) + "</b> MPa"
                  : "N \u2013 \u00b7 \u0394L \u2013 \u00b7 \u03c3 \u2013 \u00b7 nog geen doorgerekende stand");
   if (model.mode === "dyn" && N(e.a) && N(e.b)) {
@@ -575,8 +575,8 @@ function bindJoint(n) {
 function nodeStiffLive(n) {
   const R = sim.stiff, d = model.mode === "stiff" && R && R.ok ? R.nodes.get(n.id) : null;
   if (!d) return "";
-  return '<p class="empty" style="margin:10px 0 0"><b>Verplaatsing</b></p><p class="empty" style="margin-top:2px">u\u2093 <b>' + nlf(d.ux * 1000) + "</b> \u00b5m \u00b7 u<sub>y</sub> <b>" + nlf(d.uy * 1000) +
-    "</b> \u00b5m" + (Number.isNaN(d.th) ? "" : " \u00b7 \u03c6 <b>" + nlf(d.th * 1e6) + "</b> \u00b5rad") + "</p>";
+  return '<p class="empty" style="margin:10px 0 0"><b>Verplaatsing</b></p><p class="empty" style="margin-top:2px">u\u2093 <b>' + fmtLen(d.ux) + "</b> \u00b7 u<sub>y</sub> <b>" + fmtLen(d.uy) +
+    "</b>" + (Number.isNaN(d.th) ? "" : " \u00b7 \u03c6 <b>" + fmtAngle(d.th) + "</b>") + "</p>";
 }
 function beamLiveHtml(e) {
   if (!N(e.a) || !N(e.b)) return "";
@@ -675,7 +675,7 @@ function sensorLiveHtml(e) {
   const L = sensorLive(e), none = " \u00b7 nog geen doorgerekende beweging";
   let h = "";
   if (e.type === "loadcell") {
-    h = "k\u209b <b>" + nlf(springK(e)) + "</b> N/mm = <b>" + nlf(springK(e) / 1000) + "</b> N/\u00b5m<br>" +
+    h = "k\u209b <b>" + nlf(springK(e)) + "</b> N/mm = <b>" + fmtStiff(springK(e)) + "</b><br>" +
       (L ? "F <b>" + nlf(L.F) + "</b> N \u00b7 \u03b4 = F/k\u209b <b>" + nlf(L.d) + "</b> \u00b5m" : "F \u2013 \u00b7 \u03b4 \u2013" + none);
     if (model.mode === "dyn" && N(e.a) && N(e.b)) {
       const dt = loadcellDt(e, model.defMass), now = (model.dtStep || 0.2) / 1000;
@@ -686,9 +686,9 @@ function sensorLiveHtml(e) {
     h = L ? 'x <b style="' + (L.oor ? "color:var(--bad)" : "") + '">' + nlf(L.x) + "</b> \u00b5m \u00b7 afgerond op resolutie <b>" + nlf(L.q) + "</b> \u00b5m<br>" +
       (L.oor ? '<span style="color:var(--bad);font-weight:600">buiten bereik (\u00b1' + nlf(e.range) + " \u00b5m)</span>" : "binnen bereik (\u00b1" + nlf(e.range) + " \u00b5m)") : "x \u2013" + none;
   } else if (e.type === "encoder") {
-    h = L ? "\u03b8 <b>" + nl(L.th.toFixed(4)) + "</b>\u00b0 = <b>" + nlf(L.thu) + "</b> \u00b5rad<br>geteld <b>" + nl(L.thq.toFixed(4)) + "</b>\u00b0 (kwantisatiefout " + nlf((L.thq - L.th) * Math.PI / 180 * 1e6) + " \u00b5rad)" : "\u03b8 \u2013" + none;
+    h = L ? "\u03b8 <b>" + sg(L.th, 5) + "</b>\u00b0 = <b>" + nlf(L.thu) + "</b> \u00b5rad<br>geteld <b>" + sg(L.thq, 5) + "</b>\u00b0 (kwantisatiefout " + nlf((L.thq - L.th) * Math.PI / 180 * 1e6) + " \u00b5rad)" : "\u03b8 \u2013" + none;
   } else if (e.type === "accel") {
-    h = L ? "a <b>" + nlf(L.a) + "</b> m/s\u00b2 = <b>" + nl(L.g.toFixed(3)) + "</b> g" : "a \u2013" + none;
+    h = L ? "a <b>" + nlf(L.a) + "</b> m/s\u00b2 = <b>" + sg(L.g) + "</b> g" : "a \u2013" + none;
   }
   return h;
 }

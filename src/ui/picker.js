@@ -2,7 +2,7 @@
 import { compile, exprUnit } from "../core/formula.js";
 import { model, sim, ui, view } from "../core/state.js";
 import { draw } from "./draw.js";
-import { fmtHz } from "./format.js";
+import { fmtHz, sg } from "./format.js";
 import { save } from "./persist.js";
 import { buildPdata, drawPlot, refreshChannels, serieLab, seriesBox } from "./plot.js";
 import { serieColor } from "./theme.js";
@@ -156,8 +156,8 @@ export function renderSeries() {
   syncSeriesValues();
 }
 
-const num = (v, u) => !isFinite(v) ? "–"
-  : (Math.abs(v) >= 1e4 || (v !== 0 && Math.abs(v) < 1e-2) ? v.toExponential(2) : v.toFixed(2)) + (u ? " " + u : "");
+const degs = p => { const r = Math.round(p) || 0; return (r < 0 ? "\u2212" : "") + Math.abs(r); };
+const num = (v, u) => !isFinite(v) ? "\u2013" : sg(v) + (u ? " " + u : "");
 
 export function syncSeriesValues() {
   if (!sim.sweep) return;
@@ -168,10 +168,10 @@ export function syncSeriesValues() {
   seriesBox.querySelectorAll("[data-v]").forEach(el => {
     const d = ui.pdata && ui.pdata.ss[+el.dataset.v];
     const mv = frf && ui.hoverI === null && ui.meet && d ? ui.meet.v[d.si] : null;      // exact bij de meetfrequentie
-    put(el, mv ? "<b>" + num(mv.amp, d.u) + "</b> \u00b7 " + mv.ph.toFixed(0) + "\u00b0 \u00b7 " + fmtHz(ui.meet.f)
+    put(el, mv ? "<b>" + num(mv.amp, d.u) + "</b> \u00b7 " + degs(mv.ph) + "\u00b0 \u00b7 " + fmtHz(ui.meet.f)
       : !d ? "–"
       : d.err ? '<b style="color:var(--bad)">' + d.err + "</b>"
-      : frf ? "<b>" + num(Math.pow(10, d.a[i]), d.u) + "</b> \u00b7 " + (isFinite(d.ph[i]) ? d.ph[i].toFixed(0) + "\u00b0" : "\u2013") +
+      : frf ? "<b>" + num(Math.pow(10, d.a[i]), d.u) + "</b> \u00b7 " + (isFinite(d.ph[i]) ? degs(d.ph[i]) + "\u00b0" : "\u2013") +
               " \u00b7 " + fmtHz(sim.sweep.f[i])
       : "<b>" + num(d.a[i], d.u) + "</b>");
   });

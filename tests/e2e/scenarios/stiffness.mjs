@@ -1,4 +1,4 @@
-import { newPage, loadExample, near, num } from '../lib.mjs';
+import { kNmm, newPage, loadExample, near, num } from '../lib.mjs';
 
 // aantal pixels in de kleuren van het spanningsverloop (blauw - groen - geel - rood)
 const rampPixels = p => p.evaluate(() => {
@@ -37,14 +37,14 @@ export default async ({ browser, url, check }) => {
 
   // uitkraging: stijfheid in punt = 3EI/L³ (zelfde waarde als de unittest), analytische waarde ernaast
   await loadExample(p, 'stiffcant');
-  const k = num(await p.$eval('#skVal', e => e.textContent).then(t => t.replace(',', '.').replace(/^k\s*=\s*/, '')));
+  const k = kNmm(await p.$eval('#skVal', e => e.textContent));
   const kExact = 3 * 210000 * (20 * 27 / 12) / 200 ** 3;
   check('stijfheid in punt C = 3EI/L³ = 3,544 N/mm', near(k, kExact, 0.006), `k=${k} verwacht ${kExact}`);
   const ana = await p.$eval('#stiffBox', e => e.innerText);
   check('analytische controle naast de FE-waarde (uitkraging, f₁)', /Uitkragende balk \(Roark\)/.test(ana) && /Eerste buigfrequentie/.test(ana), ana.slice(-300));
   // richting en punt kiezen
   await p.fill('#skAng', '0'); await p.keyboard.press('Enter'); await p.waitForTimeout(150);
-  const kx = num((await p.$eval('#skVal', e => e.textContent)).replace(',', '.').replace(/^k\s*=\s*/, ''));
+  const kx = kNmm(await p.$eval('#skVal', e => e.textContent));
   check('stijfheid in x-richting (EA/L) is veel hoger', kx > 100 * k, `kx=${kx}`);
   await p.fill('#skAng', '-90'); await p.keyboard.press('Enter'); await p.waitForTimeout(150);
 
@@ -81,7 +81,7 @@ export default async ({ browser, url, check }) => {
   // stijfheid na splitsen blijft gelijk (via de inspector van de balk)
   const q = await newPage(browser, url);
   await loadExample(q, 'stiffleaf');
-  const kLeaf = num((await q.$eval('#skVal', e => e.textContent)).replace(',', '.').replace(/^k\s*=\s*/, '').replace('e-4', 'e-4'));
+  const kLeaf = kNmm(await q.$eval('#skVal', e => e.textContent));
   check('bladveer: k = 12EI/L³ = 0,886 N/mm', near(kLeaf, 0.8859, 0.001), String(kLeaf));
   const leafText = await q.$eval('#stiffBox', e => e.innerText);
   check('bladveer: analytische controle geleid, verschil 0,00 %', /Geleide uitkraging/.test(leafText) && /verschil 0,00 %/.test(leafText), leafText.slice(-200));

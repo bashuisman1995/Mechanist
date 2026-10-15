@@ -39,7 +39,7 @@ testen. Bouwen en controleren:
 ```sh
 npm ci                  # eenmalig: esbuild
 npm run build           # bundelt src/ en schrijft index.html
-npm run check           # controleert of index.html actueel is (ook op GitHub)
+npm run check           # controleert of index.html actueel is (ook op GitHub); de git-hash-stempel telt niet mee
 NODE_PATH=<map met playwright>/node_modules node tests/e2e/run.mjs   # browsertests
 ```
 
@@ -142,6 +142,19 @@ NODE_PATH=<map met playwright>/node_modules node tests/e2e/run.mjs   # browserte
 - **Voorbeelden** (menu Model): vierstang, slinger-kruk, compressor met veer,
   vijfstang met twee motoren, Hoeken-rechtgeleiding, Jansen-poot
   (Strandbeest), veerslinger, dubbele slinger en een arm die tot rust komt.
+- **Rekenblad** (Bestand → *Rekenblad (PDF/print)*, ook bij elke calculator): een schone A4-weergave om af te drukken of als
+  PDF te bewaren, met titel, datum, appversie en git-hash (de hash zet `tools/build.py` in de pagina), modus, een
+  momentopname van de tekening (altijd in het lichte thema), de modeltabel (punten, elementen met alle parameters en eenheden,
+  materialen met bronnotitie), belastingen, de uitkomsten van de huidige modus en de formules, aannamen en bronnen uit
+  *Hoe rekent dit?*. *Kopieer als tekst* zet hetzelfde als platte tekst op het klembord. Elk blad eindigt met: controleer
+  kritische waarden altijd onafhankelijk.
+- **Getalnotatie:** overal één opmaak (`src/ui/format.js`): decimale komma, dunne spatie bij duizendtallen, standaard drie geldige
+  cijfers en nooit machtsnotatie (`1,2e-4`). In plaats daarvan wisselt het voorvoegsel (N/mm ↔ N/µm, µm ↔ mm ↔ nm, MPa ↔ GPa,
+  µrad ↔ mrad, Hz ↔ kHz). Waarden onder 1e-9 × de probleemschaal zijn 0; reacties uit de penalty-FE van Stijfheid onder
+  1e-5 × de grootste reactie ook (rekenruis). Invoervelden en CSV houden de punt.
+- **Onderbalk en hints:** bij Stijfheid zitten vergroting en modes in de transportbalk (één rij, inklapbaar; de chips scrollen
+  horizontaal). De hint bovenaan verdwijnt na de eerste handeling op de tekening of na 6 s; de uitleg bij een voorbeeld klapt
+  in tot een compact label. De knop **?** (of de toets ?) haalt ze terug.
 - **Opslaan en delen:** opslaan als `.mech.json`-bestand en weer openen (ook
   door slepen), een deelbare link (model in de URL), kopiëren en plakken als
   JSON, en ongedaan maken/opnieuw.

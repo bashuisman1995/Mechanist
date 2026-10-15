@@ -10,6 +10,7 @@ import { thermalNode, thermalShift } from "../core/thermal.js";
 import { beamSect, isBeam } from "../core/axial.js";
 import { RIGID_FACTOR } from "../core/stiffness.js";
 import { model, sim, ui } from "../core/state.js";
+import { fmtHz, fmtLen, fmtStress, sg } from "./format.js";
 
 // Bronnen: literatuur, geen bestandsnamen
 const REF = {
@@ -32,13 +33,8 @@ const VTOL = 0.5, ATOL = 50, CALM = 0.1;   // evenwichtscriteria uit dynamics.js
 /* ---------- kleine hulpjes ---------- */
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const nl = x => String(x).replace(".", ",");
-const num = (v, d = 3) => {
-  if (v === undefined || v === null || !isFinite(v)) return "–";
-  const a = Math.abs(v);
-  if (a !== 0 && (a < 1e-3 || a >= 1e5)) return nl(v.toExponential(2));
-  return nl(+v.toPrecision(d));
-};
-const hz = f => f === undefined || !isFinite(f) ? "–" : nl(f < 10 ? f.toPrecision(3) : f < 1000 ? f.toFixed(1) : f.toFixed(0)) + " Hz";
+const num = (v, d = 3) => (v === undefined || v === null || !isFinite(v)) ? "\u2013" : sg(v, d);
+const hz = f => f === undefined || !isFinite(f) ? "\u2013" : fmtHz(f);
 const s_ = (b, i) => b + "<sub>" + i + "</sub>";
 const sup = (b, i) => b + "<sup>" + i + "</sup>";
 const fr = (n, d) => '<span class="fr"><span>' + n + "</span><span>" + d + "</span></span>";
@@ -148,7 +144,7 @@ function dynBlocks() {
     kv("Onbekenden q", "2·" + free + " = " + nq),
     kv("Randvoorwaarden Φ", bars + " stangen + " + sl + " glijders + 2·" + drv + " kruk = " + nm),
     kv("Vrijheidsgraden", nq + " − " + nm + " = " + (nq - nm) + (nq - nm < 0 ? " (overbepaald, niet te rekenen)" : "")),
-    kv("Stap h<sub>0</sub> (instelling)", nl(+(h0 * 1000).toPrecision(3)) + " ms"),
+    kv("Stap h<sub>0</sub> (instelling)", sg(h0 * 1000) + " ms"),
     kv("Baumgarte α = β", BA + " 1/s"),
     kv("Zwaartekracht", model.gravity ? "aan" : "uit"),
     kv("Demping per punt c<sub>v</sub>", num(model.cVisc || 0) + " Ns/mm"),
@@ -297,12 +293,12 @@ function stiffBlock() {
   if (R && R.sys) {
     live.push(kv("Vrijheidsgraden", R.sys.nd + " (" + R.nfree + " vrij na opleggingen)"));
     live.push(kv("Zwaartekracht", model.gravity ? "aan (gewicht van massa\u2019s en balken)" : "uit"));
-    if (R.sys.mem.some(m => m.rigid)) live.push(kv("Stijve schakels", "EA, EI = " + RIGID_FACTOR.toExponential(0).replace("e+", "\u00d710^") + " \u00d7 " + num(R.sys.kref) + " N/mm (penalty)"));
+    if (R.sys.mem.some(m => m.rigid)) live.push(kv("Stijve schakels", "EA, EI = " + "10\u2075" + " \u00d7 " + num(R.sys.kref) + " N/mm (penalty)"));
     if (R.ok) {
-      live.push(kv("Rest \u2016K\u00b7u \u2212 F\u2016/\u2016F\u2016", num(R.resid)));
-      live.push(kv("Evenwicht \u03a3R + \u03a3F", num(R.eq) + " N"));
-      if (R.sigMax) live.push(kv("Max \u03c3", num(R.sigMax.val) + " MPa (" + num(R.sigMax.ratio * 100) + " % van \u03c3<sub>toel</sub>)"));
-      live.push(kv("Grootste verplaatsing", num(R.maxDisp * 1000) + " \u00b5m"));
+      live.push(kv("Rest \u2016K\u00b7u \u2212 F\u2016/\u2016F\u2016", R.resid < 1e-9 ? "< 10\u207b\u2079" : num(R.resid)));
+      live.push(kv("Evenwicht \u03a3R + \u03a3F", sg(R.eq, 3, R.reactions.reduce((m, r) => Math.max(m, Math.abs(r.Rx), Math.abs(r.Ry)), 0)) + " N"));
+      if (R.sigMax) live.push(kv("Max \u03c3", fmtStress(R.sigMax.val) + " (" + num(R.sigMax.ratio * 100) + " % van \u03c3<sub>toel</sub>)"));
+      live.push(kv("Grootste verplaatsing", fmtLen(R.maxDisp)));
       if (R.modes && R.modes.length) live.push(kv("Eigenfrequenties", R.modes.map(m => hz(m.f)).join(", ")));
       (R.analytic || []).forEach(a => a.rows.forEach(r => live.push(kv(esc(a.title), esc(r.k) + ": " + num(r.an * r.f, 4) + " " + r.unit + " (analytisch) tegen " + num(r.fe * r.f, 4) + " " + r.unit + " (FE)"))));
     } else if (R.mech) live.push(kv("Status", esc(R.mech.text)));
@@ -648,6 +644,12 @@ export function renderHow(el) {
   const key = keyOf();
   if (key === lastKey && el.firstChild) return;
   lastKey = key;
+  el.innerHTML = howHtml();
+}
+
+// de formules, aannamen en bronnen van de huidige modus (en het geselecteerde onderdeel) als HTML, ook voor het rekenblad
+export function howHtml() {
+  const keep = copies;
   copies = [];
   let h;
   if (model.mode === "stiff") h = [stiffBlock()];
@@ -655,5 +657,7 @@ export function renderHow(el) {
   else if (model.mode === "dyn") h = dynBlocks();
   else h = [kinBlock(), shiftBlock()];
   const extra = selBlock();
-  el.innerHTML = h.join("") + (extra ? '<div class="hw-sel">Geselecteerd onderdeel</div>' + extra : "");
+  const out = h.join("") + (extra ? '<div class="hw-sel">Geselecteerd onderdeel</div>' + extra : "");
+  copies = keep;
+  return out;
 }

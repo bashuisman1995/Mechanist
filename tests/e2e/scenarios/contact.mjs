@@ -10,7 +10,7 @@ export default async ({ browser, url, check }) => {
   // virtuele speling: bal ligt in de groef, x blijft in het micrometerbereik (|x| < 0.01 mm)
   await loadExample(p, 'virtualplay');
   const s = (await stats(p))[0];
-  const nums = s.match(/-?\d+(\.\d+)?/g).map(Number);
+  const nums = (s.replace(/\u2212/g, '-').match(/-?\d+([.,]\d+)?/g) || []).map(x => Number(x.replace(',', '.')));
   check('virtualplay: x binnen enkele micrometer (grafiek in µm)', nums.length >= 2 && Math.max(...nums.slice(0, 2).map(Math.abs)) < 5, s);
   // het contact verschijnt in het eigenschappenpaneel: zoek het aan te klikken vlak op het canvas
   await p.click('[data-t="props"]');

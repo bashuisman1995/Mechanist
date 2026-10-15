@@ -11,6 +11,7 @@ import { syncSeriesValues } from "./picker.js";
 import { goto, togglePlay } from "./playback.js";
 import { serieColor } from "./theme.js";
 import { flash } from "./tools.js";
+import { powTick, sg, tickStr } from "./format.js";
 
 /* ============================================================
    Metingen & grafiek
@@ -50,7 +51,7 @@ function xValue(i) {
 let xUnit = "s";
 function fmtX(v) {
   if ((model.xAxis || "time") !== "time") return fmtTick(v);
-  return xUnit === "ms" ? (v * 1000).toFixed(0) : v.toFixed(2);
+  return xUnit === "ms" ? tickStr(v * 1000, 1) : tickStr(v, 0.01);
 }
 export const serieLab = sr => sr.expr ? sr.expr : chLab(sr.key);
 
@@ -117,11 +118,8 @@ function buildFrfData() {
 // exponentiële notatie waar dat leesbaar is
 function fmtPow(v) {
   const x = Math.pow(10, v);
-  if (Math.abs(v - Math.round(v)) < 1e-9) {
-    const r = Math.round(v);
-    return r >= -2 && r <= 3 ? String(+x.toFixed(Math.max(0, -r))) : "1e" + r;
-  }
-  return x >= 1e4 || x < 1e-2 ? x.toExponential(1) : String(+x.toPrecision(2));
+  if (Math.abs(v - Math.round(v)) < 1e-9) return powTick(v);
+  return sg(x, 2);
 }
 
 // Eén deelgrafiek per eenheid. Elke deelgrafiek heeft een kopregel met de
@@ -385,17 +383,11 @@ function niceTicks(lo, hi, n) {
   return out;
 }
 function fmtTick(v, step) {
+  if (step > 0) return tickStr(v, step);
   const a = Math.abs(v);
-  if (step > 0) {
-    if (a >= 1e5) return v.toExponential(1);
-    if (step < 1e-4) return Math.abs(v) < step / 2 ? "0" : v.toExponential(1);   // heel kleine schaal
-    const d = Math.max(0, Math.min(6, Math.ceil(-Math.log10(step)) + 1));
-    return v.toFixed(d);
-  }
-  if (a >= 1e5 || (a > 0 && a < 1e-2)) return v.toExponential(0);
-  if (a >= 100) return v.toFixed(0);
-  if (a >= 10) return v.toFixed(1);
-  return v.toFixed(2);
+  if (a >= 100) return tickStr(v, 1);
+  if (a >= 10) return tickStr(v, 0.1);
+  return sg(v, 2);
 }
 
 export function initPlot() {

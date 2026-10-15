@@ -1,6 +1,8 @@
 // Menu.
 import { openFile, openPaste, openSave } from "./files.js";
 import { startTour } from "./tour.js";
+import { openSketchReport } from "./sketchreport.js";
+import { openCalcReport } from "./calc.js";
 import { copyLink, copyModel, hasPrevSession, restoreSession } from "./persist.js";
 
 /* ---------- top-bar menus: Bestand ---------- */
@@ -29,6 +31,7 @@ export function initMenu() {
       if (b.dataset.a === "copy") copyModel();
       if (b.dataset.a === "paste") openPaste();
       if (b.dataset.a === "link") copyLink();
+      if (b.dataset.a === "report") { if (document.getElementById("calcRoot").hidden) openSketchReport(); else openCalcReport(); }
       if (b.dataset.a === "tour") startTour(true);
     });
   });

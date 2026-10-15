@@ -5,7 +5,7 @@ import { chLab, chU } from "../core/channels.js";
 import { bounds, mobility } from "../core/kinematics.js";
 import { model, sim, ui } from "../core/state.js";
 import { draw } from "./draw.js";
-import { fmtHz, fmtTime } from "./format.js";
+import { fmtHz, fmtTime, sg } from "./format.js";
 import { syncContactLive, syncInspector, syncResult } from "./inspector.js";
 import { syncSeriesValues } from "./picker.js";
 import { stiffMessage } from "./stiff.js";
@@ -166,7 +166,7 @@ function odsLabel() {
   const r = odsRate(), f = curF(sim.sweep);
   if (!ui.playing) return fmtHz(f);
   const k = r.factor;
-  return fmtHz(f) + " \u00b7 " + (k >= 0.995 ? "echte tijd" : k >= 0.1 ? (+k.toFixed(2)) + "\u00d7" : "1/" + Math.round(1 / k) + "\u00d7");
+  return fmtHz(f) + " \u00b7 " + (k >= 0.995 ? "echte tijd" : k >= 0.1 ? sg(k, 2) + "\u00d7" : "1/" + Math.round(1 / k) + "\u00d7");
 }
 function applyOds(ph) {
   const S = sim.sweep, o = shownOds(S), X = o.X;
@@ -212,7 +212,7 @@ function syncMeet() {
     const m = Math.hypot(z[0], z[1]);
     if (!(m > 1e-300)) return;
     a[si] = Math.log10(m); v[si] = { amp: m, ph: Math.atan2(z[1], z[0]) * 180 / Math.PI };
-    if (!first) first = chLab(sr.key) + ": " + nlc(m >= 1e4 || m < 1e-2 ? m.toExponential(2) : m.toFixed(2)) + " " +
+    if (!first) first = chLab(sr.key) + ": " + sg(m) + " " +
       (chU(sr.key) || "?") + "/" + S.inUnit + " \u00b7 " + Math.round(v[si].ph) + "\u00b0";
   });
   ui.meet = ui.meetOn ? { f, a, v } : null;
@@ -301,7 +301,7 @@ export function syncTransport() {
     playBtn.disabled = !ok; scrub.hidden = true; angOut.hidden = true; speedSel.hidden = true;
     document.getElementById("rewBtn").hidden = true;
     for (const id of ["stopBtn", "tprog", "solveBtn"]) document.getElementById(id).hidden = true;
-    const m = document.getElementById("tmsg"); m.hidden = false; m.textContent = stiffMessage();
+    const m = document.getElementById("tmsg"); m.hidden = ok; m.textContent = stiffMessage();
     if (!ok && ui.playing) togglePlay();
     syncLock(); syncResult(); syncMeet();
     return;
@@ -335,7 +335,7 @@ export function showProgress(p) {
   if (p.phase === "frfeq") { msg.textContent = "Evenwicht zoeken… stap " + (p.it + 1); bar.value = Math.min(0.5, p.it / 20); return; }
   if (p.phase === "frf") { msg.textContent = "Frequenties doorrekenen… " + Math.round(p.f / 3.6) + " %"; bar.value = 0.5 + 0.5 * p.f / 360; return; }
   if (p.phase === "equil") {
-    msg.textContent = "Evenwicht zoeken… t = " + p.t.toFixed(2) + " s";
+    msg.textContent = "Evenwicht zoeken… t = " + fmtTime(p.t);
     bar.value = model.durMode === "equil" ? 0.5 * p.t / p.maxT : p.t / p.maxT;
   } else {
     msg.textContent = "Rekenen… " + Math.round(p.f / 3.6) + " %";

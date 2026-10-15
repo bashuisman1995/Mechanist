@@ -3,10 +3,9 @@ import { N } from "../core/elements.js";
 import { effectiveScale, jointFor, memberCurve, modeScale, modelKey, NSEG } from "../core/stiffness.js";
 import { isBeam } from "../core/axial.js";
 import { model, sim, ui } from "../core/state.js";
-import { sg } from "./format.js";
+import { REL_FE, fmtAngle, fmtForce, fmtHz, fmtLen, fmtMoment } from "./format.js";
 import { ctx, toScr } from "./view.js";
 
-const nl = s => String(s).replace(".", ",");
 // kleurverloop voor σ/σ_toel: blauw (0) – groen – geel – rood (≥ 1)
 const STOPS = [[0, [58, 110, 190]], [0.12, [38, 168, 160]], [0.32, [128, 198, 66]], [0.62, [240, 190, 40]], [1, [214, 56, 47]]];
 export function stressColor(r) {
@@ -71,7 +70,7 @@ export function drawStiff(label) {
       const mag = Math.hypot(d.ux, d.uy) * 1000;
       if (!(mag > 1e-6) || mag < res.maxDisp * 1000 * 0.2) continue;
       const i = sys.nIdx.get(n.id), p = toScr({ x: n.x + sh.scale * u[3 * i], y: n.y + sh.scale * u[3 * i + 1] });
-      label(p.x + 10, p.y + 16, sg(mag) + " µm", ui.C.driver, true, 1);
+      label(p.x + 10, p.y + 16, fmtLen(mag / 1000), ui.C.driver, true, 1);
     }
     // reacties op de opleggingen
     if (model.showForces) drawReactions(res, label);
@@ -79,7 +78,7 @@ export function drawStiff(label) {
   } else {
     const m = sh.mode;
     ctx.fillStyle = ui.C.ink2; ctx.font = '500 12px "IBM Plex Sans", system-ui, sans-serif'; ctx.textAlign = "left"; ctx.textBaseline = "top";
-    ctx.fillText("Mode " + (ui.stiffMode + 1) + " · " + nl(m.f < 10 ? m.f.toPrecision(3) : m.f < 1000 ? m.f.toFixed(1) : m.f.toFixed(0)) + " Hz", 14, 12);
+    ctx.fillText("Mode " + (ui.stiffMode + 1) + " · " + fmtHz(m.f), 14, 12);
   }
 }
 
@@ -96,7 +95,7 @@ function drawReactions(res, label) {
     ctx.beginPath(); ctx.moveTo(s.x + ux * 8, s.y + uy * 8); ctx.lineTo(tip.x, tip.y); ctx.stroke();
     ctx.fillStyle = ui.C.accent; const px = -uy, py = ux;
     ctx.beginPath(); ctx.moveTo(tip.x + ux * 3, tip.y + uy * 3); ctx.lineTo(tip.x - ux * 8 + px * 4.4, tip.y - uy * 8 + py * 4.4); ctx.lineTo(tip.x - ux * 8 - px * 4.4, tip.y - uy * 8 - py * 4.4); ctx.closePath(); ctx.fill();
-    label(tip.x + ux * 14, tip.y + uy * 14, sg(mag) + " N" + (r.clamp && Math.abs(r.Mz) > 1e-9 ? " · " + sg(r.Mz / 1000) + " N·m" : ""), ui.C.accent, false, 1);
+    label(tip.x + ux * 14, tip.y + uy * 14, fmtForce(mag, 3, mx * REL_FE / 1e-9) + (r.clamp && Math.abs(r.Mz / 1000) > 1e-9 * mx ? " · " + fmtMoment(r.Mz / 1000) : ""), ui.C.accent, false, 1);
   }
 }
 

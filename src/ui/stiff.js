@@ -4,15 +4,12 @@ import { N } from "../core/elements.js";
 import { analyticChecks, computeModes, effectiveScale, solveStiffness } from "../core/stiffness.js";
 import { model, sim, ui } from "../core/state.js";
 import { draw } from "./draw.js";
-import { sg } from "./format.js";
+import { REL_FE, colUnit, fmtAngle, fmtHz, fmtLen, fmtMoment, fmtQ, fmtStiff, fmtStress, numStr, scaleOf, sg } from "./format.js";
 import { save } from "./persist.js";
 import { touched } from "./solver.js";
 
-const nl = s => String(s).replace(".", ",");
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
-const fscale = v => "×" + (v >= 100 ? nl(String(Math.round(v))) : sg(v, 2));
-const um = v => sg(v * 1000);                // mm -> µm
-const urad = v => sg(v * 1e6);               // rad -> µrad
+const fscale = v => "×" + sg(v, v >= 100 ? 3 : 2);
 
 let eigenTimer = 0;
 export function solveStiff() {
@@ -42,7 +39,7 @@ export function stiffMessage() {
   if (!R) return "";
   if (R.empty) return "Stijfheid: teken balken (stijfheid Volledig), axiale staven of veren, een oplegging en een kracht.";
   if (!R.ok) return R.mech.text;
-  if (ui.stiffMode >= 0 && R.modes && R.modes[ui.stiffMode]) return "Eigenvorm " + (ui.stiffMode + 1) + " · " + sg(R.modes[ui.stiffMode].f) + " Hz · spatie animeert";
+  if (ui.stiffMode >= 0 && R.modes && R.modes[ui.stiffMode]) return "Eigenvorm " + (ui.stiffMode + 1) + " · " + fmtHz(R.modes[ui.stiffMode].f) + " · spatie animeert";
   return "Statische vervorming" + (R.modes && R.modes.length ? " · kies een mode onder het canvas" : "") + " · spatie animeert";
 }
 
@@ -66,13 +63,13 @@ function boxHtml(res) {
   const ms = res.sigMax;
   if (ms) {
     const e = ms.e, bm = isBeam(e), rec = res.members.find(m => m.e === e), L = rec ? rec.L : 0;
-    h += '<div class="thres">Maximale spanning <b>' + sg(ms.val) + "</b> MPa = <b>" + sg(ms.ratio * 100, 2) + " %</b> van σ<sub>toel</sub>" +
+    h += '<div class="thres">Maximale spanning <b>' + fmtStress(ms.val) + "</b> = <b>" + sg(ms.ratio * 100, 2) + " %</b> van σ<sub>toel</sub>" +
       (ms.ratio > 1 ? ' <span class="warn">— boven de toelaatbare spanning</span>' : "") +
-      "<br>in " + (bm ? "balk " : e.type === "flexure" ? "flexure " : "staaf ") + esc(elemName(e)) + (bm ? " op " + sg(ms.frac * L) + " mm van " + esc(nodeName(e.a)) : "") + "</div>";
+      "<br>in " + (bm ? "balk " : e.type === "flexure" ? "flexure " : "staaf ") + esc(elemName(e)) + (bm ? " op " + fmtLen(ms.frac * L) + " van " + esc(nodeName(e.a)) : "") + "</div>";
   } else h += '<div class="thres">Geen spanning te berekenen: geen balken of axiale staven.</div>';
   let big = null;
   res.nodes.forEach(d => { const m = Math.hypot(d.ux, d.uy); if (!big || m > big.m) big = { m, d }; });
-  h += '<div class="thres">Grootste verplaatsing <b>' + um(big ? big.m : 0) + "</b> µm" + (big && big.m > 0 ? " in punt " + esc(big.d.name) : "") + "</div>";
+  h += '<div class="thres">Grootste verplaatsing <b>' + fmtLen(big ? big.m : 0) + "</b>" + (big && big.m > 0 ? " in punt " + esc(big.d.name) : "") + "</div>";
   // stijfheid in een punt
   const nd = pointNode(), ang = isFinite(model.stiffAng) ? model.stiffAng : 90;
   if (nd) {
@@ -81,7 +78,7 @@ function boxHtml(res) {
       '<div class="row"><label for="skNode">Punt</label><select id="skNode">' + model.nodes.map(n => '<option value="' + n.id + '"' + (n.id === nd.id ? " selected" : "") + ">" + esc(n.name) + "</option>").join("") + "</select></div>" +
       '<div class="row"><label for="skAng">Richting <span class="unit">°, 0 = +x, 90 = +y</span></label><input type="number" id="skAng" step="15" value="' + (Math.round(ang * 100) / 100) + '"></div>' +
       (pk && isFinite(pk.k)
-        ? '<div class="big" id="skVal">k = ' + sg(pk.k) + " N/mm = " + sg(pk.kUm) + " N/µm</div><div class=\"ana\" id=\"skCmp\">slapte 1/k = " + sg(pk.compliance * 1000) + " µm/N</div>"
+        ? '<div class="big" id="skVal">k = ' + fmtStiff(pk.k) + '</div><div class="ana" id="skCmp">slapte 1/k = ' + fmtQ(pk.compliance, "len") + "/N</div>"
         : '<div class="big" id="skVal">k = ∞</div><div class="ana" id="skCmp">het punt is in deze richting vast</div>');
   }
   // analytische controle
@@ -92,7 +89,7 @@ function boxHtml(res) {
       for (const r of a.rows) {
         const an = r.an * r.f, fe = r.fe * r.f, d = Math.abs(an) > 0 ? (fe - an) / an * 100 : 0, ad = Math.abs(d);
         h += "<br>" + esc(r.k) + ": analytisch <b>" + sg(an, 4) + "</b> " + r.unit + " · FE <b>" + sg(fe, 4) + "</b> " + r.unit +
-          " <span class=\"" + (ad < 1 ? "ok" : "warn") + '">(' + (ad < 5e-5 ? "verschil 0,00" : (d >= 0 ? "+" : "−") + nl(ad.toFixed(ad < 0.01 ? 4 : 2))) + " %)</span>";
+          " <span class=\"" + (ad < 1 ? "ok" : "warn") + '">(' + (ad < 5e-5 ? "verschil 0,00" : (d >= 0 ? "+" : "−") + sg(ad, 3)) + " %)</span>";
       }
       h += "</div>";
     }
@@ -124,22 +121,43 @@ function renderBox(res) {
 function renderTab(res) {
   const tab = document.getElementById("stiffTab"); if (!tab) return;
   if (!res || !res.ok) { tab.innerHTML = '<div><h3>Verplaatsingen</h3><p class="empty">' + esc(res ? stiffMessage() : "Nog geen oplossing.") + "</p></div>"; return; }
-  const disp = ['<h3>Verplaatsingen</h3><table><tr><th>Punt</th><th>u<sub>x</sub> (µm)</th><th>u<sub>y</sub> (µm)</th><th>φ (µrad)</th></tr>'];
-  res.nodes.forEach(d => { disp.push("<tr><td>" + esc(d.name) + "</td><td>" + um(d.ux) + "</td><td>" + um(d.uy) + "</td><td>" + (Number.isNaN(d.th) ? "–" : urad(d.th)) + "</td></tr>"); });
+  tab.innerHTML = tablesHtml(res);
+}
+// de tabellen met verplaatsingen, reacties en balken (ook voor het rekenblad)
+export function tablesHtml(res) {
+  const nds = Array.from(res.nodes.values());
+  const lu = colUnit(nds.map(d => d.ux).concat(nds.map(d => d.uy)), "len");      // één lengte-eenheid voor ux en uy
+  const ct = colUnit(nds.map(d => d.th).filter(v => !Number.isNaN(v)), "angle");
+  const disp = ['<h3>Verplaatsingen</h3><table><tr><th>Punt</th><th>u<sub>x</sub> (' + lu.u + ')</th><th>u<sub>y</sub> (' + lu.u + ')</th><th>φ (' + ct.u + ')</th></tr>'];
+  res.nodes.forEach(d => { disp.push("<tr><td>" + esc(d.name) + "</td><td>" + lu.s(d.ux) + "</td><td>" + lu.s(d.uy) + "</td><td>" + (Number.isNaN(d.th) ? "–" : ct.s(d.th)) + "</td></tr>"); });
   disp.push("</table>");
   let reac = "";
   if (res.reactions.length) {
-    reac = '<h3>Reacties op de opleggingen</h3><table><tr><th>Punt</th><th>R<sub>x</sub> (N)</th><th>R<sub>y</sub> (N)</th><th>M (N·m)</th></tr>' +
-      res.reactions.map(r => "<tr><td>" + esc(r.name) + "</td><td>" + sg(r.Rx) + "</td><td>" + sg(r.Ry) + "</td><td>" + (r.clamp ? sg(r.Mz / 1000) : "–") + "</td></tr>").join("") + "</table>";
+    const rf = colUnit(res.reactions.reduce((a, r) => a.concat([r.Rx, r.Ry]), []), "force", REL_FE);
+    const rm = colUnit(res.reactions.filter(r => r.clamp).map(r => r.Mz / 1000), "moment", REL_FE);
+    reac = '<h3>Reacties op de opleggingen</h3><table><tr><th>Punt</th><th>R<sub>x</sub> (' + rf.u + ')</th><th>R<sub>y</sub> (' + rf.u + ')</th><th>M (' + rm.u + ')</th></tr>' +
+      res.reactions.map(r => "<tr><td>" + esc(r.name) + "</td><td>" + rf.s(r.Rx) + "</td><td>" + rf.s(r.Ry) + "</td><td>" + (r.clamp ? rm.s(r.Mz / 1000) : "–") + "</td></tr>").join("") + "</table>";
   }
   const rows = res.members.filter(m => m.kind === "beam" || m.kind === "axial" || m.kind === "flex");
   let bars = "";
   if (rows.length) {
-    bars = '<h3>Balken en staven</h3><table><tr><th>Element</th><th>N (N)</th><th>M<sub>max</sub> (N·m)</th><th>σ<sub>max</sub> (MPa)</th><th>σ/σ<sub>toel</sub></th></tr>' +
-      rows.map(m => "<tr><td>" + esc(elemName(m.e)) + "</td><td>" + (m.kind === "flex" ? "–" : sg(m.NN)) + "</td><td>" +
-        (m.kind === "beam" ? sg(m.Mmax / 1000) : m.kind === "flex" ? sg(m.Mf / 1000) : "–") + "</td><td>" + sg(m.sigMax) + "</td><td>" + sg(m.ratio * 100, 2) + " %</td></tr>").join("") + "</table>";
+    const bN = colUnit(rows.filter(m => m.kind !== "flex").map(m => m.NN), "force");
+    const bM = colUnit(rows.map(m => m.kind === "beam" ? m.Mmax / 1000 : m.kind === "flex" ? m.Mf / 1000 : NaN), "moment");
+    const bS = colUnit(rows.map(m => m.sigMax), "stress");
+    bars = '<h3>Balken en staven</h3><table><tr><th>Element</th><th>N (' + bN.u + ')</th><th>M<sub>max</sub> (' + bM.u + ')</th><th>σ<sub>max</sub> (' + bS.u + ')</th><th>σ/σ<sub>toel</sub></th></tr>' +
+      rows.map(m => "<tr><td>" + esc(elemName(m.e)) + "</td><td>" + (m.kind === "flex" ? "–" : bN.s(m.NN)) + "</td><td>" +
+        (m.kind === "beam" ? bM.s(m.Mmax / 1000) : m.kind === "flex" ? bM.s(m.Mf / 1000) : "–") + "</td><td>" + bS.s(m.sigMax) + "</td><td>" + sg(m.ratio * 100, 2) + " %</td></tr>").join("") + "</table>";
   }
-  tab.innerHTML = "<div>" + disp.join("") + "</div><div>" + reac + bars + "</div>";
+  return "<div>" + disp.join("") + "</div><div>" + reac + bars + "</div>";
+}
+// het uitleesblok als vaste tekst (zonder keuzelijst en invoerveld), voor het rekenblad
+export function stiffKeyHtml(res) {
+  const d = document.createElement("div");
+  d.innerHTML = boxHtml(res);
+  const sel = d.querySelector("#skNode"), ang = d.querySelector("#skAng");
+  if (sel) { const r = sel.closest(".row"); const n = model.nodes.find(x => x.id === sel.value); r.outerHTML = "<div>Punt: <b>" + esc(n ? n.name : "?") + "</b></div>"; }
+  if (ang) { const r = ang.closest(".row"); r.outerHTML = "<div>Richting: <b>" + sg(parseFloat(ang.value)) + "\u00b0</b> (0 = +x, 90 = +y)</div>"; }
+  return d.innerHTML;
 }
 
 /* ---------- balk onder het canvas: vergroting en modes ---------- */
@@ -157,12 +175,14 @@ function renderBar(res) {
   const ms = res.modes || [];
   const chips = ['<button class="chip' + (ui.stiffMode < 0 ? " on" : "") + '" data-m="-1" title="Vervorming door de belasting">Statisch</button>']
     .concat(ms.map((m, i) => '<button class="chip' + (ui.stiffMode === i ? " on" : "") + '" data-m="' + i + '" title="Eigenvorm ' + (i + 1) + '">Mode ' + (i + 1) + " · " +
-      nl(m.f < 10 ? m.f.toPrecision(3) : m.f < 1000 ? m.f.toFixed(1) : m.f.toFixed(0)) + " Hz</button>")).join("");
+      fmtHz(m.f) + "</button>")).join("");
   const key = chips + "|" + (res.modes ? 1 : 0);
   const ce = document.getElementById("stiffChips");
   if (ce.__k !== key) { ce.__k = key; ce.innerHTML = chips; }
   document.getElementById("stiffOut").textContent = !res.modes ? "eigenfrequenties worden berekend…" : !ms.length ? (res.modesMsg || "geen eigenfrequenties") : inMode ? "vorm genormeerd · animatie vertraagd" : "";
-  const tm = document.getElementById("tmsg"); if (tm) tm.textContent = stiffMessage();
+  const tm = document.getElementById("tmsg"); if (tm) { tm.textContent = stiffMessage(); tm.hidden = true; }
+  document.getElementById("stiffSum").textContent = inMode && ms[ui.stiffMode] ? "Mode " + (ui.stiffMode + 1) + " \u00b7 " + fmtHz(ms[ui.stiffMode].f) + " \u00b7 vergroting vorm" : "Statisch \u00b7 " + fscale(eff);
+  document.getElementById("playBtn").title = stiffMessage();
 }
 
 export function renderStiffUI() {
@@ -195,6 +215,11 @@ export function initStiff() {
   auto.addEventListener("change", () => {
     model.stiffScale = auto.checked ? 0 : Math.max(1, effectiveScale(sim.stiff));
     renderStiffUI(); draw(); save();
+  });
+  const fold = document.getElementById("stiffFold"), bar = document.getElementById("stiffBar");
+  fold.addEventListener("click", () => {
+    const f = bar.classList.toggle("fold");
+    fold.setAttribute("aria-expanded", String(!f));
   });
   chips.addEventListener("click", ev => {
     const b = ev.target.closest(".chip"); if (!b) return;

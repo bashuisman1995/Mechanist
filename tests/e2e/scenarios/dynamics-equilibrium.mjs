@@ -34,7 +34,7 @@ export default async ({ browser, url, check }) => {
   await p.click('#solveBtn');
   await playReady(p);
   const note = await p.$eval('#dynNote', e => e.textContent);
-  check('"Evenwicht na 1.26 s"', /Evenwicht na 1\.26 s/.test(note), note);
+  check('"Evenwicht na 1.26 s"', /Evenwicht na 1,26 s/.test(note), note);
   check('geen page errors', p.errs.length === 0, p.errs.join('|'));
   await p.context().close();
 };
