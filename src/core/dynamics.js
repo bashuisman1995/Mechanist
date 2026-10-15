@@ -1,5 +1,6 @@
 // Dynamica: tijdsintegratie als generator (zonder DOM).
 import { contactForce, contactPot } from "./contact.js";
+import { flexLoads, flexPhi, flexPot, flexRest, flexTrace, flexures } from "./flexure.js";
 import { actLen, drivers, gapForce, gapPen, hasFriction, isBar, jointDamper, N, omega } from "./elements.js";
 import { G, MM, relax } from "./kinematics.js";
 import { gauss, lsq } from "./linalg.js";
@@ -37,6 +38,7 @@ export function* computeDyn() {
   const vel = (v, id) => fi.has(id) ? { x: v[2 * fi.get(id)], y: v[2 * fi.get(id) + 1] } : { x: 0, y: 0 };
 
   const jointLoads = jointDamper(pos, vel);
+  const fxRest = flexRest();                          // flexures: draaiveren rond de getekende stand
   const cj = jointLoads ? 1 : 0;
 
   // crank pose prescribed by the clock
@@ -122,6 +124,10 @@ export function* computeDyn() {
       }
     }
     if (cj > 0) jointLoads(q, v, (id, fx, fy) => {
+      if (!fi.has(id)) return;
+      const i = fi.get(id); F[2 * i] += fx; F[2 * i + 1] += fy;
+    });
+    flexLoads(id => pos(q, id), fxRest, (id, fx, fy) => {
       if (!fi.has(id)) return;
       const i = fi.get(id); F[2 * i] += fx; F[2 * i + 1] += fy;
     });
@@ -359,6 +365,7 @@ export function* computeDyn() {
   }
   keep.forEach(r => { r.n.x = r.x; r.n.y = r.y; });
   sim.simT = 0;
+  flexTrace(S, fxRest);
   S.Rmax = Rmax; S.Nmax = Nmax;
   sim.solveOK = S.ok.some(Boolean);
   return S.ok.some(Boolean) ? S : null;
@@ -484,6 +491,7 @@ export function* computeDyn() {
       if (model.gravity) E += m * G * S.pos[n.id][f].y * 1e-3;
     }
     for (const e of cons) E += contactPot(e, S.pos[e.node][f]) * 1e-3;
+    for (const e of flexures()) E += flexPot(e, flexPhi(e, id => S.pos[id][f], fxRest)) * 1e-3;
     for (const e of model.elems) {
       if (e.type !== "spring" && e.type !== "gap") continue;
       const P = S.pos[e.a][f], Q = S.pos[e.b][f];

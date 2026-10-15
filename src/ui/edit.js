@@ -1,5 +1,6 @@
 // Bewerken van het model: knopen, elementen, aandrijvers.
 import { contactDefaults } from "../core/contact.js";
+import { flexDefaults, flexDefaultRef, GAMMA } from "../core/flexure.js";
 import { dist, drivers, E, isBar, N } from "../core/elements.js";
 import { eid, model, nid, ui } from "../core/state.js";
 import { changed } from "./solver.js";
@@ -43,6 +44,7 @@ export function addTwoNode(type, a, b) {
   if (type === "spring") { e.k = 1.0; e.L0 = round2(L); }
   if (type === "damper") { e.c = 0.05; }
   if (type === "gap") { e.min = round2(L - 2); e.max = round2(L + 2); e.kc = 50; e.cc = 0.05; }
+  if (type === "flexure") { e.len = round2(L); Object.assign(e, flexDefaults("cantilever", L)); e.ref = flexDefaultRef(e); }
   if (type === "actuator") {
     e.len = round2(L);                               // lengte op t = 0
     e.min = round2(L * 0.85); e.max = round2(L * 1.15); e.freq = 0.5;
@@ -87,6 +89,7 @@ export function reharvest(nodeId) {
         e.min = round2(e.min + d); e.max = round2(e.max + d);
       }
       if (isBar(e)) e.len = round2(L);
+      if (e.type === "flexure" && e.kind === "cantilever") e.L = round2(e.len / GAMMA);
       if (e.type === "spring") e.L0 = round2(L);
     }
   }

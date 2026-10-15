@@ -1,5 +1,6 @@
 // Meetkanalen (grootheden per knoop en element) (zonder DOM).
 import { E, N } from "./elements.js";
+import { flexK, flexStress } from "./flexure.js";
 import { model, sim } from "./state.js";
 
 /* ---- measurable channels ---- */
@@ -39,6 +40,12 @@ export function channels() {
       out.push({ key: "a|" + e.id + "|L", lab: "actuator " + pair(e) + " · L", q: "L", u: "mm",
                  al: "L_" + pair(e), g: "Stangen", o, obj: e.id, frf: true });
     }
+    if (e.type === "flexure") {
+      const o = "Flexure " + pair(e), p = pair(e);
+      out.push({ key: "f|" + e.id + "|phi", lab: "flexure " + p + " \u00b7 \u03c6", q: "\u03c6", u: "\u00b0", al: "phi_" + p, g: "Krachtelementen", o, obj: e.id, frf: true });
+      out.push({ key: "f|" + e.id + "|sig", lab: "flexure " + p + " \u00b7 \u03c3", q: "\u03c3", u: "MPa", al: "sig_" + p, g: "Krachtelementen", o, obj: e.id, frf: true });
+      out.push({ key: "f|" + e.id + "|M", lab: "flexure " + p + " \u00b7 M", q: "M", u: "N\u00b7m", al: "Mf_" + p, g: "Krachtelementen", o, obj: e.id, frf: true });
+    }
     if (e.type === "gap") {
       const o = "Speling " + pair(e);
       out.push({ key: "s|" + e.id + "|F", lab: "speling " + pair(e) + " · F", q: "F", u: "N",
@@ -76,6 +83,11 @@ export function chVal(S, key, i) {
   if (t === "c") {
     const c = S.C && S.C[id] ? S.C[id][i] : null;
     return c ? c[k] : NaN;
+  }
+  if (t === "f") {
+    const e = E(id), a = S.FX && S.FX[id] ? S.FX[id][i] : NaN;
+    if (!e || !isFinite(a)) return NaN;
+    return k === "phi" ? a * 180 / Math.PI : k === "sig" ? flexStress(e, a).sigma : -flexK(e) * a * 1e-3;
   }
   if (t === "r") {
     const R = S.R[id] ? S.R[id][i] : null;

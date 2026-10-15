@@ -20,6 +20,7 @@ const ICON = {
   actuator: '<path d="M2.5 13.8L9.6 8.2" stroke="currentColor" stroke-width="4.2" stroke-linecap="round"/><path d="M9 8.6l8-6.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M12.8 14.8l3.6-2.8M14.4 17l3.6-2.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>',
   spring: '<path d="M2.5 10h2.6l1.5-4 2.4 8 2.4-8 1.5 4h2.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
   gap: '<path d="M2.4 10h4.2M11.6 10h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M13.6 6.4H6.6v7.2h7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 7.6v4.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8.2 4.2h3.6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-dasharray="1 1.2"/>',
+  flexure: '<path d="M2.6 10h2.4c1.2-4.4 2.4-4.4 3.6 0s2.4 4.4 3.6 0 2.4-4.4 3.6 0h.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M2.6 4.6v10.8M1.2 6.2l1.4-1.4M1.2 9.2l1.4-1.4M1.2 12.2l1.4-1.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="17" cy="10" r="1.6" fill="currentColor"/>',
   contact: '<circle cx="10" cy="7.4" r="3.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2.6 11.8h14.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 13.6l-1.4 2M7.6 13.6l-1.4 2M11.2 13.6l-1.4 2M14.8 13.6l-1.4 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>',
   damper: '<path d="M2.4 10h3.4M14.2 10h3.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M5.8 6.2h5.6v7.6H5.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 6.9v6.2M10 10h4.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
   force:  '<path d="M10 17V4.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M10 2.4l3.4 4.2H6.6z" fill="currentColor"/>',
@@ -42,6 +43,7 @@ const TOOLS = [
   { id: "spring", nm: "Veer",       kb: "R", ic: "spring", hint: "Klik twee punten om er een <b>veer</b> tussen te zetten." },
   { id: "damper", nm: "Demper",     kb: "C", ic: "damper", hint: "Klik twee punten om er een <b>demper</b> tussen te zetten." },
   { id: "gap",    nm: "Speling",    kb: "G", ic: "gap",    hint: "Klik twee punten voor een <b>lineaire speling</b>: vrij tussen kortst en langst, daarbuiten een aanslag." },
+  { id: "flexure", nm: "Flexure",   kb: "B", ic: "flexure", hint: "Klik twee punten voor een <b>flexure</b> (bladveer, kruisveerscharnier of inkeping): een scharnier in het eerste punt met een draaiveer uit de geometrie en het materiaal. Type en maten stel je in bij Eigenschappen." },
   { id: "contact", nm: "Contact",   kb: "K", ic: "contact", hint: "Klik een punt voor een <b>contact</b>: een bal (Hertz) op een vlak, met plakken en slippen. Het vlak ligt eerst recht onder de bal; hoek en plek stel je in bij Eigenschappen." },
   { id: "force",  nm: "Kracht",     kb: "F", ic: "force",  hint: "Klik een punt om er een <b>kracht</b> op te zetten." },
   { id: "mass",   nm: "Massa",      kb: "M", ic: "mass",   hint: "Klik een punt om er een <b>puntmassa</b> aan toe te kennen." },
@@ -117,7 +119,7 @@ export function initTools() {
   document.addEventListener("keydown", e => {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
     const k = e.key.toLowerCase();
-    const map = { v: "select", n: "node", l: "link", p: "pin", s: "slider", d: "driver", a: "actuator", r: "spring", c: "damper", g: "gap", k: "contact", f: "force", m: "mass", t: "trace", x: "del" };
+    const map = { v: "select", n: "node", l: "link", p: "pin", s: "slider", d: "driver", a: "actuator", r: "spring", c: "damper", g: "gap", k: "contact", b: "flexure", f: "force", m: "mass", t: "trace", x: "del" };
     if (map[k]) { setTool(map[k]); e.preventDefault(); return; }
     if (e.key === " ") {
       // een knop met focus zou anders zelf nog eens "klikken" en het afspelen meteen weer stoppen

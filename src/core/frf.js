@@ -1,5 +1,6 @@
 // Frequentieresponsie rond het statische evenwicht (zonder DOM).
 import { contactPot } from "./contact.js";
+import { flexK, flexPhi, flexPot, flexRef, flexRest, flexStressRate } from "./flexure.js";
 import { actLen, actuators, drivers, E, gapPen, isBar, jointDamper, N } from "./elements.js";
 import { bounds, G, MM, relax } from "./kinematics.js";
 import { backSubT, cholesky, congruence, gauss, jacobiEig, lsq } from "./linalg.js";
@@ -47,6 +48,7 @@ export function* computeFrf() {
   const vel = (v, id) => fi.has(id) ? { x: v[2 * fi.get(id)], y: v[2 * fi.get(id) + 1] } : { x: 0, y: 0 };
   const dot = (a, b) => { let t = 0; for (let k = 0; k < a.length; k++) t += a[k] * b[k]; return t; };
 
+  const fxRest = flexRest();
   const bb = bounds();
   const size = bb ? Math.max(40, Math.hypot(bb.b.x - bb.a.x, bb.b.y - bb.a.y)) : 100;
   // stap voor numeriek differentiëren (mm): groot genoeg dat de afronding van de
@@ -119,6 +121,8 @@ export function* computeFrf() {
         v += 0.5 * (e.kc || 0) * d * d;
       } else if (e.type === "contact" && fi.has(e.node)) {
         v += contactPot(e, pos(q, e.node));
+      } else if (e.type === "flexure" && N(e.a) && N(e.b)) {
+        v += flexPot(e, flexPhi(e, id => pos(q, id), fxRest));
       } else if (e.type === "force" && fi.has(e.node)) {
         const P = pos(q, e.node), th = e.ang * Math.PI / 180;
         v -= e.mag * (Math.cos(th) * P.x + Math.sin(th) * P.y);
@@ -325,6 +329,17 @@ export function frfVal(S, key, i) {
   }
   const e = E(id); if (!e) return null;
   if (t === "a") return dL(e);
+  if (t === "f") {            // flexure: lineaire verandering van de scharnierhoek φ, daaruit spanning en moment
+    const rot = (a, b) => {   // rotatie van de lijn a -> b (rad per eenheid van de ingang)
+      const P = q0p(a), Q = q0p(b), L = Math.hypot(Q.x - P.x, Q.y - P.y) || 1, ux = (Q.x - P.x) / L, uy = (Q.y - P.y) / L;
+      const pa = [d(a, 0), d(a, 1)], pb = [d(b, 0), d(b, 1)];
+      return [0, 1].map(c => (ux * (pb[1][c] - pa[1][c]) - uy * (pb[0][c] - pa[0][c])) / L);
+    };
+    const r = flexRef(e), th = rot(e.a, e.b), tr = r ? rot(e.a, r.a === e.a ? r.b : r.a) : [0, 0];
+    const ph = [th[0] - tr[0], th[1] - tr[1]];
+    const sc = k === "phi" ? 180 / Math.PI : k === "sig" ? flexStressRate(e).rate : flexK(e) * 1e-3;
+    return [ph[0] * sc, ph[1] * sc];
+  }
   if (t === "s") {
     if (e.type === "spring") return dL(e).map(v => v * e.k);
     if (e.type === "damper") return times(dL(e), 1).map(v => v * e.c);
