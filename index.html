@@ -680,6 +680,70 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
 .tour-bubble h3 { margin: 2px 0 4px; font-size: 14px; }
 .tour-bubble p { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
 .tour-bubble .tacts { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ---------- werkplek Calculators ---------- */
+.topbar #workSeg { background: rgba(233,235,234,.08); border-color: rgba(233,235,234,.14); }
+.topbar #workSeg button { color: var(--brand-ink); background: transparent; }
+.topbar #workSeg button[aria-pressed="true"] { background: rgba(233,235,234,.18); color: var(--brand-ink); }
+.app.calc-on .main, .app.calc-on .statusbar, .app.calc-on .modewrap, .app.calc-on .topbar-group { display: none; }
+.calc { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 0; min-width: 0; overflow: hidden; background: var(--ground); }
+.calc[hidden] { display: none; }
+.calc-list { border-right: 1px solid var(--line); background: var(--panel); padding: 12px 10px; overflow-y: auto; }
+.calc-gh { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); margin: 4px 6px 6px; }
+.calc-item { display: block; width: 100%; text-align: left; background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 7px 9px; cursor: pointer; color: var(--ink); }
+.calc-item:hover { background: var(--panel-2); }
+.calc-item[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--line-2); font-weight: 500; }
+.calc-detail { overflow-y: auto; overflow-x: hidden; padding: 16px 20px 40px; min-width: 0; max-width: 980px; }
+.calc-detail h2 { margin: 0; font-size: 20px; letter-spacing: -.01em; }
+.calc-detail h3 { margin: 22px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); }
+.calc-sub { margin: 2px 0 14px; color: var(--ink-2); }
+.calc-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.calc-fig { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
+.calc-fig svg { display: block; width: 100%; height: auto; }
+.calc-fig .s-line { stroke: var(--ink); stroke-width: 2.2; fill: none; stroke-linecap: round; }
+.calc-fig .s-ghost { stroke: var(--ink-3); stroke-width: 1.2; stroke-dasharray: 4 3; fill: none; }
+.calc-fig .s-fix { fill: var(--panel-2); stroke: var(--ink-3); stroke-width: 1.2; }
+.calc-fig .s-hatch { stroke: var(--hatch); stroke-width: 1.2; fill: none; }
+.calc-fig .s-dim { stroke: var(--accent); stroke-width: 1.2; fill: none; }
+.calc-fig .s-txt { fill: var(--ink-2); font-size: 12px; font-style: italic; }
+.calc-in { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.fld { display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; color: var(--ink-2); min-width: 0; }
+.fld select, .fld input { background: var(--panel); border: 1px solid var(--line-2); border-radius: 6px; padding: 6px 8px; min-width: 0; width: 100%; color: var(--ink); }
+.fld .inp { display: flex; align-items: center; gap: 6px; }
+.fld .inp b { font-weight: 400; color: var(--ink-3); min-width: 44px; }
+.fld input { font-variant-numeric: tabular-nums; }
+.chk { font-size: 12.5px; color: var(--ink-2); display: flex; gap: 6px; align-items: center; }
+.mat-info { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; margin-top: -4px; }
+.calc-res { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin: 0; }
+.calc-res > div { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+.calc-res dt { font-size: 12px; color: var(--ink-2); }
+.calc-res dd { margin: 2px 0 0; font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.calc-res dd .u { font-size: 12px; font-weight: 400; color: var(--ink-3); }
+.calc-res > div.bad { border-color: var(--driver); background: var(--driver-soft); }
+.calc-warn { background: var(--driver-soft); border: 1px solid var(--driver); border-left-width: 4px; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; }
+.calc-formulas .fm { border-bottom: 1px solid var(--line); padding: 8px 0; }
+.fm-h { font-size: 12px; color: var(--ink-3); margin-bottom: 3px; }
+.fm-g, .fm-n { font-family: "IBM Plex Serif", Georgia, serif; font-size: 15px; line-height: 2; overflow-wrap: anywhere; }
+.fm-n { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.fm-lab { font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: 11px; color: var(--accent); margin-right: 6px; }
+.fr { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; line-height: 1.25; margin: 0 2px; }
+.fr > span:first-child { border-bottom: 1px solid currentColor; padding: 0 3px; }
+.fr > span:last-child { padding: 0 3px; }
+.calc-assume { margin: 0; padding-left: 18px; color: var(--ink-2); line-height: 1.5; }
+.calc-assume li { margin-bottom: 4px; }
+.calc-src { margin-top: 14px; font-size: 12.5px; color: var(--ink-2); }
+.calc-src span { color: var(--accent); font-weight: 500; }
+@media (max-width: 700px) {
+  .calc { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .calc-list { border-right: 0; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 4px 8px; padding: 8px 10px; max-height: 38vh; }
+  .calc-group { display: contents; }
+  .calc-gh { width: 100%; margin: 0; }
+  .calc-item { width: auto; border-color: var(--line-2); padding: 5px 8px; font-size: 13px; }
+  .calc-detail { padding: 12px 16px 40px; }
+  .calc-top { grid-template-columns: minmax(0, 1fr); }
+  .calc-res { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app.calc-on .brand .docname, .app.calc-on .brand .ver { display: none; }
+}
 </style>
 <script>
   // Vangnet: als het script niet laadt of vastloopt, zie je dat in plaats van een lege pagina.
@@ -716,6 +780,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       <h1>Mechanismeschets</h1>
       <span class="ver">v0.8</span>
       <span class="docname" id="docName" title="Naam van dit model (wordt de bestandsnaam bij opslaan)"></span>
+    </div>
+
+    <div class="seg" id="workSeg" role="group" aria-label="Werkplek">
+      <button type="button" data-w="sketch" aria-pressed="true">Schets</button>
+      <button type="button" data-w="calc" aria-pressed="false">Calculators</button>
     </div>
 
     <div class="modewrap">
@@ -1038,6 +1107,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     </div>
   </div>
 
+  <main class="calc" id="calcRoot" hidden aria-label="Calculators">
+    <nav class="calc-list" id="calcList" aria-label="Calculators"></nav>
+    <section class="calc-detail" id="calcDetail"></section>
+  </main>
+
   <footer class="statusbar">
     <span><span class="k">gereedschap</span> <span id="stTool">&mdash;</span></span>
     <span><span class="k">cursor</span> <span id="stPos">&mdash;</span></span>
@@ -1160,8 +1234,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return Math.pow(3 * F / (4 * eStar(e.m1, e.m2) * Math.sqrt(R)), 2 / 3);
   }
   function contactPot(e, p) {
-    const f = frame(e, p);
-    return f.delta > 0 ? 8 / 15 * eStar(e.m1, e.m2) * Math.sqrt(Math.max(1e-6, e.R || 5)) * Math.pow(f.delta, 2.5) : 0;
+    const f2 = frame(e, p);
+    return f2.delta > 0 ? 8 / 15 * eStar(e.m1, e.m2) * Math.sqrt(Math.max(1e-6, e.R || 5)) * Math.pow(f2.delta, 2.5) : 0;
   }
   function frame(e, p) {
     const th = (e.ang || 0) * Math.PI / 180, tx = Math.cos(th), ty = Math.sin(th), nx = -ty, ny = tx;
@@ -1169,9 +1243,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return { tx, ty, nx, ny, d, delta: (e.R || 5) - d, fx: p.x - d * nx, fy: p.y - d * ny };
   }
   function contactForce(e, p, v, z) {
-    const f = frame(e, p), out = {
-      open: !(f.delta > 0),
-      delta: f.delta,
+    const f2 = frame(e, p), out = {
+      open: !(f2.delta > 0),
+      delta: f2.delta,
       Fn: 0,
       Ft: 0,
       a: 0,
@@ -1183,14 +1257,14 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       dz: 0,
       fx: 0,
       fy: 0,
-      nx: f.nx,
-      ny: f.ny,
-      tx: f.tx,
-      ty: f.ty
+      nx: f2.nx,
+      ny: f2.ny,
+      tx: f2.tx,
+      ty: f2.ty
     };
     if (out.open) return out;
-    const h = hertz(e, f.delta), chi = e.chi === void 0 ? 0.02 : e.chi, mu = e.mu === void 0 ? 0.15 : e.mu;
-    const vn = v.x * f.nx + v.y * f.ny, vt = v.x * f.tx + v.y * f.ty;
+    const h = hertz(e, f2.delta), chi = e.chi === void 0 ? 0.02 : e.chi, mu = e.mu === void 0 ? 0.15 : e.mu;
+    const vn = v.x * f2.nx + v.y * f2.ny, vt = v.x * f2.tx + v.y * f2.ty;
     const Fn = Math.max(0, h.Fn * (1 - chi * vn));
     out.Fn = Fn;
     out.a = h.a;
@@ -1207,8 +1281,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     out.Ft = Math.max(-lim, Math.min(lim, -(h.kt * zc + chi * Fn * vt)));
     out.slip = Math.abs(zc) >= zmax * (1 - 1e-9) && zc * vt > 0;
     out.dz = out.slip ? 0 : vt;
-    out.fx = Fn * f.nx + out.Ft * f.tx;
-    out.fy = Fn * f.ny + out.Ft * f.ty;
+    out.fx = Fn * f2.nx + out.Ft * f2.tx;
+    out.fy = Fn * f2.ny + out.Ft * f2.ty;
     return out;
   }
 
@@ -1334,9 +1408,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const pv = A[c2][c2];
       for (let r = 0; r < n; r++) {
         if (r === c2) continue;
-        const f = A[r][c2] / pv;
-        if (!f) continue;
-        for (let k = c2; k <= n; k++) A[r][k] -= f * A[c2][k];
+        const f2 = A[r][c2] / pv;
+        if (!f2) continue;
+        for (let k = c2; k <= n; k++) A[r][k] -= f2 * A[c2][k];
       }
     }
     const x = new Float64Array(n);
@@ -1468,7 +1542,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function constraintRows(vars) {
     const idx2 = /* @__PURE__ */ new Map();
     vars.forEach((n, i) => idx2.set(n.id, i));
-    const rows = [], res = [];
+    const rows = [], res2 = [];
     for (const e of model.elems) {
       if (!isBar(e)) continue;
       const A = N(e.a), B = N(e.b);
@@ -1492,7 +1566,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       }
       if (!touched2) continue;
       rows.push(row);
-      res.push(d - curLen(e));
+      res2.push(d - curLen(e));
     }
     for (const n of model.nodes) {
       if (n.support !== "slider" || !idx2.has(n.id)) continue;
@@ -1503,9 +1577,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       row[2 * i] = nx;
       row[2 * i + 1] = ny;
       rows.push(row);
-      res.push((n.x - n.ax) * nx + (n.y - n.ay) * ny);
+      res2.push((n.x - n.ax) * nx + (n.y - n.ay) * ny);
     }
-    return { rows, res };
+    return { rows, res: res2 };
   }
   function relax(fixed) {
     fixed = fixed || /* @__PURE__ */ new Set();
@@ -1516,13 +1590,13 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     const nv = vars.length * 2;
     for (let it = 0; it < 80; it++) {
-      const { rows, res } = constraintRows(vars);
+      const { rows, res: res2 } = constraintRows(vars);
       if (!rows.length) {
         sim.solveOK = true;
         return true;
       }
       let worst = 0;
-      for (const c2 of res) worst = Math.max(worst, Math.abs(c2));
+      for (const c2 of res2) worst = Math.max(worst, Math.abs(c2));
       if (worst < 1e-8) {
         snapCoords(vars);
         sim.solveOK = true;
@@ -1539,7 +1613,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           for (let k = 0; k < nv; k++) s += ri[k] * rj[k];
           r[j] = s + (i === j ? mu : 0);
         }
-        r[m] = -res[i];
+        r[m] = -res2[i];
         A.push(r);
       }
       const lam = gauss(A, m);
@@ -1592,35 +1666,35 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       if (!isBar(e)) continue;
       const P = N(e.a), Q = N(e.b);
       const dx = 2 * (P.x - Q.x), dy = 2 * (P.y - Q.y);
-      const f = new Float64Array(nAll);
+      const f2 = new Float64Array(nAll);
       const p = ai.get(P.id), q = ai.get(Q.id);
-      f[2 * p] += dx;
-      f[2 * p + 1] += dy;
-      f[2 * q] -= dx;
-      f[2 * q + 1] -= dy;
-      full.push(f);
+      f2[2 * p] += dx;
+      f2[2 * p + 1] += dy;
+      f2[2 * q] -= dx;
+      f2[2 * q + 1] -= dy;
+      full.push(f2);
       pair.push([P, Q]);
       act.push(e.type === "actuator" ? actLen(e, sim.simT) : null);
     }
     for (const n of all) {
       if (n.support !== "slider") continue;
       const th = n.dir * Math.PI / 180;
-      const f = new Float64Array(nAll);
+      const f2 = new Float64Array(nAll);
       const i = ai.get(n.id);
-      f[2 * i] = -Math.sin(th);
-      f[2 * i + 1] = Math.cos(th);
-      full.push(f);
+      f2[2 * i] = -Math.sin(th);
+      f2[2 * i + 1] = Math.cos(th);
+      full.push(f2);
       pair.push(null);
       act.push(null);
     }
     function split(known, extra) {
       const rows = [], rhs = [];
       for (let r = 0; r < full.length; r++) {
-        const f = full[r], row = new Float64Array(nv);
+        const f2 = full[r], row = new Float64Array(nv);
         let b = extra ? extra(r) : 0, touched2 = false;
         for (const n of all) {
           const i = ai.get(n.id);
-          const cx = f[2 * i], cy = f[2 * i + 1];
+          const cx = f2[2 * i], cy = f2[2 * i + 1];
           if (!cx && !cy) continue;
           if (vi.has(n.id)) {
             const j = vi.get(n.id);
@@ -1700,17 +1774,17 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         S.vel[n.id][i] = kin ? kin.vel.get(n.id) || { x: 0, y: 0 } : { x: 0, y: 0 };
         S.acc[n.id][i] = kin ? kin.acc.get(n.id) || { x: 0, y: 0 } : { x: 0, y: 0 };
       }
-      const fr = kin ? forcesAt(kin.vel, kin.acc) : null;
-      if (fr) {
+      const fr2 = kin ? forcesAt(kin.vel, kin.acc) : null;
+      if (fr2) {
         S.stat = true;
-        for (const id in S.T) S.T[id][i] = fr.T[id];
-        for (const id in S.N) S.N[id][i] = fr.N[id];
-        for (const id in S.EF) S.EF[id][i] = fr.EF[id];
+        for (const id in S.T) S.T[id][i] = fr2.T[id];
+        for (const id in S.N) S.N[id][i] = fr2.N[id];
+        for (const id in S.EF) S.EF[id][i] = fr2.EF[id];
         for (const id in S.R) {
-          S.R[id][i] = fr.R[id];
-          Rmax = Math.max(Rmax, Math.hypot(fr.R[id].x, fr.R[id].y));
+          S.R[id][i] = fr2.R[id];
+          Rmax = Math.max(Rmax, Math.hypot(fr2.R[id].x, fr2.R[id].y));
         }
-        for (const id in S.N) Nmax = Math.max(Nmax, Math.abs(fr.N[id] || 0));
+        for (const id in S.N) Nmax = Math.max(Nmax, Math.abs(fr2.N[id] || 0));
       }
     }
     S.Rmax = Rmax;
@@ -1931,10 +2005,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   var BA = 20;
   var BB = 20;
   function* computeDyn() {
-    const fr = model.nodes.filter((n) => n.support !== "pin");
-    const nq = fr.length * 2;
+    const fr2 = model.nodes.filter((n) => n.support !== "pin");
+    const nq = fr2.length * 2;
     if (!nq) return null;
-    const fi = new Map(fr.map((n, i) => [n.id, i]));
+    const fi = new Map(fr2.map((n, i) => [n.id, i]));
     const ds = drivers().filter((d) => N(d.a) && N(d.b) && N(d.a).support === "pin" && fi.has(d.b));
     const bars = model.elems.filter((e) => isBar(e) && !e.driver && N(e.a) && N(e.b) && !(N(e.a).support === "pin" && N(e.b).support === "pin"));
     const slis = model.nodes.filter((n) => n.support === "slider");
@@ -1944,7 +2018,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     for (const n of model.nodes) if (n.support === "pin") fixed[n.id] = { x: n.x, y: n.y };
     const dm = (n) => n.m > 0 ? n.m : model.defMass || 0.1;
     const mA = new Float64Array(nq);
-    fr.forEach((n, i) => {
+    fr2.forEach((n, i) => {
       mA[2 * i] = mA[2 * i + 1] = dm(n) * MM;
     });
     const pos = (q2, id) => fi.has(id) ? { x: q2[2 * fi.get(id)], y: q2[2 * fi.get(id) + 1] } : fixed[id];
@@ -2039,7 +2113,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         CF[e.id] = c2;
         dz[k] = c2.dz;
       });
-      if (model.gravity) fr.forEach((n, i) => {
+      if (model.gravity) fr2.forEach((n, i) => {
         F[2 * i + 1] -= dm(n) * G;
       });
       const cv2 = model.cVisc || 0;
@@ -2281,7 +2355,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const keep = model.nodes.map((n) => ({ n, x: n.x, y: n.y }));
     const h0 = Math.max(1e-6, (model.dtStep || 0.2) / 1e3);
     const q = new Float64Array(nq), v = new Float64Array(nq);
-    fr.forEach((n, i) => {
+    fr2.forEach((n, i) => {
       q[2 * i] = n.x;
       q[2 * i + 1] = n.y;
     });
@@ -2317,9 +2391,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       zCur = z0;
     }
     const dtF = dur / 360;
-    let sub = Math.max(1, Math.ceil(dtF / h0));
-    if (sub > 2e3) sub = 2e3;
-    const h = dtF / sub;
+    let sub2 = Math.max(1, Math.ceil(dtF / h0));
+    if (sub2 > 2e3) sub2 = 2e3;
+    const h = dtF / sub2;
     const S = {
       ok: new Array(361).fill(false),
       pos: {},
@@ -2353,19 +2427,19 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     for (const d of ds) S.T[d.id] = new Array(361).fill(NaN);
     let Rmax = 0, Nmax = 0, bad = false;
-    for (let f = 0; f <= 360; f++) {
-      const t = f * dtF;
-      yield { phase: "rec", f };
+    for (let f2 = 0; f2 <= 360; f2++) {
+      const t = f2 * dtF;
+      yield { phase: "rec", f: f2 };
       const d0 = deriv(t, q, v);
       if (!d0) {
         bad = true;
         break;
       }
-      record(f, t, q, v, d0);
+      record(f2, t, q, v, d0);
       Rmax = Math.max(Rmax, S._rmax || 0);
       Nmax = Math.max(Nmax, S._nmax || 0);
-      if (f === 360) break;
-      for (let s = 0; s < sub; s++) {
+      if (f2 === 360) break;
+      for (let s = 0; s < sub2; s++) {
         if (!rk4(t + s * h, q, v, h)) {
           bad = true;
           break;
@@ -2415,7 +2489,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     function project(t, q2, v2) {
       sim.simT = t;
-      fr.forEach((n, i) => {
+      fr2.forEach((n, i) => {
         n.x = q2[2 * i];
         n.y = q2[2 * i + 1];
       });
@@ -2427,7 +2501,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         tips.add(B.id);
       }
       relax(tips);
-      fr.forEach((n, i) => {
+      fr2.forEach((n, i) => {
         q2[2 * i] = n.x;
         q2[2 * i + 1] = n.y;
       });
@@ -2440,23 +2514,23 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const dv = lsq(J.rows, err, nq);
       if (dv) for (let i = 0; i < nq; i++) v2[i] += dv[i];
     }
-    function record(f, t, q2, v2, D) {
-      S.ok[f] = true;
-      S.t[f] = t;
-      fr.forEach((n, i) => {
+    function record(f2, t, q2, v2, D) {
+      S.ok[f2] = true;
+      S.t[f2] = t;
+      fr2.forEach((n, i) => {
         n.x = q2[2 * i];
         n.y = q2[2 * i + 1];
       });
       for (const n of model.nodes) {
         const p = n.support === "pin" ? fixed[n.id] : { x: q2[2 * fi.get(n.id)], y: q2[2 * fi.get(n.id) + 1] };
-        S.pos[n.id][f] = { x: p.x, y: p.y };
-        S.vel[n.id][f] = vel(v2, n.id);
-        S.acc[n.id][f] = fi.has(n.id) ? { x: D.a[2 * fi.get(n.id)], y: D.a[2 * fi.get(n.id) + 1] } : { x: 0, y: 0 };
+        S.pos[n.id][f2] = { x: p.x, y: p.y };
+        S.vel[n.id][f2] = vel(v2, n.id);
+        S.acc[n.id][f2] = fi.has(n.id) ? { x: D.a[2 * fi.get(n.id)], y: D.a[2 * fi.get(n.id) + 1] } : { x: 0, y: 0 };
       }
-      for (const id in S.EF) S.EF[id][f] = D.EF[id];
+      for (const id in S.EF) S.EF[id][f2] = D.EF[id];
       for (const e of cons) {
         const c2 = D.CF[e.id];
-        S.C[e.id][f] = { Fn: c2.Fn, Ft: c2.Ft, d: Math.max(0, c2.delta) * 1e3, a: c2.a, kn: c2.kn, kt: c2.kt, z: c2.z * 1e3, slip: c2.slip, open: c2.open };
+        S.C[e.id][f2] = { Fn: c2.Fn, Ft: c2.Ft, d: Math.max(0, c2.delta) * 1e3, a: c2.a, kn: c2.kn, kt: c2.kt, z: c2.z * 1e3, slip: c2.slip, open: c2.open };
       }
       const onPin = {}, jPin = {};
       for (const n of model.nodes) if (n.support === "pin") {
@@ -2481,7 +2555,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         if (k.t === "bar") {
           const P = pos(q2, k.e.a), Q = pos(q2, k.e.b);
           const dx = P.x - Q.x, dy = P.y - Q.y, L = Math.hypot(dx, dy) || 1;
-          S.N[k.e.id][f] = 2 * L * lam;
+          S.N[k.e.id][f2] = 2 * L * lam;
           nm2 = Math.max(nm2, Math.abs(2 * L * lam));
           if (onPin[k.e.a]) {
             onPin[k.e.a].x += -2 * dx * lam;
@@ -2493,7 +2567,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           }
         } else if (k.t === "sli") {
           const th = k.n.dir * Math.PI / 180, nx = -Math.sin(th), ny = Math.cos(th);
-          S.R[k.n.id][f] = { x: -nx * lam, y: -ny * lam, n: -lam };
+          S.R[k.n.id][f2] = { x: -nx * lam, y: -ny * lam, n: -lam };
           rm = Math.max(rm, Math.abs(lam));
         }
       });
@@ -2501,10 +2575,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       for (const d of ds) {
         const lx = D.lam[j], ly = D.lam[j + 1];
         j += 2;
-        const A = fixed[d.a], B = S.pos[d.b][f];
+        const A = fixed[d.a], B = S.pos[d.b][f2];
         const rx = B.x - A.x, ry = B.y - A.y;
-        S.T[d.id][f] = (ry * lx - rx * ly) * MM;
-        S.N[d.id][f] = (-lx * rx - ly * ry) / (Math.hypot(rx, ry) || 1);
+        S.T[d.id][f2] = (ry * lx - rx * ly) * MM;
+        S.N[d.id][f2] = (-lx * rx - ly * ry) / (Math.hypot(rx, ry) || 1);
         if (onPin[d.a]) {
           onPin[d.a].x += lx;
           onPin[d.a].y += ly;
@@ -2529,26 +2603,26 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           }
         }
         if (model.gravity) fy -= (n.m || 0) * G;
-        S.R[n.id][f] = { x: -fx, y: -fy };
+        S.R[n.id][f2] = { x: -fx, y: -fy };
         rm = Math.max(rm, Math.hypot(fx, fy));
       }
       S._rmax = rm;
       S._nmax = nm2;
       let E2 = 0;
       for (const n of model.nodes) {
-        const vv = S.vel[n.id][f], m = n.support === "pin" ? n.m || 0 : dm(n);
+        const vv = S.vel[n.id][f2], m = n.support === "pin" ? n.m || 0 : dm(n);
         E2 += 0.5 * m * (vv.x * vv.x + vv.y * vv.y) * 1e-6;
-        if (model.gravity) E2 += m * G * S.pos[n.id][f].y * 1e-3;
+        if (model.gravity) E2 += m * G * S.pos[n.id][f2].y * 1e-3;
       }
-      for (const e of cons) E2 += contactPot(e, S.pos[e.node][f]) * 1e-3;
+      for (const e of cons) E2 += contactPot(e, S.pos[e.node][f2]) * 1e-3;
       for (const e of model.elems) {
         if (e.type !== "spring" && e.type !== "gap") continue;
-        const P = S.pos[e.a][f], Q = S.pos[e.b][f];
+        const P = S.pos[e.a][f2], Q = S.pos[e.b][f2];
         const L = Math.hypot(Q.x - P.x, Q.y - P.y);
         const d = e.type === "gap" ? gapPen(e, L) : L - e.L0;
         E2 += 0.5 * (e.type === "gap" ? e.kc || 0 : e.k) * d * d * 1e-3;
       }
-      S.E[f] = E2;
+      S.E[f2] = E2;
     }
   }
 
@@ -2586,8 +2660,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       sim.frfMsg = "Geen ingang: zet een actuator, kruk of kracht in het model.";
       return null;
     }
-    const fr = model.nodes.filter((n) => n.support !== "pin");
-    const nq = fr.length * 2;
+    const fr2 = model.nodes.filter((n) => n.support !== "pin");
+    const nq = fr2.length * 2;
     if (!nq) {
       sim.frfMsg = "Er zijn geen vrije punten.";
       return null;
@@ -2596,7 +2670,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       sim.frfMsg = "De ingangskracht grijpt aan op een vast scharnier.";
       return null;
     }
-    const fi = new Map(fr.map((n, i) => [n.id, i]));
+    const fi = new Map(fr2.map((n, i) => [n.id, i]));
     const ds = drivers().filter((d) => N(d.a) && N(d.b) && N(d.a).support === "pin" && fi.has(d.b));
     const bars = model.elems.filter((e) => isBar(e) && !e.driver && N(e.a) && N(e.b) && !(N(e.a).support === "pin" && N(e.b).support === "pin"));
     const slis = model.nodes.filter((n) => n.support === "slider");
@@ -2613,7 +2687,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const size = bb ? Math.max(40, Math.hypot(bb.b.x - bb.a.x, bb.b.y - bb.a.y)) : 100;
     const h = Math.max(0.01, size * 2e-3);
     function place2(q, u) {
-      fr.forEach((n, i) => {
+      fr2.forEach((n, i) => {
         n.x = q[2 * i];
         n.y = q[2 * i + 1];
       });
@@ -2629,7 +2703,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       }
       const ok = relax(tips);
       const out = new Float64Array(nq);
-      fr.forEach((n, i) => {
+      fr2.forEach((n, i) => {
         out[2 * i] = n.x;
         out[2 * i + 1] = n.y;
       });
@@ -2697,7 +2771,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     function V(q) {
       let v = 0;
-      if (model.gravity) fr.forEach((n, i) => {
+      if (model.gravity) fr2.forEach((n, i) => {
         v += dm(n) * G * q[2 * i + 1];
       });
       for (const e of model.elems) {
@@ -2765,7 +2839,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     };
     const keep = model.nodes.map((n) => [n, n.x, n.y]);
     const start = new Float64Array(nq);
-    fr.forEach((n, i) => {
+    fr2.forEach((n, i) => {
       start[2 * i] = n.x;
       start[2 * i + 1] = n.y;
     });
@@ -2822,7 +2896,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       return null;
     }
     const mA = new Float64Array(nq);
-    fr.forEach((n, i) => {
+    fr2.forEach((n, i) => {
       mA[2 * i] = mA[2 * i + 1] = dm(n) * MM;
     });
     const jl = jointDamper(pos, vel);
@@ -2858,8 +2932,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       return F;
     }
     const Cq = (z) => {
-      const f = dampF(z);
-      return f.map((v) => -v);
+      const f2 = dampF(z);
+      return f2.map((v) => -v);
     };
     const Mq = (z) => z.map((v, i) => mA[i] * v);
     const Kr = [], Mr = [], Cr = [];
@@ -2949,8 +3023,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     };
     for (let i = 0; i <= 360; i++) {
       if (i % 60 === 0) yield { phase: "frf", f: i };
-      const f = f0 * Math.pow(f12 / f0, i / 360), w = 2 * Math.PI * f;
-      S.f[i] = S.t[i] = f;
+      const f2 = f0 * Math.pow(f12 / f0, i / 360), w = 2 * Math.PI * f2;
+      S.f[i] = S.t[i] = f2;
       let er = new Float64Array(k), ei = new Float64Array(k);
       if (k) {
         const n2 = 2 * k, Aug = [];
@@ -3023,7 +3097,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   }
 
   // src/ui/format.js
-  var fmtHz = (f) => f === void 0 ? "\u2013" : (f < 10 ? f.toPrecision(3) : f < 1e3 ? f.toFixed(1) : f.toFixed(0)) + " Hz";
+  var fmtHz = (f2) => f2 === void 0 ? "\u2013" : (f2 < 10 ? f2.toPrecision(3) : f2 < 1e3 ? f2.toFixed(1) : f2.toFixed(0)) + " Hz";
   function fmt(v) {
     if (v === void 0 || v === null) return "\u2013";
     const a = Math.abs(v);
@@ -3276,29 +3350,29 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       return false;
     };
     function expr() {
-      let f2 = term();
+      let f3 = term();
       for (; ; ) {
         ws();
         if (eat("+")) {
-          const a = f2, b = term();
-          f2 = (g) => a(g) + b(g);
+          const a = f3, b = term();
+          f3 = (g) => a(g) + b(g);
         } else if (eat("-")) {
-          const a = f2, b = term();
-          f2 = (g) => a(g) - b(g);
-        } else return f2;
+          const a = f3, b = term();
+          f3 = (g) => a(g) - b(g);
+        } else return f3;
       }
     }
     function term() {
-      let f2 = unary();
+      let f3 = unary();
       for (; ; ) {
         ws();
         if (eat("*")) {
-          const a = f2, b = unary();
-          f2 = (g) => a(g) * b(g);
+          const a = f3, b = unary();
+          f3 = (g) => a(g) * b(g);
         } else if (eat("/")) {
-          const a = f2, b = unary();
-          f2 = (g) => a(g) / b(g);
-        } else return f2;
+          const a = f3, b = unary();
+          f3 = (g) => a(g) / b(g);
+        } else return f3;
       }
     }
     function unary() {
@@ -3326,10 +3400,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         if (!eat(")")) throw new Error("sluithaakje ontbreekt");
         return e;
       }
-      const num3 = /^\d+(\.\d+)?([eE][+-]?\d+)?/.exec(src.slice(i));
-      if (num3) {
-        i += num3[0].length;
-        const v = parseFloat(num3[0]);
+      const num4 = /^\d+(\.\d+)?([eE][+-]?\d+)?/.exec(src.slice(i));
+      if (num4) {
+        i += num4[0].length;
+        const v = parseFloat(num4[0]);
         return () => v;
       }
       const id = /^[A-Za-z_][A-Za-z0-9_.]*/.exec(src.slice(i));
@@ -3356,10 +3430,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       used.push(nm);
       return (g) => g(nm);
     }
-    const f = expr();
+    const f2 = expr();
     ws();
     if (i < src.length) throw new Error("onverwacht teken bij " + (i + 1));
-    return { f, used };
+    return { f: f2, used };
   }
   function exprUnit(used, src) {
     if (/[*/^]/.test(src)) return "";
@@ -3776,7 +3850,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (a !== 0 && (a < 1e-3 || a >= 1e5)) return nl(v.toExponential(2));
     return nl(+v.toPrecision(d));
   };
-  var hz = (f) => f === void 0 || !isFinite(f) ? "\u2013" : nl(f < 10 ? f.toPrecision(3) : f < 1e3 ? f.toFixed(1) : f.toFixed(0)) + " Hz";
+  var hz = (f2) => f2 === void 0 || !isFinite(f2) ? "\u2013" : nl(f2 < 10 ? f2.toPrecision(3) : f2 < 1e3 ? f2.toFixed(1) : f2.toFixed(0)) + " Hz";
   var mat2 = (rows) => '<span class="mat">' + rows.map((r) => "<span>" + r.map((c2) => "<i>" + c2 + "</i>").join("") + "</span>").join("") + "</span>";
   var c = (s) => "<code>" + s + "</code>";
   var name = (id) => {
@@ -3791,10 +3865,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const i = copies.length;
     const sec = (t, items, cls) => items && items.length ? '<div class="hw-h">' + t + "</div>" + (cls === "ul" ? "<ul>" + items.map((x) => "<li>" + x + "</li>").join("") + "</ul>" : items.map((x) => '<div class="hw-' + cls + '">' + x + "</div>").join("")) : "";
     const txt = [b.title, ""];
-    const add = (t, items, f) => {
+    const add = (t, items, f2) => {
       if (items && items.length) {
         txt.push(t + ":");
-        items.forEach((x) => txt.push("  " + (f ? f(x) : plain(x))));
+        items.forEach((x) => txt.push("  " + (f2 ? f2(x) : plain(x))));
         txt.push("");
       }
     };
@@ -3810,15 +3884,15 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function kinBlock() {
     const m = mobility();
     const v = m.drive ? m.dofDriven : m.dof;
-    let res = 0;
+    let res2 = 0;
     for (const e of model.elems) {
       if (!isBar(e) || !N(e.a) || !N(e.b)) continue;
       const A = N(e.a), B = N(e.b);
-      res = Math.max(res, Math.abs(Math.hypot(A.x - B.x, A.y - B.y) - curLen(e)));
+      res2 = Math.max(res2, Math.abs(Math.hypot(A.x - B.x, A.y - B.y) - curLen(e)));
     }
     for (const n of model.nodes) if (n.support === "slider") {
       const th = n.dir * Math.PI / 180;
-      res = Math.max(res, Math.abs((n.x - n.ax) * -Math.sin(th) + (n.y - n.ay) * Math.cos(th)));
+      res2 = Math.max(res2, Math.abs((n.x - n.ax) * -Math.sin(th) + (n.y - n.ay) * Math.cos(th)));
     }
     const live = [
       kv("Punten", m.nNodes + " (" + m.nPinned + " vast, " + (m.nNodes - m.nPinned) + " vrij)"),
@@ -3828,7 +3902,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     ];
     if (m.drive) live.push(kv("Aangedreven", m.driver + " kruk(ken), " + m.acts + " actuator(en) \u2192 " + m.dofDriven + " over"));
     live.push(kv("Status", v === 0 ? "bepaald" : v > 0 ? "onderbepaald (" + v + " te veel vrij)" : "overbepaald (" + -v + " te veel)"));
-    live.push(kv("Restfout max |\u03A6|", num2(res) + " mm" + (sim.solveOK === false ? " (niet samen te stellen)" : "")));
+    live.push(kv("Restfout max |\u03A6|", num2(res2) + " mm" + (sim.solveOK === false ? " (niet samen te stellen)" : "")));
     live.push(kv("Zwaartekracht", model.gravity ? "aan (g = 9,81 m/s\xB2)" : "uit"));
     return block({
       title: "Kinematica: positie, snelheid, versnelling en krachten",
@@ -3864,10 +3938,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const nm = bars + sl + 2 * drv;
     const h0 = Math.max(1e-6, (model.dtStep || 0.2) / 1e3);
     const dur = sw ? sw.dur : eq ? null : Math.max(0.01, model.simDur || 2);
-    let sub = null, h = null;
+    let sub2 = null, h = null;
     if (dur) {
-      sub = Math.min(2e3, Math.max(1, Math.ceil(dur / 360 / h0)));
-      h = dur / 360 / sub;
+      sub2 = Math.min(2e3, Math.max(1, Math.ceil(dur / 360 / h0)));
+      h = dur / 360 / sub2;
     }
     const live = [
       kv("Onbekenden q", "2\xB7" + free + " = " + nq),
@@ -3879,7 +3953,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       kv("Demping per punt c<sub>v</sub>", num2(model.cVisc || 0) + " Ns/mm"),
       kv("Scharnierdemping", model.jointDamp ? num2(model.cJoint) + " N\xB7m\xB7s" : "uit")
     ];
-    if (dur) live.push(kv("Looptijd", num2(dur, 3) + " s" + (eq && !sw ? " (max)" : "") + " \u2192 360 beelden, " + sub + " RK4-stap(pen) per beeld, h = " + num2(h * 1e3) + " ms"));
+    if (dur) live.push(kv("Looptijd", num2(dur, 3) + " s" + (eq && !sw ? " (max)" : "") + " \u2192 360 beelden, " + sub2 + " RK4-stap(pen) per beeld, h = " + num2(h * 1e3) + " ms"));
     if (sim.job) live.push(kv("Status", "bezig met rekenen\u2026"));
     else if (ui.dynStale) live.push(kv("Status", "model gewijzigd, druk op Bereken"));
     else if (!sw) live.push(kv("Status", "nog niet doorgerekend"));
@@ -4071,14 +4145,14 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       case "contact": {
         const P = N(e.node);
         if (!P) return "";
-        const f = frame(e, P), h = hertz(e, f.delta), st = liveContact(e), mu = e.mu === void 0 ? 0.15 : e.mu;
+        const f2 = frame(e, P), h = hertz(e, f2.delta), st = liveContact(e), mu = e.mu === void 0 ? 0.15 : e.mu;
         const Fn = st ? st.Fn : h.Fn;
         const live = [
           kv("R", num2(e.R) + " mm"),
           kv("Materialen", esc(mat(e.m1).nm) + " op " + esc(mat(e.m2).nm)),
           kv("E*", num2(h.Es) + " N/mm\xB2"),
           kv("G*", num2(h.Gs) + " N/mm\xB2"),
-          kv("\u03B4", num2(Math.max(0, f.delta) * 1e3) + " \xB5m"),
+          kv("\u03B4", num2(Math.max(0, f2.delta) * 1e3) + " \xB5m"),
           kv("F<sub>n</sub>", num2(Fn) + " N"),
           kv("a = \u221A(R\xB7\u03B4)", num2(h.a) + " mm"),
           kv("k<sub>n</sub> = 2E*\xB7a", num2(h.kn) + " N/mm"),
@@ -4125,7 +4199,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         });
       }
       case "actuator": {
-        const lo = Math.min(e.min, e.max), hi = Math.max(e.min, e.max), f = e.freq || 0;
+        const lo = Math.min(e.min, e.max), hi = Math.max(e.min, e.max), f2 = e.freq || 0;
         const a = actLen(e, sim.simT);
         return block({
           title: "Actuator " + nm,
@@ -4138,7 +4212,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           sym: [[c("min, max"), "kortste en langste lengte"], [c("f"), "frequentie in Hz"], [c("L<sub>0</sub>"), "getekende lengte"]],
           live: [
             kv("min \u2013 max", num2(lo) + " \u2013 " + num2(hi) + " mm"),
-            kv("f", num2(f) + " Hz"),
+            kv("f", num2(f2) + " Hz"),
             kv("L<sub>m</sub>, L<sub>a</sub>", num2((hi + lo) / 2) + ", " + num2((hi - lo) / 2) + " mm"),
             kv("L bij t = " + num2(sim.simT, 2) + " s", num2(a.L) + " mm")
           ],
@@ -4606,10 +4680,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
   }
   function contactLive(e) {
-    const P = N(e.node), f = frame(e, P), h = hertz(e, f.delta), st = liveContact(e);
+    const P = N(e.node), f2 = frame(e, P), h = hertz(e, f2.delta), st = liveContact(e);
     const Fn = st ? st.Fn : h.Fn;
-    const state = st ? st.open ? "los" : st.slip ? "slip" : "plakt" : f.delta > 0 ? "in contact (statisch)" : "los";
-    return "F\u2099 <b>" + fmt(Fn) + "</b> N \xB7 \u03B4 <b>" + fmt(Math.max(0, f.delta) * 1e3) + "</b> \xB5m \xB7 a <b>" + fmt(h.a) + "</b> mm<br>k\u2099 <b>" + fmt(h.kn) + "</b> N/mm \xB7 k\u209C <b>" + fmt(h.kt) + "</b> N/mm<br>Toestand: <b>" + state + "</b>" + (st && !st.open ? " \xB7 F\u209C " + fmt(st.Ft) + " N" : "");
+    const state2 = st ? st.open ? "los" : st.slip ? "slip" : "plakt" : f2.delta > 0 ? "in contact (statisch)" : "los";
+    return "F\u2099 <b>" + fmt(Fn) + "</b> N \xB7 \u03B4 <b>" + fmt(Math.max(0, f2.delta) * 1e3) + "</b> \xB5m \xB7 a <b>" + fmt(h.a) + "</b> mm<br>k\u2099 <b>" + fmt(h.kn) + "</b> N/mm \xB7 k\u209C <b>" + fmt(h.kt) + "</b> N/mm<br>Toestand: <b>" + state2 + "</b>" + (st && !st.open ? " \xB7 F\u209C " + fmt(st.Ft) + " N" : "");
   }
   function syncContactLive() {
     const el = document.getElementById("ctLive");
@@ -4677,22 +4751,22 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const i = Math.round(kk);
     ui.frame = i;
     if (!sim.sweep.ok[i]) return;
-    const i0 = Math.floor(kk), i1 = Math.min(360, i0 + 1), f = kk - i0;
-    const mix = f > 1e-9 && sim.sweep.ok[i0] && sim.sweep.ok[i1];
+    const i0 = Math.floor(kk), i1 = Math.min(360, i0 + 1), f2 = kk - i0;
+    const mix = f2 > 1e-9 && sim.sweep.ok[i0] && sim.sweep.ok[i1];
     for (const n of model.nodes) {
       const P = sim.sweep.pos[n.id];
       if (!P) continue;
       const p = mix ? P[i0] : P[i];
       if (!p) continue;
       if (mix) {
-        n.x = p.x + (P[i1].x - p.x) * f;
-        n.y = p.y + (P[i1].y - p.y) * f;
+        n.x = p.x + (P[i1].x - p.x) * f2;
+        n.y = p.y + (P[i1].y - p.y) * f2;
       } else {
         n.x = p.x;
         n.y = p.y;
       }
     }
-    const t = mix ? sim.sweep.t[i0] + (sim.sweep.t[i1] - sim.sweep.t[i0]) * f : sim.sweep.t[i];
+    const t = mix ? sim.sweep.t[i0] + (sim.sweep.t[i1] - sim.sweep.t[i0]) * f2 : sim.sweep.t[i];
     for (const d of drivers())
       d.theta = (((d.theta0 || 0) + omega(d) * t * 180 / Math.PI) % 360 + 360) % 360;
   }
@@ -4768,14 +4842,14 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   }
   var ODS_MAX = 5;
   function odsRate() {
-    const f = sim.sweep.f[ui.frame], want = f * parseFloat(speedSel.value);
-    return { fa: Math.min(want, ODS_MAX), slowed: want > ODS_MAX, factor: Math.min(want, ODS_MAX) / f };
+    const f2 = sim.sweep.f[ui.frame], want = f2 * parseFloat(speedSel.value);
+    return { fa: Math.min(want, ODS_MAX), slowed: want > ODS_MAX, factor: Math.min(want, ODS_MAX) / f2 };
   }
   function odsLabel() {
-    const r = odsRate(), f = sim.sweep.f[ui.frame];
-    if (!ui.playing) return fmtHz(f);
+    const r = odsRate(), f2 = sim.sweep.f[ui.frame];
+    if (!ui.playing) return fmtHz(f2);
     const k = r.factor;
-    return fmtHz(f) + " \xB7 " + (k >= 0.995 ? "echte tijd" : k >= 0.1 ? +k.toFixed(2) + "\xD7" : "1/" + Math.round(1 / k) + "\xD7");
+    return fmtHz(f2) + " \xB7 " + (k >= 0.995 ? "echte tijd" : k >= 0.1 ? +k.toFixed(2) + "\xD7" : "1/" + Math.round(1 / k) + "\xD7");
   }
   function applyOds() {
     const S = sim.sweep, X = S.X[ui.frame];
@@ -4981,9 +5055,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     save();
     downloadModel(nm);
     if (afterSave) {
-      const f = afterSave;
+      const f2 = afterSave;
       afterSave = null;
-      f();
+      f2();
     }
   }
   var fileInp = document.getElementById("fileInp");
@@ -4991,7 +5065,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     fileInp.value = "";
     fileInp.click();
   }
-  function readModelFile(f) {
+  function readModelFile(f2) {
     const rd = new FileReader();
     rd.onload = () => {
       try {
@@ -5002,17 +5076,17 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         cancelJob();
         sim.solved = null;
         loadDoc(m);
-        setName(d.naam || m.name || f.name.replace(/(\.mech)?\.json$/i, ""));
+        setName(d.naam || m.name || f2.name.replace(/(\.mech)?\.json$/i, ""));
         fit();
         changed();
         markClean();
         toast("Geopend: " + model.name);
       } catch (err) {
-        flash("Kon " + f.name + " niet openen: " + err.message);
+        flash("Kon " + f2.name + " niet openen: " + err.message);
       }
     };
-    rd.onerror = () => flash("Kon " + f.name + " niet lezen.");
-    rd.readAsText(f);
+    rd.onerror = () => flash("Kon " + f2.name + " niet lezen.");
+    rd.readAsText(f2);
   }
   var modal = document.getElementById("modal");
   var modalTa = document.getElementById("modalTa");
@@ -5030,10 +5104,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     });
     document.getElementById("askDrop").addEventListener("click", () => {
       askModal.hidden = true;
-      const f = askThen;
+      const f2 = askThen;
       askThen = null;
       ui.unsaved = false;
-      if (f) f();
+      if (f2) f2();
     });
     document.getElementById("askCancel").addEventListener("click", () => {
       askModal.hidden = true;
@@ -5066,8 +5140,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       if (ev.target === saveModal) saveModal.hidden = true;
     });
     fileInp.addEventListener("change", () => {
-      const f = fileInp.files && fileInp.files[0];
-      if (f) whenDiscarded(() => readModelFile(f));
+      const f2 = fileInp.files && fileInp.files[0];
+      if (f2) whenDiscarded(() => readModelFile(f2));
     });
     window.addEventListener("dragover", (ev) => {
       if (ev.dataTransfer && [].indexOf.call(ev.dataTransfer.types || [], "Files") >= 0) {
@@ -5080,10 +5154,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     });
     window.addEventListener("drop", (ev) => {
       document.body.classList.remove("dropping");
-      const f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
-      if (!f) return;
+      const f2 = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+      if (!f2) return;
       ev.preventDefault();
-      whenDiscarded(() => readModelFile(f));
+      whenDiscarded(() => readModelFile(f2));
     });
     document.getElementById("modalCancel").addEventListener("click", () => {
       modal.hidden = true;
@@ -5948,8 +6022,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     pctx.font = '400 10px "IBM Plex Mono", ui-monospace, monospace';
     const geom = [];
     try {
-      subs.forEach((sb, f) => {
-        const top = f * hF, pt = top + PAD.T, ph = hF - PAD.T - 8;
+      subs.forEach((sb, f2) => {
+        const top = f2 * hF, pt = top + PAD.T, ph = hF - PAD.T - 8;
         const Y = (v) => pt + ph - (v - sb.lo) / (sb.hi - sb.lo) * ph;
         geom.push({ Y, set: sb.set });
         pctx.textBaseline = "middle";
@@ -6270,9 +6344,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     draw();
     return true;
   }
-  function zoomAt(sx, sy, f) {
+  function zoomAt(sx, sy, f2) {
     const before = toWld({ x: sx, y: sy });
-    view.s = Math.max(0.15, Math.min(view.s * f, 14));
+    view.s = Math.max(0.15, Math.min(view.s * f2, 14));
     const after = toWld({ x: sx, y: sy });
     view.ox += (after.x - before.x) * view.s;
     view.oy -= (after.y - before.y) * view.s;
@@ -6743,9 +6817,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function drawContact(e) {
     const n = N(e.node);
     if (!n) return;
-    const f = frame(e, n), s = toScr(n), foot = toScr({ x: f.fx, y: f.fy });
-    const ux = f.tx, uy = -f.ty, nx = f.nx, ny = -f.ny;
-    const st = liveContact(e), slip = !!(st && st.slip), open = !!(st && st.open) || f.delta <= 0;
+    const f2 = frame(e, n), s = toScr(n), foot = toScr({ x: f2.fx, y: f2.fy });
+    const ux = f2.tx, uy = -f2.ty, nx = f2.nx, ny = -f2.ny;
+    const st = liveContact(e), slip = !!(st && st.slip), open = !!(st && st.open) || f2.delta <= 0;
     const hl = isSel(e.id) || isHov(e.id), col = slip ? ui.C.force : open ? ui.C.ink3 : ui.C.ink2, half = 26;
     ctx.lineCap = "round";
     if (hl) {
@@ -6977,8 +7051,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       ui.frame = model.mode === "frf" ? ui.frame : 0;
       ui.pdata = null;
       ui.hoverI = null;
-      const sig = physSig();
-      if (!force && sim.solved && sim.solved.sigs.indexOf(sig) >= 0) {
+      const sig2 = physSig();
+      if (!force && sim.solved && sim.solved.sigs.indexOf(sig2) >= 0) {
         cancelJob();
         sim.sweep = sim.solved.sweep;
         ui.dynStale = false;
@@ -7739,6 +7813,503 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
   };
 
+  // src/calc/materials.js
+  var MATERIALS2 = [
+    { id: "staal", naam: "Staal (veerstaal)", E: 21e4, nu: 0.3, sigma: 300 },
+    { id: "rvs", naam: "RVS", E: 193e3, nu: 0.29, sigma: 250 },
+    { id: "alu", naam: "Aluminium", E: 7e4, nu: 0.33, sigma: 120 },
+    { id: "titaan", naam: "Titanium", E: 114e3, nu: 0.34, sigma: 500 },
+    { id: "cube", naam: "Brons / CuBe", E: 128e3, nu: 0.3, sigma: 600 },
+    { id: "invar", naam: "Invar", E: 141e3, nu: 0.26, sigma: 250 }
+  ];
+  var material = (id) => MATERIALS2.find((m) => m.id === id) || MATERIALS2[0];
+
+  // src/calc/flexures.js
+  var PI = Math.PI;
+  function freqTrans(cNmm, m) {
+    if (!(cNmm > 0) || !(m > 0)) return NaN;
+    return Math.sqrt(cNmm * 1e3 / m) / (2 * PI);
+  }
+  function freqRot(cNmmRad, m, r) {
+    if (!(cNmmRad > 0) || !(m > 0) || !(r > 0)) return NaN;
+    const J = m * (r / 1e3) ** 2;
+    return Math.sqrt(cNmmRad / 1e3 / J) / (2 * PI);
+  }
+  var margin = (Pcr, F) => F > 0 ? Pcr / F : Infinity;
+  var eff = (p) => p.plate ? p.E / (1 - p.nu * p.nu) : p.E;
+  function leafSpring(p) {
+    const E2 = eff(p), I = p.b * p.t ** 3 / 12;
+    const cx = 12 * E2 * I / p.L ** 3;
+    const cz0 = E2 * p.b * p.t / p.L;
+    const cz = 1 / (p.L / (E2 * p.b * p.t) + p.u ** 2 * p.L / (700 * E2 * I));
+    const uMax = p.sigma * p.L ** 2 / (3 * E2 * p.t);
+    const sb = 3 * E2 * p.t * p.u / p.L ** 2, sa = Math.abs(p.F) / (p.b * p.t);
+    const Pcr = PI ** 2 * E2 * I / p.L ** 2;
+    return {
+      E: E2,
+      I,
+      cx,
+      cz0,
+      cz,
+      dz: 0.6 * p.u ** 2 / p.L,
+      uMax,
+      sb,
+      sa,
+      sigma: sb + sa,
+      Pcr,
+      margin: margin(Pcr, Math.abs(p.F)),
+      f: freqTrans(cx, p.m),
+      force: cx * p.u
+    };
+  }
+  function parallelLeaf(p) {
+    const s = leafSpring(Object.assign({}, p, { F: p.F / 2 }));
+    return {
+      E: s.E,
+      I: s.I,
+      cx: 2 * s.cx,
+      cz0: 2 * s.cz0,
+      cz: 2 * s.cz,
+      dz: s.dz,
+      uMax: s.uMax,
+      sb: s.sb,
+      sa: s.sa,
+      sigma: s.sigma,
+      Pcr: 2 * s.Pcr,
+      margin: margin(2 * s.Pcr, Math.abs(p.F)),
+      f: freqTrans(2 * s.cx, p.m),
+      force: 2 * s.cx * p.u
+    };
+  }
+  function crossPivot(p) {
+    const E2 = eff(p), I = p.b * p.t ** 3 / 12;
+    const c2 = 2 * E2 * I / p.L;
+    const phiMax = 2 * p.sigma * p.L / (E2 * p.t);
+    const sb = E2 * p.t * p.phi / (2 * p.L), sa = Math.abs(p.F) / (2 * p.b * p.t);
+    const Pcr = 2 * PI ** 2 * E2 * I / p.L ** 2;
+    return {
+      E: E2,
+      I,
+      c: c2,
+      phiMax,
+      sb,
+      sa,
+      sigma: sb + sa,
+      moment: c2 * p.phi,
+      Pcr,
+      margin: margin(Pcr, Math.abs(p.F)),
+      f: freqRot(c2, p.m, p.r)
+    };
+  }
+  function notchHinge(p) {
+    const E2 = eff(p);
+    const c2 = 2 * E2 * p.b * p.t ** 2.5 / (9 * PI * Math.sqrt(p.R));
+    const perRad = 4 / (3 * PI) * E2 * Math.sqrt(p.t / p.R);
+    const sNom = perRad * p.phi, sigma = p.Kt * sNom;
+    return {
+      E: E2,
+      c: c2,
+      perRad,
+      sNom,
+      sigma,
+      phiMax: p.sigma / (p.Kt * perRad),
+      moment: c2 * p.phi,
+      ratio: p.t / (2 * p.R),
+      f: freqRot(c2, p.m, p.r)
+    };
+  }
+  function wireFlexure(p) {
+    const E2 = p.E, A = PI * p.d ** 2 / 4, I = PI * p.d ** 4 / 64, g = p.bc === "guided";
+    const cax = E2 * A / p.L, cb = (g ? 12 : 3) * E2 * I / p.L ** 3;
+    const k = g ? 3 : 1.5;
+    const uMax = p.sigma * p.L ** 2 / (k * E2 * p.d);
+    const sb = k * E2 * p.d * p.u / p.L ** 2, sa = Math.abs(p.F) / A;
+    const Pcr = PI ** 2 * E2 * I / ((g ? 1 : 2) * p.L) ** 2;
+    return {
+      A,
+      I,
+      cax,
+      cb,
+      uMax,
+      sb,
+      sa,
+      sigma: sb + sa,
+      Pcr,
+      margin: margin(Pcr, Math.abs(p.F)),
+      f: freqTrans(cb, p.m),
+      fax: freqTrans(cax, p.m),
+      force: cb * p.u
+    };
+  }
+
+  // src/ui/calc.js
+  var $ = (id) => document.getElementById(id);
+  var DEG = Math.PI / 180;
+  function sig(x, n) {
+    if (!isFinite(x)) return x > 0 ? "\u221E" : "\u2014";
+    if (x === 0) return "0";
+    const a = Math.abs(x), d = Math.max(0, n - 1 - Math.floor(Math.log10(a)));
+    return x.toLocaleString("nl-NL", { minimumFractionDigits: 0, maximumFractionDigits: Math.min(d, 8) });
+  }
+  var num3 = (x, n) => sig(x, n || 3);
+  function fr(a, b) {
+    return '<span class="fr"><span>' + a + "</span><span>" + b + "</span></span>";
+  }
+  var sub = (s, t) => s + "<sub>" + t + "</sub>";
+  var sup = (s, t) => s + "<sup>" + t + "</sup>";
+  var SVG_OPEN = '<svg viewBox="0 0 260 190" role="img" aria-label="Schets met afmetingen" xmlns="http://www.w3.org/2000/svg">';
+  var dimV = (x, y1, y2, lab) => '<path class="s-dim" d="M' + x + " " + y1 + "V" + y2 + "M" + (x - 4) + " " + y1 + "H" + (x + 4) + "M" + (x - 4) + " " + y2 + "H" + (x + 4) + '"/><text class="s-txt" x="' + (x - 7) + '" y="' + ((y1 + y2) / 2 + 4) + '" text-anchor="end">' + lab + "</text>";
+  var dimH = (y, x1, x2, lab) => '<path class="s-dim" d="M' + x1 + " " + y + "H" + x2 + "M" + x1 + " " + (y - 4) + "V" + (y + 4) + "M" + x2 + " " + (y - 4) + "V" + (y + 4) + '"/><text class="s-txt" x="' + (x1 + x2) / 2 + '" y="' + (y - 6) + '" text-anchor="middle">' + lab + "</text>";
+  var block2 = (x, y, w, h, hatch) => '<rect class="s-fix" x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '"/>' + (hatch ? '<path class="s-hatch" d="' + Array.from({ length: Math.floor(w / 8) }, (_, i) => "M" + (x + 4 + i * 8) + " " + (y + h) + "l-6 6").join("") + '"/>' : "");
+  var section = (x, y) => '<rect class="s-line" x="' + x + '" y="' + y + '" width="26" height="5" fill="var(--accent-soft)"/><text class="s-txt" x="' + (x + 13) + '" y="' + (y - 5) + '" text-anchor="middle">b</text><text class="s-txt" x="' + (x + 32) + '" y="' + (y + 5) + '">t</text>';
+  var SCHEMA = {
+    leaf: SVG_OPEN + block2(70, 150, 90, 12, true) + block2(70 + 20, 22, 90, 12, false) + '<path class="s-ghost" d="M115 150V34"/><path class="s-line" d="M115 150C115 110 135 74 135 34"/>' + dimV(54, 150, 34, "L") + dimH(16, 115, 135, "u") + section(196, 92) + "</svg>",
+    par: SVG_OPEN + block2(60, 150, 130, 12, true) + block2(70, 22, 130, 12, false) + '<path class="s-ghost" d="M100 150V34M150 150V34"/><path class="s-line" d="M100 150C100 110 110 74 110 34M150 150C150 110 160 74 160 34"/>' + dimV(44, 150, 34, "L") + dimH(14, 100, 110, "u") + section(204, 92) + "</svg>",
+    cross: SVG_OPEN + block2(70, 160, 120, 12, true) + block2(70, 14, 120, 12, false) + '<path class="s-line" d="M95 160L165 26M165 160L95 26"/><circle cx="130" cy="93" r="3" fill="var(--driver)"/>' + dimV(60, 160, 26, "L") + '<text class="s-txt" x="136" y="86">\u03C6</text><text class="s-txt" x="136" y="110">50 %</text>' + section(200, 92) + "</svg>",
+    notch: SVG_OPEN + block2(14, 70, 70, 50, true) + block2(176, 70, 70, 50, false) + '<path class="s-line" d="M84 70H102A28 28 0 0 0 158 70H176M84 120H102A28 28 0 0 1 158 120H176"/><path class="s-dim" d="M130 70V120M126 70H134M126 120H134"/><text class="s-txt" x="136" y="99">t</text><path class="s-dim" d="M130 98L113 74"/><text class="s-txt" x="104" y="64">R</text><text class="s-txt" x="130" y="150" text-anchor="middle">b = breedte (loodrecht op het vlak)</text></svg>',
+    wire: SVG_OPEN + block2(70, 150, 120, 12, true) + block2(80, 22, 120, 12, false) + '<path class="s-ghost" d="M130 150V34"/><path class="s-line" d="M130 150C130 110 150 74 150 34"/>' + dimV(54, 150, 34, "L") + dimH(16, 130, 150, "u") + '<circle class="s-line" cx="215" cy="100" r="9" fill="var(--accent-soft)"/><text class="s-txt" x="215" y="124" text-anchor="middle">d</text></svg>'
+  };
+  var f = (id, label2, unit, def, min) => ({ id, label: label2, unit, def, min: min == null ? 0 : min });
+  var IN_M = f("m", "Massa m op de vrije kant", "kg", 0.1);
+  var IN_F = f("F", "Axiale drukkracht F", "N", 0);
+  var IN_PLATE = { id: "plate", type: "check", label: "Brede strip (b \u226B t): E\u2032 = E/(1\u2212\u03BD\xB2)", def: false };
+  function warn(r, sigma, sigmaToel, extra) {
+    const w = [];
+    if (r.sigma > sigmaToel) w.push("Spanning " + num3(r.sigma) + " MPa is hoger dan \u03C3_toel = " + num3(sigmaToel) + " MPa.");
+    if (r.margin < 2) w.push("Knikveiligheid " + num3(r.margin) + " is lager dan 2.");
+    return w.concat(extra || []);
+  }
+  var res = (k, v, unit, bad) => ({ k, v, unit, bad });
+  var stressBad = (r, M) => r.sigma > M.sigma;
+  var marginRes = (r) => res("Knikveiligheid P_cr/F", isFinite(r.margin) ? num3(r.margin) : "\u221E (F = 0)", "", r.margin < 2);
+  var SRC_S = "Soemers, <i>Design Principles for Precision Mechanisms</i> (T-Pointprint, 2010), hoofdstuk bladveren";
+  var SRC_H = "Smith, <i>Flexures: Elements of Elastic Mechanisms</i> (Gordon &amp; Breach, 2000); Henein, <i>Flexure pivot for aerospace mechanisms</i>";
+  var CALCS = [
+    {
+      id: "leaf",
+      group: "Flexures",
+      name: "Bladveer",
+      short: "Enkele bladveer, geleid eind (S-vorm)",
+      svg: SCHEMA.leaf,
+      inputs: [f("L", "Lengte L", "mm", 20, 0.01), f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dikte t", "mm", 0.2, 1e-3), f("u", "Uitwijking u", "mm", 0.5, 0), IN_F, IN_M, IN_PLATE],
+      run: (p, M) => {
+        const r = leafSpring(Object.assign({}, p, M));
+        return {
+          r,
+          out: [
+            res("Stijfheid c_x", num3(r.cx), "N/mm"),
+            res("Kracht bij u", num3(r.force), "N"),
+            res("Axiale stijfheid c_z0", num3(r.cz0 / 1e3), "kN/mm"),
+            res("Stijfheid c_z bij u", num3(r.cz / 1e3), "kN/mm"),
+            res("Zakking \u0394z bij u", num3(r.dz * 1e3), "\xB5m"),
+            res("Maximale uitwijking u_max", num3(r.uMax), "mm"),
+            res("Spanning bij u", num3(r.sigma), "MPa", stressBad(r, M)),
+            res("Knikbelasting P_cr", num3(r.Pcr), "N"),
+            marginRes(r),
+            res("Eigenfrequentie f", num3(r.f), "Hz")
+          ],
+          warn: warn(r, r.sigma, M.sigma)
+        };
+      },
+      formulas: (p, M, r) => [
+        ["Buigstijfheid", "I = " + fr("b\xB7t\xB3", "12"), "I = " + fr(num3(p.b) + "\xB7" + num3(p.t) + "\xB3", "12") + " = " + num3(r.I) + " mm\u2074"],
+        ["Dwarsstijfheid", sub("c", "x") + " = " + fr("12\xB7E\xB7I", "L\xB3") + " = " + fr("E\xB7b\xB7t\xB3", "L\xB3"), sub("c", "x") + " = " + fr("12\xB7" + num3(r.E) + "\xB7" + num3(r.I), num3(p.L) + "\xB3") + " = " + num3(r.cx) + " N/mm"],
+        ["Axiale stijfheid", sub("c", "z0") + " = " + fr("E\xB7b\xB7t", "L"), sub("c", "z0") + " = " + fr(num3(r.E) + "\xB7" + num3(p.b) + "\xB7" + num3(p.t), num3(p.L)) + " = " + num3(r.cz0) + " N/mm"],
+        ["Steunstijfheid bij u (Soemers)", fr("1", sub("c", "z")) + " \u2248 " + fr("L", "E\xB7b\xB7t") + " + " + fr("u\xB2\xB7L", "700\xB7E\xB7I"), sub("c", "z") + " = " + num3(r.cz) + " N/mm"],
+        ["Zakking", "\u0394z \u2248 0,6\xB7" + fr("u\xB2", "L"), "\u0394z = 0,6\xB7" + fr(num3(p.u) + "\xB2", num3(p.L)) + " = " + num3(r.dz * 1e3) + " \xB5m"],
+        ["Maximale uitwijking", sub("u", "max") + " = " + fr(sub("\u03C3", "toel") + "\xB7L\xB2", "3\xB7E\xB7t"), sub("u", "max") + " = " + fr(num3(M.sigma) + "\xB7" + num3(p.L) + "\xB2", "3\xB7" + num3(r.E) + "\xB7" + num3(p.t)) + " = " + num3(r.uMax) + " mm"],
+        ["Buigspanning", "\u03C3 = " + fr("3\xB7E\xB7t\xB7u", "L\xB2") + " + " + fr("F", "b\xB7t"), "\u03C3 = " + num3(r.sb) + " + " + num3(r.sa) + " = " + num3(r.sigma) + " MPa"],
+        ["Knik (geleid: \xE9\xE9n uiteinde mag zijwaarts)", sub("P", "cr") + " = " + fr("\u03C0\xB2\xB7E\xB7I", "L\xB2"), sub("P", "cr") + " = " + fr("\u03C0\xB2\xB7" + num3(r.E) + "\xB7" + num3(r.I), num3(p.L) + "\xB2") + " = " + num3(r.Pcr) + " N"],
+        ["Eigenfrequentie", "f = " + fr("1", "2\u03C0") + "\xB7\u221A" + fr(sub("c", "x") + "\xB71000", "m"), "f = " + num3(r.f) + " Hz (c in N/m = N/mm\xB71000)"]
+      ],
+      assume: [
+        "Twee ingeklemde uiteinden; het ene uiteinde blijft evenwijdig (geleid), dus S-vorm met het buigmoment L/2 op de inklemming.",
+        "Kleine doorbuiging (u \u226A L), lineair-elastisch; schuifvervorming en massa van het blad zijn verwaarloosd.",
+        "Knikrandvoorwaarde: ingeklemd\u2013geleid (zijwaarts vrij), effectieve lengte L: P_cr = \u03C0\xB2EI/L\xB2. Een volledig ingeklemd uiteinde zonder zijwaartse beweging geeft 4\u03C0\xB2EI/L\xB2.",
+        "Het steunstijfheidsterm met 700 is een benadering uit Soemers; \u0394z = 0,6\xB7u\xB2/L is de kinematische verkorting van het blad.",
+        "Aangegeven spanning is buiging plus de gemiddelde drukspanning F/(b\xB7t)."
+      ],
+      source: SRC_S + "."
+    },
+    {
+      id: "par",
+      group: "Flexures",
+      name: "Parallelle bladveer",
+      short: "Twee bladen, geleide tafel",
+      svg: SCHEMA.par,
+      inputs: [f("L", "Lengte L per blad", "mm", 20, 0.01), f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dikte t", "mm", 0.2, 1e-3), f("u", "Uitwijking u", "mm", 0.5, 0), IN_F, IN_M, IN_PLATE],
+      run: (p, M) => {
+        const r = parallelLeaf(Object.assign({}, p, M));
+        return {
+          r,
+          out: [
+            res("Stijfheid c_x (2 bladen)", num3(r.cx), "N/mm"),
+            res("Kracht bij u", num3(r.force), "N"),
+            res("Axiale stijfheid c_z0", num3(r.cz0 / 1e3), "kN/mm"),
+            res("Stijfheid c_z bij u", num3(r.cz / 1e3), "kN/mm"),
+            res("Zakking \u0394z van de tafel", num3(r.dz * 1e3), "\xB5m"),
+            res("Maximale uitwijking u_max", num3(r.uMax), "mm"),
+            res("Spanning per blad bij u", num3(r.sigma), "MPa", stressBad(r, M)),
+            res("Knikbelasting P_cr (totaal)", num3(r.Pcr), "N"),
+            marginRes(r),
+            res("Eigenfrequentie f", num3(r.f), "Hz")
+          ],
+          warn: warn(r, r.sigma, M.sigma)
+        };
+      },
+      formulas: (p, M, r) => [
+        ["Stijfheid", sub("c", "x") + " = 2\xB7" + fr("12\xB7E\xB7I", "L\xB3") + " = " + fr("2\xB7E\xB7b\xB7t\xB3", "L\xB3"), sub("c", "x") + " = 2\xB7" + fr("12\xB7" + num3(r.E) + "\xB7" + num3(r.I), num3(p.L) + "\xB3") + " = " + num3(r.cx) + " N/mm"],
+        ["Zakking van de tafel", "\u0394z \u2248 0,6\xB7" + fr("u\xB2", "L"), "\u0394z = " + num3(r.dz * 1e3) + " \xB5m (geen draaiing van de tafel)"],
+        ["Maximale uitwijking", sub("u", "max") + " = " + fr(sub("\u03C3", "toel") + "\xB7L\xB2", "3\xB7E\xB7t"), sub("u", "max") + " = " + num3(r.uMax) + " mm"],
+        ["Spanning per blad", "\u03C3 = " + fr("3\xB7E\xB7t\xB7u", "L\xB2") + " + " + fr("F", "2\xB7b\xB7t"), "\u03C3 = " + num3(r.sb) + " + " + num3(r.sa) + " = " + num3(r.sigma) + " MPa"],
+        ["Knik", sub("P", "cr") + " = 2\xB7" + fr("\u03C0\xB2\xB7E\xB7I", "L\xB2"), sub("P", "cr") + " = " + num3(r.Pcr) + " N"],
+        ["Eigenfrequentie", "f = " + fr("1", "2\u03C0") + "\xB7\u221A" + fr(sub("c", "x") + "\xB71000", "m"), "f = " + num3(r.f) + " Hz"]
+      ],
+      assume: [
+        "Twee identieke, evenwijdige bladen met een stijve tafel: de tafel blijft evenwijdig en zakt alleen (\u0394z).",
+        "Kleine doorbuiging, lineair-elastisch; de axiale kracht wordt gelijk over de bladen verdeeld.",
+        "De zakking \u0394z is de kinematische verkorting van een geleid blad (3/5\xB7u\xB2/L); zonder tweede stel bladen (tussenlichaam) is dit niet te compenseren.",
+        "Knik: twee bladen, elk ingeklemd\u2013geleid (effectieve lengte L)."
+      ],
+      source: SRC_S + "."
+    },
+    {
+      id: "cross",
+      group: "Flexures",
+      name: "Kruisveerscharnier",
+      short: "Twee gekruiste bladen, kruising op 50 %",
+      svg: SCHEMA.cross,
+      inputs: [f("L", "Lengte L per blad", "mm", 20, 0.01), f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dikte t", "mm", 0.2, 1e-3), f("phi", "Rotatie \u03C6", "\xB0", 5, 0), f("r", "Afstand massa tot draaipunt", "mm", 50, 0.01), IN_F, IN_M, IN_PLATE],
+      run: (p, M) => {
+        const q = Object.assign({}, p, M, { phi: p.phi * DEG });
+        const r = crossPivot(q);
+        return {
+          r,
+          out: [
+            res("Draaistijfheid c_\u03C6", num3(r.c), "Nmm/rad"),
+            res("Moment bij \u03C6", num3(r.moment), "Nmm"),
+            res("Maximale rotatie \u03C6_max", num3(r.phiMax / DEG), "\xB0"),
+            res("Spanning bij \u03C6", num3(r.sigma), "MPa", stressBad(r, M)),
+            res("Verschuiving draaipunt", "\u2248 0", "(eerste orde)"),
+            res("Knikbelasting (indicatief)", num3(r.Pcr), "N"),
+            marginRes(r),
+            res("Eigenfrequentie f", num3(r.f), "Hz")
+          ],
+          warn: warn(r, r.sigma, M.sigma)
+        };
+      },
+      formulas: (p, M, r) => [
+        ["Per blad (relatieve eindrotatie \u03C6, zijwaartse verplaatsing L\u03C6/2)", sub("c", "\u03C6,blad") + " = " + fr("E\xB7I", "L"), "I = " + num3(r.I) + " mm\u2074"],
+        ["Twee bladen", sub("c", "\u03C6") + " = 2\xB7" + fr("E\xB7I", "L") + " = " + fr("E\xB7b\xB7t\xB3", "6\xB7L"), sub("c", "\u03C6") + " = 2\xB7" + fr(num3(r.E) + "\xB7" + num3(r.I), num3(p.L)) + " = " + num3(r.c) + " Nmm/rad"],
+        ["Maximale rotatie", sub("\u03C6", "max") + " = " + fr("2\xB7" + sub("\u03C3", "toel") + "\xB7L", "E\xB7t"), sub("\u03C6", "max") + " = " + fr("2\xB7" + num3(M.sigma) + "\xB7" + num3(p.L), num3(r.E) + "\xB7" + num3(p.t)) + " = " + num3(r.phiMax) + " rad = " + num3(r.phiMax / DEG) + "\xB0"],
+        ["Spanning", "\u03C3 = " + fr("E\xB7t\xB7\u03C6", "2\xB7L") + " + " + fr("F", "2\xB7b\xB7t"), "\u03C3 = " + num3(r.sb) + " + " + num3(r.sa) + " = " + num3(r.sigma) + " MPa"],
+        ["Eigenfrequentie (massa m op arm r)", "f = " + fr("1", "2\u03C0") + "\xB7\u221A" + fr(sub("c", "\u03C6"), "m\xB7r\xB2"), "f = " + num3(r.f) + " Hz (c in Nm/rad, r in m)"]
+      ],
+      assume: [
+        "Twee identieke bladen, kruising op het midden (50 %); het draaipunt ligt dan in de kruising en verschuift in eerste orde niet. Bij een andere kruispositie verschuift het draaipunt.",
+        "Afleiding: elk blad krijgt een eindrotatie \u03C6 en een zijwaartse verplaatsing L\u03C6/2 (stijve rotatie om het kruispunt); met de inklemmingsformule U = (2EI/L)(\u03B8_B\xB2 \u2212 3\u03C8\u03B8_B + 3\u03C8\xB2), \u03C8 = \u03C6/2 volgt c = EI/L per blad.",
+        "Het blad is een balk met alleen buiging; axiale en schuifbijdragen en de belastingsafhankelijke stijfheidsvermindering zijn verwaarloosd.",
+        "Knikbelasting is indicatief: 2\xB7\u03C0\xB2EI/L\xB2 (twee bladen, effectieve lengte L). Een gekruist scharnier onder druk verliest in werkelijkheid draaistijfheid voordat het knikt."
+      ],
+      source: SRC_S + "; " + SRC_H + "."
+    },
+    {
+      id: "notch",
+      group: "Flexures",
+      name: "Scharnier met inkeping",
+      short: "Cirkelvormige inkeping (notch hinge)",
+      svg: SCHEMA.notch,
+      inputs: [f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dunste doorsnede t", "mm", 0.3, 1e-3), f("R", "Inkepingsstraal R", "mm", 3, 0.01), f("phi", "Rotatie \u03C6", "\xB0", 0.3, 0), f("Kt", "Spanningsconcentratie K_t", "\u2013", 1.5, 1), f("r", "Afstand massa tot draaipunt", "mm", 50, 0.01), IN_M, IN_PLATE],
+      run: (p, M) => {
+        const r = notchHinge(Object.assign({}, p, M, { phi: p.phi * DEG }));
+        const w = warn({ sigma: r.sigma, margin: Infinity }, 0, M.sigma);
+        if (r.ratio > 0.5) w.push("t/(2R) = " + num3(r.ratio) + " valt buiten het geldige bereik van de Paros\u2013Weisbord-formule (ruim \u2264 0,5).");
+        return {
+          r,
+          out: [
+            res("Draaistijfheid c_\u03C6", num3(r.c), "Nmm/rad"),
+            res("Moment bij \u03C6", num3(r.moment), "Nmm"),
+            res("Nominale spanning", num3(r.sNom), "MPa"),
+            res("Piekspanning K_t\xB7\u03C3", num3(r.sigma), "MPa", stressBad(r, M)),
+            res("Maximale rotatie \u03C6_max", num3(r.phiMax / DEG), "\xB0"),
+            res("Maximale rotatie \u03C6_max", num3(r.phiMax * 1e3), "mrad"),
+            res("Eigenfrequentie f", num3(r.f), "Hz")
+          ],
+          warn: w
+        };
+      },
+      formulas: (p, M, r) => [
+        ["Draaistijfheid (Paros\u2013Weisbord)", sub("c", "\u03C6") + " \u2248 " + fr("2\xB7E\xB7b\xB7" + sup("t", "5/2"), "9\u03C0\xB7\u221AR"), sub("c", "\u03C6") + " = " + fr("2\xB7" + num3(r.E) + "\xB7" + num3(p.b) + "\xB7" + num3(p.t) + "<sup>5/2</sup>", "9\u03C0\xB7\u221A" + num3(p.R)) + " = " + num3(r.c) + " Nmm/rad"],
+        ["Nominale buigspanning", sub("\u03C3", "nom") + " = " + fr("6\xB7M", "b\xB7t\xB2") + " = " + fr("4", "3\u03C0") + "\xB7E\xB7\u221A" + fr("t", "R") + "\xB7\u03C6", sub("\u03C3", "nom") + " = " + num3(r.sNom) + " MPa"],
+        ["Piekspanning", sub("\u03C3", "max") + " = " + sub("K", "t") + "\xB7" + sub("\u03C3", "nom"), sub("\u03C3", "max") + " = " + num3(p.Kt) + "\xB7" + num3(r.sNom) + " = " + num3(r.sigma) + " MPa"],
+        ["Maximale rotatie", sub("\u03C6", "max") + " = " + fr(sub("\u03C3", "toel"), sub("K", "t") + "\xB7" + fr("4", "3\u03C0") + "\xB7E\xB7\u221A(t/R)"), sub("\u03C6", "max") + " = " + num3(r.phiMax * 1e3) + " mrad = " + num3(r.phiMax / DEG) + "\xB0"],
+        ["Eigenfrequentie", "f = " + fr("1", "2\u03C0") + "\xB7\u221A" + fr(sub("c", "\u03C6"), "m\xB7r\xB2"), "f = " + num3(r.f) + " Hz"]
+      ],
+      assume: [
+        "Cirkelvormige inkeping aan beide zijden, t \u226A R; de formule is de gesloten vorm van Paros en Weisbord (1965) voor t/(2R) tot ongeveer 0,5, met enkele procenten afwijking.",
+        "Rotatie om het midden van de inkeping; parasitaire verplaatsing van het draaipunt en axiale stijfheid zijn niet berekend.",
+        "K_t is een invoer (schatting; voor diepe ronde inkepingen ca. 1,3 tot 3). Zie Smith voor grafieken. Bij vermoeiing en hoge \u03C6 de waarde conservatief kiezen."
+      ],
+      source: SRC_H + "; Paros &amp; Weisbord, <i>How to design flexure hinges</i>, Machine Design 37 (1965)."
+    },
+    {
+      id: "wire",
+      group: "Flexures",
+      name: "Draadflexure",
+      short: "Dunne draad als scharnier of veer",
+      svg: SCHEMA.wire,
+      inputs: [
+        f("L", "Lengte L", "mm", 50, 0.01),
+        f("d", "Diameter d", "mm", 1, 1e-3),
+        f("u", "Zijwaartse uitwijking u", "mm", 0.5, 0),
+        IN_F,
+        IN_M,
+        { id: "bc", type: "select", label: "Uiteinden", def: "guided", options: [["guided", "Beide ingeklemd, eind geleid (12EI/L\xB3)"], ["free", "E\xE9n eind ingeklemd, ander vrij (3EI/L\xB3)"]] }
+      ],
+      run: (p, M) => {
+        const r = wireFlexure(Object.assign({}, p, M));
+        return {
+          r,
+          out: [
+            res("Axiale stijfheid c_ax", num3(r.cax / 1e3), "kN/mm"),
+            res("Buigstijfheid c_b", num3(r.cb), "N/mm"),
+            res("Kracht bij u", num3(r.force), "N"),
+            res("Maximale uitwijking u_max", num3(r.uMax), "mm"),
+            res("Spanning bij u", num3(r.sigma), "MPa", stressBad(r, M)),
+            res("Knikbelasting P_cr", num3(r.Pcr), "N"),
+            marginRes(r),
+            res("f zijwaarts", num3(r.f), "Hz"),
+            res("f axiaal", num3(r.fax), "Hz")
+          ],
+          warn: warn(r, r.sigma, M.sigma)
+        };
+      },
+      formulas: (p, M, r) => {
+        const g = p.bc === "guided";
+        return [
+          ["Doorsnede", "A = " + fr("\u03C0\xB7d\xB2", "4") + ", I = " + fr("\u03C0\xB7d\u2074", "64"), "A = " + num3(r.A) + " mm\xB2, I = " + num3(r.I) + " mm\u2074"],
+          ["Axiale stijfheid", sub("c", "ax") + " = " + fr("E\xB7A", "L"), sub("c", "ax") + " = " + fr(num3(p.E) + "\xB7" + num3(r.A), num3(p.L)) + " = " + num3(r.cax) + " N/mm"],
+          ["Buigstijfheid", sub("c", "b") + " = " + (g ? fr("12\xB7E\xB7I", "L\xB3") : fr("3\xB7E\xB7I", "L\xB3")), sub("c", "b") + " = " + num3(r.cb) + " N/mm"],
+          ["Maximale uitwijking", sub("u", "max") + " = " + (g ? fr(sub("\u03C3", "toel") + "\xB7L\xB2", "3\xB7E\xB7d") : fr("2\xB7" + sub("\u03C3", "toel") + "\xB7L\xB2", "3\xB7E\xB7d")), sub("u", "max") + " = " + num3(r.uMax) + " mm"],
+          ["Spanning", "\u03C3 = " + (g ? fr("3\xB7E\xB7d\xB7u", "L\xB2") : fr("3\xB7E\xB7d\xB7u", "2\xB7L\xB2")) + " + " + fr("F", "A"), "\u03C3 = " + num3(r.sb) + " + " + num3(r.sa) + " = " + num3(r.sigma) + " MPa"],
+          ["Knik", sub("P", "cr") + " = " + fr("\u03C0\xB2\xB7E\xB7I", (g ? "" : "4\xB7") + "L\xB2"), sub("P", "cr") + " = " + num3(r.Pcr) + " N"],
+          ["Eigenfrequenties", "f = " + fr("1", "2\u03C0") + "\xB7\u221A" + fr("c\xB71000", "m"), "f<sub>zijw</sub> = " + num3(r.f) + " Hz, f<sub>ax</sub> = " + num3(r.fax) + " Hz"]
+        ];
+      },
+      assume: [
+        "Ronde, rechte draad met gelijke diameter; lineair-elastisch en kleine doorbuiging.",
+        "Geleid eind (S-vorm): moment L/2\xB7F op de inklemming. E\xE9n eind vrij: moment F\xB7L, knik met effectieve lengte 2L (P_cr = \u03C0\xB2EI/(4L\xB2)).",
+        "Spanning is buiging plus F/A; de uiteinden zijn ideaal ingeklemd, praktijk is slapper.",
+        "Een draad is stijf op trek/druk en slap op buiging: c_ax/c_b \u2248 (4/3)\xB7(L/d)\xB2 voor de geleide draad."
+      ],
+      source: SRC_S + "; " + SRC_H + "."
+    }
+  ];
+  var state = { cur: "leaf", mat: "staal", vals: {} };
+  CALCS.forEach((c2) => {
+    state.vals[c2.id] = {};
+    c2.inputs.forEach((i) => {
+      state.vals[c2.id][i.id] = i.def;
+    });
+  });
+  var calcOf = (id) => CALCS.find((c2) => c2.id === id) || CALCS[0];
+  function params(c2) {
+    const p = {}, v = state.vals[c2.id];
+    c2.inputs.forEach((i) => {
+      p[i.id] = v[i.id];
+    });
+    return p;
+  }
+  var invalid = (c2, p) => c2.inputs.filter((i) => typeof i.def === "number" && !(isFinite(p[i.id]) && p[i.id] >= i.min && (i.min === 0 || p[i.id] > 0)));
+  function matParams() {
+    const m = material(state.mat);
+    return { E: m.E, nu: m.nu, sigma: m.sigma };
+  }
+  function renderResults() {
+    const c2 = calcOf(state.cur), p = params(c2), box3 = $("calcOut");
+    const bad = invalid(c2, p);
+    if (bad.length) {
+      box3.innerHTML = '<div class="calc-warn" role="alert">Controleer de invoer: ' + bad.map((i) => i.label).join(", ") + ".</div>";
+      $("calcFormulas").innerHTML = "";
+      return;
+    }
+    const o = c2.run(p, matParams());
+    let h = "";
+    if (o.warn.length) h += '<div class="calc-warn" role="alert">' + o.warn.map((w) => "<div>\u26A0 " + w + "</div>").join("") + "</div>";
+    h += '<dl class="calc-res">' + o.out.map((x) => '<div class="' + (x.bad ? "bad" : "") + '"><dt>' + x.k + '</dt><dd data-res="' + x.k + '">' + x.v + (x.unit ? ' <span class="u">' + x.unit + "</span>" : "") + "</dd></div>").join("") + "</dl>";
+    box3.innerHTML = h;
+    const fm = c2.formulas(p, matParams(), o.r);
+    $("calcFormulas").innerHTML = fm.map((x) => '<div class="fm"><div class="fm-h">' + x[0] + '</div><div class="fm-g">' + x[1] + '</div><div class="fm-n"><span class="fm-lab">met jouw getallen</span> ' + x[2] + "</div></div>").join("");
+  }
+  function renderDetail() {
+    const c2 = calcOf(state.cur), v = state.vals[c2.id];
+    let h = "<h2>" + c2.name + '</h2><p class="calc-sub">' + c2.short + "</p>";
+    h += '<div class="calc-top"><figure class="calc-fig">' + c2.svg + '</figure><form class="calc-in" onsubmit="return false">';
+    h += '<label class="fld"><span>Materiaal</span><select id="calcMat">' + MATERIALS2.map((m) => '<option value="' + m.id + '"' + (m.id === state.mat ? " selected" : "") + ">" + m.naam + "</option>").join("") + "</select></label>";
+    h += '<div class="mat-info" id="calcMatInfo"></div>';
+    c2.inputs.forEach((i) => {
+      if (i.type === "check") h += '<label class="chk"><input type="checkbox" data-in="' + i.id + '"' + (v[i.id] ? " checked" : "") + "> " + i.label + "</label>";
+      else if (i.type === "select") h += '<label class="fld"><span>' + i.label + '</span><select data-in="' + i.id + '">' + i.options.map((o) => '<option value="' + o[0] + '"' + (v[i.id] === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></label>";
+      else h += '<label class="fld"><span>' + i.label + '</span><span class="inp"><input type="number" inputmode="decimal" step="any" data-in="' + i.id + '" value="' + v[i.id] + '"><b>' + i.unit + "</b></span></label>";
+    });
+    h += "</form></div>";
+    h += '<h3>Resultaat</h3><div id="calcOut"></div>';
+    h += '<h3>Formules</h3><div id="calcFormulas" class="calc-formulas"></div>';
+    h += '<h3>Aannames</h3><ul class="calc-assume">' + c2.assume.map((a) => "<li>" + a + "</li>").join("") + "</ul>";
+    h += '<p class="calc-src"><span>Bron</span> ' + c2.source + "</p>";
+    $("calcDetail").innerHTML = h;
+    updMatInfo();
+    renderResults();
+  }
+  function updMatInfo() {
+    const m = material(state.mat);
+    $("calcMatInfo").textContent = "E = " + num3(m.E / 1e3) + " GPa \xB7 \u03BD = " + num3(m.nu) + " \xB7 \u03C3_toel = " + num3(m.sigma) + " MPa";
+  }
+  function renderList() {
+    const groups = {};
+    CALCS.forEach((c2) => {
+      (groups[c2.group] = groups[c2.group] || []).push(c2);
+    });
+    $("calcList").innerHTML = Object.keys(groups).map((g) => '<div class="calc-group"><div class="calc-gh">' + g + "</div>" + groups[g].map((c2) => '<button type="button" class="calc-item" data-c="' + c2.id + '" aria-pressed="' + (c2.id === state.cur) + '">' + c2.name + "</button>").join("") + "</div>").join("");
+  }
+  function setWork(w) {
+    const calc = w === "calc";
+    const app = document.querySelector(".app");
+    app.classList.toggle("calc-on", calc);
+    $("calcRoot").hidden = !calc;
+    document.querySelectorAll("#workSeg [data-w]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.w === w)));
+    if (!calc) window.dispatchEvent(new Event("resize"));
+    else if (!$("calcDetail").firstChild) renderDetail();
+  }
+  function initCalc() {
+    renderList();
+    $("workSeg").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-w]");
+      if (b) setWork(b.dataset.w);
+    });
+    $("calcList").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-c]");
+      if (!b) return;
+      state.cur = b.dataset.c;
+      renderList();
+      renderDetail();
+    });
+    $("calcDetail").addEventListener("input", (e) => {
+      const t = e.target, c2 = calcOf(state.cur);
+      if (t.id === "calcMat") {
+        state.mat = t.value;
+        updMatInfo();
+        renderResults();
+        return;
+      }
+      const id = t.dataset.in;
+      if (!id) return;
+      const inp = c2.inputs.find((i) => i.id === id);
+      state.vals[c2.id][id] = inp.type === "check" ? t.checked : inp.type === "select" ? t.value : parseFloat(String(t.value).replace(",", "."));
+      renderResults();
+    });
+  }
+
   // src/ui/interact.js
   var HIT = window.matchMedia("(pointer: coarse)").matches ? 18 : 11;
   function pickNode(sp) {
@@ -7765,7 +8336,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       } else if (e.type === "contact") {
         const n = N(e.node);
         if (!n) continue;
-        const f = frame(e, n), s = toScr({ x: f.fx, y: f.fy }), u = { x: f.tx, y: -f.ty };
+        const f2 = frame(e, n), s = toScr({ x: f2.fx, y: f2.fy }), u = { x: f2.tx, y: -f2.ty };
         d = segDist(sp, { x: s.x - u.x * 26, y: s.y - u.y * 26 }, { x: s.x + u.x * 26, y: s.y + u.y * 26 });
       } else {
         const A = toScr(N(e.a)), B = toScr(N(e.b));
@@ -7952,8 +8523,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       if (ptrs.has(ev.pointerId)) ptrs.set(ev.pointerId, localPt(ev));
       if (pinch && ptrs.size >= 2) {
         const q = pinchNow();
-        const f = q.d / pinch.d;
-        const ns = Math.max(0.15, Math.min(pinch.s * f, 14));
+        const f2 = q.d / pinch.d;
+        const ns = Math.max(0.15, Math.min(pinch.s * f2, 14));
         const wx = (pinch.mx - pinch.ox) / pinch.s, wy = -(pinch.my - pinch.oy) / pinch.s;
         view.s = ns;
         view.ox = q.mx - wx * ns;
@@ -8066,86 +8637,86 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return wall(8, y - 10, y + 10) + `<path class="dr" style="stroke-width:3.4" d="M8 ${y}H26"/>` + box(30, y) + spring(34.5, y - 3, 62, y - 3) + damper(34.5, y + 3, 62, y + 3) + box(66, y) + `<path class="g" d="M4 ${y + 9}H76"/>`;
   }
   function thumb(id) {
-    const f = THUMB[id];
-    return `<svg class="thumb" viewBox="0 0 80 50" aria-hidden="true" focusable="false">${f ? f() : ""}</svg>`;
+    const f2 = THUMB[id];
+    return `<svg class="thumb" viewBox="0 0 80 50" aria-hidden="true" focusable="false">${f2 ? f2() : ""}</svg>`;
   }
-  var $ = (id) => document.getElementById(id);
+  var $2 = (id) => document.getElementById(id);
   var esc2 = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
   var cat = "all";
   function applyFilter() {
-    $("libChips").querySelectorAll("[data-c]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.c === cat)));
-    $("libGrid").querySelectorAll("[data-ex]").forEach((b) => {
+    $2("libChips").querySelectorAll("[data-c]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.c === cat)));
+    $2("libGrid").querySelectorAll("[data-ex]").forEach((b) => {
       b.hidden = !(cat === "all" || EXAMPLE_META[b.dataset.ex].cat === cat);
     });
   }
   function openLibrary() {
     cat = "all";
     applyFilter();
-    $("lib").hidden = false;
-    $("libBtn").setAttribute("aria-expanded", "true");
-    $("libGrid").scrollTop = 0;
-    const first = $("libGrid").querySelector("[data-ex]:not([hidden])");
+    $2("lib").hidden = false;
+    $2("libBtn").setAttribute("aria-expanded", "true");
+    $2("libGrid").scrollTop = 0;
+    const first = $2("libGrid").querySelector("[data-ex]:not([hidden])");
     if (first) first.focus({ preventScroll: true });
   }
   function closeLibrary() {
-    if ($("lib").hidden) return;
-    $("lib").hidden = true;
-    $("libBtn").setAttribute("aria-expanded", "false");
+    if ($2("lib").hidden) return;
+    $2("lib").hidden = true;
+    $2("libBtn").setAttribute("aria-expanded", "false");
   }
   function showUitleg(id) {
-    const m = EXAMPLE_META[id], el = $("uitleg");
+    const m = EXAMPLE_META[id], el = $2("uitleg");
     if (!m) return;
-    $("uitTitle").textContent = m.title;
-    $("uitText").textContent = m.text;
+    $2("uitTitle").textContent = m.title;
+    $2("uitText").textContent = m.text;
     el.hidden = false;
     el.closest(".stage").classList.add("hasnote");
   }
   function hideUitleg() {
-    const el = $("uitleg");
+    const el = $2("uitleg");
     el.hidden = true;
     el.closest(".stage").classList.remove("hasnote");
   }
   function initLibrary() {
-    $("libChips").innerHTML = CATEGORIES.map((c2) => `<button type="button" class="chip" data-c="${c2.id}" aria-pressed="false">${esc2(c2.nm)}</button>`).join("");
-    $("libGrid").innerHTML = Object.keys(EXAMPLE_META).map((id) => {
+    $2("libChips").innerHTML = CATEGORIES.map((c2) => `<button type="button" class="chip" data-c="${c2.id}" aria-pressed="false">${esc2(c2.nm)}</button>`).join("");
+    $2("libGrid").innerHTML = Object.keys(EXAMPLE_META).map((id) => {
       const m = EXAMPLE_META[id];
       const tags = m.modes.map((t) => `<span class="tag tag-${t}">${MODE_NAMES[t]}</span>`).join("");
       return `<button type="button" class="libcard" data-ex="${id}">${thumb(id)}<span class="lc-body"><span class="lc-t">${esc2(m.title)}</span><span class="lc-d">${esc2(m.desc)}</span><span class="lc-tags">${tags}</span></span></button>`;
     }).join("");
-    $("libBtn").addEventListener("click", (ev) => {
+    $2("libBtn").addEventListener("click", (ev) => {
       ev.stopPropagation();
-      if ($("lib").hidden) openLibrary();
+      if ($2("lib").hidden) openLibrary();
       else closeLibrary();
     });
-    $("libClose").addEventListener("click", closeLibrary);
-    $("lib").addEventListener("click", (ev) => {
-      if (ev.target === $("lib")) closeLibrary();
+    $2("libClose").addEventListener("click", closeLibrary);
+    $2("lib").addEventListener("click", (ev) => {
+      if (ev.target === $2("lib")) closeLibrary();
     });
     document.addEventListener("keydown", (ev) => {
-      if (ev.key === "Escape" && !$("lib").hidden) {
+      if (ev.key === "Escape" && !$2("lib").hidden) {
         ev.stopPropagation();
         closeLibrary();
       }
     }, true);
-    $("libChips").addEventListener("click", (ev) => {
+    $2("libChips").addEventListener("click", (ev) => {
       const b = ev.target.closest("[data-c]");
       if (!b) return;
       cat = b.dataset.c;
       applyFilter();
     });
-    $("libGrid").addEventListener("click", (ev) => {
+    $2("libGrid").addEventListener("click", (ev) => {
       const b = ev.target.closest("[data-ex]");
       if (!b) return;
-      const id = b.dataset.ex, f = EXAMPLES[id];
+      const id = b.dataset.ex, f2 = EXAMPLES[id];
       closeLibrary();
-      if (f) whenDiscarded(() => {
-        f();
+      if (f2) whenDiscarded(() => {
+        f2();
         setName(id === "empty" ? "Naamloos" : EXAMPLE_META[id].title);
         markClean();
         showUitleg(id);
       });
     });
-    $("uitClose").addEventListener("click", hideUitleg);
+    $2("uitClose").addEventListener("click", hideUitleg);
   }
 
   // src/ui/tour.js
@@ -8326,6 +8897,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   initPersist();
   initFiles();
   initLayout();
+  initCalc();
   setTool("select");
   requestAnimationFrame(() => {
     resize();

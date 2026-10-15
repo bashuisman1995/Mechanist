@@ -45,6 +45,11 @@
       <span class="docname" id="docName" title="Naam van dit model (wordt de bestandsnaam bij opslaan)"></span>
     </div>
 
+    <div class="seg" id="workSeg" role="group" aria-label="Werkplek">
+      <button type="button" data-w="sketch" aria-pressed="true">Schets</button>
+      <button type="button" data-w="calc" aria-pressed="false">Calculators</button>
+    </div>
+
     <div class="modewrap">
       <span class="cap">Modus</span>
       <div class="seg" id="modeSeg" role="group" aria-label="Rekenmodus">
@@ -364,6 +369,11 @@
       </div>
     </div>
   </div>
+
+  <main class="calc" id="calcRoot" hidden aria-label="Calculators">
+    <nav class="calc-list" id="calcList" aria-label="Calculators"></nav>
+    <section class="calc-detail" id="calcDetail"></section>
+  </main>
 
   <footer class="statusbar">
     <span><span class="k">gereedschap</span> <span id="stTool">&mdash;</span></span>

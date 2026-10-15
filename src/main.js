@@ -1,6 +1,7 @@
 // Ingang: koppelt alle modules en start de app.
 import { model, ui } from "./core/state.js";
 import { EXAMPLES } from "./ui/examples.js";
+import { initCalc } from "./ui/calc.js";
 import { initFiles, markClean, setName } from "./ui/files.js";
 import { initInteract } from "./ui/interact.js";
 import { applyLayout, initLayout } from "./ui/layout.js";
@@ -28,6 +29,7 @@ initLibrary();
 initPersist();
 initFiles();
 initLayout();
+initCalc();
 
 setTool("select");
 requestAnimationFrame(() => {
