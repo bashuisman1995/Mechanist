@@ -2,7 +2,8 @@
 import { asyncMode } from "../core/elements.js";
 import { model, ui } from "../core/state.js";
 import { draw } from "./draw.js";
-import { syncDynInputs } from "./inspector.js";
+import { syncDynInputs, syncResult } from "./inspector.js";
+import { renderHowNow as renderHow } from "./howhook.js";
 import { save } from "./persist.js";
 import { renderSeries } from "./picker.js";
 import { toT0 } from "./playback.js";
@@ -19,12 +20,15 @@ function syncModeSeg() {
   const v = model.mode === "frf" ? "frf" : model.mode !== "dyn" ? "kin" : model.durMode === "equil" ? "equil" : "dyn";
   document.querySelectorAll("#modeSeg button").forEach(x =>
     x.setAttribute("aria-pressed", String(x.dataset.v === v)));
-  document.getElementById("dynSect").hidden = !asyncMode();
-  document.querySelectorAll("#dynSect .dynonly").forEach(el => { el.hidden = model.mode === "frf"; });
+  const am = asyncMode();
+  document.getElementById("dynSect").hidden = model.mode !== "dyn";
+  ["dampSect", "advCalc", "advAcc"].forEach(id => { document.getElementById(id).hidden = !am; });
+  document.querySelectorAll(".dynonly").forEach(el => { el.hidden = model.mode === "frf"; });
   document.getElementById("frfSect").hidden = model.mode !== "frf";
   document.querySelector(".drawer-head label[for=xSel]").hidden = model.mode === "frf";
   xSel.hidden = model.mode === "frf";
   syncDynInputs();
+  syncResult(); renderHow();
 }
 function setMode(v) {
   toT0();

@@ -62,13 +62,20 @@
       <button class="btn ghost ico" id="redoBtn" title="Opnieuw (Ctrl+Shift+Z)" aria-label="Opnieuw">&#8631;</button>
       <div class="sep"></div>
       <div class="menuwrap">
-        <button class="btn" id="menuBtn" aria-haspopup="true" aria-expanded="false">Model</button>
+        <button class="btn" id="menuBtn" aria-haspopup="true" aria-expanded="false">Bestand</button>
         <div class="menu" id="menu" hidden role="menu">
-          <div class="menu-lab">Bestand</div>
           <button role="menuitem" data-a="open">Openen&hellip; <span class="kbd">Ctrl+O</span></button>
           <button role="menuitem" data-a="save">Opslaan als bestand&hellip; <span class="kbd">Ctrl+S</span></button>
           <button role="menuitem" data-a="restore" hidden>Vorige sessie herstellen</button>
           <div class="menu-sep"></div>
+          <button role="menuitem" data-a="copy">Kopieer als JSON</button>
+          <button role="menuitem" data-a="paste">Plak een model…</button>
+          <button role="menuitem" data-a="link">Kopieer deelbare link</button>
+        </div>
+      </div>
+      <div class="menuwrap">
+        <button class="btn" id="libBtn" aria-haspopup="true" aria-expanded="false">Bibliotheek</button>
+        <div class="menu" id="libMenu" hidden role="menu">
           <div class="menu-lab">Voorbeelden &middot; kinematisch</div>
           <button role="menuitem" data-ex="fourbar">Vierstangenmechanisme</button>
           <button role="menuitem" data-ex="slidercrank">Slinger-krukmechanisme</button>
@@ -91,9 +98,7 @@
           <div class="menu-sep"></div>
           <button role="menuitem" data-ex="empty">Nieuw, leeg canvas</button>
           <div class="menu-sep"></div>
-          <button role="menuitem" data-a="copy">Kopieer als JSON</button>
-          <button role="menuitem" data-a="paste">Plak een model…</button>
-          <button role="menuitem" data-a="link">Kopieer deelbare link</button>
+          <button role="menuitem" data-ex="empty">Nieuw, leeg canvas</button>
         </div>
       </div>
       <button class="btn ghost ico" id="fitBtn" title="Passend maken" aria-label="Passend maken">&#10530;</button>
@@ -164,19 +169,24 @@
     </div>
 
     <aside class="inspector">
-      <button class="status" id="statusBtn" aria-expanded="false" title="Details tonen">
-        <span class="big" id="dofVal">&ndash;</span>
-        <span class="of" id="dofOf"></span>
-        <span class="chev" aria-hidden="true">&#9662;</span>
-      </button>
-      <div id="statusDetail" hidden>
-        <div class="dof-note" id="dofNote"></div>
-        <div class="tally" id="tally"></div>
-      </div>
+      <section class="result" id="result" aria-label="Resultaat">
+        <h2>Resultaat</h2>
+        <button class="status" id="statusBtn" aria-expanded="false" title="Details tonen">
+          <span class="big" id="dofVal">&ndash;</span>
+          <span class="of" id="dofOf"></span>
+          <span class="chev" aria-hidden="true">&#9662;</span>
+        </button>
+        <div class="state" id="resState"></div>
+        <div id="statusDetail" hidden>
+          <div class="dof-note" id="dofNote"></div>
+          <div class="tally" id="tally"></div>
+        </div>
+      </section>
 
-      <div>
+      <div class="inspector-body">
         <div class="tabs" id="tabs" role="tablist">
           <button role="tab" data-t="props" aria-selected="true">Eigenschappen</button>
+          <button role="tab" data-t="how" aria-selected="false">Hoe rekent dit?</button>
           <button role="tab" data-t="meas" aria-selected="false" hidden>Metingen</button>
           <button role="tab" data-t="set" aria-selected="false">Instellingen</button>
         </div>
@@ -187,93 +197,114 @@
             </div>
           </div>
 
+          <div class="pane" data-p="how" hidden>
+            <div class="sect">
+              <div id="howPanel"></div>
+              <p class="empty" id="howPlaceholder">Formules volgen.</p>
+            </div>
+          </div>
+
           <div class="pane" data-p="meas" hidden id="paneMeas"></div>
 
           <div class="pane" data-p="set" hidden>
-            <div class="sect" id="dynSect" hidden>
-              <div id="frfSect" hidden>
-                <h2>Frequentieresponsie</h2>
-                <div class="row"><label for="frfIn">Ingang</label>
-                  <select id="frfIn"></select></div>
-                <div class="row"><label for="frfMinInp">Van <span class="unit">Hz, 0 = auto</span></label>
-                  <input type="number" id="frfMinInp" min="0" step="0.1" value="0"></div>
-                <div class="row"><label for="frfMaxInp">Tot <span class="unit">Hz, 0 = auto</span></label>
-                  <input type="number" id="frfMaxInp" min="0" step="1" value="0"></div>
-                <p class="empty" style="margin:4px 0 14px" id="frfNote"></p>
-              </div>
-              <h2>Rekenen</h2>
+            <div class="sect">
+              <h2>Algemeen</h2>
               <div class="chk">
-                <input type="checkbox" id="autoChk">
-                <label for="autoChk">Na elke wijziging meteen herberekenen</label>
+                <input type="checkbox" id="gravChk">
+                <label for="gravChk">Zwaartekracht (9,81 m/s&sup2;)</label>
               </div>
-              <p class="empty" style="margin:-2px 0 10px">Uit: pas je het model aan en druk je daarna op <b>Bereken</b> (F5).</p>
-              <div class="row dynonly"><label for="durMode">Tijdvenster</label>
+              <div class="chk">
+                <input type="checkbox" id="fChk" checked>
+                <label for="fChk">Krachten in de tekening</label>
+              </div>
+            </div>
+
+            <div class="sect" id="frfSect" hidden>
+              <h2>Frequentieresponsie</h2>
+              <div class="row"><label for="frfIn">Ingang</label>
+                <select id="frfIn"></select></div>
+              <div class="row"><label for="frfMinInp">Van <span class="unit">Hz, 0 = auto</span></label>
+                <input type="number" id="frfMinInp" min="0" step="0.1" value="0"></div>
+              <div class="row"><label for="frfMaxInp">Tot <span class="unit">Hz, 0 = auto</span></label>
+                <input type="number" id="frfMaxInp" min="0" step="1" value="0"></div>
+              <p class="empty" id="frfNote"></p>
+            </div>
+
+            <div class="sect" id="dynSect" hidden>
+              <h2>Tijdvenster</h2>
+              <div class="row"><label for="durMode">Soort</label>
                 <select id="durMode">
                   <option value="fixed">vaste duur</option>
                   <option value="equil">tot evenwicht</option>
                 </select></div>
               <div class="row" id="durRow"><label for="durInp">Duur <span class="unit">s</span></label>
                 <input type="number" id="durInp" min="0.05" max="60" step="0.5" value="2"></div>
-              <div class="row" id="maxRow" hidden><label for="maxInp">Hoogstens <span class="unit">s</span></label>
-                <input type="number" id="maxInp" min="0.2" max="300" step="5" value="30"></div>
-              <h2 style="margin-top:14px">Demping</h2>
+              <p class="empty dynonly" id="dynNote"></p>
+            </div>
+
+            <div class="sect" id="dampSect" hidden>
+              <h2>Demping</h2>
               <div class="chk">
                 <input type="checkbox" id="jdChk">
                 <label for="jdChk">Demping in scharnieren</label>
               </div>
               <div class="row"><label for="cjInp">Per scharnier <span class="unit">N&middot;m&middot;s/rad</span></label>
                 <input type="number" id="cjInp" min="0" step="0.01" value="0.05"></div>
-              <div class="row"><label for="cvInp">Luchtweerstand, per punt <span class="unit">Ns/mm</span></label>
-                <input type="number" id="cvInp" min="0" step="0.005" value="0"></div>
-              <h2 style="margin-top:14px">Nauwkeurigheid</h2>
-              <div class="row dynonly"><label for="dtInp">Tijdstap <span class="unit">ms</span></label>
-                <input type="number" id="dtInp" min="0.001" max="20" step="0.05" value="0.2"></div>
-              <div class="row"><label for="mInp">Standaardmassa <span class="unit">kg</span></label>
-                <input type="number" id="mInp" min="0.001" step="0.05" value="0.1"></div>
-              <p class="empty dynonly" style="margin:8px 0 0" id="dynNote"></p>
             </div>
 
-            <div class="sect">
-              <h2>Wrijving</h2>
-              <div class="row"><label for="fvsInp">Stribeck-snelheid <span class="unit">mm/s</span></label>
-                <input type="number" id="fvsInp" min="0.001" step="1" value="5"></div>
-              <div class="row"><label for="fveInp">Plakgrens v&epsilon; <span class="unit">mm/s</span></label>
-                <input type="number" id="fveInp" min="0.001" step="0.5" value="2"></div>
-              <p class="empty" style="margin:4px 0 0">&mu; zet je per scharnier of glijder bij Eigenschappen.
-                Onder de Stribeck-snelheid geldt &mu; statisch, erboven &mu; dynamisch. Een kleinere plakgrens plakt echter,
-                maar vraagt een kleinere tijdstap.</p>
-            </div>
-
-            <div class="sect">
-              <h2>Slepen met de muis</h2>
-              <div class="seg" id="dragSeg">
-                <button type="button" data-v="sketch" aria-pressed="true">Schetsen</button>
-                <button type="button" data-v="rigid" aria-pressed="false">Vormvast</button>
+            <details class="adv" id="advSettings">
+              <summary>Geavanceerd</summary>
+              <div class="sect" id="advCalc" hidden>
+                <h2>Rekenen</h2>
+                <div class="chk">
+                  <input type="checkbox" id="autoChk">
+                  <label for="autoChk">Na elke wijziging meteen herberekenen</label>
+                </div>
+                <p class="empty">Uit: pas je het model aan en druk je daarna op <b>Bereken</b> (F5).</p>
+                <div class="row" id="maxRow" hidden><label for="maxInp">Hoogstens <span class="unit">s</span></label>
+                  <input type="number" id="maxInp" min="0.2" max="300" step="5" value="30"></div>
               </div>
-              <p class="empty" style="margin:9px 0 0" id="dragNote">
-                Schetsen: lengtes volgen de muis. Vormvast: lengtes blijven, het mechanisme scharniert.
-              </p>
-            </div>
-
-            <div class="sect">
-              <h2>Weergave en raster</h2>
-              <div class="chk">
-                <input type="checkbox" id="snapChk" checked>
-                <label for="snapChk">Vangen op raster</label>
+              <div class="sect" id="advAcc" hidden>
+                <h2>Nauwkeurigheid</h2>
+                <div class="row dynonly"><label for="dtInp">Tijdstap <span class="unit">ms</span></label>
+                  <input type="number" id="dtInp" min="0.001" max="20" step="0.05" value="0.2"></div>
+                <div class="row"><label for="mInp">Standaardmassa <span class="unit">kg</span></label>
+                  <input type="number" id="mInp" min="0.001" step="0.05" value="0.1"></div>
+                <div class="row"><label for="cvInp">Luchtweerstand, per punt <span class="unit">Ns/mm</span></label>
+                  <input type="number" id="cvInp" min="0" step="0.005" value="0"></div>
               </div>
-              <div class="chk">
-                <input type="checkbox" id="fChk" checked>
-                <label for="fChk">Krachten in de tekening</label>
+              <div class="sect">
+                <h2>Wrijving</h2>
+                <div class="row"><label for="fvsInp">Stribeck-snelheid <span class="unit">mm/s</span></label>
+                  <input type="number" id="fvsInp" min="0.001" step="1" value="5"></div>
+                <div class="row"><label for="fveInp">Plakgrens v&epsilon; <span class="unit">mm/s</span></label>
+                  <input type="number" id="fveInp" min="0.001" step="0.5" value="2"></div>
+                <p class="empty">&mu; zet je per scharnier of glijder bij Eigenschappen.
+                  Onder de Stribeck-snelheid geldt &mu; statisch, erboven &mu; dynamisch. Een kleinere plakgrens plakt echter,
+                  maar vraagt een kleinere tijdstap.</p>
               </div>
-              <div class="chk">
-                <input type="checkbox" id="gravChk">
-                <label for="gravChk">Zwaartekracht (9,81 m/s&sup2;)</label>
+              <div class="sect">
+                <h2>Slepen met de muis</h2>
+                <div class="seg" id="dragSeg">
+                  <button type="button" data-v="sketch" aria-pressed="true">Schetsen</button>
+                  <button type="button" data-v="rigid" aria-pressed="false">Vormvast</button>
+                </div>
+                <p class="empty" id="dragNote">
+                  Schetsen: lengtes volgen de muis. Vormvast: lengtes blijven, het mechanisme scharniert.
+                </p>
               </div>
-              <div class="row">
-                <label for="gridInp">Rastermaat <span class="unit">mm</span></label>
-                <input type="number" id="gridInp" min="1" max="100" step="1" value="10">
+              <div class="sect">
+                <h2>Raster</h2>
+                <div class="chk">
+                  <input type="checkbox" id="snapChk" checked>
+                  <label for="snapChk">Vangen op raster</label>
+                </div>
+                <div class="row">
+                  <label for="gridInp">Rastermaat <span class="unit">mm</span></label>
+                  <input type="number" id="gridInp" min="1" max="100" step="1" value="10">
+                </div>
               </div>
-            </div>
+            </details>
           </div>
         </div>
       </div>
@@ -312,7 +343,7 @@
       <label for="saveName" class="empty" style="display:block;margin-bottom:6px">Naam</label>
       <input type="text" id="saveName" placeholder="bijv. grijper versie 2" autocomplete="off" spellcheck="false">
       <p class="empty" style="margin:8px 0 0">Wordt een <code>.mech.json</code>-bestand in je map Downloads. Openen kan met
-        Model &rarr; Openen, of door het bestand op dit venster te slepen.</p>
+        Bestand &rarr; Openen, of door het bestand op dit venster te slepen.</p>
       <div class="acts">
         <button class="btn" id="saveCancel">Annuleren</button>
         <button class="btn primary" id="saveOk">Opslaan</button>

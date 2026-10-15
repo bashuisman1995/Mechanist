@@ -1,7 +1,7 @@
 import { newPage, playReady, store, visible } from '../lib.mjs';
 export default async ({ browser, url, check }) => {
   const p = await newPage(browser, url);
-  await p.click('#menuBtn'); await p.click('[data-ex="springload"]');
+  await p.click('#libBtn'); await p.click('[data-ex="springload"]');
   await playReady(p, 30000);
   check('dynamisch voorbeeld opgelost, play actief', !(await p.$eval('#playBtn', e => e.disabled)));
   // afspelen tot het einde
@@ -10,7 +10,7 @@ export default async ({ browser, url, check }) => {
   check('dynamisch afspelen stopt aan het einde', sc >= mx - 1, `${sc}/${mx}`);
   // bewerken op t0 maakt oplossing stale, undo herstelt
   await p.click('#rewBtn');
-  await p.click('[data-t="set"]'); await p.fill('#mInp', '0.3'); await p.press('#mInp', 'Enter'); await p.waitForTimeout(200);
+  await p.click('[data-t="set"]'); await p.click('#advSettings > summary'); await p.fill('#mInp', '0.3'); await p.press('#mInp', 'Enter'); await p.waitForTimeout(200);
   check('wijziging maakt oplossing stale (Bereken zichtbaar)', await visible(p, '#solveBtn'));
   await p.$eval('#mInp', e => e.blur()); await p.keyboard.press('Control+z'); await p.waitForTimeout(300);
   check('undo herstelt oplossing zonder Bereken', !(await p.$eval('#playBtn', e => e.disabled)));

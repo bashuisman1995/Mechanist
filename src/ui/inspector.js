@@ -12,6 +12,7 @@ import { atT0, lockNudge, toT0 } from "./playback.js";
 import { refreshChannels } from "./plot.js";
 import { cancelJob, changed, rebuild } from "./solver.js";
 import { flash } from "./tools.js";
+import { renderHowNow } from "./howhook.js";
 
 export function syncDynInputs() {
   const a = document.getElementById("autoChk"); if (!a) return;
@@ -37,7 +38,33 @@ export function syncDynInputs() {
   document.getElementById("frfMaxInp").value = model.frfMax || 0;
 }
 
+const nl = x => String(x).replace(".", ",");
+
+// Eén regel in de kaart Resultaat: waar staan we, in de huidige modus.
+export function syncResult() {
+  const el = document.getElementById("resState"); if (!el) return;
+  const sw = sim.sweep;
+  let t;
+  if (!model.nodes.length) t = "Leeg canvas";
+  else if (sim.job) t = "Rekenen…";
+  else if (ui.dynStale) t = "Model gewijzigd \u2014 druk op Bereken";
+  else {
+    const m = mobility(), v = m.drive ? m.dofDriven : m.dof;
+    const st = v === 0 ? "bepaald" : v > 0 ? "onderbepaald" : "overbepaald";
+    if (model.mode === "frf") {
+      const md = sw && sw.modes ? sw.modes.find(x => !x.unstable && x.f > 1e-6) : null;
+      t = "FRF \u00b7 " + (md ? nl(fmtHz(md.f)) : sw ? "doorgerekend" : "nog niet doorgerekend");
+    } else if (model.mode === "dyn") {
+      const eq = model.durMode === "equil";
+      t = (eq ? "Evenwicht" : "Dynamisch") + " \u00b7 " +
+        (sw ? (eq && sw.settled ? "tot rust na " : "") + nl(sw.dur.toFixed(1)) + " s" + (eq && sw.settled ? "" : " doorgerekend") : "nog niet doorgerekend");
+    } else t = "Kinematisch \u00b7 " + (sim.solveOK === false ? "niet samen te stellen" : st);
+  }
+  el.textContent = t;
+}
+
 export function syncDof() {
+  syncResult(); renderHowNow();
   const m = mobility();
   const el = document.getElementById("dofVal");
   const of = document.getElementById("dofOf");
@@ -111,6 +138,7 @@ const props = document.getElementById("props");
 
 export function syncInspector() {
   buildInspector();
+  renderHowNow();
   if (!ui.sel) return;
   // snelknoppen: grootheden van dit onderdeel direct in de grafiek zetten
   refreshChannels();

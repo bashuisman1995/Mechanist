@@ -4,7 +4,7 @@ import { bounds, mobility } from "../core/kinematics.js";
 import { model, sim, ui } from "../core/state.js";
 import { draw } from "./draw.js";
 import { fmtHz, fmtTime } from "./format.js";
-import { syncInspector } from "./inspector.js";
+import { syncInspector, syncResult } from "./inspector.js";
 import { syncSeriesValues } from "./picker.js";
 import { drawPlot } from "./plot.js";
 import { cancelJob, solveNow } from "./solver.js";
@@ -183,6 +183,7 @@ export function syncTransport() {
   else if (busy) showProgress(sim.job.p);
   else msg.textContent = sweepReason();
   syncLock();
+  syncResult();
 }
 
 const rewBtnEl = document.getElementById("rewBtn");

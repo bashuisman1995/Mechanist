@@ -38,7 +38,7 @@ requestAnimationFrame(() => {
   if (done) setName(model.name && model.name !== "Naamloos" ? model.name : "Gedeeld model");
   if (!done) {
     // De app begint altijd schoon. Het werk van de vorige keer gaat niet
-    // verloren: het staat klaar onder Model → Vorige sessie herstellen.
+    // verloren: het staat klaar onder Bestand → Vorige sessie herstellen.
     try {
       const raw = localStorage.getItem(KEY);
       if (raw && JSON.parse(raw).edited) localStorage.setItem(PREV, raw);

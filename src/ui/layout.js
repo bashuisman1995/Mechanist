@@ -2,6 +2,7 @@
 import { model, ui } from "../core/state.js";
 import { draw } from "./draw.js";
 import { save } from "./persist.js";
+import { renderHowNow } from "./howhook.js";
 import { drawPlot, plotCv } from "./plot.js";
 import { rail } from "./tools.js";
 import { cv, resize } from "./view.js";
@@ -23,6 +24,7 @@ export function setTab(t) {
   document.querySelectorAll(".pane").forEach(p => { p.hidden = p.dataset.p !== t; });
   model.tab = t;
   if (t === "meas") requestAnimationFrame(drawPlot);
+  if (t === "how") renderHowNow();
   try { localStorage.setItem("mechschets.tab", t); } catch (_) {}
 }
 

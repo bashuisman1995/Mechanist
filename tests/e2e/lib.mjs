@@ -16,7 +16,7 @@ export async function dismissAsk(p) {
   if (await p.$eval('#askModal', e => !e.hidden)) await p.click('#askDrop');
 }
 export async function loadExample(p, ex) {
-  await p.click('#menuBtn'); await p.click(`[data-ex="${ex}"]`);
+  await p.click('#libBtn'); await p.click(`[data-ex="${ex}"]`);
   await dismissAsk(p);
   await playReady(p);
   await p.waitForTimeout(300);

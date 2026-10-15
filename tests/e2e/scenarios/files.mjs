@@ -32,10 +32,10 @@ export default async ({ browser, url, check }) => {
   check('bestand: knopen aantal klopt', saved.model.nodes.length === nEdited);
 
   // voorbeeld na opslaan: geen vraag
-  await p.click('#menuBtn'); await p.click('[data-ex="slidercrank"]'); await p.waitForTimeout(300);
+  await p.click('#libBtn'); await p.click('[data-ex="slidercrank"]'); await p.waitForTimeout(300);
   check('na opslaan geen vraag-dialoog bij ander voorbeeld', !(await p.$eval('#askModal', e => !e.hidden)));
   await p.keyboard.press('n'); await p.mouse.click(300, 130); await p.waitForTimeout(150);
-  await p.click('#menuBtn'); await p.click('[data-ex="fourbar"]'); await p.waitForTimeout(200);
+  await p.click('#libBtn'); await p.click('[data-ex="fourbar"]'); await p.waitForTimeout(200);
   check('bij onopgeslagen bewerking: vraag-dialoog', await p.$eval('#askModal', e => !e.hidden));
   await p.click('#askDrop'); await p.waitForTimeout(300);
 
@@ -46,7 +46,7 @@ export default async ({ browser, url, check }) => {
   check('openen: aantal knopen hersteld', (await store(p)).nodes.length === nEdited);
 
   // slepen
-  await p.click('#menuBtn'); await p.click('[data-ex="empty"]'); await p.waitForTimeout(200);
+  await p.click('#libBtn'); await p.click('[data-ex="empty"]'); await p.waitForTimeout(200);
   const txt = fs.readFileSync(file, 'utf8');
   await p.evaluate(t => {
     const dt = new DataTransfer(); dt.items.add(new File([t], 'sleep.mech.json', { type: 'application/json' }));
