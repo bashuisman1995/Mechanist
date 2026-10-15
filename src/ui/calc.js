@@ -1,6 +1,9 @@
 // Werkplek "Calculators": flexure-rekenhulpen naast de schets. Alleen UI; de formules staan in src/calc/.
 import { MATERIALS, MATERIAL_SOURCE, material } from "../calc/materials.js";
 import { crossPivot, leafSpring, notchHinge, parallelLeaf, wireFlexure } from "../calc/flexures.js";
+import { effModulus, effRadius, hertzSphere, kinCoupling } from "../calc/contact.js";
+import { dynAmp, fnForT, isolator, msd, overshoot, peakAmp, servo, settleTime, step as stepResp, transmissibility } from "../calc/dynamics.js";
+import { athermal, dLength, lumped } from "../calc/thermal.js";
 
 const $ = id => document.getElementById(id);
 const DEG = Math.PI / 180;
@@ -40,12 +43,22 @@ const LIT = {
   denhartog: 'Den Hartog, <i>Mechanical Vibrations</i> (Dover, 1985)',
   awtar: 'Awtar, <i>Synthesis and Analysis of Parallel Kinematic XY Flexure Mechanisms</i> (PhD, MIT, 2004)',
   howell: 'Howell, <i>Compliant Mechanisms</i> (Wiley, 2001)',
+  johnson: 'Johnson, <i>Contact Mechanics</i> (Cambridge University Press, 1985), hoofdstukken over Hertz-contact en over tangentiële krachten (Mindlin)',
+  slocum: 'Slocum, <i>Precision Machine Design</i> (SME, 1992), delen over contact en kinematische koppelingen',
+  rao: 'Rao, <i>Mechanical Vibrations</i> (Pearson, 5e, 2011), vrije en gedwongen trillingen met demping, trillingsisolatie',
+  harris: 'Harris &amp; Piersol, <i>Harris’ Shock and Vibration Handbook</i> (McGraw-Hill, 5e, 2002), trillingsisolatie',
+  franklin: 'Franklin, Powell &amp; Emami-Naeini, <i>Feedback Control of Dynamic Systems</i> (Pearson), stijgtijd en bandbreedte',
+  munnig: 'Munnig Schmidt, Schitter, Rankers &amp; Van Eijk, <i>The Design of High Performance Mechatronics</i> (IOS Press, 3e, 2020), regelaar en eigenfrequentie',
+  incropera: 'Incropera &amp; DeWitt, <i>Fundamentals of Heat and Mass Transfer</i> (Wiley), lumped-capacitance methode, Biot-getal',
+  invar: 'Slocum, <i>Precision Machine Design</i> (SME, 1992), thermische uitzetting en athermisch ontwerp',
 };
 const SRC_S = LIT.soemers;
 const SRC_H = LIT.smith + "; " + LIT.henein;
 
 // ---------- invoervelden ----------
-const f = (id, label, unit, def, min) => ({ id, label, unit, def, min: min == null ? 0 : min });
+const f = (id, label, unit, def, min, range, grp) => ({ id, label, unit, def, min: min == null ? 0 : min, range, grp });
+const selIn = (id, label, def, options, grp) => ({ id, type: "select", label, def, options, grp });
+const matIn = (id, label, def) => ({ id, type: "mat", label, def, grp: "Materiaal" });
 const IN_M = f("m", "Massa m op de vrije kant", "kg", 0.1);
 const IN_F = f("F", "Axiale drukkracht F (druk positief)", "N", 0);
 const IN_PLATE = { id: "plate", type: "check", label: "Brede strip (b ≫ t): E′ = E/(1−ν²)", def: false };
@@ -428,15 +441,683 @@ function notchFig() {
   };
 }
 const FIGS = { leaf: beamFig("leaf"), par: beamFig("par"), cross: crossFig(), notch: notchFig(), wire: beamFig("wire") };
+// (nieuwe calculators: Contact, Dynamica, Thermisch)
+// ===================== Contact, Dynamica, Thermisch =====================
+const K = (k, u, v, sub, status) => ({ k, u, v, sub: sub || "", status: status || "" });
+const statOf = (s, warnBelow) => (s < 1 ? "bad" : s < (warnBelow || 1.5) ? "warn" : "ok");
+const tFmt = s => (!isFinite(s) ? ["—", "s"] : s < 1 ? [num(s * 1000), "ms"] : s < 120 ? [num(s), "s"] : s < 7200 ? [num(s / 60), "min"] : [num(s / 3600), "uur"]);
+const tTxt = s => tFmt(s).join(" ");
+const hzTxt = x => num(x) + " Hz";
+
+// ---------- Contact ----------
+const P0_LIM = {
+  label: "Toelaatbare Hertz-druk p₀,toel", unit: "MPa",
+  hint: "Richtwaarde, zelf te kiezen: standaard 1,6·σ<sub>y</sub> van het zwakste materiaal (vloeibegin onder het oppervlak, Johnson). Lager nemen voor vermoeiing of als geen blijvende indrukking mag optreden.",
+  auto: p => 1.6 * Math.min(material(p.mat1).sy, material(p.mat2).sy),
+};
+const GEOM_OPT = [["flat", "bol – vlak"], ["convex", "bol – bol (bol op bol)"], ["concave", "bol in holle bol (concaaf, R₂ > R₁)"]];
+const geomTxt = g => (GEOM_OPT.filter(o => o[0] === g)[0] || GEOM_OPT[0])[1];
+const MAT_DEF = [matIn("mat1", "Materiaal bol", "staal"), matIn("mat2", "Materiaal tegenhouder", "staal")];
+
+CALCS.push({
+  id: "hertz", group: "Contact", name: "Hertz-contact", short: "Bol op vlak of bol op bol; ook per flank van een V-groef",
+  inputs: [selIn("geom", "Geometrie", "flat", GEOM_OPT, "Geometrie"), f("R1", "Straal bol R₁", "mm", 5, 0.01, [0.5, 50, 1], "Geometrie"),
+    f("R2", "Straal tegenhouder R₂ (alleen bol–bol / holle bol)", "mm", 10, 0.01, [0.5, 100, 1], "Geometrie"),
+    f("F", "Totale belasting F langs de as", "N", 10, 0.001, [0.1, 5000, 1], "Belasting"),
+    selIn("n", "Aantal gelijke contacten n (V-groef: 2)", "1", [["1", "1"], ["2", "2 (V-groef)"], ["3", "3"], ["4", "4"], ["6", "6"]], "Belasting"),
+    f("theta", "Hoek θ tussen flanknormaal en belasting (V-groef 90°: 45°)", "°", 0, 0, [0, 75, 0], "Belasting")].concat(MAT_DEF),
+  lim: P0_LIM,
+  run: (p, M) => {
+    const m1 = material(p.mat1), m2 = material(p.mat2), n = +p.n, th = p.theta * DEG;
+    const Es = effModulus(m1.E, m1.nu, m2.E, m2.nu), Re = effRadius(p.geom, p.R1, p.R2);
+    const Fn = p.F / (n * Math.cos(th)), h = hertzSphere({ F: Fn, R: Re, Es });
+    const r = Object.assign({}, h, { Fn, Es, Re, n, th, kax: n * h.kn * Math.cos(th) ** 2, margin: M.sigma / h.p0, m1, m2 });
+    const w = [];
+    if (!(Re > 0)) w.push("Bol in holle bol: R₂ moet groter zijn dan R₁ (anders past de bol niet).");
+    if (r.margin < 1) w.push("p₀ = " + num(h.p0) + " MPa is hoger dan p₀,toel = " + num(M.sigma) + " MPa: kans op blijvende indrukking (Brinell-afdruk).");
+    else if (r.margin < 1.5) w.push("p₀ ligt binnen 50 % van p₀,toel; weinig marge voor stoten of tolerantie in de belasting.");
+    if (Re > 0 && h.a / Re > 0.1) w.push("a/R = " + num(h.a / Re) + " > 0,1: de Hertz-aanname (contactvlak ≪ kromtestraal) wordt slecht.");
+    if (p.theta > 60) w.push("θ = " + num(p.theta) + "° is zeer steil: F_n = F/(n·cos θ) wordt groot en wrijving bepaalt of het contact blijft zitten.");
+    if (m1.id === "zerodur" || m2.id === "zerodur" || m1.id === "alumina" || m2.id === "alumina" || m1.id === "wc" || m2.id === "wc") w.push("Brosse materialen: breuk door trekspanning rond de rand van het contact (Auerbach) is hier niet gecontroleerd; p₀,toel is een schatting.");
+    return { r, warn: w,
+      out: [res("Normaalkracht per contact F_n", num(Fn), "N"), res("Effectieve modulus E*", num(Es / 1000), "GPa"), res("Effectieve straal R", num(Re), "mm"),
+        res("Contactstraal a", num(h.a * 1000), "µm"), res("Contactdiameter 2a", num(2 * h.a), "mm"), res("Nadering δ", num(h.delta * 1000), "µm"),
+        res("Maximale druk p₀", num(h.p0), "MPa", r.margin < 1), res("Gemiddelde druk", num(h.pMean), "MPa"), res("Veiligheid p₀,toel/p₀", isFinite(r.margin) ? num(r.margin) : "∞", "", r.margin < 1),
+        res("Normaalstijfheid k_n", num(h.kn / 1000), "N/µm"), res("Stijfheid langs de as k_ax", num(r.kax / 1000), "N/µm"),
+        res("Diepte max. schuifspanning", num(h.zTau * 1000), "µm"), res("Max. schuifspanning τ_max", num(h.tauMax), "MPa"), res("Max. Von Mises", num(h.vm), "MPa")] };
+  },
+  keys: (r, p, M) => [K("Maximale druk p₀", "MPa", num(r.p0), "a = " + num(r.a * 1000) + " µm"), K("Normaalstijfheid k_n", "N/µm", num(r.kn / 1000), "δ = " + num(r.delta * 1000) + " µm"),
+    K("Veiligheid p₀,toel/p₀", "", isFinite(r.margin) ? "× " + num(r.margin) : "∞", "p₀,toel = " + num(M.sigma) + " MPa", r.margin > 0 ? statOf(r.margin) : "bad")],
+  formulas: (p, M, r) => [
+    ["Effectieve modulus (twee materialen)", fr("1", "E*") + " = " + fr("1 − " + sub("ν", "1") + "²", sub("E", "1")) + " + " + fr("1 − " + sub("ν", "2") + "²", sub("E", "2")),
+      fr("1", "E*") + " = " + fr("1 − " + num(r.m1.nu) + "²", num(r.m1.E)) + " + " + fr("1 − " + num(r.m2.nu) + "²", num(r.m2.E)) + " ⇒ E* = " + num(r.Es) + " MPa", LIT.johnson],
+    ["Effectieve straal (" + geomTxt(p.geom) + ")", p.geom === "convex" ? "R = " + fr(sub("R", "1") + "·" + sub("R", "2"), sub("R", "1") + " + " + sub("R", "2")) : p.geom === "concave" ? "R = " + fr(sub("R", "1") + "·" + sub("R", "2"), sub("R", "2") + " − " + sub("R", "1")) : "R = " + sub("R", "1") + " (tegenhouder vlak)",
+      "R = " + num(r.Re) + " mm", LIT.johnson],
+    ["Normaalkracht per contact", sub("F", "n") + " = " + fr("F", "n·cos θ"), sub("F", "n") + " = " + fr(num(p.F), num(r.n) + "·cos " + num(p.theta) + "°") + " = " + num(r.Fn) + " N", "Statica; V-groef met 90° tussen de flanken: n = 2, θ = 45°, dus F_n = F/√2"],
+    ["Contactstraal", "a = " + "(" + fr("3·" + sub("F", "n") + "·R", "4·E*") + ")<sup>1/3</sup>", "a = (" + fr("3·" + num(r.Fn) + "·" + num(r.Re), "4·" + num(r.Es)) + ")<sup>1/3</sup> = " + num(r.a) + " mm = " + num(r.a * 1000) + " µm", LIT.johnson],
+    ["Nadering", "δ = " + fr("a²", "R"), "δ = " + fr(num(r.a) + "²", num(r.Re)) + " = " + num(r.delta * 1000) + " µm", LIT.johnson],
+    ["Maximale druk", sub("p", "0") + " = " + fr("3·" + sub("F", "n"), "2π·a²"), sub("p", "0") + " = " + fr("3·" + num(r.Fn), "2π·" + num(r.a) + "²") + " = " + num(r.p0) + " MPa (gemiddeld " + num(r.pMean) + " MPa = ⅔·p₀)", LIT.johnson],
+    ["Normaalstijfheid (raaklijn) en langs de as", sub("k", "n") + " = " + fr("d" + sub("F", "n"), "dδ") + " = 2·E*·a = " + fr("3·" + sub("F", "n"), "2·δ") + ",  " + sub("k", "ax") + " = n·" + sub("k", "n") + "·cos²θ",
+      sub("k", "n") + " = 2·" + num(r.Es) + "·" + num(r.a) + " = " + num(r.kn) + " N/mm = " + num(r.kn / 1000) + " N/µm;  " + sub("k", "ax") + " = " + num(r.kax / 1000) + " N/µm", LIT.johnson + ". Controle: 1,5·F_n/δ geeft hetzelfde"],
+    ["Ondergrond: maximale schuifspanning (ν ≈ 0,3)", sub("τ", "max") + " ≈ 0,31·" + sub("p", "0") + " op diepte z ≈ 0,48·a;  " + sub("σ", "VM,max") + " ≈ 0,62·" + sub("p", "0"),
+      sub("τ", "max") + " = 0,31·" + num(r.p0) + " = " + num(r.tauMax) + " MPa op z = " + num(r.zTau * 1000) + " µm;  σ<sub>VM</sub> = " + num(r.vm) + " MPa", LIT.johnson + " (par. over spanningen onder het oppervlak; waarden gelden voor ν = 0,3)"],
+    ["Veiligheid", "n = " + fr(sub("p", "0,toel"), sub("p", "0")), "n = " + fr(num(M.sigma), num(r.p0)) + " = " + num(r.margin), "p₀,toel is jouw invoer. Vloeibegin: p₀ ≈ 1,6·σ_y (Johnson, Von Mises, ν = 0,3)"],
+  ],
+  assume: ["Elastisch Hertz-puntcontact: gladde, ideaal bolvormige oppervlakken, a ≪ R (liefst a/R < 0,1), geen wrijving in het contact, halve ruimten (geen randen dicht bij het contact).",
+    "Bij een V-groef is elke flank een vlak: bol-op-vlak per flank. Neem n = 2 en θ = 90° − (openingshoek/2); het programma rekent F_n = F/(n·cos θ) en de stijfheid langs de belastingas als n·k_n·cos²θ.",
+    "δ is de totale nadering van de twee lichamen (som van beide indrukkingen); k_n is de raaklijnstijfheid in dit werkpunt. De stijfheid neemt toe met F^(1/3).",
+    "De spanningsfactoren 0,31 (τ_max), 0,48 (diepte) en 0,62 (Von Mises) gelden voor ν = 0,3 (Johnson); voor ν = 0,22 (keramiek) wijken ze enkele procenten af.",
+    "p₀,toel is een richtwaarde die jij kiest. Standaard 1,6·σ_y: dan begint plastische vervorming onder het oppervlak. Voor vermoeiing of een afdrukvrij precisiecontact hoort de grens lager te liggen; voor sterk verharde oppervlakken kan hij hoger. Voor keramiek is σ_y de druksterkte en bepaalt trekspanning aan de rand het falen."],
+  source: LIT.johnson + "; " + LIT.slocum + ".",
+});
+
+CALCS.push({
+  id: "kc", group: "Contact", name: "Kinematische koppeling", short: "Maxwell: 3 bollen in 3 V-groeven, zes contacten",
+  inputs: [f("R", "Straal bol R", "mm", 6, 0.01, [1, 25, 1], "Geometrie"), f("gamma", "Openingshoek van de V-groef γ", "°", 90, 10, [30, 150, 0], "Geometrie"),
+    f("F", "Totale voorspanning F (langs de as)", "N", 60, 0.001, [1, 5000, 1], "Belasting"), f("mu", "Wrijvingscoëfficiënt μ", "–", 0.15, 0, [0.02, 0.6, 0], "Belasting")].concat(MAT_DEF),
+  lim: P0_LIM,
+  run: (p, M) => {
+    const m1 = material(p.mat1), m2 = material(p.mat2);
+    const k = kinCoupling({ F: p.F, R: p.R, gamma: p.gamma, mu: p.mu, E1: m1.E, nu1: m1.nu, E2: m2.E, nu2: m2.nu });
+    const r = Object.assign({}, k, { margin: M.sigma / k.p0, m1, m2 }), w = [];
+    if (r.margin < 1) w.push("p₀ = " + num(k.p0) + " MPa is hoger dan p₀,toel = " + num(M.sigma) + " MPa: kans op blijvende indrukking en daarmee herhaalfout.");
+    else if (r.margin < 1.5) w.push("p₀ ligt binnen 50 % van p₀,toel; weinig marge.");
+    if (p.gamma < 60) w.push("γ = " + num(p.gamma) + "° is scherp: N = F/(6·sin(γ/2)) wordt groot (" + num(r.N) + " N per contact) en de flanken kunnen klemmen.");
+    if (k.a / p.R > 0.1) w.push("a/R = " + num(k.a / p.R) + " > 0,1: Hertz wordt onnauwkeurig.");
+    return { r, warn: w,
+      out: [res("Normaalkracht per contact N", num(k.N), "N"), res("Contactstraal a", num(k.a * 1000), "µm"), res("Nadering δ per contact", num(k.delta * 1000), "µm"),
+        res("Maximale druk p₀", num(k.p0), "MPa", r.margin < 1), res("Veiligheid p₀,toel/p₀", isFinite(r.margin) ? num(r.margin) : "∞", "", r.margin < 1),
+        res("Normaalstijfheid per contact k_n", num(k.kn / 1000), "N/µm"), res("Koppelingsstijfheid langs de as k_ax", num(k.kAx / 1000), "N/µm"),
+        res("Tangentiële stijfheid k_t = 8·G*·a", num(k.kt / 1000), "N/µm"), res("Slipkracht per groef 2·μ·N", num(k.QGroove), "N"),
+        res("Verplaatsing tot slippen μ·N/k_t", num(k.xStick * 1e6), "nm"), res("Virtueel spel (volledig slippen)", num(k.xSlip * 1e6), "nm")] };
+  },
+  keys: (r, p, M) => [K("Stijfheid langs de as k_ax", "N/µm", num(r.kAx / 1000), "6 contacten, N = " + num(r.N) + " N elk"),
+    K("Virtueel spel (schatting)", "nm", num(r.xSlip * 1e6), "tot volledig slippen, μ = " + num(p.mu)),
+    K("Veiligheid p₀,toel/p₀", "", isFinite(r.margin) ? "× " + num(r.margin) : "∞", "p₀ = " + num(r.p0) + " MPa", statOf(r.margin))],
+  formulas: (p, M, r) => [
+    ["Normaalkracht per contact (3 groeven × 2 flanken)", "6·N·sin(γ/2) = F  ⇒  N = " + fr("F", "6·sin(γ/2)"), "N = " + fr(num(p.F), "6·sin(" + num(p.gamma / 2) + "°)") + " = " + num(r.N) + " N", LIT.slocum + ". Aanname: voorspanning in het zwaartepunt, alle groeven even zwaar belast"],
+    ["Effectieve modulus", fr("1", "E*") + " = " + fr("1 − " + sub("ν", "1") + "²", sub("E", "1")) + " + " + fr("1 − " + sub("ν", "2") + "²", sub("E", "2")), "E* = " + num(r.Es) + " MPa", LIT.johnson],
+    ["Hertz per contact (bol op vlakke flank, R = bolstraal)", "a = (" + fr("3·N·R", "4·E*") + ")<sup>1/3</sup>,  δ = " + fr("a²", "R") + ",  " + sub("p", "0") + " = " + fr("3·N", "2π·a²"),
+      "a = " + num(r.a * 1000) + " µm, δ = " + num(r.delta * 1000) + " µm, p₀ = " + num(r.p0) + " MPa", LIT.johnson],
+    ["Normaalstijfheid per contact", sub("k", "n") + " = 2·E*·a", sub("k", "n") + " = 2·" + num(r.Es) + "·" + num(r.a) + " = " + num(r.kn / 1000) + " N/µm", LIT.johnson],
+    ["Stijfheid langs de voorspanningsas", sub("k", "ax") + " = 6·" + sub("k", "n") + "·sin²(γ/2)", sub("k", "ax") + " = 6·" + num(r.kn / 1000) + "·" + num(r.s ** 2) + " = " + num(r.kAx / 1000) + " N/µm", "Elk contact levert k_n·sin²(γ/2) (normaal gedeeld over de flanknormaal), zes contacten. Alleen de Hertz-veerstijfheid; legering, vlakheid en omliggende constructie zijn niet inbegrepen"],
+    ["Effectieve schuifmodulus", fr("1", "G*") + " = " + fr("2 − " + sub("ν", "1"), sub("G", "1")) + " + " + fr("2 − " + sub("ν", "2"), sub("G", "2")) + ",  G = " + fr("E", "2(1+ν)"), "G* = " + num(r.Gs) + " MPa", LIT.johnson + " (Mindlin)"],
+    ["Tangentiële stijfheid per contact", sub("k", "t") + " = 8·G*·a", sub("k", "t") + " = 8·" + num(r.Gs) + "·" + num(r.a) + " = " + num(r.kt / 1000) + " N/µm", LIT.johnson + " (Mindlin; lineair, onder de slipgrens)"],
+    ["Groefas: stijfheid en slipkracht per groef", sub("k", "groef") + " = 2·" + sub("k", "t") + ",  " + sub("Q", "slip") + " = 2·μ·N", sub("k", "groef") + " = " + num(r.kGroove / 1000) + " N/µm,  " + sub("Q", "slip") + " = " + num(r.QGroove) + " N", "Twee flanken per groef; langs de groefas houdt alleen wrijving de bol vast"],
+    ["Virtueel spel (schatting)", sub("x", "stick") + " = " + fr("μ·N", sub("k", "t")) + ";  volledig slippen " + sub("x", "slip") + " = " + fr("3·μ·N", "16·G*·a") + " = 1,5·" + sub("x", "stick"),
+      sub("x", "stick") + " = " + num(r.xStick * 1e6) + " nm,  " + sub("x", "slip") + " = " + num(r.xSlip * 1e6) + " nm", LIT.johnson + " (Mindlin: δ = 3(2−ν)μN/(16Ga) bij Q = μN). Het model erachter staat onder Aannames"],
+    ["Veiligheid", "n = " + fr(sub("p", "0,toel"), sub("p", "0")), "n = " + fr(num(M.sigma), num(r.p0)) + " = " + num(r.margin), "p₀,toel is jouw invoer (standaard 1,6·σ_y)"],
+  ],
+  assume: ["Maxwell-koppeling: drie bollen, elk in een V-groef met de groefassen in een vlak loodrecht op de voorspanning; zes puntcontacten bepalen zes vrijheidsgraden exact (geen overbepaling). Een Kelvin-koppeling (kegel, V-groef, vlak) heeft ook zes contacten, maar met verschillende krachten per contact; die is hier niet apart uitgewerkt.",
+    "De voorspanning F werkt in het zwaartepunt van de drie bollen, dus elke groef draagt F/3, elke flank N = F/(6·sin(γ/2)). Een excentrische belasting of extern moment verdeelt de krachten anders; controleer dan op afheffen.",
+    "Contact per flank is Hertz bol-op-vlak met de bolstraal R; k_ax telt alleen de contactveerstijfheid (de omringende constructie komt er in serie bij). De groefas is een vrije richting: daar houdt alleen wrijving vast.",
+    "Virtueel spel: bij een belastingwisseling langs de groefas (bijv. thermische uitzetting) moet het contact eerst elastisch rekken (Mindlin-stijfheid k_t = 8·G*·a, lineair) en slipt pas bij Q = μ·N. De verplaatsing tot volledig slippen 3μN/(16·G*·a) (Mindlin) is de orde van grootte van de herhaalfout (hysterese). Dit is een lineaire schatting; werkelijk gedrag hangt af van oppervlakteruwheid, smering, deeltjes en de belastinghistorie.",
+    "μ is jouw invoer (staal op staal droog ≈ 0,15–0,8; gesmeerd 0,05–0,15). p₀,toel is een richtwaarde (standaard 1,6·σ_y): onder blijvende indrukking verslechtert de herhaalbaarheid."],
+  source: LIT.slocum + "; " + LIT.johnson + ".",
+});
+
+// ---------- Dynamica ----------
+const DMODE = [["zeta", "ζ in %"], ["c", "c in N·s/m"], ["Q", "Q-factor (1/2ζ)"]];
+const dTxt = m => (DMODE.filter(o => o[0] === m)[0] || DMODE[0])[1];
+
+CALCS.push({
+  id: "msd", group: "Dynamica", noMat: true, name: "Massa-veer-demper", short: "Eigenfrequentie, demping, frequentie- en stapresponsie",
+  inputs: [f("m", "Massa m", "kg", 2, 0.0001, [0.001, 1000, 1], "Belasting"), f("k", "Veerstijfheid k", "N/mm", 5, 0.0001, [0.001, 10000, 1], "Geometrie"),
+    selIn("dmode", "Demping opgeven als", "zeta", DMODE, "Geometrie"), f("dval", "Dempingswaarde (% bij ζ, N·s/m bij c, – bij Q)", "–", 5, 0.0001, [0.01, 10000, 1], "Geometrie"),
+    f("fd", "Frequentie van de aanstuiting f", "Hz", 5, 0.0001, [0.01, 10000, 1], "Belasting")],
+  run: (p, M) => {
+    const s = msd(p), r = Object.assign({}, s), w = [];
+    r.r = p.fd / s.fn; r.dyn = dynAmp(r.r, s.zeta); r.T = transmissibility(r.r, s.zeta); r.peak = peakAmp(s.zeta);
+    r.ov = overshoot(s.zeta); r.ts = settleTime(s.zeta, s.wn); r.cstat = 1 / s.ks;
+    if (s.zeta >= 1) w.push("ζ = " + num(s.zeta) + " ≥ 1: overgedempt, geen resonantiepiek en geen overshoot.");
+    if (s.zeta < 0.01) w.push("ζ = " + num(s.zeta) + " < 1 %: zeer lichte demping, een stap klinkt lang na (t_s = " + tTxt(r.ts) + ").");
+    if (Math.abs(r.r - 1) < 0.2) w.push("f ligt binnen 20 % van f_n: dicht bij de resonantie, versterking ×" + num(r.dyn) + ".");
+    return { r, warn: w,
+      out: [res("Eigenfrequentie f_n", num(s.fn), "Hz"), res("Hoekfrequentie ω_n", num(s.wn), "rad/s"), res("Gedempte frequentie f_d", isFinite(s.fd) ? num(s.fd) : "—", "Hz"),
+        res("Dempingsverhouding ζ", num(s.zeta * 100), "%"), res("Demping c", num(s.c), "N·s/m"), res("Kritieke demping c_crit", num(s.cc), "N·s/m"), res("Kwaliteitsfactor Q", num(s.Q), ""),
+        res("Statische meegeefbaarheid 1/k", num(1000 / p.k), "µm/N"),
+        res("Frequentieverhouding f/f_n", num(r.r), ""), res("Dynamische meegeefbaarheid bij f", num(r.dyn * 1000 / p.k), "µm/N"),
+        res("Versterking t.o.v. statisch bij f", num(r.dyn), "×"), res("Transmissibiliteit T bij f", num(r.T), ""),
+        res("Resonantiepiek (max. versterking)", num(r.peak), "×"), res("Overshoot op een kracht-stap", num(r.ov * 100), "%"), res("Insteltijd t_s (2 %)", tFmt(r.ts)[0], tFmt(r.ts)[1])] };
+  },
+  keys: r => [K("Eigenfrequentie f_n", "Hz", num(r.fn), "f_d = " + (isFinite(r.fd) ? num(r.fd) + " Hz" : "—")), K("Demping ζ", "%", num(r.zeta * 100), "Q = " + num(r.Q) + " · c = " + num(r.c) + " N·s/m"),
+    K("Insteltijd t_s (2 %)", tFmt(r.ts)[1], tFmt(r.ts)[0], "overshoot " + num(r.ov * 100) + " %")],
+  formulas: (p, M, r) => [
+    ["Eigenfrequentie", sub("f", "n") + " = " + fr("1", "2π") + "·√" + fr("k", "m"), sub("f", "n") + " = " + fr("1", "2π") + "·√" + fr(num(p.k * 1000), num(p.m)) + " = " + num(r.fn) + " Hz  (k in N/m = N/mm·1000)", LIT.denhartog + "; " + LIT.rao],
+    ["Dempingsverhouding (" + dTxt(p.dmode) + " opgegeven)", "ζ = " + fr("c", "2·√(k·m)") + " = " + fr("1", "2Q"),
+      "c_crit = 2·√(" + num(p.k * 1000) + "·" + num(p.m) + ") = " + num(r.cc) + " N·s/m;  ζ = " + num(r.zeta) + " (" + num(r.zeta * 100) + " %),  c = " + num(r.c) + " N·s/m,  Q = " + num(r.Q), LIT.denhartog],
+    ["Gedempte frequentie", sub("f", "d") + " = " + sub("f", "n") + "·√(1 − ζ²)", sub("f", "d") + " = " + (isFinite(r.fd) ? num(r.fd) + " Hz" : "— (ζ ≥ 1)"), LIT.rao],
+    ["Dynamische meegeefbaarheid", "|" + fr("x", "F") + "| = " + fr("1", "k") + "·" + fr("1", "√((1 − r²)² + (2ζr)²)") + ",  r = " + fr("f", sub("f", "n")),
+      "r = " + num(r.r) + ":  |x/F| = " + num(r.dyn) + "/" + num(p.k) + " N/mm = " + num(r.dyn * 1000 / p.k) + " µm/N  (× " + num(r.dyn) + " statisch)", LIT.denhartog + "; " + LIT.rao],
+    ["Transmissibiliteit (grondexcitatie en krachtoverdracht)", "T = " + fr("√(1 + (2ζr)²)", "√((1 − r²)² + (2ζr)²)"), "T(" + num(r.r) + ") = " + num(r.T), LIT.rao + "; " + LIT.denhartog],
+    ["Resonantiepiek", sub("A", "max") + " = " + fr("1", "2ζ·√(1 − ζ²)") + " (ζ < 0,707); bij kleine ζ ≈ Q", sub("A", "max") + " = " + num(r.peak) + " ×", LIT.denhartog],
+    ["Stapresponsie en overshoot", "y(t) = 1 − e<sup>−ζ·ω<sub>n</sub>·t</sup>·(cos ω<sub>d</sub>t + " + fr("ζ", "√(1 − ζ²)") + "·sin ω<sub>d</sub>t),  OS = e<sup>−πζ/√(1−ζ²)</sup>", "overshoot = " + num(r.ov * 100) + " %", LIT.rao + "; " + LIT.franklin],
+    ["Insteltijd 2 %", sub("t", "s") + " ≈ " + fr("4", "ζ·" + sub("ω", "n")) + " (ζ < 1); hier exact uit y(t)", "4/(ζ·ω_n) = " + num(4 / (r.zeta * r.wn)) + " s;  exact t_s = " + tTxt(r.ts), LIT.franklin],
+  ],
+  assume: ["Lineair massa-veer-demper-systeem met één vrijheidsgraad; viskeuze demping (kracht ∝ snelheid). Echte constructies hebben vaak materiaaldemping (ζ ≈ 0,1–1 %), wrijving en meer eigenvormen.",
+    "De meegeefbaarheid is de verplaatsing per newton bij een harmonische kracht met frequentie f; de statische waarde is 1/k. De transmissibiliteit geldt voor grondexcitatie (afstand massa/grond) en voor kracht-transmissie naar de ondergrond.",
+    "De stap is een kracht-stap op de massa; de eindwaarde is F/k. Insteltijd is de laatste doorgang van de ±2 %-band, exact uit de analytische respons (ook overgedempt).",
+    "Q = 1/(2ζ) is de benadering voor lichte demping; de exacte piek is 1/(2ζ√(1−ζ²)) en wordt ook getoond."],
+  source: LIT.denhartog + "; " + LIT.rao + "; " + LIT.franklin + ".",
+});
+
+CALCS.push({
+  id: "iso", group: "Dynamica", noMat: true, name: "Trillingsisolatie", short: "Transmissibiliteit T(f) van een geïsoleerde massa",
+  inputs: [f("m", "Geïsoleerde massa m", "kg", 100, 0.001, [0.1, 10000, 1], "Belasting"), f("k", "Totale isolatorstijfheid k (verticaal)", "N/mm", 20, 0.0001, [0.01, 10000, 1], "Geometrie"),
+    f("zeta", "Demping ζ", "%", 5, 0.01, [0.1, 100, 1], "Geometrie"), f("fd", "Storingsfrequentie f", "Hz", 20, 0.01, [0.1, 1000, 1], "Belasting"),
+    f("xin", "Amplitude van de vloertrilling", "µm", 1, 0, [0.001, 1000, 1], "Belasting")],
+  run: (p, M) => {
+    const r = isolator({ m: p.m, k: p.k, zeta: p.zeta, f: p.fd }), w = [];
+    r.xout = r.T * p.xin; r.fn20 = fnForT(p.fd, 0.1); r.fiso = Math.SQRT2 * r.fn;
+    if (!r.isolating) w.push("f = " + num(p.fd) + " Hz ligt onder √2·f_n = " + num(r.fiso) + " Hz: de isolator versterkt de storing (T = " + num(r.T) + ") in plaats van isoleert.");
+    else if (r.r < 3) w.push("f/f_n = " + num(r.r) + " < 3: weinig isolatie; T daalt pas ongeveer met 1/r².");
+    if (Math.abs(r.r - 1) < 0.3) w.push("Storing dichtbij de resonantie van de isolator (f/f_n = " + num(r.r) + ").");
+    if (p.zeta > 20) w.push("ζ = " + num(p.zeta) + " %: sterke demping verslechtert de isolatie boven de resonantie (T ≈ 2ζ/r voor r ≫ 1).");
+    return { r, warn: w,
+      out: [res("Eigenfrequentie f_n", num(r.fn), "Hz"), res("Statische inzakking m·g/k", num(r.dSt), "mm"), res("Frequentieverhouding f/f_n", num(r.r), ""),
+        res("Transmissibiliteit T bij f", num(r.T), ""), res("Isolatie bij f", num(r.dB), "dB", r.T > 1), res("Amplitude op de massa", num(r.xout * 1000), "nm"),
+        res("Piek T bij resonantie", num(r.Tmax), ""), res("Isolatie begint vanaf √2·f_n", num(r.fiso), "Hz"),
+        res("f_n voor T = 0,1 (−20 dB, ongedempt)", num(r.fn20), "Hz"), res("Verhouding benodigd/huidig f_n", num(r.fn20 / r.fn), "")] };
+  },
+  keys: r => [K("Eigenfrequentie f_n", "Hz", num(r.fn), "δ_st = " + num(r.dSt) + " mm"), K("Transmissibiliteit T", "", num(r.T), "amplitude op massa " + num(r.xout * 1000) + " nm"),
+    K("Isolatie bij f", "dB", num(r.dB), r.isolating ? "f/f_n = " + num(r.r) : "versterking: f < √2·f_n", r.T > 1 ? "bad" : r.T > 0.3 ? "warn" : "ok")],
+  formulas: (p, M, r) => [
+    ["Eigenfrequentie van de isolator", sub("f", "n") + " = " + fr("1", "2π") + "·√" + fr("k", "m") + " ≈ " + fr("0,5", "√" + sub("δ", "st") + "[m]"), sub("f", "n") + " = " + fr("1", "2π") + "·√" + fr(num(p.k * 1000), num(p.m)) + " = " + num(r.fn) + " Hz", LIT.harris + "; " + LIT.denhartog],
+    ["Statische inzakking", sub("δ", "st") + " = " + fr("m·g", "k"), sub("δ", "st") + " = " + fr(num(p.m) + "·9,81", num(p.k * 1000)) + " = " + num(r.dSt) + " mm", "Statica"],
+    ["Transmissibiliteit", "T = " + fr("√(1 + (2ζr)²)", "√((1 − r²)² + (2ζr)²)") + ",  r = " + fr("f", sub("f", "n")), "r = " + num(r.r) + ":  T = " + num(r.T), LIT.harris + "; " + LIT.rao + "; " + LIT.denhartog],
+    ["Isolatie in dB", "L = −20·log" + sub("", "10") + "(T)", "L = −20·log(" + num(r.T) + ") = " + num(r.dB) + " dB", LIT.harris],
+    ["Isolatie begint", "T < 1 voor r > √2  (elke demping)", sub("f", "iso") + " = √2·" + num(r.fn) + " = " + num(r.fiso) + " Hz", LIT.denhartog],
+    ["Hoge frequenties (ongedempt)", "T ≈ " + fr("1", "r² − 1") + ";  voor T-doel: " + sub("f", "n") + " = " + fr("f", "√(1 + 1/T)"), sub("f", "n") + " voor T = 0,1: " + fr(num(p.fd), "√(1 + 10)") + " = " + num(r.fn20) + " Hz", LIT.harris],
+    ["Amplitude op de massa", sub("x", "uit") + " = T·" + sub("x", "vloer"), sub("x", "uit") + " = " + num(r.T) + "·" + num(p.xin) + " µm = " + num(r.xout * 1000) + " nm", LIT.harris],
+  ],
+  assume: ["Een vrijheidsgraad (verticale translatie van een star lichaam) op een lineaire veer met viskeuze demping; grondexcitatie met een harmonische beweging. Koppeling met kantelen, horizontale modes en de eigen flexibiliteit van de massa is niet meegenomen.",
+    "Transmissibiliteit is beweging van de massa gedeeld door beweging van de vloer (absolute transmissibiliteit); voor kracht-transmissie naar de vloer geldt dezelfde formule.",
+    "Bij hoge frequenties daalt T met 1/r² (ongedempt) of met 2ζ/r (gedempt). Stijfheid van lucht- of rubberisolatoren is frequentieafhankelijk; k is de dynamische waarde bij de werkfrequentie.",
+    "De piek T bij resonantie is numeriek bepaald. Er is geen verband gelegd met schokbelasting of tilting; dat vraagt een volledige modale analyse."],
+  source: LIT.harris + "; " + LIT.rao + "; " + LIT.denhartog + ".",
+});
+
+CALCS.push({
+  id: "servo", group: "Dynamica", noMat: true, name: "Servo-vuistregels", short: "Vuistregels: bandwijdte, servostijfheid en positiefout",
+  inputs: [f("fn", "Eerste eigenfrequentie van de constructie f_n", "Hz", 300, 0.01, [10, 5000, 1], "Geometrie"), f("div", "Verhouding f_n/f_bw (vuistregel: 3 tot 5)", "–", 3, 1, [1.5, 10, 0], "Geometrie"),
+    f("m", "Bewegende massa m", "kg", 2, 0.0001, [0.01, 1000, 1], "Belasting"), f("Fd", "Storingskracht F_d (laagfrequent)", "N", 1, 0, [0.01, 1000, 1], "Belasting"),
+    f("xmax", "Toegestane positiefout", "µm", 1, 0.0001, [0.001, 1000, 1], "Belasting")],
+  run: (p, M) => {
+    const s = servo({ fn: p.fn, div: p.div, m: p.m, Fd: p.Fd, xMax: p.xmax / 1000 }), r = Object.assign({}, s, { xum: s.x * 1000, marg: p.xmax / (s.x * 1000) }), w = [];
+    if (p.div < 3) w.push("f_n/f_bw = " + num(p.div) + " < 3: agressief; dat kan alleen met een notchfilter of goed gedempte, gecollokeerde regeling. Buiten de vuistregel.");
+    if (r.marg < 1) w.push("De fout " + num(r.xum) + " µm is groter dan de toegestane " + num(p.xmax) + " µm. Nodig: f_bw ≥ " + num(s.fbwReq) + " Hz, dus f_n ≥ " + num(s.fnReq) + " Hz.");
+    return { r, warn: w,
+      out: [res("Bandbreedte f_bw ≈ f_n/verhouding", num(s.fbw), "Hz"), res("Servostijfheid k_servo = m·(2π·f_bw)²", num(s.kServo / 1000), "N/µm"),
+        res("Positiefout x = F_d/k_servo", num(r.xum), "µm", r.marg < 1), res("Marge toegestaan/fout", isFinite(r.marg) ? num(r.marg) : "∞", "", r.marg < 1),
+        res("Vereiste servostijfheid F_d/x_max", num(s.kReq / 1000), "N/µm"), res("Vereiste bandbreedte", num(s.fbwReq), "Hz"), res("Vereiste f_n bij deze verhouding", num(s.fnReq), "Hz"),
+        res("Stijfheid constructie bij f_n: m·(2π·f_n)²", num(s.kStruct / 1000), "N/µm"), res("Stijfheid nodig voor vereiste f_n", num(s.kStructReq / 1000), "N/µm"), res("Stijgtijd ≈ 0,35/f_bw", tFmt(s.tRise)[0], tFmt(s.tRise)[1])] };
+  },
+  keys: (r, p) => [K("Bandbreedte f_bw", "Hz", num(r.fbw), "vuistregel f_n/" + num(p.div)), K("Servostijfheid", "N/µm", num(r.kServo / 1000), "vuistregel m·(2π·f_bw)²"),
+    K("Positiefout", "µm", num(r.xum), "toegestaan " + num(p.xmax) + " µm", statOf(r.marg))],
+  formulas: (p, M, r) => [
+    ["Bandbreedte uit eigenfrequentie (vuistregel)", sub("f", "bw") + " ≈ " + fr(sub("f", "n"), "3 … 5"), sub("f", "bw") + " = " + fr(num(p.fn), num(p.div)) + " = " + num(r.fbw) + " Hz", "Vuistregel uit de mechatronica: de eerste eigenfrequentie ligt 3 tot 5 keer boven de bandbreedte; zie " + LIT.munnig],
+    ["Servostijfheid binnen de bandbreedte (vuistregel)", sub("k", "servo") + " ≈ m·(2π·" + sub("f", "bw") + ")²", sub("k", "servo") + " = " + num(p.m) + "·(2π·" + num(r.fbw) + ")² = " + num(r.kServo / 1000) + " N/µm", "Equivalent van K_p bij een PD-regeling met kruisfrequentie ω_c = 2π·f_bw (K_p ≈ m·ω_c²); " + LIT.franklin + "; " + LIT.munnig],
+    ["Positiefout onder storingskracht", "x ≈ " + fr(sub("F", "d"), sub("k", "servo")), "x = " + fr(num(p.Fd), num(r.kServo)) + " = " + num(r.xum) + " µm", "Geldt voor storingen onder de bandbreedte; een integrator onderdrukt de statische fout volledig"],
+    ["Vereiste servostijfheid en bandbreedte (omgekeerd)", sub("k", "req") + " = " + fr(sub("F", "d"), sub("x", "max")) + ",  " + sub("f", "bw,req") + " = " + fr("1", "2π") + "·√" + fr(sub("k", "req"), "m"),
+      sub("k", "req") + " = " + num(r.kReq / 1000) + " N/µm,  " + sub("f", "bw,req") + " = " + num(r.fbwReq) + " Hz", "Omkering van de vuistregel hierboven"],
+    ["Vereiste constructiestijfheid", sub("f", "n,req") + " = verhouding·" + sub("f", "bw,req") + ",  " + sub("k", "str") + " = m·(2π·" + sub("f", "n,req") + ")²", sub("f", "n,req") + " = " + num(r.fnReq) + " Hz,  " + sub("k", "str") + " = " + num(r.kStructReq / 1000) + " N/µm", "Eén-massa-model: een veel stijvere constructie dan de servostijfheid is nodig, factor (f_n/f_bw)²"],
+    ["Stijgtijd (eerste-orde-vuistregel)", sub("t", "r") + " ≈ " + fr("0,35", sub("f", "bw")), sub("t", "r") + " = " + tTxt(r.tRise), LIT.franklin],
+  ],
+  assume: ["Dit zijn vuistregels, bedoeld voor een eerste keuze van bandbreedte en stijfheid, niet voor het ontwerp van een regelaar. De factor 3 tot 5 tussen f_n en f_bw hangt af van demping, gecollokeerde versus niet-gecollokeerde sensing en of een notchfilter wordt gebruikt.",
+    "k_servo = m·ω_bw² is de equivalente veerstijfheid van de regeling rond de kruisfrequentie; onder de bandbreedte neemt de dynamische stijfheid met een integrator toe, boven de bandbreedte valt hij terug naar de massa m·ω².",
+    "De positiefout is quasi-statisch (storing onder f_bw); voor storingen boven f_bw wordt de fout bepaald door m·ω² en de constructie, niet door de regelaar.",
+    "Eén bewegende massa; geen ruis, sensorresolutie, vertraging of niet-lineaire effecten. De getoonde stijgtijd 0,35/f_bw is die van een eerste-orde-systeem."],
+  source: LIT.munnig + "; " + LIT.franklin + ". Vuistregels; de exacte factoren verschillen per auteur en toepassing.",
+});
+
+// ---------- Thermisch ----------
+CALCS.push({
+  id: "exp", group: "Thermisch", name: "Thermische uitzetting", short: "ΔL = α·L·ΔT; twee materialen en athermisch ontwerp",
+  inputs: [f("L1", "Lengte staaf 1 (L₁)", "mm", 100, 0.01, [1, 2000, 1], "Geometrie"), f("L2", "Lengte staaf 2 (L₂)", "mm", 205, 0.01, [1, 2000, 1], "Geometrie"),
+    f("dT", "Temperatuurverandering ΔT", "K", 5, 0, [0.01, 100, 1], "Belasting"),
+    matIn("mat1", "Materiaal staaf 1", "alu"), matIn("mat2", "Materiaal staaf 2", "staal")],
+  run: (p, M) => {
+    const m1 = material(p.mat1), m2 = material(p.mat2);
+    const r = athermal({ a1: m1.alpha, L1: p.L1, a2: m2.alpha, L2: p.L2, dT: p.dT, E1: m1.E, E2: m2.E });
+    r.m1 = m1; r.m2 = m2; r.dev = (p.L2 - r.L2ath) / r.L2ath; r.per1 = m1.alpha * p.L1 * 1e-3, r.per2 = m2.alpha * p.L2 * 1e-3;     // µm/K
+    const w = [];
+    if (m1.id === m2.id) w.push("Beide staven hebben hetzelfde materiaal: de uitzettingen zijn gelijk in verhouding, athermisch ontwerp met L₂ = L₁ kan alleen op geometrie.");
+    if (Math.abs(r.dP) > 0.3 * Math.abs(r.d1) && p.dT > 0) w.push("Netto verplaatsing is " + num(Math.abs(r.dP) / Math.abs(r.d1) * 100) + " % van de uitzetting van staaf 1: weinig gecompenseerd (athermisch L₂ = " + num(r.L2ath) + " mm).");
+    if (r.s1 > m1.sigma || r.s2 > m2.sigma) w.push("Bij volledig inklemmen zou de thermische spanning (" + num(Math.max(r.s1, r.s2)) + " MPa) boven σ_toel van het materiaal komen.");
+    if (Math.abs(r.dev) > 1 && r.L2ath > 5000) w.push("De athermale lengte L₂ is erg groot; kies materialen met een kleinere α-verhouding.");
+    return { r, warn: w,
+      out: [res("Uitzetting staaf 1: ΔL₁ = α₁·L₁·ΔT", num(r.d1 * 1000), "µm"), res("Uitzetting staaf 2: ΔL₂ = α₂·L₂·ΔT", num(r.d2 * 1000), "µm"),
+        res("Uitzetting per kelvin, staaf 1", num(r.per1), "µm/K"), res("Uitzetting per kelvin, staaf 2", num(r.per2), "µm/K"),
+        res("Netto verplaatsing ΔP = ΔL₂ − ΔL₁", num(r.dP * 1000), "µm"), res("Netto drift", num(r.dP * 1e6 / Math.max(p.dT, 1e-9)), "nm/K"),
+        res("Netto lengte P (L₂ − L₁)", num(r.Lnet), "mm"), res("Athermale lengte L₂ = L₁·α₁/α₂", num(r.L2ath), "mm"), res("Afwijking L₂ van athermaal", num(r.dev * 100), "%"),
+        res("Spanning staaf 1, volledig ingeklemd E·α·ΔT", num(r.s1), "MPa", r.s1 > m1.sigma), res("Spanning staaf 2, volledig ingeklemd", num(r.s2), "MPa", r.s2 > m2.sigma)] };
+  },
+  keys: (r, p) => [K("Uitzetting staaf 1 ΔL₁", "µm", num(r.d1 * 1000), num(r.per1) + " µm/K"), K("Netto verplaatsing ΔP", "µm", num(r.dP * 1000), num(r.dP * 1e6 / Math.max(p.dT, 1e-9)) + " nm/K",
+    Math.abs(r.dP) < 0.05 * Math.abs(r.d1) ? "ok" : Math.abs(r.dP) < 0.3 * Math.abs(r.d1) ? "warn" : "bad"), K("Athermale lengte L₂", "mm", num(r.L2ath), "huidige L₂ wijkt " + num(r.dev * 100) + " % af")],
+  formulas: (p, M, r) => [
+    ["Uitzetting van een staaf", "ΔL = α·L·ΔT", "ΔL₁ = " + num(r.m1.alpha) + "·10⁻⁶·" + num(p.L1) + "·" + num(p.dT) + " = " + num(r.d1 * 1000) + " µm;  ΔL₂ = " + num(r.m2.alpha) + "·10⁻⁶·" + num(p.L2) + "·" + num(p.dT) + " = " + num(r.d2 * 1000) + " µm", LIT.invar + "; " + LIT.roark],
+    ["Tegengestelde opstelling (staaf 2 heen, staaf 1 terug)", "P = " + sub("L", "2") + " − " + sub("L", "1") + ",  ΔP = (" + sub("α", "2") + sub("L", "2") + " − " + sub("α", "1") + sub("L", "1") + ")·ΔT", "ΔP = (" + num(r.m2.alpha) + "·" + num(p.L2) + " − " + num(r.m1.alpha) + "·" + num(p.L1) + ")·10⁻⁶·" + num(p.dT) + " = " + num(r.dP * 1000) + " µm", LIT.invar],
+    ["Athermale lengteverhouding", "ΔP = 0  ⇒  " + fr(sub("L", "1"), sub("L", "2")) + " = " + fr(sub("α", "2"), sub("α", "1")), sub("L", "2") + " = " + num(p.L1) + "·" + fr(num(r.m1.alpha), num(r.m2.alpha)) + " = " + num(r.L2ath) + " mm  (nu " + num(p.L2) + " mm: " + num(r.dev * 100) + " % verschil)", LIT.invar],
+    ["Ingeklemde thermische spanning", "σ = E·α·ΔT", "σ₁ = " + num(r.m1.E) + "·" + num(r.m1.alpha) + "·10⁻⁶·" + num(p.dT) + " = " + num(r.s1) + " MPa;  σ₂ = " + num(r.s2) + " MPa", LIT.roark],
+  ],
+  assume: ["Lineaire uitzetting met een constante α (de waarde bij kamertemperatuur); α verandert met de temperatuur, vooral bij Invar en Zerodur (curve rond het nulpunt) en bij cryogene toepassingen.",
+    "Homogene temperatuur in beide staven; temperatuurgradiënten, verschillen tussen de staven en materiaaldrift (relaxatie bij Invar, Zerodur-veroudering) zijn niet meegenomen.",
+    "Opstelling: staaf 2 loopt van het vaste punt A naar B, staaf 1 loopt terug van B naar P. P is het meetpunt op afstand L₂ − L₁ van A en verschuift met (α₂L₂ − α₁L₁)·ΔT. Draai het teken om voor de andere richting.",
+    "De athermale lengte L₂ = L₁·α₁/α₂ geldt voor het gehele temperatuurbereik als α constant is; de ingeklemde spanning geeft de bovengrens als de uitzetting wordt tegengehouden."],
+  source: LIT.invar + "; " + LIT.roark + ".",
+});
+
+CALCS.push({
+  id: "tau", group: "Thermisch", name: "Thermische tijdconstante", short: "Lumped blok: τ = m·c/(h·A), opwarmen en uitzetting",
+  inputs: [f("L", "Lengte L", "mm", 100, 0.01, [5, 500, 1], "Geometrie"), f("B", "Breedte B", "mm", 50, 0.01, [5, 500, 1], "Geometrie"), f("H", "Hoogte H", "mm", 20, 0.01, [2, 500, 1], "Geometrie"),
+    f("h", "Warmteoverdrachtscoëfficiënt h (incl. straling)", "W/(m²·K)", 10, 0.01, [1, 200, 1], "Belasting"), f("P", "Dissipatie in het blok P", "W", 0.5, 0, [0.01, 100, 1], "Belasting"),
+    f("dTo", "Stap in omgevingstemperatuur ΔT", "K", 1, 0, [0.01, 50, 1], "Belasting"), f("t", "Tijd t na de stap", "min", 30, 0, [0.1, 600, 1], "Belasting"),
+    matIn("mat", "Materiaal", "alu")],
+  run: (p, M) => {
+    const m = material(p.mat), l = lumped({ L: p.L, B: p.B, H: p.H, rho: m.rho, c: m.c, h: p.h, k: m.k, P: p.P }), w = [];
+    const r = Object.assign({}, l, { mat: m, t95: 3 * l.tau, t99: Math.log(100) * l.tau });
+    r.dTend = p.dTo + l.dTss; r.frac = 1 - Math.exp(-p.t * 60 / l.tau); r.dTt = r.dTend * r.frac;
+    r.Lmax = Math.max(p.L, p.B, p.H); r.dLend = dLength(m.alpha, r.Lmax, r.dTend); r.dLt = dLength(m.alpha, r.Lmax, r.dTt);
+    if (l.Bi > 0.1) w.push("Biot-getal Bi = " + num(l.Bi) + " > 0,1: de temperatuur in het blok is niet meer uniform; de lumped-methode onderschat de tijd tot het midden (Incropera).");
+    if (p.h < 3 || p.h > 100) w.push("h = " + num(p.h) + " W/(m²·K) ligt buiten het gebruikelijke bereik 3 tot 100 (natuurlijke convectie + straling ≈ 5 tot 15; geblazen lucht 20 tot 100).");
+    return { r, warn: w,
+      out: [res("Massa m", num(l.m), "kg"), res("Warmtecapaciteit C = m·c", num(l.C), "J/K"), res("Oppervlak A", num(l.A * 1e4), "cm²"), res("Karakteristieke lengte V/A", num(l.Lc * 1000), "mm"),
+        res("Tijdconstante τ", tFmt(l.tau)[0], tFmt(l.tau)[1]), res("95 % bereikt na 3τ", tFmt(r.t95)[0], tFmt(r.t95)[1]), res("99 % bereikt na 4,6τ", tFmt(r.t99)[0], tFmt(r.t99)[1]),
+        res("Voortgang op tijd t", num(r.frac * 100), "%"), res("Eindtemperatuur ΔT_eind = ΔT + P/(h·A)", num(r.dTend), "K"), res("Temperatuurverandering op tijd t", num(r.dTt), "K"),
+        res("Uitzetting langste maat, eind", num(r.dLend * 1000), "µm"), res("Uitzetting langste maat op tijd t", num(r.dLt * 1000), "µm"),
+        res("Biot-getal h·(V/A)/k", num(l.Bi), "", l.Bi > 0.1)] };
+  },
+  keys: r => [K("Tijdconstante τ", tFmt(r.tau)[1], tFmt(r.tau)[0], "95 % na " + tTxt(r.t95)), K("Eindtemperatuur ΔT_eind", "K", num(r.dTend), "uitzetting " + num(r.dLend * 1000) + " µm"),
+    K("Biot-getal Bi", "", num(r.Bi), r.Bi <= 0.1 ? "lumped is geldig" : "lumped is onnauwkeurig", r.Bi <= 0.1 ? "ok" : r.Bi <= 0.3 ? "warn" : "bad")],
+  formulas: (p, M, r) => [
+    ["Volume, oppervlak, massa", "V = L·B·H,  A = 2(L·B + L·H + B·H),  m = ρ·V", "V = " + num(r.V * 1e6) + " cm³,  A = " + num(r.A * 1e4) + " cm²,  m = " + num(r.mat.rho) + "·" + num(r.V) + " = " + num(r.m) + " kg", "Meetkunde"],
+    ["Warmtecapaciteit", "C = m·c", "C = " + num(r.m) + "·" + num(r.mat.c) + " = " + num(r.C) + " J/K", LIT.incropera],
+    ["Tijdconstante (lumped)", "τ = " + fr("m·c", "h·A"), "τ = " + fr(num(r.C), num(p.h) + "·" + num(r.A)) + " = " + num(r.tau) + " s = " + tTxt(r.tau), LIT.incropera],
+    ["Respons op een stap", "ΔT(t) = " + sub("ΔT", "eind") + "·(1 − e<sup>−t/τ</sup>);  63 % bij τ, 95 % bij 3τ, 99 % bij 4,6τ", "t = " + num(p.t) + " min: " + num(r.frac * 100) + " % van " + num(r.dTend) + " K = " + num(r.dTt) + " K", LIT.incropera],
+    ["Eindtemperatuur", sub("ΔT", "eind") + " = ΔT + " + fr("P", "h·A"), sub("ΔT", "eind") + " = " + num(p.dTo) + " + " + fr(num(p.P), num(p.h) + "·" + num(r.A)) + " = " + num(r.dTend) + " K", LIT.incropera],
+    ["Uitzetting", "ΔL = α·L·ΔT", "ΔL = " + num(r.mat.alpha) + "·10⁻⁶·" + num(r.Lmax) + "·" + num(r.dTend) + " = " + num(r.dLend * 1000) + " µm (eind), " + num(r.dLt * 1000) + " µm op tijd t", LIT.invar],
+    ["Biot-getal (geldigheid)", "Bi = " + fr("h·" + sub("L", "c"), "k") + " ≤ 0,1,  " + sub("L", "c") + " = " + fr("V", "A"), "Bi = " + fr(num(p.h) + "·" + num(r.Lc), num(r.mat.k)) + " = " + num(r.Bi), LIT.incropera],
+  ],
+  assume: ["Lumped-capacitance: het blok heeft overal dezelfde temperatuur (geldig als Bi ≤ 0,1). Bij een hogere Bi loopt het oppervlak voor op het midden en is de werkelijke tijd tot het midden langer.",
+    "Alle zes zijden wisselen warmte uit met één omgevingstemperatuur via dezelfde h. Straling is bij h inbegrepen (h_rad ≈ 4·ε·σ·T³ ≈ 6·ε W/(m²·K) bij 20 °C); geleiding naar de opspanning en andere warmteflows zijn niet meegenomen.",
+    "Typische h: natuurlijke convectie in stilstaande lucht 3 tot 10 W/(m²·K), geblazen lucht 20 tot 100, water veel hoger. De tijdconstante schaalt direct met 1/h; neem de onzekerheid mee.",
+    "De uitzetting is van de langste maat bij een uniforme temperatuur; de thermische gradiënt tijdens het opwarmen geeft tijdelijk meer vervorming (kromtrekken) dan de eindwaarde.",
+    "Materiaalgegevens c en k zijn typische kamertemperatuurwaarden (MatWeb/datasheets)."],
+  source: LIT.incropera + "; " + LIT.invar + ".",
+});
+
+// ---------- tekeningen voor de nieuwe calculators ----------
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const lg = Math.log10;
+const arrowPath = (x1, y1, x2, y2) => "M" + f1(x1) + " " + f1(y1) + "L" + f1(x2) + " " + f1(y2);
+function mkArrow(parent) { return mk("path", { class: "s-dim s-force", "marker-end": "url(#calcArr)" }, parent); }
+function footLines(svg, R, y) { R.note = txt(svg, "s-small", "start"); R.leg = txt(svg, "s-small s-bold", "start"); set(R.note, { x: 10, y: y }); set(R.leg, { x: 10, y: y + 13 }); }
+// logaritmische as met vaste pool van streepjes en labels
+function mkLogAxis(svg, n, vertical) {
+  const A = { g: [], t: [] };
+  for (let i = 0; i < n; i++) { A.g.push(mk("path", { class: "s-grid" }, svg)); A.t.push(txt(svg, "s-small", vertical ? "end" : "middle")); }
+  return A;
+}
+function setLogAxis(A, lo, hi, pos, vertical, edge0, edge1, labY) {
+  // lo..hi = decaden (gehele getallen), pos(dec) = pixelpositie; edge = begin/eind van de lijn loodrecht erop
+  for (let i = 0; i < A.g.length; i++) {
+    const d = lo + i, on = d <= hi;
+    showEl(A.g[i], on); showEl(A.t[i], on);
+    if (!on) continue;
+    const x = pos(d);
+    set(A.g[i], { d: vertical ? "M" + f1(edge0) + " " + f1(x) + "H" + f1(edge1) : "M" + f1(x) + " " + f1(edge0) + "V" + f1(edge1) });
+    set(A.t[i], vertical ? { x: f1(edge0 - 3), y: f1(x + 3) } : { x: f1(x), y: f1(labY) });
+    A.t[i].textContent = num(Math.pow(10, d));
+  }
+}
+
+function hertzFig() {
+  return {
+    build(svg) {
+      const R = {};
+      R.g = mk("g", {}, svg);
+      R.body = mk("rect", { class: "s-fix", x: -80, y: 150, width: 480, height: 200 }, R.g);
+      R.b2 = mk("circle", { class: "s-fix" }, R.g);
+      R.b1 = mk("circle", { class: "s-ball" }, R.g);
+      R.press = mk("path", { class: "s-press" }, R.g);
+      R.patch = mk("path", { class: "s-patch" }, R.g);
+      R.nrm = mk("path", { class: "s-ghost" }, R.g);
+      R.td = mk("circle", { class: "s-pivot", r: 3 }, R.g);
+      R.fa = mkArrow(svg); R.fT = txt(svg, "s-val", "start");
+      R.fn = mkArrow(R.g); R.fnT = txt(svg, "s-val", "start");
+      R.zT = txt(svg, "s-small", "start"); R.rT = txt(svg, "s-small", "end"); R.rl = mk("path", { class: "s-dim s-thin" }, R.g);
+      footLines(svg, R, 214);
+      return R;
+    },
+    draw(R, p, r, M) {
+      const C = { x: 160, y: 150 }, conc = p.geom === "concave", conv = p.geom === "convex", n = +p.n;
+      const R1 = clamp(24 + 14 * lg(Math.max(p.R1, 0.5) / 0.5) / 2, 24, 52), s = R1 / p.R1;         // px per mm
+      const ok = r.Re > 0 && isFinite(r.a);
+      const ap0 = ok ? r.a * s : 1, ap = clamp(ap0, 11, 54), ex = ap / ap0;
+      const th = clamp(p.theta, 0, 75), tr = th * DEG;
+      set(R.g, { transform: "rotate(" + f1(th) + " " + C.x + " " + C.y + ")" });
+      showEl(R.body, p.geom === "flat");
+      const R2 = clamp(R1 * p.R2 / p.R1, conc ? R1 * 1.25 : 14, conc ? R1 * 3.2 : 90);
+      showEl(R.b2, conv || conc);
+      set(R.b2, conc ? { cx: C.x, cy: C.y - R2, r: f1(R2) } : { cx: C.x, cy: C.y + R2, r: f1(R2) });
+      set(R.b1, { cx: C.x, cy: f1(C.y - R1), r: f1(R1) });
+      const col = stressCol(ok ? 1 / r.margin : 0);
+      const hp = 17;
+      set(R.press, { d: "M" + f1(C.x - ap) + " " + C.y + "A" + f1(ap) + " " + hp + " 0 0 0 " + f1(C.x + ap) + " " + C.y + "Z" }); R.press.style.fill = col;
+      set(R.patch, { d: "M" + f1(C.x - ap) + " " + C.y + "H" + f1(C.x + ap), "stroke-width": 3 });
+      set(R.nrm, { d: "M" + C.x + " " + f1(C.y + 22) + "V" + f1(C.y - 2 * R1 - 6) });
+      set(R.td, { cx: C.x, cy: f1(C.y + 0.48 * ap) });
+      // belasting F langs de verticale as, door het middelpunt van de bol
+      const xc = C.x + R1 * Math.sin(tr), yc = C.y - R1 * Math.cos(tr);
+      set(R.fa, { d: arrowPath(xc, 12, xc, yc - R1 - 2) });
+      set(R.fT, { x: f1(xc + 6), y: 24 }); R.fT.textContent = "F = " + num(p.F) + " N";
+      const rt = (x, y) => [C.x + (x - C.x) * Math.cos(tr) - (y - C.y) * Math.sin(tr), C.y + (x - C.x) * Math.sin(tr) + (y - C.y) * Math.cos(tr)];
+      showEl(R.fn, th > 0.5 || n > 1); showEl(R.fnT, th > 0.5 || n > 1);
+      set(R.fn, { d: arrowPath(C.x, C.y - 2 * R1 - 22, C.x, C.y - 2 * R1 - 2) });
+      const tp = rt(C.x, C.y - 2 * R1 - 24); set(R.fnT, { x: f1(tp[0] + 6), y: f1(tp[1] + 2) }); R.fnT.textContent = "F_n = " + num(r.Fn) + " N";
+      const zp = rt(C.x + 6, C.y + 0.48 * ap + 12); set(R.zT, { x: f1(zp[0] + 4), y: f1(zp[1]) }); R.zT.textContent = "τ_max op 0,48·a";
+      const rp = rt(C.x - R1 * 0.866, C.y - R1 - R1 * 0.5);
+      set(R.rl, { d: "M" + C.x + " " + f1(C.y - R1) + "L" + f1(C.x - R1 * 0.866) + " " + f1(C.y - R1 - R1 * 0.5) });
+      set(R.rT, { x: f1(rp[0] - 4), y: f1(rp[1] + 1) }); R.rT.textContent = "R₁ = " + num(p.R1) + " mm";
+      R.note.textContent = ok ? "2a = " + num(2 * r.a * 1000) + " µm" + (ex > 1.15 ? ", contact × " + num(ex, 2) + " vergroot getekend" : "") + " · δ = " + num(r.delta * 1000) + " µm" : "";
+      R.leg.textContent = ok ? "p₀ = " + num(r.p0) + " MPa · " + Math.round(100 / r.margin) + " % van p₀,toel" : "ongeldige geometrie"; R.leg.style.fill = col;
+    },
+  };
+}
+
+function kcFig() {
+  return {
+    build(svg) {
+      const R = { gr: [], ba: [], ax: [] };
+      R.tri = mk("path", { class: "s-ghost" }, svg);
+      for (let i = 0; i < 3; i++) { R.gr.push(mk("path", { class: "s-slot" }, svg)); R.ba.push(mk("circle", { class: "s-ball", r: 9 }, svg)); R.ax.push(mk("path", { class: "s-ghost" }, svg)); }
+      R.cen = mk("circle", { class: "s-fix", cx: 82, cy: 108, r: 7 }, svg); R.cenx = mk("path", { class: "s-dim", d: "M78.5 104.5L85.5 111.5M85.5 104.5L78.5 111.5" }, svg);
+      R.tv = txt(svg, "s-small", "middle"); set(R.tv, { x: 82, y: 20 }); R.tv.textContent = "bovenaanzicht";
+      R.fT = txt(svg, "s-val", "start"); set(R.fT, { x: 88, y: 121 });
+      R.sv = txt(svg, "s-small", "middle"); set(R.sv, { x: 232, y: 20 }); R.sv.textContent = "doorsnede één groef";
+      R.fl1 = mk("path", { class: "s-fix" }, svg); R.fl2 = mk("path", { class: "s-fix" }, svg);
+      R.bl = mk("circle", { class: "s-ball" }, svg);
+      R.c1 = mk("path", { class: "s-patch" }, svg); R.c2 = mk("path", { class: "s-patch" }, svg);
+      R.n1 = mkArrow(svg); R.n2 = mkArrow(svg); R.fa = mkArrow(svg);
+      R.nT = txt(svg, "s-val", "middle"); R.gT = txt(svg, "s-small", "middle"); R.arc = mk("path", { class: "s-dim s-thin" }, svg);
+      footLines(svg, R, 226);
+      return R;
+    },
+    draw(R, p, r, M) {
+      const c0 = { x: 82, y: 108 }, rr = 52, ang = [-90, 30, 150];
+      const pts = ang.map(a => [c0.x + rr * Math.cos(a * DEG), c0.y + rr * Math.sin(a * DEG)]);
+      set(R.tri, { d: "M" + pts.map(q => f1(q[0]) + " " + f1(q[1])).join("L") + "Z" });
+      ang.forEach((a, i) => {
+        const ux = Math.cos(a * DEG), uy = Math.sin(a * DEG), q = pts[i];
+        set(R.gr[i], { d: "M" + f1(q[0] - ux * 22) + " " + f1(q[1] - uy * 22) + "L" + f1(q[0] + ux * 16) + " " + f1(q[1] + uy * 16), "stroke-width": 11 });
+        set(R.ba[i], { cx: f1(q[0]), cy: f1(q[1]) });
+        set(R.ax[i], { d: "M" + f1(q[0] - ux * 22) + " " + f1(q[1] - uy * 22) + "L" + f1(q[0] + ux * 16) + " " + f1(q[1] + uy * 16) });
+      });
+      R.fT.textContent = "F";
+      // doorsnede: V-groef met opening γ, bol met straal R (log-schaal)
+      const g2 = p.gamma / 2 * DEG, sg = Math.sin(g2), cg = Math.cos(g2);
+      const Rp = clamp(13 + 10 * lg(Math.max(p.R, 1)), 13, 26), ax = 232, ay = 188;
+      const d = Rp / sg, bc = { x: ax, y: ay - d };
+      const len = clamp(d + Rp * 1.6, 60, 150), ex = len * sg, ey = len * cg;
+      set(R.fl1, { d: "M" + f1(ax - ex) + " " + f1(ay - ey) + "L" + ax + " " + ay + "L" + f1(ax + ex) + " " + f1(ay - ey) + "V" + f1(ay + 8) + "H" + f1(ax - ex) + "Z" });
+      set(R.fl2, { d: "M" + f1(ax - ex) + " " + f1(ay - ey) + "L" + ax + " " + ay + "L" + f1(ax + ex) + " " + f1(ay - ey) });
+      showEl(R.fl2, false);
+      set(R.bl, { cx: f1(bc.x), cy: f1(bc.y), r: f1(Rp) });
+      const nL = [cg, -sg], nR = [-cg, -sg];                                                  // naar de bol toe (links- en rechtsflank)
+      const cpL = [bc.x - nL[0] * Rp, bc.y - nL[1] * Rp], cpR = [bc.x - nR[0] * Rp, bc.y - nR[1] * Rp];
+      const ap = clamp(r.a * Rp / p.R, 2.5, 12), tl = [sg, cg];
+      set(R.c1, { d: "M" + f1(cpL[0] - tl[0] * ap) + " " + f1(cpL[1] + tl[1] * ap) + "L" + f1(cpL[0] + tl[0] * ap) + " " + f1(cpL[1] - tl[1] * ap), "stroke-width": 3 });
+      set(R.c2, { d: "M" + f1(cpR[0] + tl[0] * ap) + " " + f1(cpR[1] + tl[1] * ap) + "L" + f1(cpR[0] - tl[0] * ap) + " " + f1(cpR[1] - tl[1] * ap), "stroke-width": 3 });
+      set(R.n1, { d: arrowPath(cpL[0] - nL[0] * 26, cpL[1] - nL[1] * 26, cpL[0] - nL[0] * 2, cpL[1] - nL[1] * 2) });
+      set(R.n2, { d: arrowPath(cpR[0] - nR[0] * 26, cpR[1] - nR[1] * 26, cpR[0] - nR[0] * 2, cpR[1] - nR[1] * 2) });
+      set(R.fa, { d: arrowPath(bc.x, 34, bc.x, bc.y - Rp - 2) });
+      set(R.nT, { x: f1(ax - ex - 6), y: f1(cpL[1] - 6), "text-anchor": "end" }); R.nT.textContent = "N = " + num(r.N) + " N";
+      set(R.gT, { x: ax, y: f1(ay + 18) }); R.gT.textContent = "γ = " + num(p.gamma) + "°";
+      const ra = 22;
+      set(R.arc, { d: "M" + f1(ax - ra * sg) + " " + f1(ay - ra * cg) + "A" + ra + " " + ra + " 0 0 0 " + f1(ax + ra * sg) + " " + f1(ay - ra * cg) });
+      const col = stressCol(1 / r.margin);
+      R.note.textContent = "per contact: 2a = " + num(2 * r.a * 1000) + " µm · k_t = " + num(r.kt / 1000) + " N/µm · p₀ = " + num(r.p0) + " MPa";
+      R.leg.textContent = "virtueel spel ≈ " + num(r.xSlip * 1e6) + " nm (schatting) · k_ax = " + num(r.kAx / 1000) + " N/µm"; R.leg.style.fill = col;
+    },
+  };
+}
+
+function msdFig() {
+  return {
+    build(svg) {
+      const R = {};
+      R.wall = mk("rect", { class: "s-fix", x: 14, y: 20, width: 8, height: 84 }, svg); R.wh = mk("rect", { fill: "url(#calcHatch)", x: 6, y: 20, width: 8, height: 84 }, svg);
+      R.sp = mk("path", { class: "s-leaf s-spring" }, svg);
+      R.rod1 = mk("path", { class: "s-leaf s-thin", d: "M22 88H64" }, svg); R.cyl = mk("rect", { class: "s-fix", x: 64, y: 79, width: 46, height: 18 }, svg);
+      R.pst = mk("path", { class: "s-leaf s-thin", d: "M104 82V94M104 88H150" }, svg);
+      R.mass = mk("rect", { class: "s-ball" }, svg); R.mT = txt(svg, "s-val", "middle");
+      R.fa = mkArrow(svg); R.fT = txt(svg, "s-val", "start");
+      R.kT = txt(svg, "s-small", "middle"); R.cT = txt(svg, "s-small", "start");
+      R.cap = txt(svg, "s-small s-bold", "start"); set(R.cap, { x: 34, y: 124 }); R.cap.textContent = "stapresponsie op een krachtstap (eindwaarde F/k)";
+      R.ax = mk("path", { class: "s-axis", d: "M34 131V205H306" }, svg);
+      R.band = mk("rect", { class: "s-band" }, svg); R.one = mk("path", { class: "s-ghost" }, svg);
+      R.cv = mk("path", { class: "s-curve" }, svg); R.ts = mk("path", { class: "s-ghost" }, svg); R.tsT = txt(svg, "s-small", "start");
+      R.t0 = txt(svg, "s-small", "start"); set(R.t0, { x: 34, y: 217 }); R.t0.textContent = "0";
+      R.t1 = txt(svg, "s-small", "end"); set(R.t1, { x: 306, y: 217 }); R.y1 = txt(svg, "s-small", "end"); set(R.y1, { x: 31, y: 0 });
+      footLines(svg, R, 228);
+      return R;
+    },
+    draw(R, p, r, M) {
+      const mw = clamp(18 + 8.5 * (lg(p.m) + 3), 18, 66), mh = clamp(mw, 30, 66), mx = 150, my = 62 - mh / 2 + 22;
+      set(R.mass, { x: mx, y: f1(my), width: f1(mw), height: f1(mh) });
+      set(R.mT, { x: f1(mx + mw / 2), y: f1(my + mh / 2 + 3.5) }); R.mT.textContent = "m";
+      const n = 8, x0 = 22, x1 = mx, ys = 44, amp = 9, seg = (x1 - x0 - 20) / n;
+      let d = "M" + x0 + " " + ys + "H" + (x0 + 10);
+      for (let i = 0; i < n; i++) d += "L" + f1(x0 + 10 + seg * (i + 0.5)) + " " + (ys + (i % 2 ? amp : -amp));
+      d += "L" + f1(x1 - 10) + " " + ys + "H" + x1;
+      set(R.sp, { d, "stroke-width": f1(0.9 + 2.4 * clamp((lg(p.k) + 3) / 7, 0, 1)) });
+      set(R.kT, { x: 86, y: 28 }); R.kT.textContent = "k = " + num(p.k) + " N/mm";
+      set(R.cT, { x: 28, y: 110 }); R.cT.textContent = "c = " + num(r.c) + " N·s/m (ζ = " + num(r.zeta * 100) + " %)";
+      R.cyl.style.fillOpacity = f1(0.25 + 0.75 * clamp(r.zeta, 0, 1));
+      set(R.fa, { d: arrowPath(mx + mw + 4, my + mh / 2, mx + mw + 44, my + mh / 2) }); set(R.fT, { x: f1(mx + mw + 22), y: f1(my + mh / 2 - 7), "text-anchor": "middle" }); R.fT.textContent = "F";
+      // stapresponsie
+      const zt = r.zeta, wn = r.wn, ts = r.ts;
+      const tEnd = Math.max(ts * 1.3, 2 / r.fn), ymax = Math.max(1.3, 1 + r.ov + 0.12);
+      const X0 = 34, X1 = 304, Y0 = 205, Y1 = 134, X = t => X0 + t / tEnd * (X1 - X0), Y = v => Y0 - v / ymax * (Y0 - Y1);
+      let cd = "";
+      for (let i = 0; i <= 160; i++) { const t = tEnd * i / 160; cd += (i ? "L" : "M") + f1(X(t)) + " " + f1(Y(stepResp(zt, wn, t))); }
+      set(R.cv, { d: cd }); set(R.one, { d: "M" + X0 + " " + f1(Y(1)) + "H" + X1 });
+      set(R.band, { x: X0, y: f1(Y(1.02)), width: X1 - X0, height: f1(Y(0.98) - Y(1.02)) });
+      set(R.ts, { d: "M" + f1(X(ts)) + " " + Y1 + "V" + Y0 });
+      set(R.tsT, { x: f1(Math.min(X(ts) + 4, 230)), y: 143 }); R.tsT.textContent = "t_s = " + tTxt(ts);
+      R.t1.textContent = tTxt(tEnd); set(R.y1, { y: f1(Y(1) + 3) }); R.y1.textContent = "1";
+      R.note.textContent = "f_n = " + num(r.fn) + " Hz · overshoot " + num(r.ov * 100) + " % · Q = " + num(r.Q);
+      R.leg.textContent = "bij f = " + num(p.fd) + " Hz: T = " + num(r.T) + ", versterking × " + num(r.dyn); R.leg.style.fill = "";
+    },
+  };
+}
+
+function isoFig() {
+  const NV = 9, NH = 9;
+  return {
+    build(svg) {
+      const R = {};
+      R.zone = mk("rect", { class: "s-zone" }, svg);
+      R.av = mkLogAxis(svg, NV, false); R.ah = mkLogAxis(svg, NH, true);
+      R.fr = mk("path", { class: "s-axis", d: "M44 14V190H306" }, svg);
+      R.one = mk("path", { class: "s-ghost" }, svg);
+      R.cv = mk("path", { class: "s-curve" }, svg);
+      R.fnL = mk("path", { class: "s-ghost" }, svg); R.fnT = txt(svg, "s-small", "middle");
+      R.fL = mk("path", { class: "s-dim s-thin" }, svg); R.dot = mk("circle", { class: "s-pivot", r: 4 }, svg); R.dT = txt(svg, "s-val", "start");
+      R.xl = txt(svg, "s-small", "end"); set(R.xl, { x: 306, y: 213 }); R.xl.textContent = "frequentie f [Hz]";
+      R.yl = txt(svg, "s-small", "start"); set(R.yl, { x: 6, y: 10 }); R.yl.textContent = "T";
+      footLines(svg, R, 222);
+      return R;
+    },
+    draw(R, p, r, M) {
+      const z = r.z, fn = r.fn, X0 = 44, X1 = 306, Y0 = 190, Y1 = 14;
+      let lx0 = Math.floor(lg(Math.min(fn, p.fd) / 4)), lx1 = Math.ceil(lg(Math.max(fn, p.fd) * 4));
+      while (lx1 - lx0 < 2) lx1++;
+      lx1 = Math.min(lx1, lx0 + NV - 1);
+      const Tf = transmissibility(Math.pow(10, lx1) / fn, z), lyHi = Math.max(1, Math.ceil(lg(r.Tmax * 1.4)));
+      let lyLo = Math.floor(lg(Math.max(Math.min(Tf, r.T) / 3, 1e-9)));
+      lyLo = Math.max(lyLo, lyHi - (NH - 1)); if (lyHi - lyLo < 2) lyLo = lyHi - 2;
+      const X = f => X0 + (lg(f) - lx0) / (lx1 - lx0) * (X1 - X0), Y = T => Y0 - (lg(T) - lyLo) / (lyHi - lyLo) * (Y0 - Y1);
+      const cl = T => clamp(Y(T), Y1, Y0);
+      setLogAxis(R.av, lx0, lx1, d => X0 + (d - lx0) / (lx1 - lx0) * (X1 - X0), false, Y1, Y0, 202);
+      setLogAxis(R.ah, lyLo, lyHi, d => Y0 - (d - lyLo) / (lyHi - lyLo) * (Y0 - Y1), true, X0, X1);
+      let d = "";
+      for (let i = 0; i <= 200; i++) { const f = Math.pow(10, lx0 + (lx1 - lx0) * i / 200); d += (i ? "L" : "M") + f1(X(f)) + " " + f1(cl(transmissibility(f / fn, z))); }
+      set(R.cv, { d });
+      set(R.one, { d: "M" + X0 + " " + f1(Y(1)) + "H" + X1 });
+      const xz = clamp(X(Math.SQRT2 * fn), X0, X1);
+      set(R.zone, { x: X0, y: Y1, width: f1(xz - X0), height: f1(Y0 - Y1) });
+      set(R.fnL, { d: "M" + f1(X(fn)) + " " + Y1 + "V" + Y0 }); set(R.fnT, { x: f1(clamp(X(fn), 70, 290)), y: Y1 - 2 }); R.fnT.textContent = "f_n = " + num(fn) + " Hz";
+      const xf = X(p.fd), yf = cl(r.T);
+      set(R.fL, { d: "M" + f1(xf) + " " + f1(yf) + "V" + Y0 }); set(R.dot, { cx: f1(xf), cy: f1(yf) });
+      const low = yf < Y0 - 30;
+      set(R.dT, { x: f1(low ? xf - 5 : xf - 7), y: f1(low ? yf + 17 : yf - 8), "text-anchor": "end" }); R.dT.textContent = "T = " + num(r.T) + " (" + num(r.dB) + " dB)";
+      R.note.textContent = "schaduw: T > 1 (f < √2·f_n = " + num(r.fiso) + " Hz) · stip: T = 1";
+      R.leg.textContent = "f = " + num(p.fd) + " Hz: T = " + num(r.T) + " · piek " + num(r.Tmax) + " bij f_n"; R.leg.style.fill = stressCol(clamp(r.T, 0, 1.2) / 1.2);
+    },
+  };
+}
+
+function servoFig() {
+  return {
+    build(svg) {
+      const R = {};
+      R.reg = mk("rect", { class: "s-zone s-zone-ok" }, svg);
+      R.ax = mk("path", { class: "s-axis" }, svg); R.av = mkLogAxis(svg, 9, false);
+      R.lb = mk("path", { class: "s-dim s-thin" }, svg); R.lbT = txt(svg, "s-small s-bold", "middle");
+      R.lr = mk("path", { class: "s-ghost" }, svg); R.lrT = txt(svg, "s-small", "middle");
+      R.ln = mk("path", { class: "s-redline" }, svg); R.lnT = txt(svg, "s-small s-bold", "middle");
+      R.rat = mk("path", { class: "s-dim", "marker-end": "url(#calcArr)", "marker-start": "url(#calcArr)" }, svg); R.ratT = txt(svg, "s-val", "middle");
+      R.regT = txt(svg, "s-small", "start");
+      R.b1 = mk("rect", { class: "s-fix" }, svg); R.b2 = mk("rect", { class: "s-bar0" }, svg); R.b1T = txt(svg, "s-small", "start"); R.b2T = txt(svg, "s-small", "start");
+      R.hd = txt(svg, "s-small s-bold", "start"); set(R.hd, { x: 10, y: 163 }); R.hd.textContent = "positiefout onder F_d (vuistregel)";
+      footLines(svg, R, 226);
+      return R;
+    },
+    draw(R, p, r, M) {
+      const X0 = 24, X1 = 300, ya = 124;
+      const lo0 = Math.min(r.fbw, r.fbwReq, p.fn), hi0 = Math.max(r.fbw, r.fbwReq, p.fn);
+      let lx0 = Math.floor(lg(lo0 / 2)), lx1 = Math.ceil(lg(hi0 * 2)); while (lx1 - lx0 < 2) lx1++; lx1 = Math.min(lx1, lx0 + 8);
+      const X = f => X0 + (lg(f) - lx0) / (lx1 - lx0) * (X1 - X0), cx = x => clamp(x, 40, 284);
+      set(R.ax, { d: "M" + X0 + " " + ya + "H" + X1 });
+      setLogAxis(R.av, lx0, lx1, d => X0 + (d - lx0) / (lx1 - lx0) * (X1 - X0), false, ya - 3, ya + 3, ya + 14);
+      set(R.reg, { x: X0, y: 66, width: f1(Math.max(X(r.fbw) - X0, 0)), height: ya - 66 });
+      set(R.regT, { x: X0 + 3, y: 98 }); R.regT.textContent = "regelbereik";
+      const xb = X(r.fbw), xn = X(p.fn), xr = X(r.fbwReq);
+      set(R.lb, { d: "M" + f1(xb) + " 60V" + ya }); set(R.lbT, { x: f1(cx(xb)), y: 56 }); R.lbT.textContent = "f_bw = " + num(r.fbw) + " Hz";
+      set(R.ln, { d: "M" + f1(xn) + " 28V" + ya }); set(R.lnT, { x: f1(cx(xn)), y: 24 }); R.lnT.textContent = "f_n = " + num(p.fn) + " Hz";
+      set(R.lr, { d: "M" + f1(xr) + " 70V" + ya }); set(R.lrT, { x: f1(xr >= xb ? xr + 4 : xr - 4), y: 110, "text-anchor": xr >= xb ? "start" : "end" }); R.lrT.textContent = "nodig: " + num(r.fbwReq) + " Hz";
+      showEl(R.rat, xn - xb > 14); showEl(R.ratT, xn - xb > 14);
+      set(R.rat, { d: arrowPath(xb + 2, 40, xn - 2, 40) }); set(R.ratT, { x: f1((xb + xn) / 2), y: 36 }); R.ratT.textContent = "× " + num(p.div);
+      // fout-balken
+      const mx = Math.max(r.xum, p.xmax) * 1.12, W = 250, x0 = 10, w1 = r.xum / mx * W, w2 = p.xmax / mx * W, col = stressCol(r.xum / p.xmax);
+      set(R.b1, { x: x0, y: 172, width: f1(Math.max(w1, 1)), height: 16 }); R.b1.style.fill = col; R.b1.style.stroke = col;
+      set(R.b2, { x: x0, y: 197, width: f1(Math.max(w2, 1)), height: 16 });
+      set(R.b1T, { x: f1(Math.min(x0 + w1 + 5, 260)), y: 183 }); R.b1T.textContent = num(r.xum) + " µm (F_d/k_servo)";
+      set(R.b2T, { x: f1(Math.min(x0 + w2 + 5, 260)), y: 208 }); R.b2T.textContent = num(p.xmax) + " µm toegestaan";
+      R.note.textContent = "k_servo = m·(2π·f_bw)² = " + num(r.kServo / 1000) + " N/µm · stijgtijd ≈ " + tTxt(r.tRise);
+      R.leg.textContent = r.marg >= 1 ? "voldoet: marge × " + num(r.marg) : "voldoet niet: nodig f_bw " + num(r.fbwReq) + " Hz, f_n " + num(r.fnReq) + " Hz"; R.leg.style.fill = col;
+    },
+  };
+}
+
+function expFig() {
+  return {
+    build(svg) {
+      const R = {};
+      R.wall = mk("rect", { class: "s-fix", width: 8, height: 100, y: 45 }, svg); R.wh = mk("rect", { fill: "url(#calcHatch)", width: 8, height: 100, y: 45 }, svg);
+      R.b2 = mk("rect", { class: "s-bar2", height: 18 }, svg); R.b1 = mk("rect", { class: "s-bar1", height: 18 }, svg);
+      R.g2 = mk("rect", { class: "s-ghostr", height: 18 }, svg); R.g1 = mk("rect", { class: "s-ghostr", height: 18 }, svg);
+      R.jt = mk("path", { class: "s-leaf s-thin" }, svg);
+      R.p0 = mk("path", { class: "s-pt s-pt0" }, svg); R.p1 = mk("path", { class: "s-pt" }, svg);
+      R.dm = mkDim(svg); R.t2 = txt(svg, "s-small", "middle"); R.t1 = txt(svg, "s-small", "middle"); R.tA = txt(svg, "s-small", "middle"); R.tP = txt(svg, "s-small", "middle");
+      R.tB = txt(svg, "s-small", "middle");
+      R.cmp1 = mk("rect", { class: "s-bar1", height: 10, x: 80 }, svg); R.cmp2 = mk("rect", { class: "s-bar2", height: 10, x: 80 }, svg);
+      R.c1T = txt(svg, "s-small", "start"); R.c2T = txt(svg, "s-small", "start"); R.ch = txt(svg, "s-small s-bold", "start"); set(R.ch, { x: 10, y: 165 }); R.ch.textContent = "uitzetting per staaf apart (gelijke schaal)";
+      footLines(svg, R, 226);
+      return R;
+    },
+    draw(R, p, r, M) {
+      const lneg = Math.max(0, p.L1 - p.L2), span = p.L2 + lneg, W = 230, s = W / span, xA = 32 + lneg * s, y2 = 50, y1 = 84;
+      const xB = xA + p.L2 * s, xP = xA + (p.L2 - p.L1) * s;
+      const dmax = Math.max(Math.abs(r.d1), Math.abs(r.d2), 1e-12), ex = Math.max(1, 14 / (dmax / span * W));      // tekening vergroot
+      const e2 = r.d2 / span * W * ex, e1 = r.d1 / span * W * ex;
+      set(R.wall, { x: f1(xA - 8) }); set(R.wh, { x: f1(xA - 16), width: 8 });
+      set(R.g2, { x: f1(xA), y: y2, width: f1(xB - xA) }); set(R.g1, { x: f1(Math.min(xP, xB)), y: y1, width: f1(Math.abs(xB - xP)) });
+      set(R.b2, { x: f1(xA), y: y2, width: f1(Math.max(xB + e2 - xA, 1)) });
+      const xB2 = xB + e2, xP2 = xB2 - (xB - xP) - e1;
+      set(R.b1, { x: f1(Math.min(xP2, xB2)), y: y1, width: f1(Math.max(Math.abs(xB2 - xP2), 1)) });
+      set(R.jt, { d: "M" + f1(xB2) + " " + (y2 + 18) + "V" + y1 });
+      set(R.p0, { d: "M" + f1(xP) + " " + (y1 + 18) + "l-5 10h10z" }); set(R.p1, { d: "M" + f1(xP2) + " " + (y1 + 18) + "l-5 10h10z" });
+      setDim(R.dm, xP, y1 + 52, xP2, y1 + 52, (xP + xP2) / 2, y1 + 66, "ΔP = " + num(r.dP * 1000) + " µm", "middle");
+      const dm = Math.abs(xP2 - xP) > 2; showEl(R.dm.p, dm);
+      set(R.t2, { x: f1((xA + xB) / 2), y: y2 - 5 }); R.t2.textContent = "staaf 2: L₂ = " + num(p.L2) + " mm, α₂ = " + num(r.m2.alpha);
+      set(R.t1, { x: f1(xB - 5), y: y1 - 5, "text-anchor": "end" }); R.t1.textContent = "staaf 1: L₁ = " + num(p.L1) + " mm, α₁ = " + num(r.m1.alpha);
+      set(R.tA, { x: f1(xA), y: 30 }); R.tA.textContent = "A (vast)"; set(R.tP, { x: f1(xP), y: y1 + 40 }); R.tP.textContent = "P";
+      set(R.tB, { x: f1(xB), y: y2 - 5 }); R.tB.textContent = "B";
+      // vergelijking van de uitzetting van beide staven
+      const mx = dmax, w = 170;
+      set(R.cmp1, { y: 176, width: f1(Math.max(Math.abs(r.d1) / mx * w, 1)) }); set(R.cmp2, { y: 192, width: f1(Math.max(Math.abs(r.d2) / mx * w, 1)) });
+      set(R.c1T, { x: 6, y: 185 }); R.c1T.textContent = "ΔL₁"; set(R.c2T, { x: 6, y: 201 }); R.c2T.textContent = "ΔL₂";
+      R.note.textContent = (ex > 1.15 ? "uitzetting × " + num(ex, 2) + " vergroot · " : "") + "ΔL₁ = " + num(r.d1 * 1000) + " µm, ΔL₂ = " + num(r.d2 * 1000) + " µm";
+      R.leg.textContent = "ΔP = " + num(r.dP * 1000) + " µm (" + num(r.dP * 1e6 / Math.max(p.dT, 1e-9)) + " nm/K)"; R.leg.style.fill = "";
+    },
+  };
+}
+
+function tauFig() {
+  return {
+    build(svg) {
+      const R = {};
+      R.top = mk("path", { class: "s-blk" }, svg); R.side = mk("path", { class: "s-blk" }, svg); R.front = mk("path", { class: "s-blk" }, svg);
+      R.dL = txt(svg, "s-small", "middle"); R.dH = txt(svg, "s-small", "end"); R.dB = txt(svg, "s-small", "middle");
+      R.ah = []; for (let i = 0; i < 3; i++) R.ah.push(mkArrow(svg));
+      R.hT = txt(svg, "s-small", "middle");
+      R.cap = txt(svg, "s-small s-bold", "start"); set(R.cap, { x: 196, y: 24 }); R.cap.textContent = "opwarmen (genormeerd)";
+      R.ax = mk("path", { class: "s-axis", d: "M196 36V176H306" }, svg);
+      R.cv = mk("path", { class: "s-curve" }, svg); R.l63 = mk("path", { class: "s-ghost" }, svg); R.t63 = txt(svg, "s-small", "start");
+      R.dot = mk("circle", { class: "s-pivot", r: 4 }, svg); R.nowT = txt(svg, "s-small", "start"); R.xt = txt(svg, "s-small", "end"); set(R.xt, { x: 306, y: 189 });
+      R.y1 = txt(svg, "s-small", "end"); set(R.y1, { x: 193, y: 51 }); R.y1.textContent = "1";
+      footLines(svg, R, 205);
+      return R;
+    },
+    draw(R, p, r, M) {
+      const mx = Math.max(p.L, p.B, p.H), sc = 82 / mx, W = sc * p.L, Hh = sc * p.H, D = sc * p.B * 0.45;
+      const x0 = 22, dx = D * 0.9, dy = -D * 0.6, yb = 120 + Hh / 2, yT = yb - Hh, xr = x0 + W;
+      const fr0 = clamp(r.frac, 0, 1), mixc = (a, k) => "rgb(" + [59 + fr0 * 165, 111 - fr0 * 22, 208 - fr0 * 166].map(v => Math.round(clamp(v + a, 0, 255))).join(",") + ")";
+      set(R.front, { d: "M" + f1(x0) + " " + f1(yT) + "H" + f1(xr) + "V" + f1(yb) + "H" + f1(x0) + "Z" }); R.front.style.fill = mixc(0);
+      set(R.top, { d: "M" + f1(x0) + " " + f1(yT) + "l" + f1(dx) + " " + f1(dy) + "H" + f1(xr + dx) + "L" + f1(xr) + " " + f1(yT) + "Z" }); R.top.style.fill = mixc(30);
+      set(R.side, { d: "M" + f1(xr) + " " + f1(yT) + "l" + f1(dx) + " " + f1(dy) + "V" + f1(yb + dy) + "L" + f1(xr) + " " + f1(yb) + "Z" }); R.side.style.fill = mixc(-35);
+      set(R.dL, { x: f1(x0 + W / 2), y: f1(yb + 13) }); R.dL.textContent = "L = " + num(p.L) + " mm";
+      set(R.dH, { x: f1(x0 - 4), y: f1((yT + yb) / 2 + 3) }); R.dH.textContent = "H = " + num(p.H);
+      set(R.dB, { x: f1(x0 + W / 2 + dx / 2), y: f1(yT + dy - 5) }); R.dB.textContent = "B = " + num(p.B) + " mm";
+      R.ah.forEach((a, i) => { const yy = yT + dy / 2 + (i + 0.5) * Hh / 3; set(a, { d: arrowPath(xr + dx + 30, yy, xr + dx + 6, yy) }); });
+      set(R.hT, { x: f1(xr + dx + 22), y: f1(yb + 13) }); R.hT.textContent = "h";
+      // genormeerde opwarmcurve 0..5τ
+      const X0 = 196, X1 = 306, Y0 = 176, Y1 = 50, N = 5, X = u => X0 + u / N * (X1 - X0), Y = v => Y0 - v * (Y0 - Y1);
+      let d = ""; for (let i = 0; i <= 100; i++) { const u = N * i / 100; d += (i ? "L" : "M") + f1(X(u)) + " " + f1(Y(1 - Math.exp(-u))); }
+      set(R.cv, { d }); set(R.l63, { d: "M" + f1(X(1)) + " " + Y0 + "V" + f1(Y(0.632)) + "H" + X0 });
+      set(R.t63, { x: f1(X(1) + 4), y: Y0 - 5 }); R.t63.textContent = "63 % bij τ = " + tTxt(r.tau);
+      const u = clamp(p.t * 60 / r.tau, 0, N), yu = Y(1 - Math.exp(-u));
+      set(R.dot, { cx: f1(X(u)), cy: f1(yu) });
+      set(R.nowT, { x: f1(u > 3 ? X(u) - 8 : X(u) + 8), y: f1(yu + 16), "text-anchor": u > 3 ? "end" : "start" }); R.nowT.textContent = "t = " + num(p.t) + " min: " + Math.round(r.frac * 100) + " %";
+      R.xt.textContent = "5τ = " + tTxt(5 * r.tau);
+      R.note.textContent = "m = " + num(r.m) + " kg · C = " + num(r.C) + " J/K · A = " + num(r.A * 1e4) + " cm²";
+      R.leg.textContent = "ΔT(t) = " + num(r.dTt) + " K van " + num(r.dTend) + " K · Bi = " + num(r.Bi); R.leg.style.fill = r.Bi > 0.1 ? stressCol(0.9) : "";
+    },
+  };
+}
+Object.assign(FIGS, { hertz: hertzFig(), kc: kcFig(), msd: msdFig(), iso: isoFig(), servo: servoFig(), exp: expFig(), tau: tauFig() });
+
 
 // ---------- sliders: [min, max, logaritmisch] ----------
 const RANGE = {
   L: [5, 200, 1], b: [1, 100, 1], t: [0.02, 2, 1], u: [0.01, 10, 1], d: [0.05, 5, 1], R: [0.1, 30, 1],
   F: [0.01, 1000, 1], m: [0.001, 10, 1], r: [5, 500, 1], Kt: [1, 4, 0], phi: [0, 20, 0],
 };
-function rng(c, i) { if (c.id === "notch" && i.id === "phi") return [0.01, 5, 1]; return RANGE[i.id]; }
+function rng(c, i) { if (i.range) return i.range; if (c.id === "notch" && i.id === "phi") return [0.01, 5, 1]; return RANGE[i.id]; }
 const GROUP = { L: "Geometrie", b: "Geometrie", t: "Geometrie", d: "Geometrie", R: "Geometrie", Kt: "Geometrie", bc: "Geometrie", plate: "Materiaal" };
-const grpOf = i => GROUP[i.id] || "Belasting";
+const grpOf = i => i.grp || GROUP[i.id] || "Belasting";
 function toPos(c, i, v) {
   const g = rng(c, i);
   if (!g) return 0;
@@ -475,10 +1156,15 @@ function params(c) {
 }
 const invalid = (c, p) => c.inputs.filter(i => typeof i.def === "number" &&
   !(isFinite(p[i.id]) && p[i.id] >= i.min && (i.min === 0 || p[i.id] > 0)));
-function matParams() {
-  const m = material(state.mats[state.cur]), sg = state.sigmas[state.cur];
+function matParams(c, p) {
+  c = c || calcOf(state.cur);
+  const sg = state.sigmas[c.id];
+  if (c.lim) return { sigma: sg > 0 ? sg : c.lim.auto(p || state.vals[c.id]) };      // eigen materiaalkeuzes (invoer van type mat)
+  const m = material(state.mats[c.id]);
   return { E: m.E, nu: m.nu, sigma: sg > 0 ? sg : m.sigma, alpha: m.alpha, rho: m.rho };
 }
+const ownMat = c => !!c.noMat || c.inputs.some(i => i.type === "mat");
+const matsOf = c => c.inputs.filter(i => i.type === "mat");
 const fmtv = v => String(+Number(v).toPrecision(3));
 
 // ---------- weergave ----------
@@ -486,7 +1172,7 @@ let REF = null;   // verwijzingen naar de huidige DOM
 function render() {
   state.raf = 0;
   if (!REF) return;
-  const c = calcOf(state.cur), p = params(c), bad = invalid(c, p), M = matParams();
+  const c = calcOf(state.cur), p = params(c), bad = invalid(c, p), M = matParams(c, p);
   c.inputs.forEach(i => { const n = REF.fields[i.id]; if (n && n.type === "number") n.setAttribute("aria-invalid", String(bad.indexOf(i) >= 0)); });
   if (bad.length) {
     REF.warn.innerHTML = '<div class="calc-warn" role="alert">Controleer de invoer: ' + bad.map(i => i.label).join(", ") + ".</div>";
@@ -507,12 +1193,10 @@ function render() {
     cell.u.textContent = x.unit || "";
     cell.box.classList.toggle("bad", !!x.bad);
   });
-  const ks = KEYS[c.id](r), sf = safety(r, M);
-  [ks[0], ks[1], ["Veiligheid", "", isFinite(sf.s) ? "× " + num(sf.s) : "∞"]].forEach((k, n) => {
-    const e = REF.keys[n]; e.v.firstChild.nodeValue = k[2] + (k[1] ? " " : ""); e.u.textContent = k[1];
+  keysOf(c, r, p, M).forEach((k, n) => {
+    const e = REF.keys[n]; e.v.firstChild.nodeValue = k.v + (k.u ? " " : ""); e.u.textContent = k.u;
+    e.sub.textContent = k.sub || ""; e.box.setAttribute("data-status", k.status || "");
   });
-  REF.keys[2].box.setAttribute("data-status", sf.status); REF.keys[2].sub.textContent = sf.sub;
-  REF.keys[0].sub.textContent = ""; REF.keys[1].sub.textContent = "bij σ_toel = " + num(M.sigma) + " MPa";
   FIGS[c.id].draw(REF.fig, p, r, M);
   if (state.open.Formules) renderFormulas(c, p, M, r);
 }
@@ -520,10 +1204,18 @@ function renderFormulas(c, p, M, r) {
   REF.formulas.innerHTML = c.formulas(p, M, r).map(x => '<div class="fm"><div class="fm-h">' + x[0] + '</div><div class="fm-g">' + x[1] + '</div><div class="fm-n"><span class="fm-lab">met jouw getallen</span> ' + x[2] + "</div>" +
     (x[3] ? '<div class="fm-s"><span class="fm-lab">bron</span> ' + x[3] + "</div>" : "") + "</div>").join("");
 }
+// drie kerngetallen: {k: naam, u: eenheid, v: tekst, sub, status}
+function keysOf(c, r, p, M) {
+  if (c.keys) return c.keys(r, p, M);
+  const ks = KEYS[c.id](r), sf = safety(r, M);
+  return [{ k: ks[0][0], u: ks[0][1], v: ks[0][2] }, { k: ks[1][0], u: ks[1][1], v: ks[1][2], sub: "bij σ_toel = " + num(M.sigma) + " MPa" },
+    { k: "Veiligheid", u: "", v: isFinite(sf.s) ? "× " + num(sf.s) : "∞", sub: sf.sub, status: sf.status }];
+}
 const schedule = () => { if (!state.raf) state.raf = requestAnimationFrame(render); };
 
 function inputHtml(c, i, v) {
   if (i.type === "check") return '<label class="chk"><input type="checkbox" data-in="' + i.id + '"' + (v[i.id] ? " checked" : "") + "> " + i.label + "</label>";
+  if (i.type === "mat") return '<label class="fld"><span>' + i.label + '</span><select data-in="' + i.id + '">' + MATERIALS.map(m => '<option value="' + m.id + '"' + (v[i.id] === m.id ? " selected" : "") + ">" + m.naam + "</option>").join("") + "</select></label>";
   if (i.type === "select") return '<label class="fld"><span>' + i.label + '</span><select data-in="' + i.id + '">' + i.options.map(o => '<option value="' + o[0] + '"' + (v[i.id] === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></label>";
   return '<div class="fld"><div class="fld-row"><label for="in_' + i.id + '">' + i.label + '</label><span class="inp"><input id="in_' + i.id + '" type="number" inputmode="decimal" step="any" data-in="' + i.id + '" value="' + v[i.id] + '"><b>' + i.unit + "</b></span></div>" +
     '<input type="range" class="sl" min="0" max="1000" step="1" data-sl="' + i.id + '" aria-label="' + i.label + '" value="' + toPos(c, i, v[i.id]) + '"></div>';
@@ -532,18 +1224,19 @@ const secHtml = (name, body) => '<details class="calc-sec" data-sec="' + name + 
 
 function renderDetail() {
   if (state.raf) { cancelAnimationFrame(state.raf); state.raf = 0; }
-  const c = calcOf(state.cur), v = state.vals[c.id], M0 = matParams();
+  const c = calcOf(state.cur), v = state.vals[c.id], M0 = matParams(c, v), own = ownMat(c);
   const body = { Geometrie: "", Materiaal: "", Belasting: "" };
-  body.Materiaal += '<label class="fld"><span>Materiaal</span><select id="calcMat">' + MATERIALS.map(m => '<option value="' + m.id + '"' + (m.id === state.mats[c.id] ? " selected" : "") + ">" + m.naam + "</option>").join("") + "</select></label>" +
-    '<div class="fld"><div class="fld-row"><label for="calcSigma">Toelaatbare spanning σ_toel</label><span class="inp"><input id="calcSigma" type="number" inputmode="decimal" step="any" min="0" value="' + fmtv(M0.sigma) + '"><b>MPa</b></span></div>' +
-    "</div>" +
-    '<div class="mat-info" id="calcMatInfo"></div><div class="mat-src" id="calcMatSrc"></div>';
-  c.inputs.forEach(i => { body[grpOf(i)] += inputHtml(c, i, v); });
+  if (!own) body.Materiaal += '<label class="fld"><span>Materiaal</span><select id="calcMat">' + MATERIALS.map(m => '<option value="' + m.id + '"' + (m.id === state.mats[c.id] ? " selected" : "") + ">" + m.naam + "</option>").join("") + "</select></label>";
+  else c.inputs.forEach(i => { if (i.type === "mat") body.Materiaal += inputHtml(c, i, v); });
+  if (!own || c.lim) body.Materiaal += '<div class="fld"><div class="fld-row"><label for="calcSigma">' + (c.lim ? c.lim.label : "Toelaatbare spanning σ_toel") + '</label><span class="inp"><input id="calcSigma" type="number" inputmode="decimal" step="any" min="0" value="' + fmtv(M0.sigma) + '"><b>' + (c.lim ? c.lim.unit : "MPa") + "</b></span></div>" +
+    (c.lim ? '<div class="fld-hint">' + c.lim.hint + "</div>" : "") + "</div>";
+  if (!own || matsOf(c).length) body.Materiaal += '<div class="mat-info" id="calcMatInfo"></div><div class="mat-src" id="calcMatSrc"></div>';
+  c.inputs.forEach(i => { if (i.type !== "mat") body[grpOf(i)] += inputHtml(c, i, v); });
   let h = '<div class="calc-head"><div><h2>' + c.name + '</h2><p class="calc-sub">' + c.short + '</p></div><div class="calc-acts"><button type="button" class="calc-reset" id="calcCopy" title="Kopieer een rekenblad (invoer, uitkomsten, formules, bronnen) als tekst">Kopieer</button><button type="button" class="calc-reset" id="calcLink" title="Kopieer een link met deze invoerwaarden">Link</button><button type="button" class="calc-reset" id="calcReset" title="Zet deze calculator terug op de beginwaarden">↺ Reset</button></div></div><div class="calc-actmsg" id="calcActMsg" role="status" aria-live="polite"></div>';
   h += '<div class="calc-grid" id="calcGrid"><div class="calc-keys">' +
     [0, 1, 2].map(n => '<div class="calc-key" data-key="' + n + '"><span class="k"></span><b class="v">0<span class="u"></span></b><span class="s"></span></div>').join("") + "</div>";
   h += '<div class="calc-left"><figure class="calc-fig"><svg id="calcSvg" viewBox="0 0 320 245" role="img" aria-label="Schets met afmetingen"></svg></figure><div id="calcWarn" class="calc-warnbox"></div><dl class="calc-res" id="calcOut"></dl></div>';
-  h += '<div class="calc-right"><div class="calc-inputs">' + secHtml("Geometrie", body.Geometrie) + secHtml("Materiaal", body.Materiaal) + secHtml("Belasting", body.Belasting) + "</div>";
+  h += '<div class="calc-right"><div class="calc-inputs">' + secHtml("Geometrie", body.Geometrie) + (body.Materiaal ? secHtml("Materiaal", body.Materiaal) : "") + secHtml("Belasting", body.Belasting) + "</div>";
   h += '<details class="calc-sec calc-card" data-sec="Formules"' + (state.open.Formules ? " open" : "") + '><summary>Formules</summary><div class="calc-sec-b calc-formulas" id="calcFormulas"></div></details>';
   h += '<details class="calc-sec calc-card" data-sec="Aannames"' + (state.open.Aannames ? " open" : "") + '><summary>Aannames en bron</summary><div class="calc-sec-b"><ul class="calc-assume">' + c.assume.map(a => "<li>" + a + "</li>").join("") + '</ul><p class="calc-src"><span>Bron</span> ' + c.source + "</p></div></details></div></div>";
   $("calcDetail").innerHTML = h;
@@ -563,12 +1256,20 @@ function renderDetail() {
     keys: [0, 1, 2].map(n => { const b = $("calcDetail").querySelector('[data-key="' + n + '"]'); return { box: b, v: b.querySelector(".v"), u: b.querySelector(".v .u"), sub: b.querySelector(".s") }; }),
     fig: FIGS[c.id].build(svg),
   };
-  const kl = KEYS[c.id](o0.r);
-  REF.keys.forEach((k, n) => { k.box.querySelector(".k").textContent = n < 2 ? kl[n][0] : "Veiligheid"; });
+  const kl = keysOf(c, o0.r, defaults(c), M0);
+  REF.keys.forEach((k, n) => { k.box.querySelector(".k").textContent = kl[n].k; });
   updMatInfo();
   render();
 }
 function updMatInfo() {
+  const c = calcOf(state.cur);
+  if (!$("calcMatInfo")) return;
+  if (ownMat(c)) {
+    const v = state.vals[c.id], ms = matsOf(c).map(i => ({ i, m: material(v[i.id]) }));
+    $("calcMatInfo").innerHTML = ms.map(x => "<div><b>" + x.i.label + ":</b> E = " + num(x.m.E / 1000) + " GPa · ν = " + num(x.m.nu) + " · α = " + num(x.m.alpha) + " µm/(m·K) · ρ = " + num(x.m.rho) + " kg/m³ · c = " + num(x.m.c) + " J/(kg·K) · k = " + num(x.m.k) + " W/(m·K) · σ<sub>y</sub> = " + num(x.m.sy) + " MPa</div>").join("");
+    $("calcMatSrc").textContent = "Bron materiaalgegevens: " + ms.map(x => x.m.bron).filter((b, n, a) => a.indexOf(b) === n).join("; ") + ". " + MATERIAL_SOURCE;
+    return;
+  }
   const m = material(state.mats[state.cur]), M = matParams();
   $("calcMatInfo").textContent = "E = " + num(m.E / 1000) + " GPa · ν = " + num(m.nu) + " · α = " + num(m.alpha) + " µm/(m·K) · ρ = " + num(m.rho) + " kg/m³ · σ_toel = " + num(M.sigma) + " MPa (toelaatbaar, ≈ vermoeiingssterkte met veiligheid; pas aan)";
   $("calcMatSrc").textContent = "Bron materiaalgegevens: " + m.bron + ". " + MATERIAL_SOURCE;
@@ -625,8 +1326,13 @@ export function initCalc() {
     const id = t.dataset.in;
     if (!id) return;
     const inp = c.inputs.find(i => i.id === id);
-    const val = inp.type === "check" ? t.checked : inp.type === "select" ? t.value : parseFloat(String(t.value).replace(",", "."));
+    const val = inp.type === "check" ? t.checked : (inp.type === "select" || inp.type === "mat") ? t.value : parseFloat(String(t.value).replace(",", "."));
     state.vals[c.id][id] = val;
+    if (inp.type === "mat") {                 // nieuwe materialen: limiet weer automatisch
+      state.sigmas[c.id] = null;
+      if (c.lim) { $("calcSigma").value = fmtv(matParams(c, state.vals[c.id]).sigma); $("calcSigma").removeAttribute("aria-invalid"); }
+      updMatInfo();
+    }
     if (REF.sliders[id]) REF.sliders[id].value = toPos(c, inp, val);
     render();
   });
@@ -683,8 +1389,8 @@ function linkUrl() {
     const x = v[i.id];
     q.push(i.id + "=" + encodeURIComponent(i.type === "check" ? (x ? "1" : "0") : String(x)));
   });
-  q.push("mat=" + encodeURIComponent(state.mats[c.id]));
-  if (state.sigmas[c.id] > 0) q.push("sig=" + state.sigmas[c.id]);
+  if (!ownMat(c)) q.push("mat=" + encodeURIComponent(state.mats[c.id]));
+  if (state.sigmas[c.id] > 0 && (!c.noMat)) q.push("sig=" + state.sigmas[c.id]);
   return location.href.split("#")[0] + "#" + q.join("&");
 }
 function applyHash() {
@@ -699,6 +1405,7 @@ function applyHash() {
     if (!(i.id in q)) return;
     if (i.type === "check") v[i.id] = q[i.id] === "1";
     else if (i.type === "select") { if (i.options.some(o => o[0] === q[i.id])) v[i.id] = q[i.id]; }
+    else if (i.type === "mat") { if (MATERIALS.some(m => m.id === q[i.id])) v[i.id] = q[i.id]; }
     else { const x = parseFloat(q[i.id]); if (isFinite(x)) v[i.id] = x; }
   });
   if (q.mat && MATERIALS.some(m => m.id === q.mat)) state.mats[c.id] = q.mat;
@@ -710,7 +1417,7 @@ function applyHash() {
 function sheetText() {
   const L = REF && REF.last;
   if (!L) return "";
-  const c = L.c, p = L.p, M = L.M, m = material(state.mats[c.id]), out = [];
+  const c = L.c, p = L.p, M = L.M, m = material(state.mats[c.id]), out = [], own = ownMat(c);
   const ver = (document.querySelector(".brand .ver") || {}).textContent || "";
   out.push("Mechanist rekenblad: " + c.name + " (" + c.short + ")");
   out.push("Datum: " + new Date().toISOString().slice(0, 10) + " · app " + (ver || "onbekende versie"));
@@ -719,10 +1426,12 @@ function sheetText() {
     const x = p[i.id];
     if (i.type === "check") out.push("  " + plain(i.label) + ": " + (x ? "ja" : "nee"));
     else if (i.type === "select") out.push("  " + i.label + ": " + plain(i.options.filter(o => o[0] === x).map(o => o[1])[0] || x));
+    else if (i.type === "mat") { const mm = material(x); out.push("  " + i.label + ": " + mm.naam + " (E = " + num(mm.E / 1000) + " GPa, ν = " + num(mm.nu) + ", α = " + num(mm.alpha) + " µm/(m·K), ρ = " + num(mm.rho) + " kg/m³, c = " + num(mm.c) + " J/(kg·K), k = " + num(mm.k) + " W/(m·K), σ_y = " + num(mm.sy) + " MPa)"); }
     else out.push("  " + i.label + " = " + num(x) + " " + i.unit);
   });
-  out.push("  Materiaal: " + m.naam + " (E = " + num(m.E / 1000) + " GPa, ν = " + num(m.nu) + ", α = " + num(m.alpha) + " µm/(m·K), ρ = " + num(m.rho) + " kg/m³)");
-  out.push("  σ_toel = " + num(M.sigma) + " MPa (toelaatbaar, ≈ vermoeiingssterkte met veiligheid" + (state.sigmas[c.id] > 0 ? "; door gebruiker aangepast" : "") + ")");
+  if (!own) out.push("  Materiaal: " + m.naam + " (E = " + num(m.E / 1000) + " GPa, ν = " + num(m.nu) + ", α = " + num(m.alpha) + " µm/(m·K), ρ = " + num(m.rho) + " kg/m³)");
+  if (c.lim) out.push("  " + c.lim.label + " = " + num(M.sigma) + " " + c.lim.unit + " (" + plain(c.lim.hint) + (state.sigmas[c.id] > 0 ? "; door gebruiker aangepast" : "") + ")");
+  else if (!own) out.push("  σ_toel = " + num(M.sigma) + " MPa (toelaatbaar, ≈ vermoeiingssterkte met veiligheid" + (state.sigmas[c.id] > 0 ? "; door gebruiker aangepast" : "") + ")");
   out.push("", "UITKOMSTEN");
   L.o.out.forEach(x => out.push("  " + x.k + " = " + x.v + (x.unit ? " " + x.unit : "")));
   if (L.o.warn.length) { out.push("", "WAARSCHUWINGEN"); L.o.warn.forEach(w => out.push("  ! " + w)); }
@@ -734,7 +1443,8 @@ function sheetText() {
   });
   out.push("", "AANNAMEN");
   c.assume.forEach(a => out.push("  - " + plain(a)));
-  out.push("", "BRONNEN", "  " + plain(c.source), "  Bron materiaalgegevens: " + m.bron + ". " + MATERIAL_SOURCE);
+  out.push("", "BRONNEN", "  " + plain(c.source));
+  if (!own || matsOf(c).length) out.push("  Bron materiaalgegevens: " + (own ? matsOf(c).map(i => material(p[i.id]).bron).join("; ") : m.bron) + ". " + MATERIAL_SOURCE);
   out.push("", "LINK", "  " + linkUrl());
   return out.join("\n");
 }
