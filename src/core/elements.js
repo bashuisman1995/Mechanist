@@ -1,4 +1,5 @@
 // Elementen van het model: lengtes, aandrijvingen, wrijving, speling (zonder DOM).
+import { isAxial, thermLen } from "./axial.js";
 import { model, sim } from "./state.js";
 
 export const N = id => model.nodes.find(n => n.id === id);
@@ -18,10 +19,10 @@ export function actLen(e, t) {
   return { L: Lm + La * Math.sin(ph), Ld: La * w * Math.cos(ph), Ldd: -La * w * w * Math.sin(ph) };
 }
 export const actuators = () => model.elems.filter(e => e.type === "actuator" && N(e.a) && N(e.b));
-// Een krachtopnemer is in Kinematisch een stijve schakel (de kracht volgt uit de statica); anders een veer.
-export const isBar = e => e.type === "link" || e.type === "actuator" || e.type === "flexure" || (e.type === "loadcell" && model.mode === "kin");
+// Een axiale schakel en een krachtopnemer zijn in Kinematisch een stijve schakel (de kracht volgt uit de statica); anders een veer.
+export const isBar = e => (e.type === "link" && !(isAxial(e) && model.mode !== "kin")) || e.type === "actuator" || e.type === "flexure" || (e.type === "loadcell" && model.mode === "kin");
 export function curLen(e) {
-  if (e.type !== "actuator") return e.len;
+  if (e.type !== "actuator") return thermLen(e);      // schakel: getekende lengte plus thermische rek
   if (sim.lenOv && sim.lenOv.has(e.id)) return sim.lenOv.get(e.id);
   return actLen(e, sim.simT).L;
 }

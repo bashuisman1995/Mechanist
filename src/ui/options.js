@@ -85,6 +85,7 @@ export function initOptions() {
   bindOpt("frfMaxInp", "frfMax", 0);
   document.getElementById("frfIn").addEventListener("change", e => { toT0(); model.frfIn = e.target.value; changed(); });
   bindOpt("cjInp", "cJoint", 0);
+  bindOpt("dTInp", "dT", -1e6);
   bindOpt("durInp", "simDur", 0.05);
   bindOpt("maxInp", "maxT", 0.2);
   bindOpt("dtInp", "dtStep", 0.001);

@@ -1,4 +1,5 @@
 // Dynamica: tijdsintegratie als generator (zonder DOM).
+import { thermLen } from "./axial.js";
 import { contactForce, contactPot } from "./contact.js";
 import { flexLoads, flexPhi, flexPot, flexRest, flexTrace, flexures } from "./flexure.js";
 import { actLen, drivers, gapForce, gapPen, hasFriction, isBar, jointDamper, N, omega } from "./elements.js";
@@ -62,7 +63,7 @@ export function* computeDyn() {
       if (fi.has(e.a)) { const i = fi.get(e.a); row[2 * i] += 2 * dx; row[2 * i + 1] += 2 * dy; }
       if (fi.has(e.b)) { const i = fi.get(e.b); row[2 * i] -= 2 * dx; row[2 * i + 1] -= 2 * dy; }
       const dvx = vP.x - vQ.x, dvy = vP.y - vQ.y;
-      const a = e.type === "actuator" ? actLen(e, t) : { L: e.len, Ld: 0, Ldd: 0 };
+      const a = e.type === "actuator" ? actLen(e, t) : { L: thermLen(e), Ld: 0, Ldd: 0 };
       rows.push(row); phi.push(dx * dx + dy * dy - a.L * a.L);
       gam.push(-2 * (dvx * dvx + dvy * dvy) + 2 * (a.Ld * a.Ld + a.L * a.Ldd));
       phit.push(-2 * a.L * a.Ld); kind.push({ t: "bar", e });

@@ -19,7 +19,7 @@ function physSig() {
     model.nodes.map(n => [n.id, n.x, n.y, n.support, n.dir, n.m, n.ax, n.ay, n.mus, n.muk, n.rj]),
     model.elems, model.gravity, model.simDur, model.dtStep, model.defMass,
     model.durMode, model.cVisc, model.maxT, model.jointDamp, model.cJoint,
-    model.mode, model.frfIn, model.frfMin, model.frfMax, model.fricVs, model.fricVe
+    model.mode, model.frfIn, model.frfMin, model.frfMax, model.fricVs, model.fricVe, model.dT
   ], (k, v) => k === "theta" ? undefined : v);
 }
 

@@ -1,8 +1,9 @@
 // Tekenen van het mechanisme op het canvas.
 import { frame as contactFrame, liveContact } from "../core/contact.js";
+import { isAxial } from "../core/axial.js";
 import { dist, drivers, gapPen, isBar, N } from "../core/elements.js";
 import { flexLivePhi, flexStress } from "../core/flexure.js";
-import { encBars, SENSORS, sensorLive } from "../core/sensors.js";
+import { encBars, loadcellDt, SENSORS, sensorLive } from "../core/sensors.js";
 import { model, sim, ui, view } from "../core/state.js";
 import { fmt } from "./format.js";
 import { ctx, toScr, toWld } from "./view.js";
@@ -183,8 +184,8 @@ function drawLiveForces() {
   }
 
   for (const e of model.elems) {
-    if (!isBar(e) || e.type === "loadcell") continue;
-    const v = sim.sweep.N[e.id] ? sim.sweep.N[e.id][i] : NaN;
+    if ((!isBar(e) && !isAxial(e)) || e.type === "loadcell") continue;
+    const v = sim.sweep.N[e.id] ? sim.sweep.N[e.id][i] : isAxial(e) && sim.sweep.EF && sim.sweep.EF[e.id] ? sim.sweep.EF[e.id][i] : NaN;
     if (!isFinite(v)) continue;
     const A = toScr(N(e.a)), B = toScr(N(e.b));
     label((A.x + B.x) / 2, (A.y + B.y) / 2 + 13,
@@ -212,12 +213,17 @@ function drawLink(e) {
     ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
     ctx.globalAlpha = 1;
   }
-  ctx.strokeStyle = col; ctx.lineWidth = 5;
+  const ax = isAxial(e);
+  ctx.strokeStyle = col; ctx.lineWidth = ax ? 3.4 : 5;          // axiale staven zijn iets dunner
   ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
-  ctx.strokeStyle = ui.C.ground; ctx.lineWidth = 1.4;
+  ctx.strokeStyle = ui.C.ground; ctx.lineWidth = ax ? 1.1 : 1.4;
   ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
 
   if (e.driver) drawCrankArrow(A, B);
+  if (ax) {                                                       // klein "EA"-label; oranje als de tijdstap te groot is voor de stijfheid
+    const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2, bad = model.mode === "dyn" && (model.dtStep || 0.2) / 1000 > loadcellDt(e, model.defMass);
+    label(mx, my + 26, "EA" + (bad ? " \u26a0 dt" : ""), bad ? ui.C.driver : ui.C.spring, false, 2);
+  }
 
   // the length label steps aside for the force overlay
   if (!(model.showForces && sim.sweep && sim.sweep.stat)) {

@@ -1,4 +1,5 @@
 // Meetkanalen (grootheden per knoop en element) (zonder DOM).
+import { axialA, axialK, isAxial } from "./axial.js";
 import { E, N } from "./elements.js";
 import { flexK, flexStress } from "./flexure.js";
 import { sensorChannels, sensorVal } from "./sensors.js";
@@ -27,7 +28,12 @@ export function channels() {
                  al: "Rn_" + n.name, g: "Punten", o, obj: n.id });
   }
   for (const e of model.elems) {
-    if (e.type === "link") {
+    if (isAxial(e)) {           // axiale staaf: kracht N, rek ΔL en spanning σ (in alle modi; Kinematisch: stijf, kracht uit de statica)
+      const o = "Axiale stang " + pair(e), p = pair(e);
+      out.push({ key: "s|" + e.id + "|F", lab: "axiale stang " + p + " · N", q: "N", u: "N", al: "N_" + p, g: "Stangen", o, obj: e.id, frf: true });
+      out.push({ key: "w|" + e.id + "|dL", lab: "axiale stang " + p + " · ΔL", q: "ΔL", u: "µm", al: "dL_" + p, g: "Stangen", o, obj: e.id, frf: true });
+      out.push({ key: "w|" + e.id + "|sig", lab: "axiale stang " + p + " · σ", q: "σ", u: "MPa", al: "sigA_" + p, g: "Stangen", o, obj: e.id, frf: true });
+    } else if (e.type === "link") {
       const o = (e.driver ? "Kruk " : "Stang ") + pair(e);
       out.push({ key: "l|" + e.id + "|N", lab: (e.driver ? "kruk " : "stang ") + pair(e) + " · N", q: "N", u: "N",
                  al: "N_" + pair(e), g: "Stangen", o, obj: e.id });
@@ -82,6 +88,11 @@ export function chVal(S, key, i) {
   if (t === "l") return S.N[id] ? S.N[id][i] : NaN;
   if (t === "s") return S.EF[id] ? S.EF[id][i] : NaN;
   if (t === "m") { const e = E(id); return e ? sensorVal(S, e, k, i) : NaN; }
+  if (t === "w") {            // axiale staaf: ΔL = N/k in µm, σ = N/A in MPa
+    const e = E(id), F = S.EF && S.EF[id] ? S.EF[id][i] : NaN;
+    if (!e || !isAxial(e)) return NaN;
+    return k === "dL" ? F / axialK(e) * 1000 : F / axialA(e);
+  }
   if (t === "c") {
     const c = S.C && S.C[id] ? S.C[id][i] : null;
     return c ? c[k] : NaN;

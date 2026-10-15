@@ -99,6 +99,15 @@ NODE_PATH=<map met playwright>/node_modules node tests/e2e/run.mjs   # browserte
   Elke sensor maakt zijn kanalen zelf aan (keuzelijst, groep "Sensoren" bovenaan) en toont live een label op de tekening.
   Massa en stijfheid doen mee in Dynamisch, Evenwicht en FRF; Kinematisch: krachtopnemer als stijve schakel, kracht uit de
   statica. Voorbeeld: Loadcell in de krachtweg (14,5 Hz tegen 15,9 Hz zonder opnemer).
+- **Axiale staven** (Eigenschappen van een schakel, Stijfheid: *Axiaal*): in plaats van een stijve randvoorwaarde een veer
+  k = E·A/L langs de staaf, met materiaal en doorsnede (oppervlak A of profiel b×h). In Dynamisch, Evenwicht en FRF werkt hij als stijve
+  veer; in Kinematisch blijft hij stijf maar N, ΔL (µm) en σ (MPa) worden getoond (kanalen onder Stangen). De staaf is iets dunner getekend
+  met een klein "EA"-label, dat oranje wordt (en de inspector waarschuwt) als de tijdstap boven 2,8/ω ligt.
+- **Temperatuur** (Instellingen → Temperatuur, en per staaf een eigen ΔT): elke schakel (standaard staal, materiaal kies je bij Eigenschappen)
+  krijgt de lengte L·(1 + α·ΔT). Kinematisch rekent het mechanisme opnieuw en het Resultaat toont de *thermische verschuiving* van een gekozen
+  punt (Δx, Δy in µm) met een staafgrafiek van ∂x/∂L·α·L·ΔT per staaf, analytisch uit de Jacobiaan (J·dq = dL). Bij axiale staven in een
+  overbepaalde constructie geeft Evenwicht de thermische spanning, N = EA·(ΔL_geom − α·L·ΔT)/L (ingeklemd: N = −E·A·α·ΔT). Voorbeelden:
+  Thermische drift van een meetarm, Thermische spanning in een ingeklemde staaf.
 - **Bewerken op t = 0:** buiten t = 0 kun je alleen kijken; een balk en de
   oranje knop brengen je terug naar t = 0 (of druk op Home).
 - **Metingen:** kies grootheden in een compacte tabel (één regel per onderdeel),
@@ -159,7 +168,7 @@ src/index.html    opmaak
 src/style.css     vormgeving, licht en donker thema
 src/main.js       startpunt
 src/core/         rekenkern: state, linalg, elements, kinematics, dynamics,
-                  frf, channels, formula, contact, flexure, sensors
+                  frf, channels, formula, contact, flexure, sensors, axial, thermal
 src/ui/           tekenen, inspector, grafieken, metingen, afspelen, bestanden, ...
 tools/build.py    bundelt met esbuild en schrijft index.html
 tests/e2e/        browsertests tegen gecontroleerde waarden

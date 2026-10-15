@@ -9,6 +9,7 @@
 //   Hoekencoder:              hoek in een scharnier tussen twee schakels (of schakel en grond), met counts/omwenteling.
 //   Versnellingsopnemer:      massa m_s op een punt (telt mee in dynamica en FRF) en meet de versnelling langs een richting.
 // Waarden zijn relatief ten opzichte van de getekende stand (beeld 0). Eenheden: mm, N, kg; uitvoer in µm, °, µrad, m/s², g.
+import { axialK, isAxial, thermLen } from "./axial.js";
 import { E, N } from "./elements.js";
 import { model, sim, ui } from "./state.js";
 
@@ -26,9 +27,9 @@ const rad = Math.PI / 180;
 const wrap = x => x - 2 * Math.PI * Math.round(x / (2 * Math.PI));
 
 /* ---- veer-achtige elementen: een krachtopnemer is een stijve veer met rustlengte = getekende lengte ---- */
-export const springLike = e => e.type === "spring" || e.type === "loadcell";
-export const springK = e => e.type === "loadcell" ? Math.max(1e-6, e.ks > 0 ? e.ks : KS_DEFAULT) : e.k;
-export const springL0 = e => e.type === "loadcell" ? e.len : e.L0;
+export const springLike = e => e.type === "spring" || e.type === "loadcell" || isAxial(e);     // axiale schakel: k = E·A/L, rustlengte met thermische rek
+export const springK = e => isAxial(e) ? axialK(e) : e.type === "loadcell" ? Math.max(1e-6, e.ks > 0 ? e.ks : KS_DEFAULT) : e.k;
+export const springL0 = e => isAxial(e) ? thermLen(e) : e.type === "loadcell" ? e.len : e.L0;
 
 // serie van een stijfheid k en de krachtopnemer k_s; en de verschuiving van de eigenfrequentie door extra massa m_s op massa m
 export const seriesK = (k, ks) => k > 0 && ks > 0 ? 1 / (1 / k + 1 / ks) : 0;
@@ -151,7 +152,7 @@ export function sensorChannels() {
   return out;
 }
 
-// aanbevolen maximale tijdstap (s) voor een krachtopnemer in Dynamica: RK4 is stabiel tot ongeveer 2,8/ω
+// aanbevolen maximale tijdstap (s) voor een krachtopnemer of axiale staaf in Dynamica: RK4 is stabiel tot ongeveer 2,8/ω
 export function loadcellDt(e, defMass) {
   const A = N(e.a), B = N(e.b); if (!A || !B) return Infinity;
   const mOf = n => (n.support === "pin" ? Infinity : (n.m > 0 ? n.m : defMass || 0.1) + sensorMass(n.id));

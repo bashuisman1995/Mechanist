@@ -365,6 +365,19 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; }
 }
 .tally b { color: var(--ink-2); font-weight: 500; font-family: "IBM Plex Mono", ui-monospace, monospace; }
 
+.thermbox { margin-top: 10px; padding: 9px 10px; border-radius: 6px; background: var(--panel-2); }
+.thermbox[hidden] { display: none; }
+.thermbox h2 { margin: 0 0 6px; font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.thres { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; margin: 4px 0 6px; line-height: 1.45; }
+.thres b { color: var(--ink); font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 500; }
+.thbad { color: var(--driver); font-weight: 600; }
+.thsvg { width: 100%; height: auto; display: block; }
+.thsvg text { fill: var(--ink-2); font-size: 9.5px; font-family: "IBM Plex Mono", ui-monospace, monospace; }
+.thsvg .thn { fill: var(--ink); font-weight: 600; }
+.thleg { font-size: 11px; color: var(--ink-3); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 2px; }
+.thleg i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; }
+.result .thermbox { grid-column: 1 / -1; }
+
 .tabs { display: flex; border-bottom: 1px solid var(--line); background: var(--panel); }
 .tabs button {
   flex: 1; border: none; background: transparent; cursor: pointer; padding: 9px 6px;

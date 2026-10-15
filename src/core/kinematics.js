@@ -1,4 +1,5 @@
 // Kinematica: randvoorwaarden, relaxatie, sweep, krachten, beweeglijkheid (zonder DOM).
+import { isAxial, thermalActive } from "./axial.js";
 import { contactForce } from "./contact.js";
 import { flexRest, flexTrace } from "./flexure.js";
 import { sensorMass } from "./sensors.js";
@@ -192,7 +193,7 @@ function kinAt() {
 export function computeSweep() {
   sim.sweep = null;
   const ds = drivers(), as = actuators();
-  if (!ds.length && !as.length) return;
+  if (!ds.length && !as.length && !thermalActive()) return;      // zonder aandrijving alleen een statische oplossing bij axiale staven of ΔT
   if (mobility().dofDriven !== 0) return;
   if (ds.some(d => !N(d.a) || !N(d.b) || N(d.a).support !== "pin")) return;
 
@@ -212,7 +213,7 @@ export function computeSweep() {
   }
   for (const e of model.elems) {
     if (isBar(e)) S.N[e.id] = new Array(361);
-    if (e.type === "spring" || e.type === "damper" || e.type === "gap" || e.type === "contact" || e.type === "loadcell") S.EF[e.id] = new Array(361);
+    if (e.type === "spring" || e.type === "damper" || e.type === "gap" || e.type === "contact" || e.type === "loadcell" || isAxial(e)) S.EF[e.id] = new Array(361);
   }
 
   let Rmax = 0, Nmax = 0;
@@ -370,7 +371,7 @@ function forcesAt(vel, acc) {
 
   const out = { N: {}, EF, R: {}, T: {} };
   for (const e of links) if (!e.driver) out.N[e.id] = x[cL.get(e.id)];
-  for (const e of links) if (e.type === "loadcell") EF[e.id] = out.N[e.id];       // krachtopnemer: kracht uit de statica
+  for (const e of links) if (e.type === "loadcell" || isAxial(e)) EF[e.id] = out.N[e.id];       // krachtopnemer, axiale staaf: kracht uit de statica
   for (const n of pins) out.R[n.id] = { x: x[cP.get(n.id)], y: x[cP.get(n.id) + 1] };
   for (const n of slis) {
     const th = n.dir * Math.PI / 180, Rn = x[cS.get(n.id)];

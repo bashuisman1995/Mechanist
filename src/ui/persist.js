@@ -23,7 +23,7 @@ export function save() {
       durMode: model.durMode, cVisc: model.cVisc, maxT: model.maxT,
       jointDamp: model.jointDamp, cJoint: model.cJoint,
       frfIn: model.frfIn, frfMin: model.frfMin, frfMax: model.frfMax, name: model.name,
-      fricVs: model.fricVs, fricVe: model.fricVe,
+      fricVs: model.fricVs, fricVe: model.fricVe, dT: model.dT, thermNode: model.thermNode,
       edited: ui.userEdited, uid: sim.uid, nameCounter: ui.nameCounter
     }));
   } catch (_) {}
@@ -61,6 +61,7 @@ function load(key) {
     model.cJoint = d.cJoint !== undefined ? d.cJoint : 0.05;
     model.frfIn = d.frfIn || ""; model.frfMin = d.frfMin || 0; model.frfMax = d.frfMax || 0;
     model.fricVs = d.fricVs || 5; model.fricVe = d.fricVe || 2;
+    model.dT = d.dT || 0; model.thermNode = d.thermNode || "";
     setModeUI(d.mode === "dyn" || d.mode === "frf" ? d.mode : "kin");
     for (const e of model.elems) if (e.driver && e.theta0 === undefined) e.theta0 = e.theta || 0;
     sim.uid = d.uid || 1; ui.nameCounter = d.nameCounter || 0;
@@ -78,7 +79,7 @@ function load(key) {
    ============================================================ */
 const DOC_KEYS = ["nodes", "elems", "series", "mode", "gravity", "showForces",
                   "simDur", "dtStep", "defMass", "xAxis", "grid", "snap", "rigidDrag",
-                  "autoSolve", "durMode", "cVisc", "maxT", "jointDamp", "cJoint", "frfIn", "frfMin", "frfMax", "name", "fricVs", "fricVe"];
+                  "autoSolve", "durMode", "cVisc", "maxT", "jointDamp", "cJoint", "frfIn", "frfMin", "frfMax", "name", "fricVs", "fricVe", "dT", "thermNode"];
 export function doc() {
   const o = {};
   for (const k of DOC_KEYS) o[k] = model[k];

@@ -13,6 +13,7 @@ export const model = {
   railSlim: false, drawerOpen: true, drawerH: 232, tab: "props",
   autoSolve: false, durMode: "fixed", cVisc: 0, maxT: 30,
   jointDamp: false, cJoint: 0.05, frfIn: "", frfMin: 0, frfMax: 0, fricVs: 5, fricVe: 2,
+  dT: 0, thermNode: "",     // temperatuurverschil (K) voor alle staven en het punt waarvan we de thermische verschuiving tonen
   name: "Naamloos"
 };
 

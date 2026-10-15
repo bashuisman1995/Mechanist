@@ -1,12 +1,27 @@
 // Tabblad "Hoe rekent dit?": formules, symbolen en "met jouw getallen" voor de huidige modus.
 // Alleen HTML-strings (sub/sup, CSS-breuken); herberekent alleen als de invoer veranderd is.
 import { frame as cFrame, hertz, liveContact, mat as material } from "../core/contact.js";
+import { alphaOf, axialA, axialE, axialK, dTOf, isAxial, isThermal, matOf, thermDL, thermLen } from "../core/axial.js";
 import { actLen, E, N, curLen, isBar } from "../core/elements.js";
 import { flexI, flexK, flexLivePhi, flexMat, flexStress, FLEX_KINDS, GAMMA, KTHETA } from "../core/flexure.js";
 import { mobility } from "../core/kinematics.js";
 import { encRes, loadcellDt, sensorLive, sensorMass, springK } from "../core/sensors.js";
+import { thermalNode, thermalShift } from "../core/thermal.js";
 import { model, sim, ui } from "../core/state.js";
 
+// Bronnen: literatuur, geen bestandsnamen
+const REF = {
+  nik: "Nikravesh, <i>Computer-Aided Analysis of Mechanical Systems</i> (Prentice Hall, 1988)",
+  baum: "Baumgarte, <i>Stabilization of constraints and integrals of motion in dynamical systems</i>, Comput. Methods Appl. Mech. Eng. 1 (1972) 1\u201316",
+  ewins: "Ewins, <i>Modal Testing: Theory, Practice and Application</i> (2e druk, Research Studies Press, 2000)",
+  john: "Johnson, <i>Contact Mechanics</i> (Cambridge University Press, 1985)",
+  howell: "Howell, <i>Compliant Mechanisms</i> (Wiley, 2001)",
+  olsson: "Olsson, \u00c5str\u00f6m, Canudas de Wit, G\u00e4fvert, Lischinsky, <i>Friction models and friction compensation</i>, Eur. J. Control 4 (1998) 176\u2013195",
+  soem: "Soemers, <i>Design Principles for Precision Mechanisms</i> (T-Pointprint, 2010)",
+  slocum: "Slocum, <i>Precision Machine Design</i> (Prentice Hall, 1992)",
+  hunt: "Hunt &amp; Crossley, <i>Coefficient of restitution interpreted as damping in vibroimpact</i>, J. Appl. Mech. 42 (1975) 440\u2013445",
+  paros: "Paros &amp; Weisbord, <i>How to design flexure hinges</i>, Machine Design 37 (1965) 151\u2013156"
+};
 const BA = 20, BB = 20;          // Baumgarte-constanten, gelijk aan dynamics.js (1/s)
 const VTOL = 0.5, ATOL = 50, CALM = 0.1;   // evenwichtscriteria uit dynamics.js (mm/s, mm/s², s)
 
@@ -109,7 +124,7 @@ function kinBlock() {
     ],
     live,
     ass: ["Stangen zijn stijf en massaloos; massa zit in de punten.", "Geen tijdstappen: elke stand volgt uit de vorige met de kleinste verplaatsing.", "Krachten alleen als het stelsel vierkant is (DOF = 0 met aandrijving)."],
-    src: "src/core/kinematics.js (relax, kinAt, forcesAt, mobility)"
+    src: REF.nik + " (randvoorwaarden, Jacobiaan, positie-, snelheids- en versnellingsanalyse, statica van mechanismen)"
   });
 }
 
@@ -155,7 +170,7 @@ function dynBlocks() {
     ],
     sym: [
       [c("M"), "massamatrix (diagonaal, kg·mm → N via 10<sup>−3</sup>)"],
-      [c("Q"), "uitwendige krachten: veer, demper, speling, kracht, zwaartekracht, wrijving, demping"],
+      [c("Q"), "uitwendige krachten: veer, axiale staaf (EA/L), demper, speling, kracht, zwaartekracht, wrijving, demping"],
       [c("Φ<sub>q</sub>"), "Jacobiaan van de randvoorwaarden"],
       [c("λ"), "Lagrange-multiplicatoren: de krachten die de verbindingen leveren"],
       [c("γ"), "kwadratische snelheidsterm uit de tweede afgeleide van Φ"],
@@ -163,7 +178,7 @@ function dynBlocks() {
     ],
     live,
     ass: ["Stangen zijn stijf; massa zit in de punten (standaardmassa als er geen is ingevuld).", "Wrijving: Stribeck-vorm met echt plakken onder de snelheidsdrempel.", "Draait ook met vrijheidsgraden over: veren en dempers sturen dan de beweging."],
-    src: "src/core/dynamics.js (computeDyn: jac, kkt, rk4, project)"
+    src: REF.nik + " (bewegingsvergelijkingen met Lagrange-multiplicatoren, KKT-stelsel); " + REF.baum
   })];
   if (eq) {
     out.push(block({
@@ -179,7 +194,7 @@ function dynBlocks() {
         kv("Resultaat", sw && sw.settled ? "tot rust na " + num(sw.settled, 3) + " s" : sw ? "niet tot rust binnen de maximale tijd" : "nog niet doorgerekend")
       ],
       ass: ["Daarna wordt de beweging vanaf het begin opnieuw opgeslagen tot die tijd.", "Dempers of wrijving zijn nodig om echt tot rust te komen."],
-      src: "src/core/dynamics.js (durMode = equil)"
+      src: REF.nik + " (evenwicht: " + c("q̇ = 0, q̈ = 0") + ")"
     }));
   }
   return out;
@@ -223,7 +238,74 @@ function frfBlock() {
     ],
     live,
     ass: ["Lineair rond één evenwicht: alleen kleine uitslagen.", "Wrijving en gesloten speling-aanslagen tellen alleen als stijfheid/demping mee als de aanslag raakt.", "Demping: demper, aanslag, demping per punt en scharnierdemping."],
-    src: "src/core/frf.js (computeFrf)"
+    src: REF.ewins + " (modale analyse, frequentieresponsie, modale demping)"
+  });
+}
+
+/* ---------- axiale staven en temperatuur ---------- */
+function axialBlock(e, L) {
+  const k = axialK(e), A = axialA(e), E_ = axialE(e), S = sim.sweep, i = Math.round(ui.frame);
+  const F = S && !S.frf && S.EF && S.EF[e.id] ? S.EF[e.id][i] : NaN;
+  const nm = esc(name(e.a) + name(e.b)), m = matOf(e);
+  const dt = loadcellDt(e, model.defMass);
+  const live = [kv("Materiaal", esc(m.naam) + ", E = " + num(E_) + " MPa"), kv("A", num(A) + " mm²" + (e.sect === "bh" ? " (" + num(e.sb) + " × " + num(e.sh) + " mm)" : "")),
+    kv("L", num(e.len) + " mm"), kv("k = E·A/L", num(k) + " N/mm = " + num(k / 1000) + " N/µm"),
+    kv("L<sub>0</sub>(ΔT)", num(thermLen(e)) + " mm (ΔT = " + num(dTOf(e)) + " K)"),
+    kv("L nu", num(L) + " mm"), kv("N", isFinite(F) ? num(F) + " N" : "–"),
+    kv("ΔL = N/k", isFinite(F) ? num(F / k * 1000) + " µm" : "–"), kv("σ = N/A", isFinite(F) ? num(F / A) + " MPa" : "–"),
+    kv("Klem: N = −E·A·α·ΔT", num(-E_ * A * alphaOf(e) * dTOf(e)) + " N"),
+    kv("Max. tijdstap Dynamisch", isFinite(dt) ? num(dt * 1000) + " ms (nu " + num((model.dtStep || 0.2)) + " ms)" : "–")];
+  return block({
+    title: "Axiale stang " + nm + " (EA/L)",
+    eq: [c("k = E·A / L") + "  (veer langs de staaf)",
+         c("N = k·(L − L<sub>0</sub>(1 + α·ΔT))") + "  (trek positief)",
+         c("ΔL = N/k") + ", " + c("σ = N/A"),
+         "Ingeklemd tussen twee vaste punten (L = L<sub>0</sub>): " + c("N = −E·A·α·ΔT") + " (druk bij verwarmen)",
+         "Stabiele tijdstap RK4: " + c("h ≲ 2,8/ω") + ", " + c("ω = √(k/m<sub>eff</sub>)")],
+    sym: [[c("E, A"), "elasticiteitsmodulus (MPa) en doorsnede (mm²; oppervlak of b × h)"], [c("L<sub>0</sub>"), "getekende lengte = lengte zonder kracht bij ΔT = 0"],
+          [c("α, ΔT"), "thermische uitzettingscoëfficiënt (1/K) en temperatuurverschil (K)"], [c("m<sub>eff</sub>"), "gereduceerde massa van de twee punten"]],
+    live,
+    ass: ["Alleen axiale stijfheid: geen buiging, knik of eigen massa van de staaf (massa zit in de punten).",
+          "Dynamisch, Evenwicht en FRF: een veer met rustlengte L<sub>0</sub>(1 + α·ΔT). Kinematisch: stijve staaf; N, ΔL en σ komen uit de statica (alleen bepaalde constructies).",
+          "Een stijve staaf vraagt een kleine tijdstap; boven 2,8/ω wordt de integratie onstabiel (waarschuwing in de inspector en bij het EA-label)."],
+    src: REF.soem + "; " + REF.slocum + " (axiale stijfheid en thermische uitzetting)"
+  });
+}
+function thermBlock(e, L) {
+  if (!isThermal(e)) return "";
+  const m = matOf(e), dT = dTOf(e), nm = esc(name(e.a) + name(e.b));
+  if (!dT && !isAxial(e) && typeof e.dT !== "number") return "";
+  return block({
+    title: "Thermische rek van stang " + nm,
+    eq: [c("ΔL = α·L·ΔT"), c("L(ΔT) = L<sub>0</sub>·(1 + α·ΔT)") + "  : de randvoorwaarde " + c("|p − q| = L(ΔT)") + " gebruikt de nieuwe lengte"],
+    sym: [[c("α"), "lineaire uitzettingscoëfficiënt van het materiaal, µm/(m·K)"], [c("ΔT"), "temperatuurverschil in K (model, of eigen waarde van de staaf)"],
+          [c("L<sub>0</sub>"), "getekende lengte"]],
+    live: [kv("Materiaal", esc(m.naam)), kv("α", num(m.alpha) + " µm/(m·K)"), kv("ΔT", num(dT) + " K" + (typeof e.dT === "number" ? " (eigen)" : " (model)")),
+           kv("L<sub>0</sub>", num(e.len) + " mm"), kv("ΔL", num(thermDL(e) * 1000) + " µm"), kv("L(ΔT)", num(thermLen(e)) + " mm")],
+    ass: ["Uniforme temperatuur over de staaf; \u03b1 constant.", "Eén richting: temperatuur verandert de mechanica, de mechanica verwarmt niet terug.", "Krukken rekken niet mee."],
+    src: REF.soem + "; " + REF.slocum + " (thermische uitzetting, athermisch ontwerp)"
+  });
+}
+function shiftBlock() {
+  const nd = thermalNode();
+  if (!nd || !model.elems.some(e => isThermal(e) && dTOf(e) !== 0)) return "";
+  const r = thermalShift(nd.id);
+  const live = [kv("Punt", esc(nd.name)), kv("ΔT", num(model.dT || 0) + " K"), kv("Status", r.ok ? "bepaald" : "niet eenduidig")];
+  if (r.ok) {
+    live.push(kv("Δx, Δy", num(r.dx * 1000) + ", " + num(r.dy * 1000) + " µm"));
+    r.parts.forEach(p => live.push(kv("Staaf " + esc(name(p.e.a) + name(p.e.b)), "∂x/∂L = " + num(p.sx) + ", ∂y/∂L = " + num(p.sy) + "; bijdrage " + num(p.cx * 1000) + ", " + num(p.cy * 1000) + " µm")));
+  }
+  return block({
+    title: "Thermische verschuiving van punt " + esc(nd.name),
+    eq: [c("J·dq = −(∂Φ/∂L<sub>i</sub>)·dL<sub>i</sub> = dL<sub>i</sub>") + " per staaf i (met " + c("Φ<sub>i</sub> = |p − q| − L<sub>i</sub>") + ")",
+         c("s<sub>i</sub> = ∂q/∂L<sub>i</sub>") + " : oplossing van " + c("J·s<sub>i</sub> = e<sub>i</sub>"),
+         c("Δq = Σ s<sub>i</sub>·α<sub>i</sub>·L<sub>i</sub>·ΔT<sub>i</sub>"),
+         "Overbepaald met axiale staven: " + c("N = EA·(ΔL<sub>geom</sub> − α·L·ΔT)/L") + " (Evenwicht)"],
+    sym: [[c("J"), "Jacobiaan ∂Φ/∂q van de randvoorwaarden"], [c("s<sub>i</sub>"), "gevoeligheid van de puntverplaatsing voor de lengte van staaf i (dimensieloos)"],
+          [c("e<sub>i</sub>"), "eenheidsvector op de rij van staaf i"]],
+    live,
+    ass: ["Eerste orde: gelineariseerd rond de stand op het scherm.", "Krukken staan vast op hun hoek, actuatoren op hun huidige lengte.", "Alleen bepaalde mechanismen (vrijheidsgraden = 0): anders is de verschuiving niet eenduidig."],
+    src: REF.nik + " (gevoeligheid via de Jacobiaan); " + REF.soem + "; " + REF.slocum
   });
 }
 
@@ -243,7 +325,7 @@ function selBlock() {
       live: [kv("m", num(dm) + " kg" + (n.m > 0 ? "" : " (standaard)") + (sm > 0 ? " incl. " + num(sm) + " kg sensor" : "")),
              kv("m·g", num(dm * 9.81) + " N" + (model.gravity ? "" : " (zwaartekracht uit)")),
              kv("Steun", n.support === "pin" ? "scharnier (vast)" : n.support === "slider" ? "glijder, hoek " + num(n.dir) + "°" : "vrij")],
-      src: "src/core/dynamics.js (loads, mA)"
+      src: REF.nik + " (Newton\u2013Euler, massa en zwaartekracht)"
     }));
     if (n.mus > 0 || n.muk > 0) {
       const vS = model.fricVs || 5, ve = model.fricVe || 2, r = n.rj > 0 ? n.rj : 5;
@@ -261,7 +343,7 @@ function selBlock() {
         live: [kv("μ<sub>s</sub> / μ<sub>k</sub>", num(n.mus || 0) + " / " + num(n.muk || 0)),
                kv("v<sub>S</sub>, v<sub>ε</sub>", num(vS) + ", " + num(ve) + " mm/s"), kv("r", num(r) + " mm")],
         ass: ["Een door de klok gedraaide kruk kan niet plakken.", "In de kinematische modus volgt de wrijving uit dezelfde formule."],
-        src: "src/core/elements.js (frictionLoads), src/core/dynamics.js (contacts)"
+        src: REF.olsson + " (Stribeck-wrijving, stilstand en plakken)"
       }));
     }
     if (model.jointDamp) {
@@ -270,7 +352,7 @@ function selBlock() {
         eq: [c("τ = −c·Δω") + " tussen elk paar lichamen in het punt", "Moment τ op een stang wordt een krachtenkoppel op zijn uiteinden: " + c("F = τ/L²")],
         sym: [[c("c"), "dempingsconstante in N·m·s"], [c("Δω"), "relatieve hoeksnelheid van de twee lichamen"]],
         live: [kv("c", num(model.cJoint) + " N·m·s")],
-        src: "src/core/elements.js (jointDamper)"
+        src: REF.nik + " (krachtelementen in scharnieren)"
       }));
     }
     return parts.join("");
@@ -297,7 +379,7 @@ function selBlock() {
         ass: ["Alleen axiale stijfheid; geen dwarsstijfheid, geen demping en geen niet-lineariteit.",
               "Kinematisch: stijve schakel, de kracht komt uit de statica. Dynamisch, Evenwicht en FRF: veer met rustlengte = getekende lengte.",
               "Een stijve opnemer (hoge k<sub>s</sub>) vraagt in Dynamisch een kleine tijdstap."],
-        src: "src/core/sensors.js, src/core/dynamics.js (loads), src/core/frf.js (V)"
+        src: REF.slocum + " (stijfheden in serie, krachtopnemers); " + REF.soem
       });
     }
     case "dsens": {
@@ -310,7 +392,7 @@ function selBlock() {
         live: [kv("Richting", num(e.ang || 0) + "°"), kv("Bereik", "±" + num(e.range) + " µm"), kv("Resolutie", num(e.res) + " µm"),
                kv("x", live ? num(live.x) + " µm" : "–"), kv("Status", live ? (live.oor ? "buiten bereik" : "binnen bereik") : "–")],
         ass: ["Geen stijfheid of massa: de sensor verandert het systeem niet.", "Relatief ten opzichte van de getekende stand (beeld 0)."],
-        src: "src/core/sensors.js (dsensDisp)"
+        src: REF.slocum + " (sensoren, resolutie en meetbereik)"
       });
     }
     case "encoder": {
@@ -323,7 +405,7 @@ function selBlock() {
         live: [kv("Counts/omwenteling", num(e.cpr)), kv("res", num(res * 180 / Math.PI) + "° = " + num(res * 1e6) + " µrad"),
                kv("θ", live ? num(live.th) + "° = " + num(live.thu) + " µrad" : "–"), kv("θ geteld", live ? num(live.thq) + "°" : "–")],
         ass: ["Geen massa of stijfheid; relatief ten opzichte van de getekende stand."],
-        src: "src/core/sensors.js (encAngle, encQuant)"
+        src: REF.slocum + " (hoekencoders, kwantisatie)"
       });
     }
     case "accel": {
@@ -338,7 +420,7 @@ function selBlock() {
         live: [kv("m<sub>s</sub>", num(ms) + " kg"), kv("m (zonder opnemer)", num(m0) + " kg"),
                kv("f-factor", num(Math.sqrt(m0 / (m0 + ms)))), kv("a", live ? num(live.a) + " m/s² = " + num(live.g) + " g" : "–")],
         ass: ["Puntmassa zonder eigen dynamica (geen resonantie van de opnemer zelf).", "Telt mee in Dynamisch, Evenwicht, FRF en de kinematische krachten."],
-        src: "src/core/sensors.js (sensorMass), src/core/dynamics.js (dm), src/core/frf.js (dm)"
+        src: REF.ewins + " (massabelasting door de opnemer)"
       });
     }
     case "spring":
@@ -347,7 +429,7 @@ function selBlock() {
         eq: [c("F = k·(L − L<sub>0</sub>)"), "Kracht werkt langs de veer: positief = trekt de punten naar elkaar"],
         sym: [[c("k"), "stijfheid in N/mm"], [c("L"), "huidige lengte tussen de punten"], [c("L<sub>0</sub>"), "lengte zonder kracht"]],
         live: [kv("k", num(e.k) + " N/mm"), kv("L<sub>0</sub>", num(e.L0) + " mm"), kv("L nu", num(L) + " mm"), kv("F nu", num(e.k * (L - e.L0)) + " N")],
-        ass: ["Lineaire veer, geen massa."], src: "src/core/dynamics.js (loads)"
+        ass: ["Lineaire veer, geen massa."], src: REF.nik + " (krachtelementen: veer, demper)"
       });
     case "damper":
       return block({
@@ -355,7 +437,7 @@ function selBlock() {
         eq: [c("F = c·L̇"), c("L̇ = (v<sub>b</sub> − v<sub>a</sub>)·u") + ", u = eenheidsvector van a naar b"],
         sym: [[c("c"), "dempingsconstante in Ns/mm"], [c("L̇"), "lengtesnelheid, mm/s"]],
         live: [kv("c", num(e.c) + " Ns/mm"), kv("L nu", num(L) + " mm")],
-        ass: ["Werkt alleen met beweging; in rust is de kracht 0. In FRF gaat c in de matrix C."], src: "src/core/dynamics.js (loads)"
+        ass: ["Werkt alleen met beweging; in rust is de kracht 0. In FRF gaat c in de matrix C."], src: REF.nik + " (krachtelementen: veer, demper)"
       });
     case "gap": {
       const lo = Math.min(e.min, e.max), hi = Math.max(e.min, e.max);
@@ -367,7 +449,7 @@ function selBlock() {
         sym: [[c("k<sub>c</sub>, c<sub>c</sub>"), "stijfheid en demping van de aanslag"], [c("L<sub>min</sub>, L<sub>max</sub>"), "vrije slag"]],
         live: [kv("Vrije slag", num(lo) + " – " + num(hi) + " mm"), kv("L nu", num(L) + " mm"),
                kv("k<sub>c</sub>, c<sub>c</sub>", num(e.kc || 0) + " N/mm, " + num(e.cc || 0) + " Ns/mm")],
-        ass: ["De aanslag trekt nooit: de kracht duwt alleen terug."], src: "src/core/elements.js (gapForce)"
+        ass: ["De aanslag trekt nooit: de kracht duwt alleen terug."], src: REF.nik + " (krachtelementen); aanslag als veer met demping (penaltymethode)"
       });
     }
     case "flexure": {
@@ -398,7 +480,7 @@ function selBlock() {
         ass: ["PRBM: het blad is een stijve schakel met een draaiveer; goed voor kleine tot matige doorbuiging, de afwijking van de tip-stijfheid is ongeveer 4 % (K<sub>Θ</sub>/(3γ) = 1,039 ten opzichte van 3EI/L³).",
               "Kinematisch: puur scharnier, de stijfheid telt niet mee maar σ en φ wel. Dynamisch, Evenwicht en FRF: K zit in de potentiële energie ½·K·φ².",
               "Geen axiale rek, geen dwarskrachtvervorming en geen lastafhankelijke verschuiving van het karakteristieke scharnier."],
-        src: "Howell, <i>Compliant Mechanisms</i> (PRBM, γ en K<sub>Θ</sub>); Soemers, <i>Design Principles for Precision Mechanisms</i>; src/core/flexure.js, src/calc/flexures.js"
+        src: REF.howell + " (PRBM, \u03b3 en K<sub>\u0398</sub>); " + REF.soem + "; " + REF.paros + " (scharnier met inkeping)"
       });
     }
     case "contact": {
@@ -426,7 +508,7 @@ function selBlock() {
         live,
         ass: ["Het vlak is star en vast; de bal duwt alleen (geen kracht bij loslaten).", "Hysterese ontstaat doordat z bij slip blijft staan: heen en terug geeft een verschuiving.",
               "FRF: alleen Hertz-stijfheid (potentiële energie), geen tangentiële veer. Kinematisch: alleen F<sub>n</sub>."],
-        src: "src/core/contact.js (contactForce), src/core/dynamics.js (loads, rk4)"
+        src: REF.john + " (Hertz, Mindlin); " + REF.hunt + "; " + REF.olsson + " (borstelmodel voor plakken en slippen)"
       });
     }
     case "force": {
@@ -436,7 +518,7 @@ function selBlock() {
         eq: [c("F = (F·cos α, F·sin α)")],
         sym: [[c("F"), "grootte in N"], [c("α"), "hoek vanaf de x-as, tegen de klok in"]],
         live: [kv("F", num(e.mag) + " N"), kv("α", num(e.ang) + "°"), kv("F<sub>x</sub>, F<sub>y</sub>", num(e.mag * Math.cos(th)) + ", " + num(e.mag * Math.sin(th)) + " N")],
-        ass: ["Constant, onafhankelijk van tijd en stand."], src: "src/core/dynamics.js (loads)"
+        ass: ["Constant, onafhankelijk van tijd en stand."], src: REF.nik + " (uitwendige krachten)"
       });
     }
     case "actuator": {
@@ -452,10 +534,11 @@ function selBlock() {
         live: [kv("min – max", num(lo) + " – " + num(hi) + " mm"), kv("f", num(f) + " Hz"),
                kv("L<sub>m</sub>, L<sub>a</sub>", num((hi + lo) / 2) + ", " + num((hi - lo) / 2) + " mm"),
                kv("L bij t = " + num(sim.simT, 2) + " s", num(a.L) + " mm")],
-        ass: ["Sinus; bij f = 0 of min = max staat hij stil op de getekende lengte."], src: "src/core/elements.js (actLen)"
+        ass: ["Sinus; bij f = 0 of min = max staat hij stil op de getekende lengte."], src: REF.nik + " (aandrijfrandvoorwaarden)"
       });
     }
     case "link":
+      if (isAxial(e)) return axialBlock(e, L) + thermBlock(e, L);
       if (e.driver) {
         const om = (e.cw ? -1 : 1) * (e.rpm || 0) * Math.PI / 30;
         return block({
@@ -463,7 +546,7 @@ function selBlock() {
           eq: [c("θ = θ<sub>0</sub> + ωt"), c("p = A + L·(cos θ, sin θ)"), c("v = ω·(−r<sub>y</sub>, r<sub>x</sub>)") + ", " + c("a = −ω²r")],
           sym: [[c("ω"), "hoeksnelheid = toerental·π/30, rad/s"], [c("r"), "vector van het draaipunt naar de tip"]],
           live: [kv("L", num(e.len) + " mm"), kv("θ<sub>0</sub>", num(e.theta0 || 0) + "°"), kv("ω", num(om) + " rad/s (" + num(e.rpm || 0) + " rpm, " + (e.cw ? "rechtsom" : "linksom") + ")")],
-          ass: ["Constant toerental."], src: "src/core/elements.js (omega), src/core/kinematics.js"
+          ass: ["Constant toerental."], src: REF.nik + " (aandrijfrandvoorwaarden)"
         });
       }
       return block({
@@ -471,8 +554,8 @@ function selBlock() {
         eq: [c("|p − q|² = L²"), "Tweekrachtenstaaf: alleen axiale kracht N"],
         sym: [[c("L"), "stanglengte"], [c("N"), "stangkracht (trek positief)"]],
         live: [kv("L", num(e.len) + " mm"), kv("L nu", num(L) + " mm")],
-        src: "src/core/kinematics.js"
-      });
+        src: REF.nik + " (starre-lichaamsrandvoorwaarden)"
+      }) + thermBlock(e, L);
   }
   return "";
 }
@@ -485,7 +568,7 @@ function keyOf() {
   const sel = ui.sel ? E(ui.sel.id) || N(ui.sel.id) : null;
   return [model.mode, model.durMode, ui.sel ? ui.sel.kind + ui.sel.id : "", sweepId(sim.sweep), !!sim.job, ui.dynStale, sim.solveOK,
     model.nodes.length, model.elems.length, model.gravity, model.dtStep, model.simDur, model.defMass, model.cVisc, model.maxT,
-    model.jointDamp, model.cJoint, model.fricVs, model.fricVe, model.frfIn, model.mode === "kin" ? ui.frame : 0,
+    model.jointDamp, model.cJoint, model.fricVs, model.fricVe, model.dT, model.thermNode, model.frfIn, model.mode === "kin" ? ui.frame : 0,
     sel ? JSON.stringify(sel) : "", sel && (sel.type === "contact" || sel.type === "flexure" || sel.type === "loadcell" || sel.type === "dsens" || sel.type === "encoder" || sel.type === "accel") ? ui.frame : 0, model.mode === "kin" ? model.nodes.map(n => n.x + "," + n.y).join(";") : ""].join("|");
 }
 
@@ -512,7 +595,7 @@ export function renderHow(el) {
   let h;
   if (model.mode === "frf") h = [frfBlock()];
   else if (model.mode === "dyn") h = dynBlocks();
-  else h = [kinBlock()];
+  else h = [kinBlock(), shiftBlock()];
   const extra = selBlock();
   el.innerHTML = h.join("") + (extra ? '<div class="hw-sel">Geselecteerd onderdeel</div>' + extra : "");
 }

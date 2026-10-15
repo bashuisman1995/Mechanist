@@ -115,7 +115,7 @@ export function reharvest(nodeId) {
         const d = round2(L) - e.len;
         e.min = round2(e.min + d); e.max = round2(e.max + d);
       }
-      if (isBar(e) || e.type === "loadcell") e.len = round2(L);
+      if (isBar(e) || e.type === "link" || e.type === "loadcell") e.len = round2(L);
       if (e.type === "flexure" && e.kind === "cantilever") e.L = round2(e.len / GAMMA);
       if (e.type === "spring") e.L0 = round2(L);
     }

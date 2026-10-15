@@ -376,6 +376,19 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; }
 }
 .tally b { color: var(--ink-2); font-weight: 500; font-family: "IBM Plex Mono", ui-monospace, monospace; }
 
+.thermbox { margin-top: 10px; padding: 9px 10px; border-radius: 6px; background: var(--panel-2); }
+.thermbox[hidden] { display: none; }
+.thermbox h2 { margin: 0 0 6px; font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.thres { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; margin: 4px 0 6px; line-height: 1.45; }
+.thres b { color: var(--ink); font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 500; }
+.thbad { color: var(--driver); font-weight: 600; }
+.thsvg { width: 100%; height: auto; display: block; }
+.thsvg text { fill: var(--ink-2); font-size: 9.5px; font-family: "IBM Plex Mono", ui-monospace, monospace; }
+.thsvg .thn { fill: var(--ink); font-weight: 600; }
+.thleg { font-size: 11px; color: var(--ink-3); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 2px; }
+.thleg i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; }
+.result .thermbox { grid-column: 1 / -1; }
+
 .tabs { display: flex; border-bottom: 1px solid var(--line); background: var(--panel); }
 .tabs button {
   flex: 1; border: none; background: transparent; cursor: pointer; padding: 9px 6px;
@@ -984,6 +997,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           <span class="chev" aria-hidden="true">&#9662;</span>
         </button>
         <div class="state" id="resState"></div>
+        <div id="thermBox" class="thermbox" hidden></div>
         <div id="statusDetail" hidden>
           <div class="dof-note" id="dofNote"></div>
           <div class="tally" id="tally"></div>
@@ -1024,6 +1038,15 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
                 <input type="checkbox" id="fChk" checked>
                 <label for="fChk">Krachten in de tekening</label>
               </div>
+            </div>
+
+            <div class="sect" id="thermSect">
+              <h2>Temperatuur</h2>
+              <div class="row"><label for="dTInp">&Delta;T <span class="unit">K, alle staven</span></label>
+                <input type="number" id="dTInp" step="1" value="0"></div>
+              <p class="empty">Elke schakel rekt uit met &Delta;L = &alpha;&middot;L&middot;&Delta;T (materiaal bij Eigenschappen,
+                standaard staal). Een eigen &Delta;T per staaf stel je daar ook in. In Kinematisch verschijnt de thermische
+                verschuiving van een punt in het Resultaat; axiale staven geven in Evenwicht thermische spanning.</p>
             </div>
 
             <div class="sect" id="frfSect" hidden>
@@ -1241,6 +1264,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     frfMax: 0,
     fricVs: 5,
     fricVe: 2,
+    dT: 0,
+    thermNode: "",
+    // temperatuurverschil (K) voor alle staven en het punt waarvan we de thermische verschuiving tonen
     name: "Naamloos"
   };
   var view = { s: 2.2, ox: 0, oy: 0 };
@@ -1371,6 +1397,102 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return out;
   }
 
+  // src/calc/materials.js
+  var MATERIALS2 = [
+    {
+      id: "staal",
+      naam: "Staal (veerstaal)",
+      E: 21e4,
+      nu: 0.3,
+      sigma: 300,
+      alpha: 11.5,
+      rho: 7850,
+      bron: "veerstaal/koolstofstaal, typische waarden uit MatWeb"
+    },
+    {
+      id: "rvs",
+      naam: "RVS (AISI 304)",
+      E: 193e3,
+      nu: 0.29,
+      sigma: 250,
+      alpha: 17.3,
+      rho: 7900,
+      bron: "AISI 304 uitgegloeid, MatWeb; koud verstevigd (301) kan veel hoger"
+    },
+    {
+      id: "alu",
+      naam: "Aluminium (6061-T6)",
+      E: 7e4,
+      nu: 0.33,
+      sigma: 120,
+      alpha: 23.6,
+      rho: 2700,
+      bron: "6061-T6, MatWeb; \u03C3_toel is een vermoeiingswaarde"
+    },
+    {
+      id: "titaan",
+      naam: "Titanium (Ti-6Al-4V)",
+      E: 114e3,
+      nu: 0.34,
+      sigma: 500,
+      alpha: 8.6,
+      rho: 4430,
+      bron: "Ti-6Al-4V (graad 5), MatWeb"
+    },
+    {
+      id: "cube",
+      naam: "Berylliumkoper CuBe2",
+      E: 128e3,
+      nu: 0.3,
+      sigma: 600,
+      alpha: 17,
+      rho: 8250,
+      bron: "CuBe2 (C17200) verouderd, leveranciersdatasheet (o.a. Materion) en MatWeb"
+    },
+    {
+      id: "fbrons",
+      naam: "Fosforbrons (CuSn6)",
+      E: 11e4,
+      nu: 0.34,
+      sigma: 200,
+      alpha: 17.8,
+      rho: 8800,
+      bron: "CuSn6 (C51900) veerhard, leveranciersdatasheet en MatWeb"
+    },
+    {
+      id: "invar",
+      naam: "Invar 36",
+      E: 141e3,
+      nu: 0.26,
+      sigma: 250,
+      alpha: 1.2,
+      rho: 8100,
+      bron: "Invar 36 (FeNi36), leveranciersdatasheet en MatWeb"
+    }
+  ];
+  var material = (id) => MATERIALS2.find((m) => m.id === id) || MATERIALS2[0];
+  var MATERIAL_SOURCE = "Typische waarden uit MatWeb (matweb.com) en leveranciersdatasheets; spreiding tussen charges en toestanden is groot, dus controleer met de datasheet van je leverancier.";
+
+  // src/core/axial.js
+  var A_DEFAULT = 20;
+  var isAxial = (e) => !!e && e.type === "link" && e.axial === true && !e.driver;
+  var isThermal = (e) => !!e && e.type === "link" && !e.driver;
+  var matOf = (e) => material(e.mat || "staal");
+  var alphaOf = (e) => matOf(e).alpha * 1e-6;
+  var dTOf = (e) => typeof e.dT === "number" && isFinite(e.dT) ? e.dT : model.dT || 0;
+  var thermDL = (e) => isThermal(e) ? e.len * alphaOf(e) * dTOf(e) : 0;
+  var thermLen = (e) => e.len + thermDL(e);
+  function axialA(e) {
+    if (e.sect === "bh") return Math.max(1e-9, (e.sb > 0 ? e.sb : 0) * (e.sh > 0 ? e.sh : 0));
+    return Math.max(1e-9, e.A > 0 ? e.A : A_DEFAULT);
+  }
+  var axialE = (e) => matOf(e).E;
+  var axialK = (e) => axialE(e) * axialA(e) / Math.max(1e-9, e.len);
+  var axialSigma = (e, F) => F / axialA(e);
+  function thermalActive() {
+    return model.elems.some((e) => isAxial(e) || isThermal(e) && dTOf(e) !== 0);
+  }
+
   // src/core/elements.js
   var N = (id) => model.nodes.find((n) => n.id === id);
   var E = (id) => model.elems.find((e) => e.id === id);
@@ -1384,9 +1506,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return { L: Lm + La * Math.sin(ph), Ld: La * w * Math.cos(ph), Ldd: -La * w * w * Math.sin(ph) };
   }
   var actuators = () => model.elems.filter((e) => e.type === "actuator" && N(e.a) && N(e.b));
-  var isBar = (e) => e.type === "link" || e.type === "actuator" || e.type === "flexure" || e.type === "loadcell" && model.mode === "kin";
+  var isBar = (e) => e.type === "link" && !(isAxial(e) && model.mode !== "kin") || e.type === "actuator" || e.type === "flexure" || e.type === "loadcell" && model.mode === "kin";
   function curLen(e) {
-    if (e.type !== "actuator") return e.len;
+    if (e.type !== "actuator") return thermLen(e);
     if (sim.lenOv && sim.lenOv.has(e.id)) return sim.lenOv.get(e.id);
     return actLen(e, sim.simT).L;
   }
@@ -1599,82 +1721,6 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     };
   }
 
-  // src/calc/materials.js
-  var MATERIALS2 = [
-    {
-      id: "staal",
-      naam: "Staal (veerstaal)",
-      E: 21e4,
-      nu: 0.3,
-      sigma: 300,
-      alpha: 11.5,
-      rho: 7850,
-      bron: "veerstaal/koolstofstaal, typische waarden uit MatWeb"
-    },
-    {
-      id: "rvs",
-      naam: "RVS (AISI 304)",
-      E: 193e3,
-      nu: 0.29,
-      sigma: 250,
-      alpha: 17.3,
-      rho: 7900,
-      bron: "AISI 304 uitgegloeid, MatWeb; koud verstevigd (301) kan veel hoger"
-    },
-    {
-      id: "alu",
-      naam: "Aluminium (6061-T6)",
-      E: 7e4,
-      nu: 0.33,
-      sigma: 120,
-      alpha: 23.6,
-      rho: 2700,
-      bron: "6061-T6, MatWeb; \u03C3_toel is een vermoeiingswaarde"
-    },
-    {
-      id: "titaan",
-      naam: "Titanium (Ti-6Al-4V)",
-      E: 114e3,
-      nu: 0.34,
-      sigma: 500,
-      alpha: 8.6,
-      rho: 4430,
-      bron: "Ti-6Al-4V (graad 5), MatWeb"
-    },
-    {
-      id: "cube",
-      naam: "Berylliumkoper CuBe2",
-      E: 128e3,
-      nu: 0.3,
-      sigma: 600,
-      alpha: 17,
-      rho: 8250,
-      bron: "CuBe2 (C17200) verouderd, leveranciersdatasheet (o.a. Materion) en MatWeb"
-    },
-    {
-      id: "fbrons",
-      naam: "Fosforbrons (CuSn6)",
-      E: 11e4,
-      nu: 0.34,
-      sigma: 200,
-      alpha: 17.8,
-      rho: 8800,
-      bron: "CuSn6 (C51900) veerhard, leveranciersdatasheet en MatWeb"
-    },
-    {
-      id: "invar",
-      naam: "Invar 36",
-      E: 141e3,
-      nu: 0.26,
-      sigma: 250,
-      alpha: 1.2,
-      rho: 8100,
-      bron: "Invar 36 (FeNi36), leveranciersdatasheet en MatWeb"
-    }
-  ];
-  var material = (id) => MATERIALS2.find((m) => m.id === id) || MATERIALS2[0];
-  var MATERIAL_SOURCE = "Typische waarden uit MatWeb (matweb.com) en leveranciersdatasheets; spreiding tussen charges en toestanden is groot, dus controleer met de datasheet van je leverancier.";
-
   // src/core/flexure.js
   var GAMMA = 0.85;
   var KTHETA = 2.65;
@@ -1800,9 +1846,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   var G_MM = 9806.65;
   var rad2 = Math.PI / 180;
   var wrap2 = (x) => x - 2 * Math.PI * Math.round(x / (2 * Math.PI));
-  var springLike = (e) => e.type === "spring" || e.type === "loadcell";
-  var springK = (e) => e.type === "loadcell" ? Math.max(1e-6, e.ks > 0 ? e.ks : KS_DEFAULT) : e.k;
-  var springL0 = (e) => e.type === "loadcell" ? e.len : e.L0;
+  var springLike = (e) => e.type === "spring" || e.type === "loadcell" || isAxial(e);
+  var springK = (e) => isAxial(e) ? axialK(e) : e.type === "loadcell" ? Math.max(1e-6, e.ks > 0 ? e.ks : KS_DEFAULT) : e.k;
+  var springL0 = (e) => isAxial(e) ? thermLen(e) : e.type === "loadcell" ? e.len : e.L0;
   function sensorMass(id) {
     let m = 0;
     for (const e of model.elems) {
@@ -2259,7 +2305,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function computeSweep() {
     sim.sweep = null;
     const ds = drivers(), as = actuators();
-    if (!ds.length && !as.length) return;
+    if (!ds.length && !as.length && !thermalActive()) return;
     if (mobility().dofDriven !== 0) return;
     if (ds.some((d) => !N(d.a) || !N(d.b) || N(d.a).support !== "pin")) return;
     const keep = model.nodes.map((n) => ({ n, x: n.x, y: n.y }));
@@ -2288,7 +2334,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     for (const e of model.elems) {
       if (isBar(e)) S.N[e.id] = new Array(361);
-      if (e.type === "spring" || e.type === "damper" || e.type === "gap" || e.type === "contact" || e.type === "loadcell") S.EF[e.id] = new Array(361);
+      if (e.type === "spring" || e.type === "damper" || e.type === "gap" || e.type === "contact" || e.type === "loadcell" || isAxial(e)) S.EF[e.id] = new Array(361);
     }
     let Rmax = 0, Nmax = 0;
     for (let i = 0; i <= 360; i++) {
@@ -2477,7 +2523,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     const out = { N: {}, EF, R: {}, T: {} };
     for (const e of links) if (!e.driver) out.N[e.id] = x[cL.get(e.id)];
-    for (const e of links) if (e.type === "loadcell") EF[e.id] = out.N[e.id];
+    for (const e of links) if (e.type === "loadcell" || isAxial(e)) EF[e.id] = out.N[e.id];
     for (const n of pins) out.R[n.id] = { x: x[cP.get(n.id)], y: x[cP.get(n.id) + 1] };
     for (const n of slis) {
       const th = n.dir * Math.PI / 180, Rn = x[cS.get(n.id)];
@@ -2587,7 +2633,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           row[2 * i + 1] -= 2 * dy;
         }
         const dvx = vP.x - vQ.x, dvy = vP.y - vQ.y;
-        const a = e.type === "actuator" ? actLen(e, t) : { L: e.len, Ld: 0, Ldd: 0 };
+        const a = e.type === "actuator" ? actLen(e, t) : { L: thermLen(e), Ld: 0, Ldd: 0 };
         rows.push(row);
         phi.push(dx * dx + dy * dy - a.L * a.L);
         gam.push(-2 * (dvx * dvx + dvy * dvy) + 2 * (a.Ld * a.Ld + a.L * a.Ldd));
@@ -3664,6 +3710,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       }
       return null;
     }
+    if (t === "w") return dL(e).map((v) => v * (k === "dL" ? 1e3 : axialK(e) / axialA(e)));
     if (t === "f") {
       const r = flexRef(e), th = rot(e.a, e.b), tr = r ? rot(e.a, r.a === e.a ? r.b : r.a) : [0, 0];
       const ph = [th[0] - tr[0], th[1] - tr[1]];
@@ -3738,7 +3785,12 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         });
     }
     for (const e of model.elems) {
-      if (e.type === "link") {
+      if (isAxial(e)) {
+        const o = "Axiale stang " + pair(e), p = pair(e);
+        out.push({ key: "s|" + e.id + "|F", lab: "axiale stang " + p + " \xB7 N", q: "N", u: "N", al: "N_" + p, g: "Stangen", o, obj: e.id, frf: true });
+        out.push({ key: "w|" + e.id + "|dL", lab: "axiale stang " + p + " \xB7 \u0394L", q: "\u0394L", u: "\xB5m", al: "dL_" + p, g: "Stangen", o, obj: e.id, frf: true });
+        out.push({ key: "w|" + e.id + "|sig", lab: "axiale stang " + p + " \xB7 \u03C3", q: "\u03C3", u: "MPa", al: "sigA_" + p, g: "Stangen", o, obj: e.id, frf: true });
+      } else if (e.type === "link") {
         const o = (e.driver ? "Kruk " : "Stang ") + pair(e);
         out.push({
           key: "l|" + e.id + "|N",
@@ -3879,6 +3931,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (t === "m") {
       const e = E(id);
       return e ? sensorVal(S, e, k, i) : NaN;
+    }
+    if (t === "w") {
+      const e = E(id), F = S.EF && S.EF[id] ? S.EF[id][i] : NaN;
+      if (!e || !isAxial(e)) return NaN;
+      return k === "dL" ? F / axialK(e) * 1e3 : F / axialA(e);
     }
     if (t === "c") {
       const c2 = S.C && S.C[id] ? S.C[id][i] : null;
@@ -4448,7 +4505,90 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     });
   }
 
+  // src/core/thermal.js
+  var ROWS = /* @__PURE__ */ new Set(["link", "actuator", "flexure", "loadcell"]);
+  function thermalShift(nodeId) {
+    const tips = /* @__PURE__ */ new Set();
+    for (const e of model.elems) if (e.type === "link" && e.driver && N(e.b)) tips.add(e.b);
+    const vars = model.nodes.filter((n) => n.support !== "pin" && !tips.has(n.id));
+    const idx2 = new Map(vars.map((n, i) => [n.id, i]));
+    const target = idx2.get(nodeId);
+    const bars = [], rows = [];
+    for (const e of model.elems) {
+      if (!ROWS.has(e.type) || e.driver) continue;
+      const A = N(e.a), B = N(e.b);
+      if (!A || !B || !idx2.has(A.id) && !idx2.has(B.id)) continue;
+      const dx = A.x - B.x, dy = A.y - B.y, d = Math.hypot(dx, dy) || 1e-9, ux = dx / d, uy = dy / d;
+      const row = new Float64Array(vars.length * 2);
+      if (idx2.has(A.id)) {
+        const i = idx2.get(A.id);
+        row[2 * i] = ux;
+        row[2 * i + 1] = uy;
+      }
+      if (idx2.has(B.id)) {
+        const i = idx2.get(B.id);
+        row[2 * i] = -ux;
+        row[2 * i + 1] = -uy;
+      }
+      bars.push(e);
+      rows.push(row);
+    }
+    for (const n of vars) {
+      if (n.support !== "slider") continue;
+      const th = n.dir * Math.PI / 180, row = new Float64Array(vars.length * 2), i = idx2.get(n.id);
+      row[2 * i] = -Math.sin(th);
+      row[2 * i + 1] = Math.cos(th);
+      bars.push(null);
+      rows.push(row);
+    }
+    const out = { ok: false, dx: 0, dy: 0, parts: [], resid: 0 };
+    if (target === void 0) {
+      out.ok = true;
+      return out;
+    }
+    let resid = 0, ok = rows.length === vars.length * 2;
+    for (let r = 0; r < rows.length; r++) {
+      const e = bars[r];
+      if (!e || !isThermal(e)) continue;
+      const rhs = rows.map((_, k) => k === r ? 1 : 0);
+      const s = lsq(rows, rhs, vars.length * 2);
+      if (!s) {
+        ok = false;
+        continue;
+      }
+      rows.forEach((row, k) => {
+        let v = -rhs[k];
+        for (let j = 0; j < s.length; j++) v += row[j] * s[j];
+        resid = Math.max(resid, Math.abs(v));
+      });
+      const sx = s[2 * target], sy = s[2 * target + 1], dL = thermDL(e);
+      out.parts.push({ e, sx, sy, dL, cx: sx * dL, cy: sy * dL, alpha: alphaOf(e), dT: dTOf(e) });
+      out.dx += sx * dL;
+      out.dy += sy * dL;
+    }
+    out.resid = resid;
+    out.ok = ok && resid < 1e-6;
+    return out;
+  }
+  function thermalNode() {
+    const free = model.nodes.filter((n) => n.support !== "pin");
+    const pick2 = free.find((n) => n.id === model.thermNode);
+    return pick2 || free[free.length - 1] || null;
+  }
+
   // src/ui/how.js
+  var REF = {
+    nik: "Nikravesh, <i>Computer-Aided Analysis of Mechanical Systems</i> (Prentice Hall, 1988)",
+    baum: "Baumgarte, <i>Stabilization of constraints and integrals of motion in dynamical systems</i>, Comput. Methods Appl. Mech. Eng. 1 (1972) 1\u201316",
+    ewins: "Ewins, <i>Modal Testing: Theory, Practice and Application</i> (2e druk, Research Studies Press, 2000)",
+    john: "Johnson, <i>Contact Mechanics</i> (Cambridge University Press, 1985)",
+    howell: "Howell, <i>Compliant Mechanisms</i> (Wiley, 2001)",
+    olsson: "Olsson, \xC5str\xF6m, Canudas de Wit, G\xE4fvert, Lischinsky, <i>Friction models and friction compensation</i>, Eur. J. Control 4 (1998) 176\u2013195",
+    soem: "Soemers, <i>Design Principles for Precision Mechanisms</i> (T-Pointprint, 2010)",
+    slocum: "Slocum, <i>Precision Machine Design</i> (Prentice Hall, 1992)",
+    hunt: "Hunt &amp; Crossley, <i>Coefficient of restitution interpreted as damping in vibroimpact</i>, J. Appl. Mech. 42 (1975) 440\u2013445",
+    paros: "Paros &amp; Weisbord, <i>How to design flexure hinges</i>, Machine Design 37 (1965) 151\u2013156"
+  };
   var BA2 = 20;
   var BB2 = 20;
   var VTOL = 0.5;
@@ -4537,7 +4677,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       ],
       live,
       ass: ["Stangen zijn stijf en massaloos; massa zit in de punten.", "Geen tijdstappen: elke stand volgt uit de vorige met de kleinste verplaatsing.", "Krachten alleen als het stelsel vierkant is (DOF = 0 met aandrijving)."],
-      src: "src/core/kinematics.js (relax, kinAt, forcesAt, mobility)"
+      src: REF.nik + " (randvoorwaarden, Jacobiaan, positie-, snelheids- en versnellingsanalyse, statica van mechanismen)"
     });
   }
   function dynBlocks() {
@@ -4584,7 +4724,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       ],
       sym: [
         [c("M"), "massamatrix (diagonaal, kg\xB7mm \u2192 N via 10<sup>\u22123</sup>)"],
-        [c("Q"), "uitwendige krachten: veer, demper, speling, kracht, zwaartekracht, wrijving, demping"],
+        [c("Q"), "uitwendige krachten: veer, axiale staaf (EA/L), demper, speling, kracht, zwaartekracht, wrijving, demping"],
         [c("\u03A6<sub>q</sub>"), "Jacobiaan van de randvoorwaarden"],
         [c("\u03BB"), "Lagrange-multiplicatoren: de krachten die de verbindingen leveren"],
         [c("\u03B3"), "kwadratische snelheidsterm uit de tweede afgeleide van \u03A6"],
@@ -4592,7 +4732,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       ],
       live,
       ass: ["Stangen zijn stijf; massa zit in de punten (standaardmassa als er geen is ingevuld).", "Wrijving: Stribeck-vorm met echt plakken onder de snelheidsdrempel.", "Draait ook met vrijheidsgraden over: veren en dempers sturen dan de beweging."],
-      src: "src/core/dynamics.js (computeDyn: jac, kkt, rk4, project)"
+      src: REF.nik + " (bewegingsvergelijkingen met Lagrange-multiplicatoren, KKT-stelsel); " + REF.baum
     })];
     if (eq) {
       out.push(block({
@@ -4608,7 +4748,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           kv("Resultaat", sw && sw.settled ? "tot rust na " + num2(sw.settled, 3) + " s" : sw ? "niet tot rust binnen de maximale tijd" : "nog niet doorgerekend")
         ],
         ass: ["Daarna wordt de beweging vanaf het begin opnieuw opgeslagen tot die tijd.", "Dempers of wrijving zijn nodig om echt tot rust te komen."],
-        src: "src/core/dynamics.js (durMode = equil)"
+        src: REF.nik + " (evenwicht: " + c("q\u0307 = 0, q\u0308 = 0") + ")"
       }));
     }
     return out;
@@ -4653,7 +4793,100 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       ],
       live,
       ass: ["Lineair rond \xE9\xE9n evenwicht: alleen kleine uitslagen.", "Wrijving en gesloten speling-aanslagen tellen alleen als stijfheid/demping mee als de aanslag raakt.", "Demping: demper, aanslag, demping per punt en scharnierdemping."],
-      src: "src/core/frf.js (computeFrf)"
+      src: REF.ewins + " (modale analyse, frequentieresponsie, modale demping)"
+    });
+  }
+  function axialBlock(e, L) {
+    const k = axialK(e), A = axialA(e), E_ = axialE(e), S = sim.sweep, i = Math.round(ui.frame);
+    const F = S && !S.frf && S.EF && S.EF[e.id] ? S.EF[e.id][i] : NaN;
+    const nm = esc(name(e.a) + name(e.b)), m = matOf(e);
+    const dt = loadcellDt(e, model.defMass);
+    const live = [
+      kv("Materiaal", esc(m.naam) + ", E = " + num2(E_) + " MPa"),
+      kv("A", num2(A) + " mm\xB2" + (e.sect === "bh" ? " (" + num2(e.sb) + " \xD7 " + num2(e.sh) + " mm)" : "")),
+      kv("L", num2(e.len) + " mm"),
+      kv("k = E\xB7A/L", num2(k) + " N/mm = " + num2(k / 1e3) + " N/\xB5m"),
+      kv("L<sub>0</sub>(\u0394T)", num2(thermLen(e)) + " mm (\u0394T = " + num2(dTOf(e)) + " K)"),
+      kv("L nu", num2(L) + " mm"),
+      kv("N", isFinite(F) ? num2(F) + " N" : "\u2013"),
+      kv("\u0394L = N/k", isFinite(F) ? num2(F / k * 1e3) + " \xB5m" : "\u2013"),
+      kv("\u03C3 = N/A", isFinite(F) ? num2(F / A) + " MPa" : "\u2013"),
+      kv("Klem: N = \u2212E\xB7A\xB7\u03B1\xB7\u0394T", num2(-E_ * A * alphaOf(e) * dTOf(e)) + " N"),
+      kv("Max. tijdstap Dynamisch", isFinite(dt) ? num2(dt * 1e3) + " ms (nu " + num2(model.dtStep || 0.2) + " ms)" : "\u2013")
+    ];
+    return block({
+      title: "Axiale stang " + nm + " (EA/L)",
+      eq: [
+        c("k = E\xB7A / L") + "  (veer langs de staaf)",
+        c("N = k\xB7(L \u2212 L<sub>0</sub>(1 + \u03B1\xB7\u0394T))") + "  (trek positief)",
+        c("\u0394L = N/k") + ", " + c("\u03C3 = N/A"),
+        "Ingeklemd tussen twee vaste punten (L = L<sub>0</sub>): " + c("N = \u2212E\xB7A\xB7\u03B1\xB7\u0394T") + " (druk bij verwarmen)",
+        "Stabiele tijdstap RK4: " + c("h \u2272 2,8/\u03C9") + ", " + c("\u03C9 = \u221A(k/m<sub>eff</sub>)")
+      ],
+      sym: [
+        [c("E, A"), "elasticiteitsmodulus (MPa) en doorsnede (mm\xB2; oppervlak of b \xD7 h)"],
+        [c("L<sub>0</sub>"), "getekende lengte = lengte zonder kracht bij \u0394T = 0"],
+        [c("\u03B1, \u0394T"), "thermische uitzettingsco\xEBffici\xEBnt (1/K) en temperatuurverschil (K)"],
+        [c("m<sub>eff</sub>"), "gereduceerde massa van de twee punten"]
+      ],
+      live,
+      ass: [
+        "Alleen axiale stijfheid: geen buiging, knik of eigen massa van de staaf (massa zit in de punten).",
+        "Dynamisch, Evenwicht en FRF: een veer met rustlengte L<sub>0</sub>(1 + \u03B1\xB7\u0394T). Kinematisch: stijve staaf; N, \u0394L en \u03C3 komen uit de statica (alleen bepaalde constructies).",
+        "Een stijve staaf vraagt een kleine tijdstap; boven 2,8/\u03C9 wordt de integratie onstabiel (waarschuwing in de inspector en bij het EA-label)."
+      ],
+      src: REF.soem + "; " + REF.slocum + " (axiale stijfheid en thermische uitzetting)"
+    });
+  }
+  function thermBlock(e, L) {
+    if (!isThermal(e)) return "";
+    const m = matOf(e), dT = dTOf(e), nm = esc(name(e.a) + name(e.b));
+    if (!dT && !isAxial(e) && typeof e.dT !== "number") return "";
+    return block({
+      title: "Thermische rek van stang " + nm,
+      eq: [c("\u0394L = \u03B1\xB7L\xB7\u0394T"), c("L(\u0394T) = L<sub>0</sub>\xB7(1 + \u03B1\xB7\u0394T)") + "  : de randvoorwaarde " + c("|p \u2212 q| = L(\u0394T)") + " gebruikt de nieuwe lengte"],
+      sym: [
+        [c("\u03B1"), "lineaire uitzettingsco\xEBffici\xEBnt van het materiaal, \xB5m/(m\xB7K)"],
+        [c("\u0394T"), "temperatuurverschil in K (model, of eigen waarde van de staaf)"],
+        [c("L<sub>0</sub>"), "getekende lengte"]
+      ],
+      live: [
+        kv("Materiaal", esc(m.naam)),
+        kv("\u03B1", num2(m.alpha) + " \xB5m/(m\xB7K)"),
+        kv("\u0394T", num2(dT) + " K" + (typeof e.dT === "number" ? " (eigen)" : " (model)")),
+        kv("L<sub>0</sub>", num2(e.len) + " mm"),
+        kv("\u0394L", num2(thermDL(e) * 1e3) + " \xB5m"),
+        kv("L(\u0394T)", num2(thermLen(e)) + " mm")
+      ],
+      ass: ["Uniforme temperatuur over de staaf; \u03B1 constant.", "E\xE9n richting: temperatuur verandert de mechanica, de mechanica verwarmt niet terug.", "Krukken rekken niet mee."],
+      src: REF.soem + "; " + REF.slocum + " (thermische uitzetting, athermisch ontwerp)"
+    });
+  }
+  function shiftBlock() {
+    const nd = thermalNode();
+    if (!nd || !model.elems.some((e) => isThermal(e) && dTOf(e) !== 0)) return "";
+    const r = thermalShift(nd.id);
+    const live = [kv("Punt", esc(nd.name)), kv("\u0394T", num2(model.dT || 0) + " K"), kv("Status", r.ok ? "bepaald" : "niet eenduidig")];
+    if (r.ok) {
+      live.push(kv("\u0394x, \u0394y", num2(r.dx * 1e3) + ", " + num2(r.dy * 1e3) + " \xB5m"));
+      r.parts.forEach((p) => live.push(kv("Staaf " + esc(name(p.e.a) + name(p.e.b)), "\u2202x/\u2202L = " + num2(p.sx) + ", \u2202y/\u2202L = " + num2(p.sy) + "; bijdrage " + num2(p.cx * 1e3) + ", " + num2(p.cy * 1e3) + " \xB5m")));
+    }
+    return block({
+      title: "Thermische verschuiving van punt " + esc(nd.name),
+      eq: [
+        c("J\xB7dq = \u2212(\u2202\u03A6/\u2202L<sub>i</sub>)\xB7dL<sub>i</sub> = dL<sub>i</sub>") + " per staaf i (met " + c("\u03A6<sub>i</sub> = |p \u2212 q| \u2212 L<sub>i</sub>") + ")",
+        c("s<sub>i</sub> = \u2202q/\u2202L<sub>i</sub>") + " : oplossing van " + c("J\xB7s<sub>i</sub> = e<sub>i</sub>"),
+        c("\u0394q = \u03A3 s<sub>i</sub>\xB7\u03B1<sub>i</sub>\xB7L<sub>i</sub>\xB7\u0394T<sub>i</sub>"),
+        "Overbepaald met axiale staven: " + c("N = EA\xB7(\u0394L<sub>geom</sub> \u2212 \u03B1\xB7L\xB7\u0394T)/L") + " (Evenwicht)"
+      ],
+      sym: [
+        [c("J"), "Jacobiaan \u2202\u03A6/\u2202q van de randvoorwaarden"],
+        [c("s<sub>i</sub>"), "gevoeligheid van de puntverplaatsing voor de lengte van staaf i (dimensieloos)"],
+        [c("e<sub>i</sub>"), "eenheidsvector op de rij van staaf i"]
+      ],
+      live,
+      ass: ["Eerste orde: gelineariseerd rond de stand op het scherm.", "Krukken staan vast op hun hoek, actuatoren op hun huidige lengte.", "Alleen bepaalde mechanismen (vrijheidsgraden = 0): anders is de verschuiving niet eenduidig."],
+      src: REF.nik + " (gevoeligheid via de Jacobiaan); " + REF.soem + "; " + REF.slocum
     });
   }
   function selBlock() {
@@ -4673,7 +4906,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           kv("m\xB7g", num2(dm * 9.81) + " N" + (model.gravity ? "" : " (zwaartekracht uit)")),
           kv("Steun", n.support === "pin" ? "scharnier (vast)" : n.support === "slider" ? "glijder, hoek " + num2(n.dir) + "\xB0" : "vrij")
         ],
-        src: "src/core/dynamics.js (loads, mA)"
+        src: REF.nik + " (Newton\u2013Euler, massa en zwaartekracht)"
       }));
       if (n.mus > 0 || n.muk > 0) {
         const vS = model.fricVs || 5, ve = model.fricVe || 2, r = n.rj > 0 ? n.rj : 5;
@@ -4698,7 +4931,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
             kv("r", num2(r) + " mm")
           ],
           ass: ["Een door de klok gedraaide kruk kan niet plakken.", "In de kinematische modus volgt de wrijving uit dezelfde formule."],
-          src: "src/core/elements.js (frictionLoads), src/core/dynamics.js (contacts)"
+          src: REF.olsson + " (Stribeck-wrijving, stilstand en plakken)"
         }));
       }
       if (model.jointDamp) {
@@ -4707,7 +4940,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           eq: [c("\u03C4 = \u2212c\xB7\u0394\u03C9") + " tussen elk paar lichamen in het punt", "Moment \u03C4 op een stang wordt een krachtenkoppel op zijn uiteinden: " + c("F = \u03C4/L\xB2")],
           sym: [[c("c"), "dempingsconstante in N\xB7m\xB7s"], [c("\u0394\u03C9"), "relatieve hoeksnelheid van de twee lichamen"]],
           live: [kv("c", num2(model.cJoint) + " N\xB7m\xB7s")],
-          src: "src/core/elements.js (jointDamper)"
+          src: REF.nik + " (krachtelementen in scharnieren)"
         }));
       }
       return parts.join("");
@@ -4745,7 +4978,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
             "Kinematisch: stijve schakel, de kracht komt uit de statica. Dynamisch, Evenwicht en FRF: veer met rustlengte = getekende lengte.",
             "Een stijve opnemer (hoge k<sub>s</sub>) vraagt in Dynamisch een kleine tijdstap."
           ],
-          src: "src/core/sensors.js, src/core/dynamics.js (loads), src/core/frf.js (V)"
+          src: REF.slocum + " (stijfheden in serie, krachtopnemers); " + REF.soem
         });
       }
       case "dsens": {
@@ -4766,7 +4999,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
             kv("Status", live ? live.oor ? "buiten bereik" : "binnen bereik" : "\u2013")
           ],
           ass: ["Geen stijfheid of massa: de sensor verandert het systeem niet.", "Relatief ten opzichte van de getekende stand (beeld 0)."],
-          src: "src/core/sensors.js (dsensDisp)"
+          src: REF.slocum + " (sensoren, resolutie en meetbereik)"
         });
       }
       case "encoder": {
@@ -4786,7 +5019,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
             kv("\u03B8 geteld", live ? num2(live.thq) + "\xB0" : "\u2013")
           ],
           ass: ["Geen massa of stijfheid; relatief ten opzichte van de getekende stand."],
-          src: "src/core/sensors.js (encAngle, encQuant)"
+          src: REF.slocum + " (hoekencoders, kwantisatie)"
         });
       }
       case "accel": {
@@ -4807,7 +5040,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
             kv("a", live ? num2(live.a) + " m/s\xB2 = " + num2(live.g) + " g" : "\u2013")
           ],
           ass: ["Puntmassa zonder eigen dynamica (geen resonantie van de opnemer zelf).", "Telt mee in Dynamisch, Evenwicht, FRF en de kinematische krachten."],
-          src: "src/core/sensors.js (sensorMass), src/core/dynamics.js (dm), src/core/frf.js (dm)"
+          src: REF.ewins + " (massabelasting door de opnemer)"
         });
       }
       case "spring":
@@ -4817,7 +5050,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           sym: [[c("k"), "stijfheid in N/mm"], [c("L"), "huidige lengte tussen de punten"], [c("L<sub>0</sub>"), "lengte zonder kracht"]],
           live: [kv("k", num2(e.k) + " N/mm"), kv("L<sub>0</sub>", num2(e.L0) + " mm"), kv("L nu", num2(L) + " mm"), kv("F nu", num2(e.k * (L - e.L0)) + " N")],
           ass: ["Lineaire veer, geen massa."],
-          src: "src/core/dynamics.js (loads)"
+          src: REF.nik + " (krachtelementen: veer, demper)"
         });
       case "damper":
         return block({
@@ -4826,7 +5059,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           sym: [[c("c"), "dempingsconstante in Ns/mm"], [c("L\u0307"), "lengtesnelheid, mm/s"]],
           live: [kv("c", num2(e.c) + " Ns/mm"), kv("L nu", num2(L) + " mm")],
           ass: ["Werkt alleen met beweging; in rust is de kracht 0. In FRF gaat c in de matrix C."],
-          src: "src/core/dynamics.js (loads)"
+          src: REF.nik + " (krachtelementen: veer, demper)"
         });
       case "gap": {
         const lo = Math.min(e.min, e.max), hi = Math.max(e.min, e.max);
@@ -4844,7 +5077,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
             kv("k<sub>c</sub>, c<sub>c</sub>", num2(e.kc || 0) + " N/mm, " + num2(e.cc || 0) + " Ns/mm")
           ],
           ass: ["De aanslag trekt nooit: de kracht duwt alleen terug."],
-          src: "src/core/elements.js (gapForce)"
+          src: REF.nik + " (krachtelementen); aanslag als veer met demping (penaltymethode)"
         });
       }
       case "flexure": {
@@ -4889,7 +5122,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
             "Kinematisch: puur scharnier, de stijfheid telt niet mee maar \u03C3 en \u03C6 wel. Dynamisch, Evenwicht en FRF: K zit in de potenti\xEBle energie \xBD\xB7K\xB7\u03C6\xB2.",
             "Geen axiale rek, geen dwarskrachtvervorming en geen lastafhankelijke verschuiving van het karakteristieke scharnier."
           ],
-          src: "Howell, <i>Compliant Mechanisms</i> (PRBM, \u03B3 en K<sub>\u0398</sub>); Soemers, <i>Design Principles for Precision Mechanisms</i>; src/core/flexure.js, src/calc/flexures.js"
+          src: REF.howell + " (PRBM, \u03B3 en K<sub>\u0398</sub>); " + REF.soem + "; " + REF.paros + " (scharnier met inkeping)"
         });
       }
       case "contact": {
@@ -4934,7 +5167,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
             "Hysterese ontstaat doordat z bij slip blijft staan: heen en terug geeft een verschuiving.",
             "FRF: alleen Hertz-stijfheid (potenti\xEBle energie), geen tangenti\xEBle veer. Kinematisch: alleen F<sub>n</sub>."
           ],
-          src: "src/core/contact.js (contactForce), src/core/dynamics.js (loads, rk4)"
+          src: REF.john + " (Hertz, Mindlin); " + REF.hunt + "; " + REF.olsson + " (borstelmodel voor plakken en slippen)"
         });
       }
       case "force": {
@@ -4945,7 +5178,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           sym: [[c("F"), "grootte in N"], [c("\u03B1"), "hoek vanaf de x-as, tegen de klok in"]],
           live: [kv("F", num2(e.mag) + " N"), kv("\u03B1", num2(e.ang) + "\xB0"), kv("F<sub>x</sub>, F<sub>y</sub>", num2(e.mag * Math.cos(th)) + ", " + num2(e.mag * Math.sin(th)) + " N")],
           ass: ["Constant, onafhankelijk van tijd en stand."],
-          src: "src/core/dynamics.js (loads)"
+          src: REF.nik + " (uitwendige krachten)"
         });
       }
       case "actuator": {
@@ -4967,10 +5200,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
             kv("L bij t = " + num2(sim.simT, 2) + " s", num2(a.L) + " mm")
           ],
           ass: ["Sinus; bij f = 0 of min = max staat hij stil op de getekende lengte."],
-          src: "src/core/elements.js (actLen)"
+          src: REF.nik + " (aandrijfrandvoorwaarden)"
         });
       }
       case "link":
+        if (isAxial(e)) return axialBlock(e, L) + thermBlock(e, L);
         if (e.driver) {
           const om = (e.cw ? -1 : 1) * (e.rpm || 0) * Math.PI / 30;
           return block({
@@ -4979,7 +5213,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
             sym: [[c("\u03C9"), "hoeksnelheid = toerental\xB7\u03C0/30, rad/s"], [c("r"), "vector van het draaipunt naar de tip"]],
             live: [kv("L", num2(e.len) + " mm"), kv("\u03B8<sub>0</sub>", num2(e.theta0 || 0) + "\xB0"), kv("\u03C9", num2(om) + " rad/s (" + num2(e.rpm || 0) + " rpm, " + (e.cw ? "rechtsom" : "linksom") + ")")],
             ass: ["Constant toerental."],
-            src: "src/core/elements.js (omega), src/core/kinematics.js"
+            src: REF.nik + " (aandrijfrandvoorwaarden)"
           });
         }
         return block({
@@ -4987,8 +5221,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           eq: [c("|p \u2212 q|\xB2 = L\xB2"), "Tweekrachtenstaaf: alleen axiale kracht N"],
           sym: [[c("L"), "stanglengte"], [c("N"), "stangkracht (trek positief)"]],
           live: [kv("L", num2(e.len) + " mm"), kv("L nu", num2(L) + " mm")],
-          src: "src/core/kinematics.js"
-        });
+          src: REF.nik + " (starre-lichaamsrandvoorwaarden)"
+        }) + thermBlock(e, L);
     }
     return "";
   }
@@ -5024,6 +5258,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       model.cJoint,
       model.fricVs,
       model.fricVe,
+      model.dT,
+      model.thermNode,
       model.frfIn,
       model.mode === "kin" ? ui.frame : 0,
       sel ? JSON.stringify(sel) : "",
@@ -5061,7 +5297,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     let h;
     if (model.mode === "frf") h = [frfBlock()];
     else if (model.mode === "dyn") h = dynBlocks();
-    else h = [kinBlock()];
+    else h = [kinBlock(), shiftBlock()];
     const extra = selBlock();
     el.innerHTML = h.join("") + (extra ? '<div class="hw-sel">Geselecteerd onderdeel</div>' + extra : "");
   }
@@ -5081,6 +5317,62 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         console.error(err);
       }
     });
+  }
+
+  // src/ui/thermal.js
+  var nl2 = (s) => String(s).replace(".", ",");
+  var um = (v) => {
+    const x = v * 1e3;
+    return (x >= 0 ? "+" : "\u2212") + nl2(Math.abs(x) >= 100 ? Math.abs(x).toFixed(0) : Math.abs(x) >= 10 ? Math.abs(x).toFixed(1) : Math.abs(x).toFixed(2));
+  };
+  var esc2 = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  var thermalOn = () => model.elems.some((e) => isThermal(e) && dTOf(e) !== 0);
+  var skel = "";
+  function renderThermal() {
+    const box3 = document.getElementById("thermBox");
+    if (!box3) return;
+    const nd = thermalNode();
+    if (model.mode !== "kin" || !nd || !thermalOn()) {
+      box3.hidden = true;
+      return;
+    }
+    box3.hidden = false;
+    const free = model.nodes.filter((n) => n.support !== "pin");
+    const key = free.map((n) => n.id + n.name).join(",") + "|" + nd.id;
+    if (key !== skel || !document.getElementById("thNode")) {
+      skel = key;
+      box3.innerHTML = '<h2>Thermische verschuiving</h2><div class="row"><label for="thNode">Punt</label><select id="thNode">' + free.map((n) => '<option value="' + n.id + '"' + (n.id === nd.id ? " selected" : "") + ">" + esc2(n.name) + "</option>").join("") + '</select></div><div class="thres" id="thRes"></div><div id="thChart"></div>';
+      document.getElementById("thNode").addEventListener("change", (ev) => {
+        model.thermNode = ev.target.value;
+        save();
+        renderThermal();
+      });
+    }
+    const r = thermalShift(nd.id);
+    const res2 = document.getElementById("thRes");
+    if (!r.ok) {
+      res2.innerHTML = '<span class="thbad">Niet eenduidig te berekenen: het mechanisme moet bepaald zijn (vrijheidsgraden = 0). Overbepaald? Gebruik axiale staven en Evenwicht voor thermische spanning.</span>';
+      document.getElementById("thChart").innerHTML = "";
+      return;
+    }
+    res2.innerHTML = '\u0394x <b id="thDx">' + um(r.dx) + '</b> \xB5m \xB7 \u0394y <b id="thDy">' + um(r.dy) + '</b> \xB5m \xB7 |\u0394| <b id="thD">' + nl2((Math.hypot(r.dx, r.dy) * 1e3).toPrecision(3)) + "</b> \xB5m";
+    document.getElementById("thChart").innerHTML = chart(r);
+  }
+  function chart(r) {
+    if (!r.parts.length) return "";
+    const W = 264, rowH = 34, top = 18, mid = 138, scaleW = 96;
+    const max = Math.max(1e-9, ...r.parts.map((p) => Math.max(Math.abs(p.cx), Math.abs(p.cy)))) * 1e3;
+    const H = top + r.parts.length * rowH + 6;
+    const bar = (v, y, col) => {
+      const w = Math.abs(v) * 1e3 / max * scaleW, x = v >= 0 ? mid : mid - w;
+      return '<rect x="' + x.toFixed(1) + '" y="' + y + '" width="' + Math.max(w, 0.6).toFixed(1) + '" height="7" rx="1.5" style="fill:' + col + '"></rect><text x="' + (v >= 0 ? mid + w + 4 : mid - w - 4) + '" y="' + (y + 6.5) + '" text-anchor="' + (v >= 0 ? "start" : "end") + '" class="thv">' + um(v) + "</text>";
+    };
+    let g = '<text x="' + mid + '" y="10" text-anchor="middle" class="thl">bijdrage in \xB5m</text><line x1="' + mid + '" y1="' + (top - 4) + '" x2="' + mid + '" y2="' + (H - 4) + '" style="stroke:var(--line-2)"></line>';
+    r.parts.forEach((p, i) => {
+      const y = top + i * rowH, e = p.e, A = N(e.a), B = N(e.b), nm = (A ? A.name : "?") + (B ? B.name : "?");
+      g += "<g><title>" + esc2(nm) + ": \u2202x/\u2202L = " + nl2(p.sx.toFixed(3)) + ", \u2202y/\u2202L = " + nl2(p.sy.toFixed(3)) + ", \u0394L = " + nl2((p.dL * 1e3).toFixed(2)) + ' \xB5m</title><text x="0" y="' + (y + 8) + '" class="thl thn">' + esc2(nm) + " \xB7 " + esc2(matOf(e).naam.split(" ")[0]) + "</text>" + bar(p.cx, y + 12, "var(--spring)") + bar(p.cy, y + 21, "var(--driver)") + "</g>";
+    });
+    return '<svg class="thsvg" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Bijdrage per staaf aan de thermische verschuiving">' + g + '</svg><div class="thleg"><span><i style="background:var(--spring)"></i>x</span><span><i style="background:var(--driver)"></i>y</span> \u2202x/\u2202L\xB7\u03B1\xB7L\xB7\u0394T per staaf</div>';
   }
 
   // src/ui/inspector.js
@@ -5105,8 +5397,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     document.getElementById("fvsInp").value = model.fricVs || 5;
     document.getElementById("fveInp").value = model.fricVe || 2;
     document.getElementById("frfMaxInp").value = model.frfMax || 0;
+    document.getElementById("dTInp").value = model.dT || 0;
   }
-  var nl2 = (x) => String(x).replace(".", ",");
+  var nl3 = (x) => String(x).replace(".", ",");
   function syncResult() {
     const el = document.getElementById("resState");
     if (!el) return;
@@ -5120,13 +5413,14 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const st = v === 0 ? "bepaald" : v > 0 ? "onderbepaald" : "overbepaald";
       if (model.mode === "frf") {
         const md = sw && sw.modes ? sw.modes.find((x) => !x.unstable && x.f > 1e-6) : null;
-        t = "FRF \xB7 " + (md ? nl2(fmtHz(md.f)) : sw ? "doorgerekend" : "nog niet doorgerekend");
+        t = "FRF \xB7 " + (md ? nl3(fmtHz(md.f)) : sw ? "doorgerekend" : "nog niet doorgerekend");
       } else if (model.mode === "dyn") {
         const eq = model.durMode === "equil";
-        t = (eq ? "Evenwicht" : "Dynamisch") + " \xB7 " + (sw ? (eq && sw.settled ? "tot rust na " : "") + nl2(sw.dur.toFixed(1)) + " s" + (eq && sw.settled ? "" : " doorgerekend") : "nog niet doorgerekend");
+        t = (eq ? "Evenwicht" : "Dynamisch") + " \xB7 " + (sw ? (eq && sw.settled ? "tot rust na " : "") + nl3(sw.dur.toFixed(1)) + " s" + (eq && sw.settled ? "" : " doorgerekend") : "nog niet doorgerekend");
       } else t = "Kinematisch \xB7 " + (sim.solveOK === false ? "niet samen te stellen" : st);
     }
     el.textContent = t;
+    renderThermal();
   }
   function syncDof() {
     syncResult();
@@ -5295,12 +5589,13 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       stSel.textContent = "schakel";
       if (e.driver && e.theta0 === void 0) e.theta0 = crankAngle(e);
       if (e.driver && e.rpm === void 0) e.rpm = 60;
-      props.innerHTML = kind(e.driver ? ui.C.driver : ui.C.ink, e.driver ? "Kruk (aandrijving)" : "Stijve schakel") + '<p class="empty" style="margin:-4px 0 10px">' + N(e.a).name + " \u2192 " + N(e.b).name + "</p>" + numRow("el", "Lengte", e.len, "mm", 0.1) + (e.driver ? numRow("eth", "Beginhoek \u03B8\u2080", e.theta0, "\xB0", 5) + '<div class="row"><label>Hoek nu</label><span class="val" id="ethNow" data-e="' + e.id + `" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px">` + Math.round(e.theta || 0) + "\xB0</span></div>" + numRow("erpm", "Toerental", e.rpm, "rpm", 5) + '<div class="row" style="grid-template-columns:1fr;margin-top:4px"><label>Draairichting</label></div><div class="seg" id="dirSeg"><button type="button" data-v="ccw" aria-pressed="' + (e.cw !== true) + '">Linksom</button><button type="button" data-v="cw" aria-pressed="' + (e.cw === true) + '">Rechtsom</button></div>' : "") + '<button class="btn" id="drvBtn" style="width:100%;margin-top:10px">' + (e.driver ? "Aandrijving verwijderen" : "Maak dit de kruk") + "</button>" + (e.driver ? '<p class="empty" style="margin-top:8px">Draaipunt ' + N(e.a).name + ". \u03C9 = " + fmt(Math.abs(e.rpm) * 6) + " \xB0/s. Meerdere krukken mogen \u2014 de tijdas beslaat \xE9\xE9n omwenteling van de langzaamste.</p>" : "");
+      props.innerHTML = kind(e.driver ? ui.C.driver : ui.C.ink, e.driver ? "Kruk (aandrijving)" : "Stijve schakel") + '<p class="empty" style="margin:-4px 0 10px">' + N(e.a).name + " \u2192 " + N(e.b).name + "</p>" + numRow("el", "Lengte", e.len, "mm", 0.1) + (e.driver ? "" : linkThermHtml(e)) + (e.driver ? numRow("eth", "Beginhoek \u03B8\u2080", e.theta0, "\xB0", 5) + '<div class="row"><label>Hoek nu</label><span class="val" id="ethNow" data-e="' + e.id + `" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px">` + Math.round(e.theta || 0) + "\xB0</span></div>" + numRow("erpm", "Toerental", e.rpm, "rpm", 5) + '<div class="row" style="grid-template-columns:1fr;margin-top:4px"><label>Draairichting</label></div><div class="seg" id="dirSeg"><button type="button" data-v="ccw" aria-pressed="' + (e.cw !== true) + '">Linksom</button><button type="button" data-v="cw" aria-pressed="' + (e.cw === true) + '">Rechtsom</button></div>' : "") + '<button class="btn" id="drvBtn" style="width:100%;margin-top:10px">' + (e.driver ? "Aandrijving verwijderen" : "Maak dit de kruk") + "</button>" + (e.driver ? '<p class="empty" style="margin-top:8px">Draaipunt ' + N(e.a).name + ". \u03C9 = " + fmt(Math.abs(e.rpm) * 6) + " \xB0/s. Meerdere krukken mogen \u2014 de tijdas beslaat \xE9\xE9n omwenteling van de langzaamste.</p>" : "");
       bindNum("el", (v) => {
         e.len = Math.max(0.1, v);
         if (e.driver) placeAt(sim.sweep ? sim.sweep.t[ui.frame] : 0);
         else relax();
       });
+      if (!e.driver) bindLinkTherm(e);
       bindNum("eth", (v) => {
         e.theta0 = v;
       });
@@ -5403,7 +5698,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       stSel.textContent = "flexure";
       const sel = (id, lab, opts, cur) => '<div class="row"><label for="' + id + '">' + lab + '</label><select id="' + id + '">' + opts.map((o) => '<option value="' + o[0] + '"' + (o[0] === cur ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></div>";
       const refs = flexRefs(e), cant = e.kind === "cantilever";
-      props.innerHTML = kind(ui.C.ink2, "Flexure (PRBM)") + '<p class="empty" style="margin:-4px 0 10px">Scharnier in ' + N(e.a).name + ", schakel naar " + N(e.b).name + "</p>" + sel("fk", "Type", Object.keys(FLEX_KINDS).map((k) => [k, FLEX_KINDS[k]]), e.kind) + numRow("fL", cant ? "Bladlengte L" : "Lengte bladen L", e.L, "mm", 1) + numRow("fwd", "Breedte b", e.wd, "mm", 0.5) + numRow("ft", "Dikte t", e.t, "mm", 0.01) + (e.kind === "notch" ? numRow("fR", "Inkepingsstraal R", e.R, "mm", 0.1) + numRow("fKt", "Spanningsconc. K\u209C", e.Kt, "\u2013", 0.1) : "") + sel("fm", "Materiaal", MATERIALS2.map((m) => [m.id, m.naam]), e.mat) + numRow("fsig", "\u03C3 toelaatbaar (0 = materiaal)", e.sig || 0, "MPa", 10) + numRow("fpre", "Voorspanning", e.pre || 0, "\xB0", 0.1) + sel("fref", "Draait ten opzichte van", [["", "de grond"]].concat(refs.map((r) => [r.id, "schakel " + N(r.a).name + N(r.b).name])), e.ref || "") + '<p class="empty" style="margin:10px 0 0"><b>Nu</b></p><p class="empty" id="fxLive" data-e="' + e.id + '" style="margin-top:2px">' + flexLive(e) + '</p><p class="empty" style="margin-top:8px">' + (cant ? "Pseudo-starre-lichaammodel (Howell): het karakteristieke scharnier ligt op " + nl2(fmt((1 - GAMMA) * e.L)) + " mm van de inklemming (a); de getekende schakel is \u03B3\xB7L = " + nl2(fmt(GAMMA * e.L)) + " mm lang. Teken a dus op die plek, niet op de inklemming zelf. " : "Het scharnier draait om punt a; de getekende schakel hoeft niet even lang te zijn als het blad. ") + "De draaiveer werkt in Dynamisch, Evenwicht en FRF. In Kinematisch telt de stijfheid niet mee (puur scharnier), maar de spanning wel.</p>";
+      props.innerHTML = kind(ui.C.ink2, "Flexure (PRBM)") + '<p class="empty" style="margin:-4px 0 10px">Scharnier in ' + N(e.a).name + ", schakel naar " + N(e.b).name + "</p>" + sel("fk", "Type", Object.keys(FLEX_KINDS).map((k) => [k, FLEX_KINDS[k]]), e.kind) + numRow("fL", cant ? "Bladlengte L" : "Lengte bladen L", e.L, "mm", 1) + numRow("fwd", "Breedte b", e.wd, "mm", 0.5) + numRow("ft", "Dikte t", e.t, "mm", 0.01) + (e.kind === "notch" ? numRow("fR", "Inkepingsstraal R", e.R, "mm", 0.1) + numRow("fKt", "Spanningsconc. K\u209C", e.Kt, "\u2013", 0.1) : "") + sel("fm", "Materiaal", MATERIALS2.map((m) => [m.id, m.naam]), e.mat) + numRow("fsig", "\u03C3 toelaatbaar (0 = materiaal)", e.sig || 0, "MPa", 10) + numRow("fpre", "Voorspanning", e.pre || 0, "\xB0", 0.1) + sel("fref", "Draait ten opzichte van", [["", "de grond"]].concat(refs.map((r) => [r.id, "schakel " + N(r.a).name + N(r.b).name])), e.ref || "") + '<p class="empty" style="margin:10px 0 0"><b>Nu</b></p><p class="empty" id="fxLive" data-e="' + e.id + '" style="margin-top:2px">' + flexLive(e) + '</p><p class="empty" style="margin-top:8px">' + (cant ? "Pseudo-starre-lichaammodel (Howell): het karakteristieke scharnier ligt op " + nl3(fmt((1 - GAMMA) * e.L)) + " mm van de inklemming (a); de getekende schakel is \u03B3\xB7L = " + nl3(fmt(GAMMA * e.L)) + " mm lang. Teken a dus op die plek, niet op de inklemming zelf. " : "Het scharnier draait om punt a; de getekende schakel hoeft niet even lang te zijn als het blad. ") + "De draaiveer werkt in Dynamisch, Evenwicht en FRF. In Kinematisch telt de stijfheid niet mee (puur scharnier), maar de spanning wel.</p>";
       bindNum("fL", (v) => {
         e.L = Math.max(0.01, v);
         if (cant) {
@@ -5485,6 +5780,97 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       });
     }
   }
+  var selH = (id, lab, opts, cur) => '<div class="row"><label for="' + id + '">' + lab + '</label><select id="' + id + '">' + opts.map((o) => '<option value="' + o[0] + '"' + (o[0] === cur ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></div>";
+  function linkThermHtml(e) {
+    const ax = isAxial(e);
+    return selH("lmat", "Materiaal", MATERIALS2.map((m) => [m.id, m.naam]), e.mat || "staal") + '<div class="row"><label for="ldt">\u0394T eigen <span class="unit">K, leeg = model</span></label><input type="number" id="ldt" step="1" placeholder="' + nlf(model.dT || 0) + '" value="' + (typeof e.dT === "number" ? e.dT : "") + '"></div>' + selH("lst", "Stijfheid", [["inf", "Oneindig (stijf)"], ["axial", "Axiaal (EA/L)"]], ax ? "axial" : "inf") + (ax ? selH("lsect", "Doorsnede", [["A", "Oppervlak A"], ["bh", "Profiel b \xD7 h"]], e.sect === "bh" ? "bh" : "A") + (e.sect === "bh" ? numRow("lsb", "Breedte b", e.sb > 0 ? e.sb : 5, "mm", 0.5) + numRow("lsh", "Hoogte h", e.sh > 0 ? e.sh : 4, "mm", 0.5) : numRow("lA", "Oppervlak A", axialA(e), "mm\xB2", 1)) : "") + '<p class="empty" id="axLive" data-e="' + e.id + '" style="margin-top:6px">' + axialLiveHtml(e) + '</p><p class="empty" style="margin-top:6px">' + (ax ? "Axiaal: een veer k = E\xB7A/L langs de staaf (Dynamisch, Evenwicht, FRF); in Kinematisch blijft hij stijf maar de kracht N, \u0394L en \u03C3 worden getoond. Rustlengte L\u2080\xB7(1 + \u03B1\xB7\u0394T)." : "Oneindig: een stijve randvoorwaarde. Met \u0394T \u2260 0 krijgt hij de lengte L\xB7(1 + \u03B1\xB7\u0394T).") + "</p>";
+  }
+  function axialLiveHtml(e) {
+    const m = matOf(e), dth = thermDL(e) * 1e3;
+    let h = "\u03B1 <b>" + nlf(m.alpha) + "</b> \xB5m/(m\xB7K) \xB7 \u0394T <b>" + nlf(dTOf(e)) + "</b> K \u2192 thermische rek \u0394L = \u03B1\xB7L\xB7\u0394T = <b>" + nlf(dth) + "</b> \xB5m";
+    if (!isAxial(e)) return h;
+    const k = axialK(e), S = sim.sweep, i = Math.round(ui.frame);
+    const F = S && !S.frf && S.EF && S.EF[e.id] ? S.EF[e.id][i] : NaN;
+    h += "<br>E <b>" + nlf(axialE(e)) + "</b> MPa \xB7 A <b>" + nlf(axialA(e)) + "</b> mm\xB2 \xB7 k = EA/L <b>" + nlf(k) + "</b> N/mm = <b>" + nlf(k / 1e3) + "</b> N/\xB5m<br>" + (isFinite(F) ? "N <b>" + nlf(F) + "</b> N \xB7 \u0394L = N/k <b>" + nlf(F / k * 1e3) + "</b> \xB5m \xB7 \u03C3 <b>" + nlf(axialSigma(e, F)) + "</b> MPa" : "N \u2013 \xB7 \u0394L \u2013 \xB7 \u03C3 \u2013 \xB7 nog geen doorgerekende stand");
+    if (model.mode === "dyn" && N(e.a) && N(e.b)) {
+      const dt = loadcellDt(e, model.defMass), now = (model.dtStep || 0.2) / 1e3;
+      h += '<br><span style="' + (now > dt ? "color:var(--driver);font-weight:600" : "") + '">Tijdstap \u2264 <b>' + nlf(dt * 1e3) + "</b> ms voor een stabiele integratie (nu " + nlf(now * 1e3) + " ms)" + (now > dt ? " \u2014 verklein hem in Instellingen" : "") + "</span>";
+    }
+    return h;
+  }
+  function bindLinkTherm(e) {
+    const redo2 = () => {
+      if (!asyncMode()) ui.frame = 0;
+      rebuild();
+      syncDof();
+      draw();
+      pushHistory();
+      save();
+      buildInspector();
+    };
+    const guard = (el, restore2) => {
+      if (!atT0()) {
+        restore2();
+        lockNudge();
+        return false;
+      }
+      cancelJob();
+      return true;
+    };
+    const onSel = (id, fn, cur) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener("change", () => {
+        if (guard(el, () => {
+          el.value = cur();
+        })) {
+          fn(el.value);
+          redo2();
+        }
+      });
+    };
+    onSel("lmat", (v) => {
+      e.mat = v;
+    }, () => e.mat || "staal");
+    onSel("lst", (v) => {
+      e.axial = v === "axial";
+      if (e.axial && !(e.A > 0)) e.A = A_DEFAULT;
+    }, () => isAxial(e) ? "axial" : "inf");
+    onSel("lsect", (v) => {
+      e.sect = v;
+      if (v === "bh") {
+        if (!(e.sb > 0)) e.sb = 5;
+        if (!(e.sh > 0)) e.sh = Math.max(0.1, Math.round(axialA(e) / e.sb * 100) / 100);
+      } else e.A = axialA(e);
+    }, () => e.sect === "bh" ? "bh" : "A");
+    bindNum("lA", (v) => {
+      e.A = Math.max(1e-3, v);
+    });
+    bindNum("lsb", (v) => {
+      e.sb = Math.max(1e-3, v);
+    });
+    bindNum("lsh", (v) => {
+      e.sh = Math.max(1e-3, v);
+    });
+    const dt = document.getElementById("ldt");
+    const commit = () => {
+      const v = parseFloat(dt.value);
+      if (!guard(dt, () => {
+        dt.value = typeof e.dT === "number" ? e.dT : "";
+      })) return;
+      if (isFinite(v)) e.dT = v;
+      else delete e.dT;
+      redo2();
+    };
+    dt.addEventListener("change", commit);
+    dt.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        commit();
+        dt.blur();
+      }
+    });
+  }
   function sensorInspector(e) {
     const props2 = document.getElementById("props"), stSel = document.getElementById("stSel");
     const nmOf = (id) => N(id) ? N(id).name : "?";
@@ -5514,7 +5900,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       });
     } else if (e.type === "encoder") {
       const here = barsAt(e.node), nm = (b) => "schakel " + nmOf(b.a) + nmOf(b.b);
-      props2.innerHTML = head("", "in punt " + nmOf(e.node)) + sel("ene1", "Hoek van", here.map((b) => [b.id, nm(b)]), e.e1) + sel("ene2", "ten opzichte van", [["", "de grond"]].concat(here.filter((b) => b.id !== e.e1).map((b) => [b.id, nm(b)])), e.e2 || "") + numRow("encpr", "Resolutie", e.cpr, "counts/omw.", 256) + tail + '<p class="empty" style="margin-top:8px">E\xE9n count is 360\xB0/' + nl2(fmt(e.cpr)) + " = <b>" + nl2(fmt(encRes(e) * 180 / Math.PI)) + "\xB0</b> = <b>" + nl2(fmt(encRes(e) * 1e6)) + " \xB5rad</b>. De getoonde \u201Cgeteld\u201D hoek is afgerond op hele counts: dat is wat de encoder werkelijk kan zien. De hoek is relatief ten opzichte van de getekende stand. De encoder heeft geen massa of stijfheid.</p>";
+      props2.innerHTML = head("", "in punt " + nmOf(e.node)) + sel("ene1", "Hoek van", here.map((b) => [b.id, nm(b)]), e.e1) + sel("ene2", "ten opzichte van", [["", "de grond"]].concat(here.filter((b) => b.id !== e.e1).map((b) => [b.id, nm(b)])), e.e2 || "") + numRow("encpr", "Resolutie", e.cpr, "counts/omw.", 256) + tail + '<p class="empty" style="margin-top:8px">E\xE9n count is 360\xB0/' + nl3(fmt(e.cpr)) + " = <b>" + nl3(fmt(encRes(e) * 180 / Math.PI)) + "\xB0</b> = <b>" + nl3(fmt(encRes(e) * 1e6)) + " \xB5rad</b>. De getoonde \u201Cgeteld\u201D hoek is afgerond op hele counts: dat is wat de encoder werkelijk kan zien. De hoek is relatief ten opzichte van de getekende stand. De encoder heeft geen massa of stijfheid.</p>";
       bindNum("encpr", (v) => {
         e.cpr = Math.max(1, Math.round(v));
       });
@@ -5549,7 +5935,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       });
     }
   }
-  var nlf = (v) => nl2(fmt(v));
+  var nlf = (v) => nl3(fmt(v));
   function sensorLiveHtml(e) {
     if (sim.sweep && sim.sweep.frf) return "FRF: de uitgang staat in het Bode-diagram (kies hem bij Metingen).";
     const L = sensorLive(e), none = " \xB7 nog geen doorgerekende beweging";
@@ -5563,9 +5949,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     } else if (e.type === "dsens") {
       h = L ? 'x <b style="' + (L.oor ? "color:var(--bad)" : "") + '">' + nlf(L.x) + "</b> \xB5m \xB7 afgerond op resolutie <b>" + nlf(L.q) + "</b> \xB5m<br>" + (L.oor ? '<span style="color:var(--bad);font-weight:600">buiten bereik (\xB1' + nlf(e.range) + " \xB5m)</span>" : "binnen bereik (\xB1" + nlf(e.range) + " \xB5m)") : "x \u2013" + none;
     } else if (e.type === "encoder") {
-      h = L ? "\u03B8 <b>" + nl2(L.th.toFixed(4)) + "</b>\xB0 = <b>" + nlf(L.thu) + "</b> \xB5rad<br>geteld <b>" + nl2(L.thq.toFixed(4)) + "</b>\xB0 (kwantisatiefout " + nlf((L.thq - L.th) * Math.PI / 180 * 1e6) + " \xB5rad)" : "\u03B8 \u2013" + none;
+      h = L ? "\u03B8 <b>" + nl3(L.th.toFixed(4)) + "</b>\xB0 = <b>" + nlf(L.thu) + "</b> \xB5rad<br>geteld <b>" + nl3(L.thq.toFixed(4)) + "</b>\xB0 (kwantisatiefout " + nlf((L.thq - L.th) * Math.PI / 180 * 1e6) + " \xB5rad)" : "\u03B8 \u2013" + none;
     } else if (e.type === "accel") {
-      h = L ? "a <b>" + nlf(L.a) + "</b> m/s\xB2 = <b>" + nl2(L.g.toFixed(3)) + "</b> g" : "a \u2013" + none;
+      h = L ? "a <b>" + nlf(L.a) + "</b> m/s\xB2 = <b>" + nl3(L.g.toFixed(3)) + "</b> g" : "a \u2013" + none;
     }
     return h;
   }
@@ -5580,6 +5966,12 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (el) {
       const e = E(el.dataset.e);
       if (e && e.type === "contact" && N(e.node)) el.innerHTML = contactLive(e);
+    }
+    renderThermal();
+    const ax = document.getElementById("axLive");
+    if (ax) {
+      const e = E(ax.dataset.e);
+      if (e && e.type === "link") ax.innerHTML = axialLiveHtml(e);
     }
     const sn = document.getElementById("snLive");
     if (sn) {
@@ -6374,6 +6766,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       changed();
     });
     bindOpt("cjInp", "cJoint", 0);
+    bindOpt("dTInp", "dT", -1e6);
     bindOpt("durInp", "simDur", 0.05);
     bindOpt("maxInp", "maxT", 0.2);
     bindOpt("dtInp", "dtStep", 1e-3);
@@ -6434,6 +6827,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         name: model.name,
         fricVs: model.fricVs,
         fricVe: model.fricVe,
+        dT: model.dT,
+        thermNode: model.thermNode,
         edited: ui.userEdited,
         uid: sim.uid,
         nameCounter: ui.nameCounter
@@ -6481,6 +6876,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       model.frfMax = d.frfMax || 0;
       model.fricVs = d.fricVs || 5;
       model.fricVe = d.fricVe || 2;
+      model.dT = d.dT || 0;
+      model.thermNode = d.thermNode || "";
       setModeUI(d.mode === "dyn" || d.mode === "frf" ? d.mode : "kin");
       for (const e of model.elems) if (e.driver && e.theta0 === void 0) e.theta0 = e.theta || 0;
       sim.uid = d.uid || 1;
@@ -6524,7 +6921,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     "frfMax",
     "name",
     "fricVs",
-    "fricVe"
+    "fricVe",
+    "dT",
+    "thermNode"
   ];
   function doc() {
     const o = {};
@@ -7598,8 +7997,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       label(tip.x + ux * 14, tip.y + uy * 14, fmt(mag) + " N", ui.C.accent, false, 1);
     }
     for (const e of model.elems) {
-      if (!isBar(e) || e.type === "loadcell") continue;
-      const v = sim.sweep.N[e.id] ? sim.sweep.N[e.id][i] : NaN;
+      if (!isBar(e) && !isAxial(e) || e.type === "loadcell") continue;
+      const v = sim.sweep.N[e.id] ? sim.sweep.N[e.id][i] : isAxial(e) && sim.sweep.EF && sim.sweep.EF[e.id] ? sim.sweep.EF[e.id][i] : NaN;
       if (!isFinite(v)) continue;
       const A = toScr(N(e.a)), B = toScr(N(e.b));
       label(
@@ -7638,19 +8037,24 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
+    const ax = isAxial(e);
     ctx.strokeStyle = col;
-    ctx.lineWidth = 5;
+    ctx.lineWidth = ax ? 3.4 : 5;
     ctx.beginPath();
     ctx.moveTo(A.x, A.y);
     ctx.lineTo(B.x, B.y);
     ctx.stroke();
     ctx.strokeStyle = ui.C.ground;
-    ctx.lineWidth = 1.4;
+    ctx.lineWidth = ax ? 1.1 : 1.4;
     ctx.beginPath();
     ctx.moveTo(A.x, A.y);
     ctx.lineTo(B.x, B.y);
     ctx.stroke();
     if (e.driver) drawCrankArrow(A, B);
+    if (ax) {
+      const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2, bad = model.mode === "dyn" && (model.dtStep || 0.2) / 1e3 > loadcellDt(e, model.defMass);
+      label(mx, my + 26, "EA" + (bad ? " \u26A0 dt" : ""), bad ? ui.C.driver : ui.C.spring, false, 2);
+    }
     if (!(model.showForces && sim.sweep && sim.sweep.stat)) {
       const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
       label(mx, my - 12, fmt(e.len) + " mm", e.driver ? ui.C.driver : ui.C.ink3);
@@ -8351,7 +8755,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       model.frfMin,
       model.frfMax,
       model.fricVs,
-      model.fricVe
+      model.fricVe,
+      model.dT
     ], (k, v) => k === "theta" ? void 0 : v);
   }
   function refreshAfterSolve() {
@@ -8611,7 +9016,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           e.min = round2(e.min + d);
           e.max = round2(e.max + d);
         }
-        if (isBar(e) || e.type === "loadcell") e.len = round2(L);
+        if (isBar(e) || e.type === "link" || e.type === "loadcell") e.len = round2(L);
         if (e.type === "flexure" && e.kind === "cantilever") e.L = round2(e.len / GAMMA);
         if (e.type === "spring") e.L0 = round2(L);
       }
@@ -8666,6 +9071,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     model.gravity = false;
     model.jointDamp = false;
     model.cVisc = 0;
+    model.dT = 0;
+    model.thermNode = "";
     document.getElementById("gravChk").checked = false;
     ui.frame = 0;
     setModeUI("kin");
@@ -9036,6 +9443,31 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         model.series.push({ key: "n|" + g("C").id + "|x" }, { key: "s|" + lc.id + "|F" }, { key: "m|" + lc.id + "|d" });
       }
     ),
+    // meetarm: een aluminium en een stalen staaf dragen de tip van een tastarm; ΔT = 5 K
+    thermarm: () => build(
+      [["A", 0, 0, "pin"], ["B", 0, 50, "pin"], ["C", 150, 25]],
+      [["link", "A", "C", { mat: "alu" }], ["link", "B", "C", { mat: "staal" }]],
+      (g) => {
+        model.dT = 5;
+        model.thermNode = g("C").id;
+      }
+    ),
+    // twee axiale stalen staven (100 mm, 2 mm²) tussen twee vaste punten, ΔT = 20 K: thermische drukspanning in Evenwicht
+    thermclamp: () => build(
+      [["A", 0, 0, "pin"], ["B", 100, 0, "slider", 0], ["C", 200, 0, "pin"]],
+      [["link", "A", "B", { axial: true, A: 2, mat: "staal" }], ["link", "B", "C", { axial: true, A: 2, mat: "staal" }]],
+      (g) => {
+        g("B").m = 0.5;
+        model.dT = 20;
+        model.cVisc = 3;
+        model.dtStep = 0.02;
+        model.simDur = 0.05;
+        model.durMode = "equil";
+        setModeUI("dyn");
+        const bs = model.elems.filter((e) => e.type === "link");
+        model.series.push({ key: "s|" + bs[0].id + "|F" }, { key: "w|" + bs[0].id + "|sig" });
+      }
+    ),
     // stoommachine: actuator → veer → kruiskop → drijfstang → kruk met vliegwielmassa;
     // de kant van het dode punt waar de krukpen start bepaalt de draairichting
     steamL: () => steam(1),
@@ -9075,6 +9507,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     { id: "fric", nm: "Wrijving & speling" },
     { id: "flex", nm: "Flexures" },
     { id: "sens", nm: "Sensoren" },
+    { id: "therm", nm: "Thermisch" },
     { id: "empty", nm: "Leeg" }
   ];
   var MODE_NAMES = { kin: "Kinematisch", dyn: "Dynamisch", equil: "Evenwicht", frf: "FRF" };
@@ -9218,6 +9651,20 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       modes: ["frf", "dyn"],
       desc: "Massa op een veer, opgehangen aan een zachte krachtopnemer; de FRF laat zien dat de opnemer de eigenfrequentie verlaagt.",
       text: "Een massa van 1 kg hangt via een veer van 10 N/mm aan een krachtopnemer van 0,05 N/\xB5m (50 N/mm, bewust zacht). De opnemer staat in serie: 1/k\u209C\u2092\u209C = 1/10 + 1/50, dus k\u209C\u2092\u209C = 8,33 N/mm en f = \u221A(8333/1)/2\u03C0 = 14,5 Hz, tegen 15,9 Hz zonder opnemer; de FRF vindt 14,5 Hz. Er loopt 1 N door de opnemer en hij vervormt 20 \xB5m (F/k\u209B). Met de standaard 100 N/\xB5m (10\u2075 N/mm) was het verschil 0,005 %: zet k\u209B in de inspector hoger en zie de piek terugschuiven."
+    },
+    thermarm: {
+      title: "Thermische drift van een meetarm",
+      cat: "therm",
+      modes: ["kin"],
+      desc: "Tastarm op een aluminium en een stalen staaf; \u0394T = 5 K laat de tip in \xB5m wegdrijven.",
+      text: "De tip C hangt aan een aluminium staaf (\u03B1 = 23,6) en een stalen staaf (\u03B1 = 11,5) van elk 152 mm, op een frame. Bij \u0394T = 5 K rekt de aluminium staaf 18 \xB5m en de stalen 8,7 \xB5m; in het Resultaat staat de verschuiving van de tip: \u0394x = +13,5 \xB5m en \u0394y = +28,0 \xB5m. De grafiek toont per staaf zijn bijdrage \u2202x/\u2202L\xB7\u03B1\xB7L\xB7\u0394T: de bijdragen aan y zijn groot en tegengesteld (+54,6 en \u221226,6 \xB5m), de aluminium staaf wint. Zet bij Eigenschappen beide staven op staal: dan valt \u0394y weg (0 \xB5m, symmetrisch) en blijft alleen \u0394x = +8,9 \xB5m over. Het kan ook met twee verschillende materialen: kies de lengtes zo dat \u03B1\xB7L gelijk is (de aluminium staaf dan 0,49 keer zo lang als de stalen), of zet de aluminium staaf op Invar. Zo maak je de tip athermisch in de meetrichting."
+    },
+    thermclamp: {
+      title: "Thermische spanning in een ingeklemde staaf",
+      cat: "therm",
+      modes: ["dyn", "equil"],
+      desc: "Axiale stalen staaf tussen twee vaste punten: \u0394T = 20 K geeft een drukkracht.",
+      text: "Twee axiale stalen staven (100 mm, 2 mm\xB2, k = EA/L = 4,2 kN/mm) zitten in serie tussen twee vaste punten; het middelste punt B glijdt langs de staafrichting. Bij \u0394T = 20 K willen ze 2 \xD7 23 \xB5m langer worden, maar de inklemming laat dat niet toe. Evenwicht: N = \u2212E\xB7A\xB7\u03B1\xB7\u0394T = \u221296,6 N (druk) en \u03C3 = \u2212E\xB7\u03B1\xB7\u0394T = \u221248,3 MPa, onafhankelijk van de lengte en de ligging van B. Zet \u0394T negatief en de staven staan op trek. Een stijvere staaf (grotere A) geeft een evenredig grotere kracht; een tijdstap boven 2,8/\u03C9 geeft de oranje waarschuwing."
     },
     empty: {
       title: "Leeg canvas",
@@ -9860,32 +10307,32 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return { E: m.E, nu: m.nu, sigma: sg > 0 ? sg : m.sigma, alpha: m.alpha, rho: m.rho };
   }
   var fmtv = (v) => String(+Number(v).toPrecision(3));
-  var REF = null;
+  var REF2 = null;
   function render() {
     state.raf = 0;
-    if (!REF) return;
+    if (!REF2) return;
     const c2 = calcOf(state.cur), p = params(c2), bad = invalid(c2, p), M = matParams();
     c2.inputs.forEach((i) => {
-      const n = REF.fields[i.id];
+      const n = REF2.fields[i.id];
       if (n && n.type === "number") n.setAttribute("aria-invalid", String(bad.indexOf(i) >= 0));
     });
     if (bad.length) {
-      REF.warn.innerHTML = '<div class="calc-warn" role="alert">Controleer de invoer: ' + bad.map((i) => i.label).join(", ") + ".</div>";
-      REF.warnH = "";
-      REF.root.classList.add("is-bad");
-      REF.last = null;
+      REF2.warn.innerHTML = '<div class="calc-warn" role="alert">Controleer de invoer: ' + bad.map((i) => i.label).join(", ") + ".</div>";
+      REF2.warnH = "";
+      REF2.root.classList.add("is-bad");
+      REF2.last = null;
       return;
     }
-    REF.root.classList.remove("is-bad");
+    REF2.root.classList.remove("is-bad");
     const o = c2.run(p, M), r = o.r;
-    REF.last = { c: c2, p, M, o, r };
+    REF2.last = { c: c2, p, M, o, r };
     const wh = o.warn.length ? '<div class="calc-warn" role="alert">' + o.warn.map((w) => "<div>\u26A0 " + w + "</div>").join("") + "</div>" : "";
-    if (wh !== REF.warnH) {
-      REF.warn.innerHTML = wh;
-      REF.warnH = wh;
+    if (wh !== REF2.warnH) {
+      REF2.warn.innerHTML = wh;
+      REF2.warnH = wh;
     }
     o.out.forEach((x, k) => {
-      const cell = REF.cells[k];
+      const cell = REF2.cells[k];
       if (!cell) return;
       cell.dd.firstChild.nodeValue = x.v + (x.unit ? " " : "");
       cell.u.textContent = x.unit || "";
@@ -9893,19 +10340,19 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     });
     const ks = KEYS[c2.id](r), sf = safety(r, M);
     [ks[0], ks[1], ["Veiligheid", "", isFinite(sf.s) ? "\xD7 " + num3(sf.s) : "\u221E"]].forEach((k, n) => {
-      const e = REF.keys[n];
+      const e = REF2.keys[n];
       e.v.firstChild.nodeValue = k[2] + (k[1] ? " " : "");
       e.u.textContent = k[1];
     });
-    REF.keys[2].box.setAttribute("data-status", sf.status);
-    REF.keys[2].sub.textContent = sf.sub;
-    REF.keys[0].sub.textContent = "";
-    REF.keys[1].sub.textContent = "bij \u03C3_toel = " + num3(M.sigma) + " MPa";
-    FIGS[c2.id].draw(REF.fig, p, r, M);
+    REF2.keys[2].box.setAttribute("data-status", sf.status);
+    REF2.keys[2].sub.textContent = sf.sub;
+    REF2.keys[0].sub.textContent = "";
+    REF2.keys[1].sub.textContent = "bij \u03C3_toel = " + num3(M.sigma) + " MPa";
+    FIGS[c2.id].draw(REF2.fig, p, r, M);
     if (state.open.Formules) renderFormulas(c2, p, M, r);
   }
   function renderFormulas(c2, p, M, r) {
-    REF.formulas.innerHTML = c2.formulas(p, M, r).map((x) => '<div class="fm"><div class="fm-h">' + x[0] + '</div><div class="fm-g">' + x[1] + '</div><div class="fm-n"><span class="fm-lab">met jouw getallen</span> ' + x[2] + "</div>" + (x[3] ? '<div class="fm-s"><span class="fm-lab">bron</span> ' + x[3] + "</div>" : "") + "</div>").join("");
+    REF2.formulas.innerHTML = c2.formulas(p, M, r).map((x) => '<div class="fm"><div class="fm-h">' + x[0] + '</div><div class="fm-g">' + x[1] + '</div><div class="fm-n"><span class="fm-lab">met jouw getallen</span> ' + x[2] + "</div>" + (x[3] ? '<div class="fm-s"><span class="fm-lab">bron</span> ' + x[3] + "</div>" : "") + "</div>").join("");
   }
   var schedule = () => {
     if (!state.raf) state.raf = requestAnimationFrame(render);
@@ -9956,7 +10403,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     });
     const svg = $("calcSvg");
     svg.innerHTML = SVG_DEFS;
-    REF = {
+    REF2 = {
       root: $("calcGrid"),
       warn: $("calcWarn"),
       warnH: "",
@@ -9971,7 +10418,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       fig: FIGS[c2.id].build(svg)
     };
     const kl = KEYS[c2.id](o0.r);
-    REF.keys.forEach((k, n) => {
+    REF2.keys.forEach((k, n) => {
       k.box.querySelector(".k").textContent = n < 2 ? kl[n][0] : "Veiligheid";
     });
     updMatInfo();
@@ -9996,7 +10443,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     $("calcRoot").hidden = !calc;
     document.querySelectorAll("#workSeg [data-w]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.w === w)));
     if (!calc) window.dispatchEvent(new Event("resize"));
-    else if (!REF) renderDetail();
+    else if (!REF2) renderDetail();
   }
   function initCalc() {
     renderList();
@@ -10034,7 +10481,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       if (t.dataset.sl) {
         const inp2 = c2.inputs.find((i) => i.id === t.dataset.sl), val2 = fromPos(c2, inp2, +t.value);
         state.vals[c2.id][inp2.id] = val2;
-        REF.fields[inp2.id].value = fmtv(val2);
+        REF2.fields[inp2.id].value = fmtv(val2);
         schedule();
         return;
       }
@@ -10043,7 +10490,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const inp = c2.inputs.find((i) => i.id === id);
       const val = inp.type === "check" ? t.checked : inp.type === "select" ? t.value : parseFloat(String(t.value).replace(",", "."));
       state.vals[c2.id][id] = val;
-      if (REF.sliders[id]) REF.sliders[id].value = toPos(c2, inp, val);
+      if (REF2.sliders[id]) REF2.sliders[id].value = toPos(c2, inp, val);
       render();
     });
     det.addEventListener("click", (e) => {
@@ -10162,7 +10609,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return true;
   }
   function sheetText() {
-    const L = REF && REF.last;
+    const L = REF2 && REF2.last;
     if (!L) return "";
     const c2 = L.c, p = L.p, M = L.M, m = material(state.mats[c2.id]), out = [];
     const ver = (document.querySelector(".brand .ver") || {}).textContent || "";
@@ -10569,6 +11016,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     preload: () => ln(8, 44, 72, 44, "g") + `<circle class="m" cx="40" cy="36" r="6"/>` + spring(40, 14, 40, 29) + ln(34, 4, 46, 4, "g") + arrow(58, 38, 58, 8),
     parallelguide: () => ln(4, 46, 76, 46, "g") + `<path class="k" d="M20 44Q16 38 20 32T20 20T20 10M60 44Q56 38 60 32T60 20T60 10"/><path class="dr" style="stroke-width:3.4" d="M14 8H66"/>` + arrow(2, 8, 12, 8),
     loadcell: () => wall(8, 14, 38) + ln(8, 26, 20, 26, "k") + `<rect class="m" x="20" y="21" width="14" height="10" rx="1.5"/><path class="k" d="M23 23l4 6 4-6"/>` + ln(34, 26, 38, 26, "k") + spring(38, 26, 60, 26) + mass(66, 26) + arrow(2, 42, 20, 42),
+    thermarm: () => wall(8, 8, 42) + ln(8, 12, 62, 26, "k") + ln(8, 38, 62, 26, "dr") + dot(62, 26, 2.6) + pin(8, 12) + pin(8, 38) + arrow(70, 26, 70, 14) + `<path class="g" d="M66 33q4 3 8 0"/>`,
+    thermclamp: () => wall(6, 14, 38) + wall(74, 14, 38) + ln(6, 26, 26, 26, "k") + ln(26, 26, 74, 26, "k") + box(40, 26) + `<path class="f" d="M10 14h8M62 14h8M14 12l-4 2 4 2M66 12l4 2-4 2"/>`,
     pendfrf: () => ln(30, 8, 30, 38) + pin(30, 8) + mass(30, 38) + arrow(38, 38, 70, 38),
     empty: () => `<rect class="dd" x="10" y="8" width="60" height="34" rx="4"/><path class="k" d="M40 20v10M35 25h10"/>`
   };
@@ -10581,7 +11030,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return `<svg class="thumb" viewBox="0 0 80 50" aria-hidden="true" focusable="false">${f2 ? f2() : ""}</svg>`;
   }
   var $2 = (id) => document.getElementById(id);
-  var esc2 = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  var esc3 = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
   var cat = "all";
   function applyFilter() {
     $2("libChips").querySelectorAll("[data-c]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.c === cat)));
@@ -10617,11 +11066,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     el.closest(".stage").classList.remove("hasnote");
   }
   function initLibrary() {
-    $2("libChips").innerHTML = CATEGORIES.map((c2) => `<button type="button" class="chip" data-c="${c2.id}" aria-pressed="false">${esc2(c2.nm)}</button>`).join("");
+    $2("libChips").innerHTML = CATEGORIES.map((c2) => `<button type="button" class="chip" data-c="${c2.id}" aria-pressed="false">${esc3(c2.nm)}</button>`).join("");
     $2("libGrid").innerHTML = Object.keys(EXAMPLE_META).map((id) => {
       const m = EXAMPLE_META[id];
       const tags = m.modes.map((t) => `<span class="tag tag-${t}">${MODE_NAMES[t]}</span>`).join("");
-      return `<button type="button" class="libcard" data-ex="${id}">${thumb(id)}<span class="lc-body"><span class="lc-t">${esc2(m.title)}</span><span class="lc-d">${esc2(m.desc)}</span><span class="lc-tags">${tags}</span></span></button>`;
+      return `<button type="button" class="libcard" data-ex="${id}">${thumb(id)}<span class="lc-body"><span class="lc-t">${esc3(m.title)}</span><span class="lc-d">${esc3(m.desc)}</span><span class="lc-tags">${tags}</span></span></button>`;
     }).join("");
     $2("libBtn").addEventListener("click", (ev) => {
       ev.stopPropagation();

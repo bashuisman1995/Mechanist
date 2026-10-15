@@ -1,5 +1,6 @@
 // Eigenschappenpaneel.
 import { frame as cFrame, hertz, liveContact, MATERIALS } from "../core/contact.js";
+import { A_DEFAULT, axialA, axialE, axialK, axialSigma, alphaOf, dTOf, isAxial, matOf, thermDL } from "../core/axial.js";
 import { asyncMode, dist, E, hasFriction, isBar, N } from "../core/elements.js";
 import { FLEX_KINDS, flexK, flexLivePhi, flexRefs, flexStress, GAMMA } from "../core/flexure.js";
 import { frfInputs } from "../core/frf.js";
@@ -16,6 +17,7 @@ import { refreshChannels } from "./plot.js";
 import { cancelJob, changed, rebuild } from "./solver.js";
 import { flash } from "./tools.js";
 import { renderHowNow } from "./howhook.js";
+import { renderThermal } from "./thermal.js";
 import { MATERIALS as CALC_MATERIALS } from "../calc/materials.js";
 
 export function syncDynInputs() {
@@ -40,6 +42,7 @@ export function syncDynInputs() {
   document.getElementById("fvsInp").value = model.fricVs || 5;
   document.getElementById("fveInp").value = model.fricVe || 2;
   document.getElementById("frfMaxInp").value = model.frfMax || 0;
+  document.getElementById("dTInp").value = model.dT || 0;
 }
 
 const nl = x => String(x).replace(".", ",");
@@ -65,6 +68,7 @@ export function syncResult() {
     } else t = "Kinematisch \u00b7 " + (sim.solveOK === false ? "niet samen te stellen" : st);
   }
   el.textContent = t;
+  renderThermal();
 }
 
 export function syncDof() {
@@ -236,6 +240,7 @@ function buildInspector() {
       kind(e.driver ? ui.C.driver : ui.C.ink, e.driver ? "Kruk (aandrijving)" : "Stijve schakel") +
       '<p class="empty" style="margin:-4px 0 10px">' + N(e.a).name + " → " + N(e.b).name + '</p>' +
       numRow("el", "Lengte", e.len, "mm", .1) +
+      (e.driver ? "" : linkThermHtml(e)) +
       (e.driver ? (
         numRow("eth", "Beginhoek θ₀", e.theta0, "°", 5) +
         '<div class="row"><label>Hoek nu</label><span class="val" id="ethNow" data-e="' + e.id +
@@ -259,6 +264,7 @@ function buildInspector() {
       if (e.driver) placeAt(sim.sweep ? sim.sweep.t[ui.frame] : 0);
       else relax();                      // andere stangen houden hun lengte
     });
+    if (!e.driver) bindLinkTherm(e);
     bindNum("eth", v => { e.theta0 = v; });
     bindNum("erpm", v => { e.rpm = v; });
     const ds = document.getElementById("dirSeg");
@@ -430,6 +436,63 @@ function buildInspector() {
   }
 }
 
+/* ---- materiaal, temperatuur en axiale stijfheid van een schakel ---- */
+const selH = (id, lab, opts, cur) => '<div class="row"><label for="' + id + '">' + lab + '</label><select id="' + id + '">' +
+  opts.map(o => '<option value="' + o[0] + '"' + (o[0] === cur ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></div>";
+function linkThermHtml(e) {
+  const ax = isAxial(e);
+  return selH("lmat", "Materiaal", CALC_MATERIALS.map(m => [m.id, m.naam]), e.mat || "staal") +
+    '<div class="row"><label for="ldt">\u0394T eigen <span class="unit">K, leeg = model</span></label>' +
+    '<input type="number" id="ldt" step="1" placeholder="' + nlf(model.dT || 0) + '" value="' + (typeof e.dT === "number" ? e.dT : "") + '"></div>' +
+    selH("lst", "Stijfheid", [["inf", "Oneindig (stijf)"], ["axial", "Axiaal (EA/L)"]], ax ? "axial" : "inf") +
+    (ax ? selH("lsect", "Doorsnede", [["A", "Oppervlak A"], ["bh", "Profiel b \u00d7 h"]], e.sect === "bh" ? "bh" : "A") +
+      (e.sect === "bh" ? numRow("lsb", "Breedte b", e.sb > 0 ? e.sb : 5, "mm", .5) + numRow("lsh", "Hoogte h", e.sh > 0 ? e.sh : 4, "mm", .5)
+                       : numRow("lA", "Oppervlak A", axialA(e), "mm\u00b2", 1)) : "") +
+    '<p class="empty" id="axLive" data-e="' + e.id + '" style="margin-top:6px">' + axialLiveHtml(e) + "</p>" +
+    '<p class="empty" style="margin-top:6px">' + (ax
+      ? "Axiaal: een veer k = E\u00b7A/L langs de staaf (Dynamisch, Evenwicht, FRF); in Kinematisch blijft hij stijf maar de kracht N, \u0394L en \u03c3 worden getoond. Rustlengte L\u2080\u00b7(1 + \u03b1\u00b7\u0394T)."
+      : "Oneindig: een stijve randvoorwaarde. Met \u0394T \u2260 0 krijgt hij de lengte L\u00b7(1 + \u03b1\u00b7\u0394T).") + "</p>";
+}
+function axialLiveHtml(e) {
+  const m = matOf(e), dth = thermDL(e) * 1000;
+  let h = "\u03b1 <b>" + nlf(m.alpha) + "</b> \u00b5m/(m\u00b7K) \u00b7 \u0394T <b>" + nlf(dTOf(e)) + "</b> K \u2192 thermische rek \u0394L = \u03b1\u00b7L\u00b7\u0394T = <b>" + nlf(dth) + "</b> \u00b5m";
+  if (!isAxial(e)) return h;
+  const k = axialK(e), S = sim.sweep, i = Math.round(ui.frame);
+  const F = S && !S.frf && S.EF && S.EF[e.id] ? S.EF[e.id][i] : NaN;
+  h += "<br>E <b>" + nlf(axialE(e)) + "</b> MPa \u00b7 A <b>" + nlf(axialA(e)) + "</b> mm\u00b2 \u00b7 k = EA/L <b>" + nlf(k) + "</b> N/mm = <b>" + nlf(k / 1000) + "</b> N/\u00b5m<br>" +
+    (isFinite(F) ? "N <b>" + nlf(F) + "</b> N \u00b7 \u0394L = N/k <b>" + nlf(F / k * 1000) + "</b> \u00b5m \u00b7 \u03c3 <b>" + nlf(axialSigma(e, F)) + "</b> MPa"
+                 : "N \u2013 \u00b7 \u0394L \u2013 \u00b7 \u03c3 \u2013 \u00b7 nog geen doorgerekende stand");
+  if (model.mode === "dyn" && N(e.a) && N(e.b)) {
+    const dt = loadcellDt(e, model.defMass), now = (model.dtStep || 0.2) / 1000;
+    h += '<br><span style="' + (now > dt ? "color:var(--driver);font-weight:600" : "") + '">Tijdstap \u2264 <b>' + nlf(dt * 1000) + "</b> ms voor een stabiele integratie (nu " + nlf(now * 1000) + " ms)" +
+      (now > dt ? " \u2014 verklein hem in Instellingen" : "") + "</span>";
+  }
+  return h;
+}
+function bindLinkTherm(e) {
+  const redo = () => { if (!asyncMode()) ui.frame = 0; rebuild(); syncDof(); draw(); pushHistory(); save(); buildInspector(); };
+  const guard = (el, restore) => { if (!atT0()) { restore(); lockNudge(); return false; } cancelJob(); return true; };
+  const onSel = (id, fn, cur) => {
+    const el = document.getElementById(id); if (!el) return;
+    el.addEventListener("change", () => { if (guard(el, () => { el.value = cur(); })) { fn(el.value); redo(); } });
+  };
+  onSel("lmat", v => { e.mat = v; }, () => e.mat || "staal");
+  onSel("lst", v => { e.axial = v === "axial"; if (e.axial && !(e.A > 0)) e.A = A_DEFAULT; }, () => isAxial(e) ? "axial" : "inf");
+  onSel("lsect", v => { e.sect = v; if (v === "bh") { if (!(e.sb > 0)) e.sb = 5; if (!(e.sh > 0)) e.sh = Math.max(.1, Math.round(axialA(e) / e.sb * 100) / 100); } else e.A = axialA(e); }, () => e.sect === "bh" ? "bh" : "A");
+  bindNum("lA", v => { e.A = Math.max(1e-3, v); });
+  bindNum("lsb", v => { e.sb = Math.max(1e-3, v); });
+  bindNum("lsh", v => { e.sh = Math.max(1e-3, v); });
+  const dt = document.getElementById("ldt");
+  const commit = () => {
+    const v = parseFloat(dt.value);
+    if (!guard(dt, () => { dt.value = typeof e.dT === "number" ? e.dT : ""; })) return;
+    if (isFinite(v)) e.dT = v; else delete e.dT;
+    redo();
+  };
+  dt.addEventListener("change", commit);
+  dt.addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); commit(); dt.blur(); } });
+}
+
 /* ---- sensoren ---- */
 function sensorInspector(e) {
   const props = document.getElementById("props"), stSel = document.getElementById("stSel");
@@ -527,6 +590,9 @@ function contactLive(e) {
 export function syncContactLive() {
   const el = document.getElementById("ctLive");
   if (el) { const e = E(el.dataset.e); if (e && e.type === "contact" && N(e.node)) el.innerHTML = contactLive(e); }
+  renderThermal();
+  const ax = document.getElementById("axLive");
+  if (ax) { const e = E(ax.dataset.e); if (e && e.type === "link") ax.innerHTML = axialLiveHtml(e); }
   const sn = document.getElementById("snLive");
   if (sn) { const e = E(sn.dataset.e); if (e && SENSORS[e.type]) sn.innerHTML = sensorLiveHtml(e); }
   const fx = document.getElementById("fxLive");

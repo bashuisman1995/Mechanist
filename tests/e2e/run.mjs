@@ -41,7 +41,7 @@ function check(name, cond, detail) {
 }
 
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || '/opt/pw-browsers/chromium' });
-const files = fs.readdirSync(path.join(here, 'scenarios')).filter(f => f.endsWith('.mjs')).sort();
+const files = fs.readdirSync(path.join(here, 'scenarios')).filter(f => f.endsWith('.mjs') && (!process.env.ONLY || f.startsWith(process.env.ONLY))).sort();
 for (const f of files) {
   current = f.replace(/\.mjs$/, '');
   const ts = Date.now();

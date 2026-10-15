@@ -1,6 +1,7 @@
 // Frequentieresponsie rond het statische evenwicht (zonder DOM).
 import { contactPot } from "./contact.js";
 import { flexK, flexPhi, flexPot, flexRef, flexRest, flexStressRate } from "./flexure.js";
+import { axialA, axialK } from "./axial.js";
 import { actLen, actuators, drivers, E, gapPen, isBar, jointDamper, N } from "./elements.js";
 import { bounds, G, MM, relax } from "./kinematics.js";
 import { sensorMass, springK, springL0, springLike, encBars, G_MM } from "./sensors.js";
@@ -357,6 +358,7 @@ export function frfVal(S, key, i) {
     }
     return null;
   }
+  if (t === "w") return dL(e).map(v => v * (k === "dL" ? 1000 : axialK(e) / axialA(e)));    // axiale staaf: ΔL (µm) en σ (MPa)
   if (t === "f") {            // flexure: lineaire verandering van de scharnierhoek φ, daaruit spanning en moment
     const r = flexRef(e), th = rot(e.a, e.b), tr = r ? rot(e.a, r.a === e.a ? r.b : r.a) : [0, 0];
     const ph = [th[0] - tr[0], th[1] - tr[1]];

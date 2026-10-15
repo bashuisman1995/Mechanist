@@ -60,6 +60,10 @@ const THUMB = {
     `<path class="k" d="M20 44Q16 38 20 32T20 20T20 10M60 44Q56 38 60 32T60 20T60 10"/>` + `<path class="dr" style="stroke-width:3.4" d="M14 8H66"/>` + arrow(2, 8, 12, 8),
   loadcell: () => wall(8, 14, 38) + ln(8, 26, 20, 26, "k") + `<rect class="m" x="20" y="21" width="14" height="10" rx="1.5"/>` + `<path class="k" d="M23 23l4 6 4-6"/>` +
     ln(34, 26, 38, 26, "k") + spring(38, 26, 60, 26) + mass(66, 26) + arrow(2, 42, 20, 42),
+  thermarm: () => wall(8, 8, 42) + ln(8, 12, 62, 26, "k") + ln(8, 38, 62, 26, "dr") + dot(62, 26, 2.6) + pin(8, 12) + pin(8, 38) +
+    arrow(70, 26, 70, 14) + `<path class="g" d="M66 33q4 3 8 0"/>`,
+  thermclamp: () => wall(6, 14, 38) + wall(74, 14, 38) + ln(6, 26, 26, 26, "k") + ln(26, 26, 74, 26, "k") + box(40, 26) +
+    `<path class="f" d="M10 14h8M62 14h8M14 12l-4 2 4 2M66 12l4 2-4 2"/>`,
   pendfrf: () => ln(30, 8, 30, 38) + pin(30, 8) + mass(30, 38) + arrow(38, 38, 70, 38),
   empty: () => `<rect class="dd" x="10" y="8" width="60" height="34" rx="4"/><path class="k" d="M40 20v10M35 25h10"/>`
 };

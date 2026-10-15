@@ -172,6 +172,7 @@
           <span class="chev" aria-hidden="true">&#9662;</span>
         </button>
         <div class="state" id="resState"></div>
+        <div id="thermBox" class="thermbox" hidden></div>
         <div id="statusDetail" hidden>
           <div class="dof-note" id="dofNote"></div>
           <div class="tally" id="tally"></div>
@@ -212,6 +213,15 @@
                 <input type="checkbox" id="fChk" checked>
                 <label for="fChk">Krachten in de tekening</label>
               </div>
+            </div>
+
+            <div class="sect" id="thermSect">
+              <h2>Temperatuur</h2>
+              <div class="row"><label for="dTInp">&Delta;T <span class="unit">K, alle staven</span></label>
+                <input type="number" id="dTInp" step="1" value="0"></div>
+              <p class="empty">Elke schakel rekt uit met &Delta;L = &alpha;&middot;L&middot;&Delta;T (materiaal bij Eigenschappen,
+                standaard staal). Een eigen &Delta;T per staaf stel je daar ook in. In Kinematisch verschijnt de thermische
+                verschuiving van een punt in het Resultaat; axiale staven geven in Evenwicht thermische spanning.</p>
             </div>
 
             <div class="sect" id="frfSect" hidden>

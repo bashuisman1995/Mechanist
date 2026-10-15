@@ -22,7 +22,7 @@ function build(nodes, elems, after) {
   cancelJob(); sim.solved = null;
   model.nodes = []; model.elems = []; model.series = []; sim.uid = 1; ui.nameCounter = 0;
   model.durMode = "fixed"; model.xAxis = "time";
-  model.gravity = false; model.jointDamp = false; model.cVisc = 0;
+  model.gravity = false; model.jointDamp = false; model.cVisc = 0; model.dT = 0; model.thermNode = "";
   document.getElementById("gravChk").checked = false;
   ui.frame = 0; setModeUI("kin");
   const map = {};
@@ -287,6 +287,24 @@ export const EXAMPLES = {
       model.series.push({ key: "n|" + g("C").id + "|x" }, { key: "s|" + lc.id + "|F" }, { key: "m|" + lc.id + "|d" });
     }
   ),
+  // meetarm: een aluminium en een stalen staaf dragen de tip van een tastarm; ΔT = 5 K
+  thermarm: () => build(
+    [["A", 0, 0, "pin"], ["B", 0, 50, "pin"], ["C", 150, 25]],
+    [["link", "A", "C", { mat: "alu" }], ["link", "B", "C", { mat: "staal" }]],
+    g => { model.dT = 5; model.thermNode = g("C").id; }
+  ),
+  // twee axiale stalen staven (100 mm, 2 mm²) tussen twee vaste punten, ΔT = 20 K: thermische drukspanning in Evenwicht
+  thermclamp: () => build(
+    [["A", 0, 0, "pin"], ["B", 100, 0, "slider", 0], ["C", 200, 0, "pin"]],
+    [["link", "A", "B", { axial: true, A: 2, mat: "staal" }], ["link", "B", "C", { axial: true, A: 2, mat: "staal" }]],
+    g => {
+      g("B").m = 0.5;
+      model.dT = 20; model.cVisc = 3; model.dtStep = 0.02; model.simDur = 0.05;
+      model.durMode = "equil"; setModeUI("dyn");
+      const bs = model.elems.filter(e => e.type === "link");
+      model.series.push({ key: "s|" + bs[0].id + "|F" }, { key: "w|" + bs[0].id + "|sig" });
+    }
+  ),
   // stoommachine: actuator → veer → kruiskop → drijfstang → kruk met vliegwielmassa;
   // de kant van het dode punt waar de krukpen start bepaalt de draairichting
   steamL: () => steam(1),
@@ -320,6 +338,7 @@ export const CATEGORIES = [
   { id: "fric", nm: "Wrijving & speling" },
   { id: "flex", nm: "Flexures" },
   { id: "sens", nm: "Sensoren" },
+  { id: "therm", nm: "Thermisch" },
   { id: "empty", nm: "Leeg" }
 ];
 export const MODE_NAMES = { kin: "Kinematisch", dyn: "Dynamisch", equil: "Evenwicht", frf: "FRF" };
@@ -423,6 +442,16 @@ export const EXAMPLE_META = {
     title: "Loadcell in de krachtweg", cat: "sens", modes: ["frf", "dyn"],
     desc: "Massa op een veer, opgehangen aan een zachte krachtopnemer; de FRF laat zien dat de opnemer de eigenfrequentie verlaagt.",
     text: "Een massa van 1 kg hangt via een veer van 10 N/mm aan een krachtopnemer van 0,05 N/\u00b5m (50 N/mm, bewust zacht). De opnemer staat in serie: 1/k\u209c\u2092\u209c = 1/10 + 1/50, dus k\u209c\u2092\u209c = 8,33 N/mm en f = \u221a(8333/1)/2\u03c0 = 14,5 Hz, tegen 15,9 Hz zonder opnemer; de FRF vindt 14,5 Hz. Er loopt 1 N door de opnemer en hij vervormt 20 \u00b5m (F/k\u209b). Met de standaard 100 N/\u00b5m (10\u2075 N/mm) was het verschil 0,005 %: zet k\u209b in de inspector hoger en zie de piek terugschuiven."
+  },
+  thermarm: {
+    title: "Thermische drift van een meetarm", cat: "therm", modes: ["kin"],
+    desc: "Tastarm op een aluminium en een stalen staaf; ΔT = 5 K laat de tip in µm wegdrijven.",
+    text: "De tip C hangt aan een aluminium staaf (\u03b1 = 23,6) en een stalen staaf (\u03b1 = 11,5) van elk 152 mm, op een frame. Bij \u0394T = 5 K rekt de aluminium staaf 18 \u00b5m en de stalen 8,7 \u00b5m; in het Resultaat staat de verschuiving van de tip: \u0394x = +13,5 \u00b5m en \u0394y = +28,0 \u00b5m. De grafiek toont per staaf zijn bijdrage \u2202x/\u2202L\u00b7\u03b1\u00b7L\u00b7\u0394T: de bijdragen aan y zijn groot en tegengesteld (+54,6 en \u221226,6 \u00b5m), de aluminium staaf wint. Zet bij Eigenschappen beide staven op staal: dan valt \u0394y weg (0 \u00b5m, symmetrisch) en blijft alleen \u0394x = +8,9 \u00b5m over. Het kan ook met twee verschillende materialen: kies de lengtes zo dat \u03b1\u00b7L gelijk is (de aluminium staaf dan 0,49 keer zo lang als de stalen), of zet de aluminium staaf op Invar. Zo maak je de tip athermisch in de meetrichting."
+  },
+  thermclamp: {
+    title: "Thermische spanning in een ingeklemde staaf", cat: "therm", modes: ["dyn", "equil"],
+    desc: "Axiale stalen staaf tussen twee vaste punten: ΔT = 20 K geeft een drukkracht.",
+    text: "Twee axiale stalen staven (100 mm, 2 mm\u00b2, k = EA/L = 4,2 kN/mm) zitten in serie tussen twee vaste punten; het middelste punt B glijdt langs de staafrichting. Bij \u0394T = 20 K willen ze 2 \u00d7 23 \u00b5m langer worden, maar de inklemming laat dat niet toe. Evenwicht: N = \u2212E\u00b7A\u00b7\u03b1\u00b7\u0394T = \u221296,6 N (druk) en \u03c3 = \u2212E\u00b7\u03b1\u00b7\u0394T = \u221248,3 MPa, onafhankelijk van de lengte en de ligging van B. Zet \u0394T negatief en de staven staan op trek. Een stijvere staaf (grotere A) geeft een evenredig grotere kracht; een tijdstap boven 2,8/\u03c9 geeft de oranje waarschuwing."
   },
   empty: {
     title: "Leeg canvas", cat: "empty", modes: ["kin"],
