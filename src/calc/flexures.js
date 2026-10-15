@@ -16,36 +16,44 @@ export function freqRot(cNmmRad, m, r) {
 const margin = (Pcr, F) => (F > 0 ? Pcr / F : Infinity);
 const eff = p => (p.plate ? p.E / (1 - p.nu * p.nu) : p.E);
 
-/** Bladveer, geleid uiteinde (S-vorm): Soemers, hoofdstuk bladveren. */
+/** Bladveer, geleid uiteinde (S-vorm): Soemers, bladveren.
+ *  p.drive: "stiff" (uitwijking u vast gehouden) of "soft" (dwarskracht vast, u mag meegeven). */
 export function leafSpring(p) {
   const E = eff(p), I = p.b * p.t ** 3 / 12;
   const cx = 12 * E * I / p.L ** 3;                       // = E b t³ / L³
   const cz0 = E * p.b * p.t / p.L;
-  const cz = 1 / (p.L / (E * p.b * p.t) + p.u ** 2 * p.L / (700 * E * I));
+  const comp0 = p.L / (E * p.b * p.t);                    // axiale meegeefbaarheid [mm/N]
+  const compShape = p.u ** 2 * p.L / (700 * E * I);       // S-vorm verandert onder axiale last, u vast
+  const compSoft = 3 * p.u ** 2 * p.L / (25 * E * I);     // (1,2·u/L)² / c_x: u mag meegeven onder F
+  const czStiff = 1 / (comp0 + compShape);
+  const czSoft = 1 / (comp0 + compShape + compSoft);
+  const cz = p.drive === "soft" ? czSoft : czStiff;
   const uMax = p.sigma * p.L ** 2 / (3 * E * p.t);
   const sb = 3 * E * p.t * p.u / p.L ** 2, sa = Math.abs(p.F) / (p.b * p.t);
   const Pcr = PI ** 2 * E * I / p.L ** 2;
-  return { E, I, cx, cz0, cz, dz: 0.6 * p.u ** 2 / p.L, uMax, sb, sa, sigma: sb + sa,
-    Pcr, margin: margin(Pcr, Math.abs(p.F)), f: freqTrans(cx, p.m), force: cx * p.u };
+  const cxF = cx - 1.2 * p.F / p.L;                       // drukkracht F > 0 verlaagt de dwarsstijfheid
+  return { E, I, cx, cxF, cz0, cz, czStiff, czSoft, dz: 0.6 * p.u ** 2 / p.L, uMax, sb, sa, sigma: sb + sa,
+    Pcr, margin: margin(Pcr, Math.abs(p.F)), f: freqTrans(cx, p.m), force: cx * p.u,
+    mLeaf: (p.rho || 0) * p.L * p.b * p.t * 1e-9 };
 }
 
 /** Parallelle bladveer: twee identieke bladen, geleide tafel. */
 export function parallelLeaf(p) {
   const s = leafSpring(Object.assign({}, p, { F: p.F / 2 }));
-  return { E: s.E, I: s.I, cx: 2 * s.cx, cz0: 2 * s.cz0, cz: 2 * s.cz, dz: s.dz, uMax: s.uMax,
+  return { E: s.E, I: s.I, cx: 2 * s.cx, cxF: 2 * s.cxF, cz0: 2 * s.cz0, cz: 2 * s.cz, czStiff: 2 * s.czStiff, czSoft: 2 * s.czSoft,
+    dz: s.dz, uMax: s.uMax,
     sb: s.sb, sa: s.sa, sigma: s.sigma, Pcr: 2 * s.Pcr, margin: margin(2 * s.Pcr, Math.abs(p.F)),
     f: freqTrans(2 * s.cx, p.m), force: 2 * s.cx * p.u };
 }
 
-/** Kruisveerscharnier, twee bladen, kruising op 50 %. phi in rad. */
+/** Kruisveerscharnier, twee bladen, kruising op 50 %. phi in rad.
+ *  De belastingafhankelijke stijfheid en de tweede-orde verschuiving van het draaipunt zijn niet berekend. */
 export function crossPivot(p) {
   const E = eff(p), I = p.b * p.t ** 3 / 12;
   const c = 2 * E * I / p.L;                              // Nmm/rad (twee bladen, EI/L elk)
   const phiMax = 2 * p.sigma * p.L / (E * p.t);
   const sb = E * p.t * p.phi / (2 * p.L), sa = Math.abs(p.F) / (2 * p.b * p.t);
-  const Pcr = 2 * PI ** 2 * E * I / p.L ** 2;             // indicatief
-  return { E, I, c, phiMax, sb, sa, sigma: sb + sa, moment: c * p.phi, Pcr,
-    margin: margin(Pcr, Math.abs(p.F)), f: freqRot(c, p.m, p.r) };
+  return { E, I, c, phiMax, sb, sa, sigma: sb + sa, moment: c * p.phi, f: freqRot(c, p.m, p.r) };
 }
 
 /** Cirkelvormig inkepingsscharnier, Paros-Weisbord. phi in rad, Kt = spanningsconcentratie. */
