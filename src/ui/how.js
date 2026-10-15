@@ -4,6 +4,7 @@ import { frame as cFrame, hertz, liveContact, mat as material } from "../core/co
 import { actLen, E, N, curLen, isBar } from "../core/elements.js";
 import { flexI, flexK, flexLivePhi, flexMat, flexStress, FLEX_KINDS, GAMMA, KTHETA } from "../core/flexure.js";
 import { mobility } from "../core/kinematics.js";
+import { encRes, loadcellDt, sensorLive, sensorMass, springK } from "../core/sensors.js";
 import { model, sim, ui } from "../core/state.js";
 
 const BA = 20, BB = 20;          // Baumgarte-constanten, gelijk aan dynamics.js (1/s)
@@ -234,12 +235,12 @@ function selBlock() {
     const n = N(s.id);
     if (!n) return "";
     const nm = n.name || n.id, parts = [];
-    const dm = n.m > 0 ? n.m : (model.defMass || 0.1);
+    const sm = sensorMass(n.id), dm = (n.m > 0 ? n.m : (model.defMass || 0.1)) + sm;
     parts.push(block({
       title: "Massa in punt " + esc(nm),
       eq: [c("ΣF = m·a") + " ; " + c("F<sub>zwaarte</sub> = −m·g") + " (alleen als zwaartekracht aan staat)"],
       sym: [[c("m"), "massa van het punt in kg"], [c("g"), "9,81 m/s²"]],
-      live: [kv("m", num(dm) + " kg" + (n.m > 0 ? "" : " (standaard)")),
+      live: [kv("m", num(dm) + " kg" + (n.m > 0 ? "" : " (standaard)") + (sm > 0 ? " incl. " + num(sm) + " kg sensor" : "")),
              kv("m·g", num(dm * 9.81) + " N" + (model.gravity ? "" : " (zwaartekracht uit)")),
              kv("Steun", n.support === "pin" ? "scharnier (vast)" : n.support === "slider" ? "glijder, hoek " + num(n.dir) + "°" : "vrij")],
       src: "src/core/dynamics.js (loads, mA)"
@@ -279,6 +280,67 @@ function selBlock() {
   const A = N(e.a), B = N(e.b), L = A && B ? Math.hypot(B.x - A.x, B.y - A.y) : NaN;
   const nm = A && B ? esc(name(e.a) + name(e.b)) : "";
   switch (e.type) {
+    case "loadcell": {
+      const ks = springK(e), live = sensorLive(e), dt = loadcellDt(e, model.defMass), k10 = 10;
+      return block({
+        title: "Krachtopnemer " + esc(e.name || "") + " " + nm,
+        eq: [c("F = k<sub>s</sub>·Δ") + "  en  " + c("Δ = F/k<sub>s</sub>"),
+             c("1/k<sub>tot</sub> = 1/k + 1/k<sub>s</sub>") + "  (opnemer in serie met stijfheid k)",
+             c("f = (1/2π)·√(k<sub>tot</sub>/m)") + "  : de eigenfrequentie daalt met " + c("√(k<sub>tot</sub>/k)"),
+             "Massa: " + c("m<sub>opn</sub>/2") + " op elk uiteinde"],
+        sym: [[c("k<sub>s</sub>"), "stijfheid van de opnemer (standaard 100 N/µm = 10<sup>5</sup> N/mm)"], [c("Δ"), "vervorming van de opnemer zelf, µm"],
+              [c("k<sub>tot</sub>"), "stijfheid van opnemer en omgeving samen"]],
+        live: [kv("k<sub>s</sub>", num(ks) + " N/mm = " + num(ks / 1000) + " N/µm"), kv("Eigen massa", num(e.m || 0) + " kg"),
+               kv("Bij k = 10 N/mm", "k<sub>tot</sub> = " + num(1 / (1 / k10 + 1 / ks)) + " N/mm (" + num((1 / (1 / k10 + 1 / ks) / k10 - 1) * 100) + " %)"),
+               kv("F", live ? num(live.F) + " N" : "–"), kv("Δ = F/k<sub>s</sub>", live ? num(live.d) + " µm" : "–"),
+               kv("Max. tijdstap Dynamisch", isFinite(dt) ? num(dt * 1000) + " ms" : "–")],
+        ass: ["Alleen axiale stijfheid; geen dwarsstijfheid, geen demping en geen niet-lineariteit.",
+              "Kinematisch: stijve schakel, de kracht komt uit de statica. Dynamisch, Evenwicht en FRF: veer met rustlengte = getekende lengte.",
+              "Een stijve opnemer (hoge k<sub>s</sub>) vraagt in Dynamisch een kleine tijdstap."],
+        src: "src/core/sensors.js, src/core/dynamics.js (loads), src/core/frf.js (V)"
+      });
+    }
+    case "dsens": {
+      const live = sensorLive(e), between = e.b && N(e.b);
+      return block({
+        title: "Verplaatsingssensor " + esc(e.name || ""),
+        eq: [between ? c("x = [(q<sub>b</sub> − q<sub>a</sub>) − (q<sub>b0</sub> − q<sub>a0</sub>)]·n") : c("x = (q<sub>a</sub> − q<sub>a0</sub>)·n"),
+             c("n = (cos α, sin α)"), c("x<sub>uit</sub> = round(x/res)·res") + ",  " + c("|x| > bereik") + " → buiten bereik"],
+        sym: [[c("q<sub>0</sub>"), "getekende stand"], [c("α"), "meetrichting vanaf de x-as"], [c("res, bereik"), "resolutie en meetbereik in µm"]],
+        live: [kv("Richting", num(e.ang || 0) + "°"), kv("Bereik", "±" + num(e.range) + " µm"), kv("Resolutie", num(e.res) + " µm"),
+               kv("x", live ? num(live.x) + " µm" : "–"), kv("Status", live ? (live.oor ? "buiten bereik" : "binnen bereik") : "–")],
+        ass: ["Geen stijfheid of massa: de sensor verandert het systeem niet.", "Relatief ten opzichte van de getekende stand (beeld 0)."],
+        src: "src/core/sensors.js (dsensDisp)"
+      });
+    }
+    case "encoder": {
+      const live = sensorLive(e), res = encRes(e);
+      return block({
+        title: "Hoekencoder " + esc(e.name || ""),
+        eq: [c("θ = (θ<sub>1</sub> − θ<sub>2</sub>) − (θ<sub>1</sub> − θ<sub>2</sub>)<sub>0</sub>"), c("res = 2π / counts per omwenteling"),
+             c("θ<sub>geteld</sub> = round(θ/res)·res") + ", kwantisatiefout " + c("≤ res/2")],
+        sym: [[c("θ<sub>1</sub>, θ<sub>2</sub>"), "richting van de schakels vanuit het punt (θ<sub>2</sub> = 0 voor de grond)"], [c("res"), "hoek per count"]],
+        live: [kv("Counts/omwenteling", num(e.cpr)), kv("res", num(res * 180 / Math.PI) + "° = " + num(res * 1e6) + " µrad"),
+               kv("θ", live ? num(live.th) + "° = " + num(live.thu) + " µrad" : "–"), kv("θ geteld", live ? num(live.thq) + "°" : "–")],
+        ass: ["Geen massa of stijfheid; relatief ten opzichte van de getekende stand."],
+        src: "src/core/sensors.js (encAngle, encQuant)"
+      });
+    }
+    case "accel": {
+      const live = sensorLive(e), ms = e.m >= 0 ? e.m : 0.01, n = N(e.node);
+      const m0 = n ? (n.m > 0 ? n.m : (model.defMass || 0.1)) + sensorMass(e.node) - ms : 0;
+      return block({
+        title: "Versnellingsopnemer " + esc(e.name || "") + " op " + esc(name(e.node)),
+        eq: [c("a = a<sub>punt</sub>·n") + ", " + c("n = (cos α, sin α)") + ";  " + c("1 g = 9,80665 m/s²"),
+             c("m<sub>punt</sub> = m + m<sub>s</sub>"),
+             c("f<sub>met</sub> = f·√(m/(m + m<sub>s</sub>))") + "  : de opnemer maakt het punt zwaarder"],
+        sym: [[c("m<sub>s</sub>"), "massa van de opnemer (standaard 0,01 kg), erbij op het punt"], [c("m"), "massa van het punt zonder opnemer"]],
+        live: [kv("m<sub>s</sub>", num(ms) + " kg"), kv("m (zonder opnemer)", num(m0) + " kg"),
+               kv("f-factor", num(Math.sqrt(m0 / (m0 + ms)))), kv("a", live ? num(live.a) + " m/s² = " + num(live.g) + " g" : "–")],
+        ass: ["Puntmassa zonder eigen dynamica (geen resonantie van de opnemer zelf).", "Telt mee in Dynamisch, Evenwicht, FRF en de kinematische krachten."],
+        src: "src/core/sensors.js (sensorMass), src/core/dynamics.js (dm), src/core/frf.js (dm)"
+      });
+    }
     case "spring":
       return block({
         title: "Veer " + nm,
@@ -424,7 +486,7 @@ function keyOf() {
   return [model.mode, model.durMode, ui.sel ? ui.sel.kind + ui.sel.id : "", sweepId(sim.sweep), !!sim.job, ui.dynStale, sim.solveOK,
     model.nodes.length, model.elems.length, model.gravity, model.dtStep, model.simDur, model.defMass, model.cVisc, model.maxT,
     model.jointDamp, model.cJoint, model.fricVs, model.fricVe, model.frfIn, model.mode === "kin" ? ui.frame : 0,
-    sel ? JSON.stringify(sel) : "", sel && (sel.type === "contact" || sel.type === "flexure") ? ui.frame : 0, model.mode === "kin" ? model.nodes.map(n => n.x + "," + n.y).join(";") : ""].join("|");
+    sel ? JSON.stringify(sel) : "", sel && (sel.type === "contact" || sel.type === "flexure" || sel.type === "loadcell" || sel.type === "dsens" || sel.type === "encoder" || sel.type === "accel") ? ui.frame : 0, model.mode === "kin" ? model.nodes.map(n => n.x + "," + n.y).join(";") : ""].join("|");
 }
 
 export function renderHow(el) {

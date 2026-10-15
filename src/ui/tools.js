@@ -26,6 +26,10 @@ const ICON = {
   force:  '<path d="M10 17V4.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M10 2.4l3.4 4.2H6.6z" fill="currentColor"/>',
   mass:   '<circle cx="10" cy="10" r="4.6" fill="currentColor"/><path d="M4 16.6h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
   trace:  '<path d="M2.5 13.5c3-9 12-9 15 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2.4 2.2" stroke-linecap="round"/><circle cx="10" cy="7.6" r="2.8" fill="var(--panel)" stroke="currentColor" stroke-width="1.7"/>',
+  loadcell: '<path d="M2.4 10h3.6M14 10h3.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><rect x="6" y="5.4" width="8" height="9.2" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7.6 8.2l2.4 3.6 2.4-3.6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
+  dsens:  '<path d="M3 5.4v9.2M3 10h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M8 6.6v6.8M11 6.6v6.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M11 10h6M14.6 7.8L17 10l-2.4 2.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  encoder: '<circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 4v2M10 14v2M4 10h2M14 10h2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M10 10l3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  accel:  '<rect x="5.4" y="9.4" width="9.2" height="6.2" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 8V2.8M7.8 5l2.2-2.4L12.2 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
   del:    '<path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
 };
 
@@ -48,6 +52,11 @@ const TOOLS = [
   { id: "force",  nm: "Kracht",     kb: "F", ic: "force",  hint: "Klik een punt om er een <b>kracht</b> op te zetten." },
   { id: "mass",   nm: "Massa",      kb: "M", ic: "mass",   hint: "Klik een punt om er een <b>puntmassa</b> aan toe te kennen." },
   { id: "trace", nm: "Spoor", kb: "T", ic: "trace", hint: "Klik een punt om zijn <b>baan</b> te tonen of te verbergen." },
+  { g: "Sensoren" },
+  { id: "loadcell", nm: "Krachtopnemer", kb: "Q", ic: "loadcell", hint: "Klik twee punten voor een <b>krachtopnemer</b> (loadcell): een stijve axiale veer k<sub>s</sub> in de krachtweg die de kracht meet. Hij maakt het systeem zachter: in serie met de rest. Stijfheid en massa stel je in bij Eigenschappen." },
+  { id: "dsens", nm: "Verplaatsing", kb: "W", ic: "dsens", hint: "Klik een punt, dan een tweede punt voor een <b>verplaatsingssensor</b> tussen die twee, of klik hetzelfde punt nog eens voor een sensor ten opzichte van de grond. Meet langs een richting in \u00b5m, met bereik en resolutie." },
+  { id: "encoder", nm: "Hoekencoder", kb: "H", ic: "encoder", hint: "Klik een punt waar schakels samenkomen voor een <b>hoekencoder</b>: de hoek tussen twee schakels (of schakel en grond), met een resolutie in counts per omwenteling." },
+  { id: "accel", nm: "Versnelling", kb: "J", ic: "accel", hint: "Klik een punt voor een <b>versnellingsopnemer</b>: hij meet de versnelling langs een richting en zijn massa (standaard 10 g) komt bij het punt erbij." },
   { g: "Bewerken" },
   { id: "del",    nm: "Verwijderen", kb: "X", ic: "del",   hint: "Klik een punt of element om het te <b>verwijderen</b>." }
 ];
@@ -119,7 +128,7 @@ export function initTools() {
   document.addEventListener("keydown", e => {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
     const k = e.key.toLowerCase();
-    const map = { v: "select", n: "node", l: "link", p: "pin", s: "slider", d: "driver", a: "actuator", r: "spring", c: "damper", g: "gap", k: "contact", b: "flexure", f: "force", m: "mass", t: "trace", x: "del" };
+    const map = { v: "select", n: "node", l: "link", p: "pin", s: "slider", d: "driver", a: "actuator", r: "spring", c: "damper", g: "gap", k: "contact", b: "flexure", q: "loadcell", w: "dsens", h: "encoder", j: "accel", f: "force", m: "mass", t: "trace", x: "del" };
     if (map[k]) { setTool(map[k]); e.preventDefault(); return; }
     if (e.key === " ") {
       // een knop met focus zou anders zelf nog eens "klikken" en het afspelen meteen weer stoppen

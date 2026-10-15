@@ -58,6 +58,8 @@ const THUMB = {
   preload: () => ln(8, 44, 72, 44, "g") + `<circle class="m" cx="40" cy="36" r="6"/>` + spring(40, 14, 40, 29) + ln(34, 4, 46, 4, "g") + arrow(58, 38, 58, 8),
   parallelguide: () => ln(4, 46, 76, 46, "g") +
     `<path class="k" d="M20 44Q16 38 20 32T20 20T20 10M60 44Q56 38 60 32T60 20T60 10"/>` + `<path class="dr" style="stroke-width:3.4" d="M14 8H66"/>` + arrow(2, 8, 12, 8),
+  loadcell: () => wall(8, 14, 38) + ln(8, 26, 20, 26, "k") + `<rect class="m" x="20" y="21" width="14" height="10" rx="1.5"/>` + `<path class="k" d="M23 23l4 6 4-6"/>` +
+    ln(34, 26, 38, 26, "k") + spring(38, 26, 60, 26) + mass(66, 26) + arrow(2, 42, 20, 42),
   pendfrf: () => ln(30, 8, 30, 38) + pin(30, 8) + mass(30, 38) + arrow(38, 38, 70, 38),
   empty: () => `<rect class="dd" x="10" y="8" width="60" height="34" rx="4"/><path class="k" d="M40 20v10M35 25h10"/>`
 };

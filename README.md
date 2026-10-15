@@ -91,6 +91,14 @@ NODE_PATH=<map met playwright>/node_modules node tests/e2e/run.mjs   # browserte
   (γ = 0,85, K_Θ = 2,65; de andere typen uit `src/calc/flexures.js`). Live hoek, moment en spanning met een
   oranje waarschuwing boven σ_toelaatbaar; kanalen φ, σ en M. Draaiveer in Dynamisch, Evenwicht en FRF; in
   Kinematisch puur scharnier met spanning. Voorbeeld: parallelgeleiding (PRBM +3,9 % op 24EI/L³).
+- **Sensoren** (toetsen Q, W, H, J): zodat je ziet wat er gemeten wordt en wat de sensor met het systeem doet.
+  **Krachtopnemer** (loadcell): axiale veer k_s (standaard 100 N/µm), optioneel met massa; F = k_s·Δ en hij zit in serie met
+  de rest, 1/k_tot = 1/k + 1/k_s, dus hij verlaagt de eigenfrequentie. **Verplaatsingssensor**: afstand of positie langs een
+  richting in µm, met bereik (rood bij "buiten bereik") en resolutie. **Hoekencoder**: hoek in een scharnier (°, µrad) met
+  counts/omwenteling, dus kwantisatie. **Versnellingsopnemer**: massa (standaard 10 g) erbij op het punt, meet a in m/s² en g.
+  Elke sensor maakt zijn kanalen zelf aan (keuzelijst, groep "Sensoren" bovenaan) en toont live een label op de tekening.
+  Massa en stijfheid doen mee in Dynamisch, Evenwicht en FRF; Kinematisch: krachtopnemer als stijve schakel, kracht uit de
+  statica. Voorbeeld: Loadcell in de krachtweg (14,5 Hz tegen 15,9 Hz zonder opnemer).
 - **Bewerken op t = 0:** buiten t = 0 kun je alleen kijken; een balk en de
   oranje knop brengen je terug naar t = 0 (of druk op Home).
 - **Metingen:** kies grootheden in een compacte tabel (één regel per onderdeel),
@@ -121,6 +129,8 @@ NODE_PATH=<map met playwright>/node_modules node tests/e2e/run.mjs   # browserte
 | D | Aandrijving | X | Verwijderen |
 | A | Actuator | G | Speling |
 | B | Flexure | K | Contact |
+| Q | Krachtopnemer | W | Verplaatsingssensor |
+| H | Hoekencoder | J | Versnellingsopnemer |
 
 Spatie: afspelen/pauzeren · Home: terug naar t = 0 · F5: doorrekenen ·
 Ctrl+S: opslaan als bestand · Ctrl+O: openen ·
@@ -149,7 +159,7 @@ src/index.html    opmaak
 src/style.css     vormgeving, licht en donker thema
 src/main.js       startpunt
 src/core/         rekenkern: state, linalg, elements, kinematics, dynamics,
-                  frf, channels, formula, contact, flexure
+                  frf, channels, formula, contact, flexure, sensors
 src/ui/           tekenen, inspector, grafieken, metingen, afspelen, bestanden, ...
 tools/build.py    bundelt met esbuild en schrijft index.html
 tests/e2e/        browsertests tegen gecontroleerde waarden

@@ -3,8 +3,8 @@ import { frame } from "../core/contact.js";
 import { drivers, N } from "../core/elements.js";
 import { relax } from "../core/kinematics.js";
 import { eid, model, ui, view } from "../core/state.js";
-import { draw } from "./draw.js";
-import { addContact, addNode, addTwoNode, anchorHere, crankAngle, reharvest, removeElem, removeNode, setDriver, snapPt } from "./edit.js";
+import { draw, sensorSeg } from "./draw.js";
+import { addAccel, addContact, addDsens, addEncoder, addNode, addTwoNode, anchorHere, crankAngle, reharvest, removeElem, removeNode, setDriver, snapPt } from "./edit.js";
 import { syncDof, syncInspector } from "./inspector.js";
 import { pick, renderPick } from "./picker.js";
 import { atT0, lockNudge } from "./playback.js";
@@ -37,7 +37,11 @@ function pickElem(sp) {
       const n = N(e.node); if (!n) continue;
       const f = frame(e, n), s = toScr({ x: f.fx, y: f.fy }), u = { x: f.tx, y: -f.ty };
       d = segDist(sp, { x: s.x - u.x * 26, y: s.y - u.y * 26 }, { x: s.x + u.x * 26, y: s.y + u.y * 26 });
+    } else if (e.type === "encoder" || e.type === "accel" || e.type === "dsens") {
+      const g = sensorSeg(e); if (!g) continue;
+      d = e.type === "encoder" ? Math.abs(Math.hypot(sp.x - g.a.x, sp.y - g.a.y) - g.r) : segDist(sp, g.a, g.b);
     } else {
+      if (!N(e.a) || !N(e.b)) continue;
       const A = toScr(N(e.a)), B = toScr(N(e.b));
       d = segDist(sp, A, B);
     }
@@ -133,7 +137,7 @@ export function initInteract() {
         break;
       }
 
-      case "link": case "spring": case "damper": case "actuator": case "gap": case "flexure": {
+      case "link": case "spring": case "damper": case "actuator": case "gap": case "flexure": case "loadcell": {
         const n = hitN || addNode(snapPt(wp));
         edited = !hitN;
         if (!ui.pending) { ui.pending = n.id; }
@@ -145,6 +149,24 @@ export function initInteract() {
         }
         break;
       }
+
+      case "dsens": {
+        // eerste punt, dan een tweede punt (tussen twee punten) of hetzelfde punt nog eens (ten opzichte van de grond)
+        if (!hitN) { flash("Klik een bestaand punt."); break; }
+        if (!ui.pending) { ui.pending = hitN.id; break; }
+        const e = addDsens(ui.pending, ui.pending === hitN.id ? "" : hitN.id);
+        ui.pending = null;
+        if (e) { ui.sel = { kind: "elem", id: e.id }; edited = true; }
+        break;
+      }
+
+      case "encoder": case "accel":
+        if (hitN) {
+          const e = ui.tool === "encoder" ? addEncoder(hitN.id) : addAccel(hitN.id);
+          if (e) { ui.sel = { kind: "elem", id: e.id }; edited = true; }
+          else flash("Een hoekencoder staat op een punt waar een schakel aan vastzit.");
+        } else flash("Klik een bestaand punt.");
+        break;
 
       case "pin": {
         const n = hitN || addNode(snapPt(wp));

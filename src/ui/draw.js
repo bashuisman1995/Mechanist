@@ -2,6 +2,7 @@
 import { frame as contactFrame, liveContact } from "../core/contact.js";
 import { dist, drivers, gapPen, isBar, N } from "../core/elements.js";
 import { flexLivePhi, flexStress } from "../core/flexure.js";
+import { encBars, SENSORS, sensorLive } from "../core/sensors.js";
 import { model, sim, ui, view } from "../core/state.js";
 import { fmt } from "./format.js";
 import { ctx, toScr, toWld } from "./view.js";
@@ -45,6 +46,7 @@ function drawNow() {
   for (const e of model.elems) if (e.type === "link" && e.driver) drawLink(e);
   for (const e of model.elems) if (e.type === "actuator") drawActuator(e);
   for (const e of model.elems) if (e.type === "flexure") drawFlexure(e);
+  for (const e of model.elems) if (SENSORS[e.type]) drawSensor(e);
   for (const n of model.nodes) drawSupport(n);
   for (const e of model.elems) if (e.type === "force") drawForce(e);
   for (const n of model.nodes) drawNode(n);
@@ -181,7 +183,7 @@ function drawLiveForces() {
   }
 
   for (const e of model.elems) {
-    if (!isBar(e)) continue;
+    if (!isBar(e) || e.type === "loadcell") continue;
     const v = sim.sweep.N[e.id] ? sim.sweep.N[e.id][i] : NaN;
     if (!isFinite(v)) continue;
     const A = toScr(N(e.a)), B = toScr(N(e.b));
@@ -269,6 +271,101 @@ function drawFlexure(e) {
   ctx.arc(A.x, A.y, 11, th - 1.1, th + 1.1); ctx.stroke();
   label((A.x + B.x) / 2 + px * 14, (A.y + B.y) / 2 + py * 14,
     (e.kind === "cross" ? "kruisveer" : e.kind === "notch" ? "inkeping" : "bladveer") + (warn ? " \u03c3 " + fmt(st.sigma) + " MPa" : ""), col, false, 2);
+}
+
+/* ---- sensoren: compacte symbolen met een label dat live meeloopt ---- */
+const GL = 34;                                        // lengte van de verbinding naar de grond bij een verplaatsingssensor (px)
+const nf = v => fmt(v).replace(".", ",");
+// segment (of cirkel) op het scherm waarop je een sensor aanwijst
+export function sensorSeg(e) {
+  const A = N(e.type === "encoder" || e.type === "accel" ? e.node : e.a); if (!A) return null;
+  const s = toScr(A), t = (e.ang || 0) * Math.PI / 180, ux = Math.cos(t), uy = -Math.sin(t);
+  if (e.type === "encoder") return { a: s, r: 15 };
+  if (e.type === "accel") return { a: s, b: { x: s.x + ux * 28, y: s.y + uy * 28 } };
+  if (e.b && N(e.b)) return { a: s, b: toScr(N(e.b)) };
+  return { a: s, b: { x: s.x - ux * GL, y: s.y - uy * GL } };
+}
+function drawSensor(e) {
+  const g = sensorSeg(e); if (!g) return;
+  const live = sensorLive(e), hl = isSel(e.id) || isHov(e.id), nm = e.name || SENSORS[e.type].pre;
+  let col = ui.C.ink2, txt = nm, sub = "", bad = false;
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  const halo = (w, f) => {
+    if (!hl) return;
+    ctx.strokeStyle = ui.C.accent; ctx.lineWidth = w; ctx.globalAlpha = isSel(e.id) ? .25 : .13; f(); ctx.globalAlpha = 1;
+  };
+  if (e.type === "encoder") {
+    const bb = encBars(e), r = g.r;
+    halo(10, () => { ctx.beginPath(); ctx.arc(g.a.x, g.a.y, r, 0, 6.2832); ctx.stroke(); });
+    ctx.fillStyle = ui.C.panel; ctx.globalAlpha = .6; ctx.beginPath(); ctx.arc(g.a.x, g.a.y, r, 0, 6.2832); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = col; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(g.a.x, g.a.y, r, 0, 6.2832); ctx.stroke();
+    ctx.lineWidth = 1.1; ctx.beginPath();
+    for (let k = 0; k < 12; k++) {
+      const a = k * Math.PI / 6, c = Math.cos(a), s = Math.sin(a), r0 = r - (k % 3 ? 3 : 5);
+      ctx.moveTo(g.a.x + c * r0, g.a.y + s * r0); ctx.lineTo(g.a.x + c * r, g.a.y + s * r);
+    }
+    ctx.stroke();
+    if (bb) {                                          // wijzer langs de eerste schakel
+      const o = N(bb.b1.a === e.node ? bb.b1.b : bb.b1.a), p = toScr(o), L = Math.hypot(p.x - g.a.x, p.y - g.a.y) || 1;
+      ctx.lineWidth = 2; ctx.strokeStyle = ui.C.driver; ctx.beginPath(); ctx.moveTo(g.a.x, g.a.y);
+      ctx.lineTo(g.a.x + (p.x - g.a.x) / L * (r - 2), g.a.y + (p.y - g.a.y) / L * (r - 2)); ctx.stroke();
+    } else col = ui.C.ink3;
+    if (live) { txt += " " + nf(live.th) + "\u00b0"; sub = "\u00b5rad " + nf(live.thu) + " \u00b7 geteld " + nf(live.thq) + "\u00b0"; }
+    label(g.a.x, g.a.y + r + 13, txt, col, false, 0);
+    if (sub) label(g.a.x, g.a.y + r + 27, sub, ui.C.ink3, false, 2);
+    return;
+  }
+  const dx = g.b.x - g.a.x, dy = g.b.y - g.a.y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L, px = -uy, py = ux;
+  const at = (t, s) => [g.a.x + ux * t + px * s, g.a.y + uy * t + py * s];
+  halo(e.type === "accel" ? 22 : 14, () => { ctx.beginPath(); ctx.moveTo(g.a.x, g.a.y); ctx.lineTo(g.b.x, g.b.y); ctx.stroke(); });
+  ctx.strokeStyle = col; ctx.fillStyle = ui.C.panel; ctx.lineWidth = 1.8;
+  if (e.type === "loadcell") {
+    // twee voelers en een lichaam met een kruisje van rekstrookjes
+    const bl = Math.min(L * .5, 30), w = 7.5, t0 = (L - bl) / 2;
+    ctx.beginPath(); ctx.moveTo(g.a.x, g.a.y); ctx.lineTo(...at(t0, 0)); ctx.moveTo(...at(t0 + bl, 0)); ctx.lineTo(g.b.x, g.b.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(...at(t0, w)); ctx.lineTo(...at(t0 + bl, w)); ctx.lineTo(...at(t0 + bl, -w)); ctx.lineTo(...at(t0, -w)); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.lineWidth = 1.2; ctx.beginPath();
+    ctx.moveTo(...at(t0 + bl * .25, w * .6)); ctx.lineTo(...at(t0 + bl * .5, -w * .6)); ctx.lineTo(...at(t0 + bl * .75, w * .6)); ctx.stroke();
+    if (live) { txt += " " + nf(live.F) + " N"; sub = "\u03b4 " + nf(live.d) + " \u00b5m"; }
+    const m = at(L / 2, 0);
+    label(m[0] + px * 19, m[1] + py * 19, txt, col, false, 0);
+    if (sub) label(m[0] + px * 33, m[1] + py * 33, sub, ui.C.ink3, false, 2);
+    return;
+  }
+  if (e.type === "dsens") {
+    const between = e.b && N(e.b), m = L / 2;
+    ctx.setLineDash(between ? [4, 3] : []); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(g.a.x, g.a.y); ctx.lineTo(...at(m - 3, 0)); ctx.moveTo(...at(m + 3, 0)); ctx.lineTo(g.b.x, g.b.y); ctx.stroke(); ctx.setLineDash([]);
+    ctx.lineWidth = 2.2; ctx.beginPath();                                   // condensatorplaten
+    ctx.moveTo(...at(m - 3, 8)); ctx.lineTo(...at(m - 3, -8)); ctx.moveTo(...at(m + 3, 8)); ctx.lineTo(...at(m + 3, -8)); ctx.stroke();
+    if (!between) {                                                          // arcering van de grond
+      ctx.lineWidth = 1.4; ctx.beginPath();
+      ctx.moveTo(...at(L, 8)); ctx.lineTo(...at(L, -8));
+      for (let k = -2; k <= 2; k++) { const q = at(L, k * 4); ctx.moveTo(q[0], q[1]); ctx.lineTo(q[0] + ux * 5 + px * 3, q[1] + uy * 5 + py * 3); }
+      ctx.stroke();
+    }
+    const t = (e.ang || 0) * Math.PI / 180, ax = Math.cos(t), ay = -Math.sin(t), tip = [g.a.x + ax * 15, g.a.y + ay * 15];
+    ctx.lineWidth = 1.5; ctx.strokeStyle = ui.C.driver; ctx.beginPath();                       // meetrichting
+    ctx.moveTo(g.a.x + ax * 5, g.a.y + ay * 5); ctx.lineTo(tip[0], tip[1]);
+    ctx.moveTo(tip[0] - ax * 5 - ay * 3, tip[1] - ay * 5 + ax * 3); ctx.lineTo(tip[0], tip[1]); ctx.lineTo(tip[0] - ax * 5 + ay * 3, tip[1] - ay * 5 - ax * 3); ctx.stroke();
+    if (live) { txt += live.oor ? " buiten bereik" : " " + nf(live.x) + " \u00b5m"; bad = live.oor; sub = "\u00b1" + nf(e.range) + " \u00b5m \u00b7 res " + nf(e.res) + " \u00b5m"; }
+    const q = at(m, 0);
+    label(q[0] + px * 17, q[1] + py * 17, txt, bad ? ui.C.bad : col, false, 0);
+    if (sub) label(q[0] + px * 31, q[1] + py * 31, sub, ui.C.ink3, false, 2);
+    return;
+  }
+  // versnellingsopnemer: lichaampje op een steeltje, pijl in meetrichting
+  const w = 8, h = 6;
+  ctx.beginPath(); ctx.moveTo(g.a.x, g.a.y); ctx.lineTo(...at(12, 0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(...at(12, w)); ctx.lineTo(...at(12 + 2 * h, w)); ctx.lineTo(...at(12 + 2 * h, -w)); ctx.lineTo(...at(12, -w)); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = ui.C.driver; ctx.lineWidth = 1.6; ctx.beginPath();
+  ctx.moveTo(...at(12 + 3, 0)); ctx.lineTo(...at(12 + 2 * h + 8, 0));
+  ctx.moveTo(...at(12 + 2 * h + 3, 3.5)); ctx.lineTo(...at(12 + 2 * h + 8, 0)); ctx.lineTo(...at(12 + 2 * h + 3, -3.5)); ctx.stroke();
+  if (live) { txt += " " + nf(live.a) + " m/s\u00b2"; sub = nf(live.g) + " g \u00b7 +" + nf((e.m >= 0 ? e.m : 0.01) * 1000) + " g massa"; }
+  const q = at(12 + h, 0);
+  label(q[0] + px * 22, q[1] + py * 22, txt, col, false, 0);
+  if (sub) label(q[0] + px * 36, q[1] + py * 36, sub, ui.C.ink3, false, 2);
 }
 
 // cilinder aan kant a, zuigerstang naar b; de cilinder is zo lang als de kortste slag toelaat

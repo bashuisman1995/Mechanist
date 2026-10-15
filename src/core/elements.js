@@ -18,7 +18,8 @@ export function actLen(e, t) {
   return { L: Lm + La * Math.sin(ph), Ld: La * w * Math.cos(ph), Ldd: -La * w * w * Math.sin(ph) };
 }
 export const actuators = () => model.elems.filter(e => e.type === "actuator" && N(e.a) && N(e.b));
-export const isBar = e => e.type === "link" || e.type === "actuator" || e.type === "flexure";
+// Een krachtopnemer is in Kinematisch een stijve schakel (de kracht volgt uit de statica); anders een veer.
+export const isBar = e => e.type === "link" || e.type === "actuator" || e.type === "flexure" || (e.type === "loadcell" && model.mode === "kin");
 export function curLen(e) {
   if (e.type !== "actuator") return e.len;
   if (sim.lenOv && sim.lenOv.has(e.id)) return sim.lenOv.get(e.id);

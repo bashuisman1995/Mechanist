@@ -4,6 +4,7 @@ import { asyncMode, dist, E, hasFriction, isBar, N } from "../core/elements.js";
 import { FLEX_KINDS, flexK, flexLivePhi, flexRefs, flexStress, GAMMA } from "../core/flexure.js";
 import { frfInputs } from "../core/frf.js";
 import { mobility, placeAt, relax } from "../core/kinematics.js";
+import { barsAt, encRes, loadcellDt, sensorLive, SENSORS, springK } from "../core/sensors.js";
 import { model, sim, ui } from "../core/state.js";
 import { draw } from "./draw.js";
 import { anchorHere, crankAngle, setDriver } from "./edit.js";
@@ -390,6 +391,8 @@ function buildInspector() {
     return;
   }
 
+  if (SENSORS[e.type]) { sensorInspector(e); return; }
+
   if (e.type === "spring") {
     stSel.textContent = "veer";
     props.innerHTML =
@@ -427,6 +430,91 @@ function buildInspector() {
   }
 }
 
+/* ---- sensoren ---- */
+function sensorInspector(e) {
+  const props = document.getElementById("props"), stSel = document.getElementById("stSel");
+  const nmOf = id => (N(id) ? N(id).name : "?");
+  const sel = (id, lab, opts, cur) => '<div class="row"><label for="' + id + '">' + lab + '</label><select id="' + id + '">' +
+    opts.map(o => '<option value="' + o[0] + '"' + (o[0] === cur ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></div>";
+  const head = (txt, sub) => kind(ui.C.ink2, SENSORS[e.type].nm + " " + (e.name || "")) + '<p class="empty" style="margin:-4px 0 10px">' + sub + "</p>";
+  const tail = '<p class="empty" style="margin:10px 0 0"><b>Nu</b></p><p class="empty" id="snLive" data-e="' + e.id + '" style="margin-top:2px">' + sensorLiveHtml(e) + "</p>";
+  stSel.textContent = SENSORS[e.type].short;
+  if (e.type === "loadcell") {
+    props.innerHTML = head("", nmOf(e.a) + " \u2013 " + nmOf(e.b)) +
+      numRow("lcks", "Stijfheid k\u209b", springK(e) / 1000, "N/\u00b5m", 10) +
+      numRow("lcm", "Eigen massa (optioneel)", e.m || 0, "kg", .001) + tail +
+      '<p class="empty" style="margin-top:8px"><b>De opnemer zit in de krachtweg.</b> Hij is een axiale veer: F = k\u209b\u00b7\u0394, dus hij vervormt zelf \u0394 = F/k\u209b en maakt het geheel zachter: ' +
+      '1/k<sub>tot</sub> = 1/k + 1/k\u209b. Zijn massa (half op elk punt) telt mee in Dynamisch en FRF. ' +
+      'In Kinematisch is hij een stijve schakel; de kracht volgt uit de statica en \u0394 uit F/k\u209b.</p>';
+    bindNum("lcks", v => { e.ks = Math.max(1e-9, v) * 1000; });
+    bindNum("lcm", v => { e.m = Math.max(0, v); });
+  } else if (e.type === "dsens") {
+    const between = e.b && N(e.b);
+    props.innerHTML = head("", between ? nmOf(e.a) + " \u2194 " + nmOf(e.b) : nmOf(e.a) + " ten opzichte van de grond") +
+      numRow("dsa", "Meetrichting", e.ang || 0, "\u00b0", 5) +
+      numRow("dsr", "Bereik \u00b1", e.range, "\u00b5m", 10) +
+      numRow("dsres", "Resolutie", e.res, "\u00b5m", .01) + tail +
+      '<p class="empty" style="margin-top:8px">Meet de verandering van ' + (between ? "de afstand tussen de twee punten" : "de positie van het punt") +
+      ' langs de gekozen richting (0\u00b0 is +x), ten opzichte van de getekende stand. Buiten het bereik wordt het label rood (\u201cbuiten bereik\u201d). ' +
+      'De sensor heeft geen stijfheid en geen massa: hij be\u00efnvloedt het systeem niet.</p>';
+    bindNum("dsa", v => { e.ang = v; });
+    bindNum("dsr", v => { e.range = Math.max(0, v); });
+    bindNum("dsres", v => { e.res = Math.max(0, v); });
+  } else if (e.type === "encoder") {
+    const here = barsAt(e.node), nm = b => "schakel " + nmOf(b.a) + nmOf(b.b);
+    props.innerHTML = head("", "in punt " + nmOf(e.node)) +
+      sel("ene1", "Hoek van", here.map(b => [b.id, nm(b)]), e.e1) +
+      sel("ene2", "ten opzichte van", [["", "de grond"]].concat(here.filter(b => b.id !== e.e1).map(b => [b.id, nm(b)])), e.e2 || "") +
+      numRow("encpr", "Resolutie", e.cpr, "counts/omw.", 256) + tail +
+      '<p class="empty" style="margin-top:8px">Eén count is 360\u00b0/' + nl(fmt(e.cpr)) + ' = <b>' + nl(fmt(encRes(e) * 180 / Math.PI)) + '\u00b0</b> = <b>' +
+      nl(fmt(encRes(e) * 1e6)) + ' \u00b5rad</b>. De getoonde \u201cgeteld\u201d hoek is afgerond op hele counts: dat is wat de encoder werkelijk kan zien. ' +
+      'De hoek is relatief ten opzichte van de getekende stand. De encoder heeft geen massa of stijfheid.</p>';
+    bindNum("encpr", v => { e.cpr = Math.max(1, Math.round(v)); });
+    for (const [id, key] of [["ene1", "e1"], ["ene2", "e2"]]) {
+      const el = document.getElementById(id);
+      el.addEventListener("change", () => {
+        if (!atT0()) { el.value = e[key] || ""; lockNudge(); return; }
+        cancelJob(); e[key] = el.value;
+        if (e.e2 === e.e1) e.e2 = "";
+        if (!asyncMode()) ui.frame = 0;
+        rebuild(); syncDof(); draw(); pushHistory(); save(); buildInspector();
+      });
+    }
+  } else if (e.type === "accel") {
+    const m = e.m >= 0 ? e.m : 0.01;
+    props.innerHTML = head("", "op punt " + nmOf(e.node)) +
+      numRow("aca", "Meetrichting", e.ang || 0, "\u00b0", 5) +
+      numRow("acm", "Massa m\u209b", m, "kg", .001) + tail +
+      '<p class="empty" style="margin-top:8px"><b>De massa komt bij het punt erbij</b> (dynamica en FRF): de eigenfrequentie schuift met \u221a(m/(m+m\u209b)). ' +
+      'Meet de versnelling langs de gekozen richting (0\u00b0 is +x, 90\u00b0 is +y) in m/s\u00b2 en g.</p>';
+    bindNum("aca", v => { e.ang = v; });
+    bindNum("acm", v => { e.m = Math.max(0, v); });
+  }
+}
+const nlf = v => nl(fmt(v));
+function sensorLiveHtml(e) {
+  if (sim.sweep && sim.sweep.frf) return "FRF: de uitgang staat in het Bode-diagram (kies hem bij Metingen).";
+  const L = sensorLive(e), none = " \u00b7 nog geen doorgerekende beweging";
+  let h = "";
+  if (e.type === "loadcell") {
+    h = "k\u209b <b>" + nlf(springK(e)) + "</b> N/mm = <b>" + nlf(springK(e) / 1000) + "</b> N/\u00b5m<br>" +
+      (L ? "F <b>" + nlf(L.F) + "</b> N \u00b7 \u03b4 = F/k\u209b <b>" + nlf(L.d) + "</b> \u00b5m" : "F \u2013 \u00b7 \u03b4 \u2013" + none);
+    if (model.mode === "dyn" && N(e.a) && N(e.b)) {
+      const dt = loadcellDt(e, model.defMass), now = (model.dtStep || 0.2) / 1000;
+      h += '<br><span style="' + (now > dt ? "color:var(--driver);font-weight:600" : "") + '">Tijdstap \u2264 <b>' + nlf(dt * 1000) + '</b> ms voor een stabiele integratie (nu ' + nlf(now * 1000) + " ms)" +
+        (now > dt ? " \u2014 verklein hem in Instellingen" : "") + "</span>";
+    }
+  } else if (e.type === "dsens") {
+    h = L ? 'x <b style="' + (L.oor ? "color:var(--bad)" : "") + '">' + nlf(L.x) + "</b> \u00b5m \u00b7 afgerond op resolutie <b>" + nlf(L.q) + "</b> \u00b5m<br>" +
+      (L.oor ? '<span style="color:var(--bad);font-weight:600">buiten bereik (\u00b1' + nlf(e.range) + " \u00b5m)</span>" : "binnen bereik (\u00b1" + nlf(e.range) + " \u00b5m)") : "x \u2013" + none;
+  } else if (e.type === "encoder") {
+    h = L ? "\u03b8 <b>" + nl(L.th.toFixed(4)) + "</b>\u00b0 = <b>" + nlf(L.thu) + "</b> \u00b5rad<br>geteld <b>" + nl(L.thq.toFixed(4)) + "</b>\u00b0 (kwantisatiefout " + nlf((L.thq - L.th) * Math.PI / 180 * 1e6) + " \u00b5rad)" : "\u03b8 \u2013" + none;
+  } else if (e.type === "accel") {
+    h = L ? "a <b>" + nlf(L.a) + "</b> m/s\u00b2 = <b>" + nl(L.g.toFixed(3)) + "</b> g" : "a \u2013" + none;
+  }
+  return h;
+}
+
 // live uitlezing van een contact: statisch uit de stand, plak/slip uit de laatste dynamica
 function contactLive(e) {
   const P = N(e.node), f = cFrame(e, P), h = hertz(e, f.delta), st = liveContact(e);
@@ -439,6 +527,8 @@ function contactLive(e) {
 export function syncContactLive() {
   const el = document.getElementById("ctLive");
   if (el) { const e = E(el.dataset.e); if (e && e.type === "contact" && N(e.node)) el.innerHTML = contactLive(e); }
+  const sn = document.getElementById("snLive");
+  if (sn) { const e = E(sn.dataset.e); if (e && SENSORS[e.type]) sn.innerHTML = sensorLiveHtml(e); }
   const fx = document.getElementById("fxLive");
   if (fx) { const e = E(fx.dataset.e); if (e && e.type === "flexure") fx.innerHTML = flexLive(e); }
   renderHowNow();

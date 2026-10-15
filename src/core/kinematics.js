@@ -1,6 +1,7 @@
 // Kinematica: randvoorwaarden, relaxatie, sweep, krachten, beweeglijkheid (zonder DOM).
 import { contactForce } from "./contact.js";
 import { flexRest, flexTrace } from "./flexure.js";
+import { sensorMass } from "./sensors.js";
 import { actLen, actuators, curLen, drivers, frictionLoads, gapForce, hasFriction, isBar, N, omega } from "./elements.js";
 import { gauss, lsq } from "./linalg.js";
 import { model, sim } from "./state.js";
@@ -211,7 +212,7 @@ export function computeSweep() {
   }
   for (const e of model.elems) {
     if (isBar(e)) S.N[e.id] = new Array(361);
-    if (e.type === "spring" || e.type === "damper" || e.type === "gap" || e.type === "contact") S.EF[e.id] = new Array(361);
+    if (e.type === "spring" || e.type === "damper" || e.type === "gap" || e.type === "contact" || e.type === "loadcell") S.EF[e.id] = new Array(361);
   }
 
   let Rmax = 0, Nmax = 0;
@@ -324,12 +325,12 @@ function forcesAt(vel, acc) {
       kn[i].x += e.mag * Math.cos(t); kn[i].y += e.mag * Math.sin(t);
     }
   }
-  nd.forEach((n, i) => { if (model.gravity) kn[i].y -= (n.m || 0) * G; });
+  nd.forEach((n, i) => { if (model.gravity) kn[i].y -= ((n.m || 0) + sensorMass(n.id)) * G; });
   const base = A;
   function solveWith(extra) {
     const M = base.map(r => Float64Array.from(r));
     nd.forEach((n, i) => {
-      const a = acc.get(n.id) || { x: 0, y: 0 }, m = n.m || 0, ex = extra ? extra[i] : { x: 0, y: 0 };
+      const a = acc.get(n.id) || { x: 0, y: 0 }, m = (n.m || 0) + sensorMass(n.id), ex = extra ? extra[i] : { x: 0, y: 0 };
       M[2 * i][nc] = m * a.x * MM - kn[i].x - ex.x;
       M[2 * i + 1][nc] = m * a.y * MM - kn[i].y - ex.y;
     });
@@ -369,6 +370,7 @@ function forcesAt(vel, acc) {
 
   const out = { N: {}, EF, R: {}, T: {} };
   for (const e of links) if (!e.driver) out.N[e.id] = x[cL.get(e.id)];
+  for (const e of links) if (e.type === "loadcell") EF[e.id] = out.N[e.id];       // krachtopnemer: kracht uit de statica
   for (const n of pins) out.R[n.id] = { x: x[cP.get(n.id)], y: x[cP.get(n.id) + 1] };
   for (const n of slis) {
     const th = n.dir * Math.PI / 180, Rn = x[cS.get(n.id)];

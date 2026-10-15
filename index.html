@@ -1377,7 +1377,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return { L: Lm + La * Math.sin(ph), Ld: La * w * Math.cos(ph), Ldd: -La * w * w * Math.sin(ph) };
   }
   var actuators = () => model.elems.filter((e) => e.type === "actuator" && N(e.a) && N(e.b));
-  var isBar = (e) => e.type === "link" || e.type === "actuator" || e.type === "flexure";
+  var isBar = (e) => e.type === "link" || e.type === "actuator" || e.type === "flexure" || e.type === "loadcell" && model.mode === "kin";
   function curLen(e) {
     if (e.type !== "actuator") return e.len;
     if (sim.lenOv && sim.lenOv.has(e.id)) return sim.lenOv.get(e.id);
@@ -1714,6 +1714,142 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function flexLivePhi(e, S, i) {
     return S && S.FX && S.FX[e.id] && isFinite(S.FX[e.id][i]) ? S.FX[e.id][i] : (e.pre || 0) * rad;
   }
+
+  // src/core/sensors.js
+  var SENSORS = {
+    loadcell: { nm: "Krachtopnemer", pre: "LC", short: "krachtopnemer" },
+    dsens: { nm: "Verplaatsingssensor", pre: "DS", short: "verplaatsingssensor" },
+    encoder: { nm: "Hoekencoder", pre: "HE", short: "hoekencoder" },
+    accel: { nm: "Versnellingsopnemer", pre: "AC", short: "versnellingsopnemer" }
+  };
+  var isSensor = (e) => !!SENSORS[e.type];
+  var KS_DEFAULT = 1e5;
+  var MS_DEFAULT = 0.01;
+  var G_MM = 9806.65;
+  var rad2 = Math.PI / 180;
+  var wrap2 = (x) => x - 2 * Math.PI * Math.round(x / (2 * Math.PI));
+  var springLike = (e) => e.type === "spring" || e.type === "loadcell";
+  var springK = (e) => e.type === "loadcell" ? Math.max(1e-6, e.ks > 0 ? e.ks : KS_DEFAULT) : e.k;
+  var springL0 = (e) => e.type === "loadcell" ? e.len : e.L0;
+  function sensorMass(id) {
+    let m = 0;
+    for (const e of model.elems) {
+      if (e.type === "accel" && e.node === id) m += e.m >= 0 ? e.m : MS_DEFAULT;
+      else if (e.type === "loadcell" && (e.a === id || e.b === id)) m += (e.m > 0 ? e.m : 0) / 2;
+    }
+    return m;
+  }
+  function sensorName(type) {
+    const used = new Set(model.elems.map((e) => e.name));
+    for (let i = 1; ; i++) if (!used.has(SENSORS[type].pre + i)) return SENSORS[type].pre + i;
+  }
+  var sensorDefaults = (type) => ({
+    loadcell: { ks: KS_DEFAULT, m: 0 },
+    dsens: { ang: 0, range: 100, res: 0.1 },
+    encoder: { cpr: 4096 },
+    accel: { ang: 90, m: MS_DEFAULT }
+  })[type];
+  function dsensDisp(e, P, P0) {
+    const a = P(e.a), a0 = P0(e.a), t = (e.ang || 0) * rad2, cx = Math.cos(t), cy = Math.sin(t);
+    if (!a || !a0) return NaN;
+    if (e.b && N(e.b)) {
+      const b = P(e.b), b0 = P0(e.b);
+      if (!b || !b0) return NaN;
+      return (b.x - a.x - (b0.x - a0.x)) * cx + (b.y - a.y - (b0.y - a0.y)) * cy;
+    }
+    return (a.x - a0.x) * cx + (a.y - a0.y) * cy;
+  }
+  var encBars = (e) => {
+    const b1 = E(e.e1), b2 = e.e2 ? E(e.e2) : null;
+    return b1 && N(e.node) && N(b1.a) && N(b1.b) && (!e.e2 || b2 && N(b2.a) && N(b2.b)) ? { b1, b2 } : null;
+  };
+  function encAngle(e, P, P0) {
+    const bb = encBars(e);
+    if (!bb) return NaN;
+    const dir = (bar, Q) => {
+      const o = bar.a === e.node ? bar.b : bar.a, p = Q(e.node), q = Q(o);
+      return p && q ? Math.atan2(q.y - p.y, q.x - p.x) : NaN;
+    };
+    const th = (Q) => dir(bb.b1, Q) - (bb.b2 ? dir(bb.b2, Q) : 0);
+    return wrap2(th(P) - th(P0));
+  }
+  var encRes = (e) => 2 * Math.PI / Math.max(1, e.cpr || 4096);
+  var encQuant = (e, th) => Math.round(th / encRes(e)) * encRes(e);
+  var accVal = (e, a) => a ? (a.x * Math.cos((e.ang || 0) * rad2) + a.y * Math.sin((e.ang || 0) * rad2)) / 1e3 : NaN;
+  var dsensOut = (e, x_um) => ({
+    oor: Math.abs(x_um) > (e.range > 0 ? e.range : Infinity),
+    q: e.res > 0 ? Math.round(x_um / e.res) * e.res : x_um
+  });
+  function sensorVal(S, e, k, i) {
+    const P = (id) => S.pos && S.pos[id] ? S.pos[id][i] || null : null, P0 = (id) => S.pos && S.pos[id] ? S.pos[id][0] || null : null;
+    if (e.type === "loadcell") {
+      const F = S.EF && S.EF[e.id] ? S.EF[e.id][i] : NaN;
+      return k === "d" ? F / springK(e) * 1e3 : F;
+    }
+    if (e.type === "dsens") return dsensDisp(e, P, P0) * 1e3;
+    if (e.type === "encoder") {
+      const th = encAngle(e, P, P0);
+      return k === "th" ? th / rad2 : k === "thu" ? th * 1e6 : encQuant(e, th) / rad2;
+    }
+    if (e.type === "accel") {
+      const a = S.acc && S.acc[e.node] ? S.acc[e.node][i] : null, v = accVal(e, a);
+      return k === "g" ? v * 1e3 / G_MM : v;
+    }
+    return NaN;
+  }
+  function sensorLive(e) {
+    const S = sim.sweep, i = Math.round(ui.frame);
+    if (!S || S.frf) return null;
+    if (e.type === "loadcell") {
+      const F = sensorVal(S, e, "F", i);
+      return isFinite(F) ? { F, d: F / springK(e) * 1e3 } : null;
+    }
+    if (e.type === "dsens") {
+      const x = sensorVal(S, e, "x", i);
+      return isFinite(x) ? Object.assign({ x }, dsensOut(e, x)) : null;
+    }
+    if (e.type === "encoder") {
+      const th = sensorVal(S, e, "th", i);
+      return isFinite(th) ? { th, thu: sensorVal(S, e, "thu", i), thq: sensorVal(S, e, "thq", i) } : null;
+    }
+    if (e.type === "accel") {
+      const a = sensorVal(S, e, "a", i);
+      return isFinite(a) ? { a, g: a * 1e3 / G_MM } : null;
+    }
+    return null;
+  }
+  function sensorChannels() {
+    const out = [];
+    for (const e of model.elems) {
+      if (!isSensor(e) || !e.name) continue;
+      const nm = e.name, o = SENSORS[e.type].nm + " " + nm, base = { g: "Sensoren", o, obj: e.id };
+      const add = (key, q, u, al, frf, lab) => out.push(Object.assign({ key, lab: lab || nm + " \xB7 " + q, q, u, al: nm + "." + al, frf }, base));
+      if (e.type === "loadcell" && N(e.a) && N(e.b)) {
+        add("s|" + e.id + "|F", "F", "N", "F", true);
+        add("m|" + e.id + "|d", "\u03B4", "\xB5m", "d", true, nm + " \xB7 vervorming opnemer \u03B4");
+      } else if (e.type === "dsens" && N(e.a)) {
+        add("m|" + e.id + "|x", "x", "\xB5m", "x", true);
+      } else if (e.type === "encoder" && encBars(e)) {
+        add("m|" + e.id + "|th", "\u03B8", "\xB0", "th", true);
+        add("m|" + e.id + "|thu", "\u03B8 (\xB5rad)", "\xB5rad", "thu", true);
+        add("m|" + e.id + "|thq", "\u03B8 gekwantiseerd", "\xB0", "thq", false);
+      } else if (e.type === "accel" && N(e.node)) {
+        add("m|" + e.id + "|a", "a", "m/s\xB2", "a", true);
+        add("m|" + e.id + "|g", "a (g)", "g", "g", true);
+      }
+    }
+    return out;
+  }
+  function loadcellDt(e, defMass) {
+    const A = N(e.a), B = N(e.b);
+    if (!A || !B) return Infinity;
+    const mOf = (n) => n.support === "pin" ? Infinity : (n.m > 0 ? n.m : defMass || 0.1) + sensorMass(n.id);
+    const mA = mOf(A), mB = mOf(B), m = 1 / (1 / mA + 1 / mB);
+    if (!isFinite(m)) return Infinity;
+    const w = Math.sqrt(springK(e) / (m * 1e-3));
+    return 2.8 / w;
+  }
+  var barsAt = (nodeId) => model.elems.filter((e) => (e.type === "link" || e.type === "actuator" || e.type === "flexure" || e.type === "loadcell") && (e.a === nodeId || e.b === nodeId) && N(e.a) && N(e.b));
 
   // src/core/linalg.js
   function gauss(A, n) {
@@ -2080,7 +2216,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     for (const e of model.elems) {
       if (isBar(e)) S.N[e.id] = new Array(361);
-      if (e.type === "spring" || e.type === "damper" || e.type === "gap" || e.type === "contact") S.EF[e.id] = new Array(361);
+      if (e.type === "spring" || e.type === "damper" || e.type === "gap" || e.type === "contact" || e.type === "loadcell") S.EF[e.id] = new Array(361);
     }
     let Rmax = 0, Nmax = 0;
     for (let i = 0; i <= 360; i++) {
@@ -2206,13 +2342,13 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       }
     }
     nd.forEach((n, i) => {
-      if (model.gravity) kn[i].y -= (n.m || 0) * G;
+      if (model.gravity) kn[i].y -= ((n.m || 0) + sensorMass(n.id)) * G;
     });
     const base = A;
     function solveWith(extra) {
       const M = base.map((r) => Float64Array.from(r));
       nd.forEach((n, i) => {
-        const a = acc.get(n.id) || { x: 0, y: 0 }, m = n.m || 0, ex = extra ? extra[i] : { x: 0, y: 0 };
+        const a = acc.get(n.id) || { x: 0, y: 0 }, m = (n.m || 0) + sensorMass(n.id), ex = extra ? extra[i] : { x: 0, y: 0 };
         M[2 * i][nc] = m * a.x * MM - kn[i].x - ex.x;
         M[2 * i + 1][nc] = m * a.y * MM - kn[i].y - ex.y;
       });
@@ -2269,6 +2405,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     const out = { N: {}, EF, R: {}, T: {} };
     for (const e of links) if (!e.driver) out.N[e.id] = x[cL.get(e.id)];
+    for (const e of links) if (e.type === "loadcell") EF[e.id] = out.N[e.id];
     for (const n of pins) out.R[n.id] = { x: x[cP.get(n.id)], y: x[cP.get(n.id) + 1] };
     for (const n of slis) {
       const th = n.dir * Math.PI / 180, Rn = x[cS.get(n.id)];
@@ -2337,7 +2474,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (nm > nq) return null;
     const fixed = {};
     for (const n of model.nodes) if (n.support === "pin") fixed[n.id] = { x: n.x, y: n.y };
-    const dm = (n) => n.m > 0 ? n.m : model.defMass || 0.1;
+    const dm = (n) => (n.m > 0 ? n.m : model.defMass || 0.1) + sensorMass(n.id);
     const mA = new Float64Array(nq);
     fr2.forEach((n, i) => {
       mA[2 * i] = mA[2 * i + 1] = dm(n) * MM;
@@ -2441,12 +2578,12 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const cv2 = model.cVisc || 0;
       if (cv2) for (let i = 0; i < nq; i++) F[i] -= cv2 * v2[i];
       for (const e of model.elems) {
-        if (e.type === "spring" || e.type === "damper" || e.type === "gap") {
+        if (springLike(e) || e.type === "damper" || e.type === "gap") {
           const P = pos(q2, e.a), Q = pos(q2, e.b);
           const dx = Q.x - P.x, dy = Q.y - P.y, L = Math.hypot(dx, dy) || 1;
           const ux = dx / L, uy = dy / L;
           let Fv;
-          if (e.type === "spring") Fv = e.k * (L - e.L0);
+          if (springLike(e)) Fv = springK(e) * (L - springL0(e));
           else {
             const vP = vel(v2, e.a), vQ = vel(v2, e.b);
             const Ld = (vQ.x - vP.x) * ux + (vQ.y - vP.y) * uy;
@@ -2746,7 +2883,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     for (const e of model.elems) {
       if (isBar(e)) S.N[e.id] = new Array(361);
-      if (e.type === "spring" || e.type === "damper" || e.type === "gap") S.EF[e.id] = new Array(361);
+      if (springLike(e) || e.type === "damper" || e.type === "gap") S.EF[e.id] = new Array(361);
     }
     S.C = {};
     for (const e of cons) {
@@ -2918,7 +3055,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         const o = onPin[n.id];
         let fx = o.x + jPin[n.id].x, fy = o.y + jPin[n.id].y;
         for (const e of model.elems) {
-          if (e.type === "spring" || e.type === "damper" || e.type === "gap") {
+          if (springLike(e) || e.type === "damper" || e.type === "gap") {
             const sgn = e.a === n.id ? 1 : e.b === n.id ? -1 : 0;
             if (!sgn) continue;
             const P = pos(q2, e.a), Q = pos(q2, e.b);
@@ -2946,11 +3083,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       for (const e of cons) E2 += contactPot(e, S.pos[e.node][f2]) * 1e-3;
       for (const e of flexures()) E2 += flexPot(e, flexPhi(e, (id) => S.pos[id][f2], fxRest)) * 1e-3;
       for (const e of model.elems) {
-        if (e.type !== "spring" && e.type !== "gap") continue;
+        if (!springLike(e) && e.type !== "gap") continue;
         const P = S.pos[e.a][f2], Q = S.pos[e.b][f2];
         const L = Math.hypot(Q.x - P.x, Q.y - P.y);
-        const d = e.type === "gap" ? gapPen(e, L) : L - e.L0;
-        E2 += 0.5 * (e.type === "gap" ? e.kc || 0 : e.k) * d * d * 1e-3;
+        const d = e.type === "gap" ? gapPen(e, L) : L - springL0(e);
+        E2 += 0.5 * (e.type === "gap" ? e.kc || 0 : springK(e)) * d * d * 1e-3;
       }
       S.E[f2] = E2;
     }
@@ -3004,7 +3141,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const ds = drivers().filter((d) => N(d.a) && N(d.b) && N(d.a).support === "pin" && fi.has(d.b));
     const bars = model.elems.filter((e) => isBar(e) && !e.driver && N(e.a) && N(e.b) && !(N(e.a).support === "pin" && N(e.b).support === "pin"));
     const slis = model.nodes.filter((n) => n.support === "slider");
-    const dm = (n) => n.m > 0 ? n.m : model.defMass || 0.1;
+    const dm = (n) => (n.m > 0 ? n.m : model.defMass || 0.1) + sensorMass(n.id);
     const isIn = (e) => inp.e === e;
     const pos = (q, id) => fi.has(id) ? { x: q[2 * fi.get(id)], y: q[2 * fi.get(id) + 1] } : N(id);
     const vel = (v, id) => fi.has(id) ? { x: v[2 * fi.get(id)], y: v[2 * fi.get(id) + 1] } : { x: 0, y: 0 };
@@ -3106,9 +3243,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         v += dm(n) * G * q[2 * i + 1];
       });
       for (const e of model.elems) {
-        if (e.type === "spring") {
+        if (springLike(e)) {
           const P = pos(q, e.a), Q = pos(q, e.b), L = Math.hypot(Q.x - P.x, Q.y - P.y);
-          v += 0.5 * e.k * (L - e.L0) * (L - e.L0);
+          v += 0.5 * springK(e) * (L - springL0(e)) * (L - springL0(e));
         } else if (e.type === "gap") {
           const P = pos(q, e.a), Q = pos(q, e.b), d = gapPen(e, Math.hypot(Q.x - P.x, Q.y - P.y));
           v += 0.5 * (e.kc || 0) * d * d;
@@ -3427,19 +3564,42 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const e = E(id);
     if (!e) return null;
     if (t === "a") return dL(e);
+    const rot = (a, b) => {
+      const P = q0p(a), Q = q0p(b), L = Math.hypot(Q.x - P.x, Q.y - P.y) || 1, ux = (Q.x - P.x) / L, uy = (Q.y - P.y) / L;
+      const pa = [d(a, 0), d(a, 1)], pb = [d(b, 0), d(b, 1)];
+      return [0, 1].map((c2) => (ux * (pb[1][c2] - pa[1][c2]) - uy * (pb[0][c2] - pa[0][c2])) / L);
+    };
+    if (t === "m") {
+      if (e.type === "loadcell") return dL(e).map((v) => v * 1e3);
+      if (e.type === "dsens") {
+        const a = (e.ang || 0) * Math.PI / 180, cx = Math.cos(a), cy = Math.sin(a), betw = e.b && N(e.b);
+        return [0, 1].map((c2) => {
+          const A = [d(e.a, 0)[c2], d(e.a, 1)[c2]], B = betw ? [d(e.b, 0)[c2], d(e.b, 1)[c2]] : [0, 0];
+          return (betw ? (B[0] - A[0]) * cx + (B[1] - A[1]) * cy : A[0] * cx + A[1] * cy) * 1e3;
+        });
+      }
+      if (e.type === "encoder") {
+        const bb = encBars(e);
+        if (!bb) return null;
+        const dirRot = (bar) => rot(e.node, bar.a === e.node ? bar.b : bar.a);
+        const r1 = dirRot(bb.b1), r2 = bb.b2 ? dirRot(bb.b2) : [0, 0], sc = k === "thu" ? 1e6 : 180 / Math.PI;
+        return [(r1[0] - r2[0]) * sc, (r1[1] - r2[1]) * sc];
+      }
+      if (e.type === "accel") {
+        const a = (e.ang || 0) * Math.PI / 180, ax = times(d(e.node, 0), 2), ay = times(d(e.node, 1), 2);
+        const sc = k === "g" ? 1 / G_MM : 1e-3;
+        return [0, 1].map((c2) => (ax[c2] * Math.cos(a) + ay[c2] * Math.sin(a)) * sc);
+      }
+      return null;
+    }
     if (t === "f") {
-      const rot = (a, b) => {
-        const P = q0p(a), Q = q0p(b), L = Math.hypot(Q.x - P.x, Q.y - P.y) || 1, ux = (Q.x - P.x) / L, uy = (Q.y - P.y) / L;
-        const pa = [d(a, 0), d(a, 1)], pb = [d(b, 0), d(b, 1)];
-        return [0, 1].map((c2) => (ux * (pb[1][c2] - pa[1][c2]) - uy * (pb[0][c2] - pa[0][c2])) / L);
-      };
       const r = flexRef(e), th = rot(e.a, e.b), tr = r ? rot(e.a, r.a === e.a ? r.b : r.a) : [0, 0];
       const ph = [th[0] - tr[0], th[1] - tr[1]];
       const sc = k === "phi" ? 180 / Math.PI : k === "sig" ? flexStressRate(e).rate : flexK(e) * 1e-3;
       return [ph[0] * sc, ph[1] * sc];
     }
     if (t === "s") {
-      if (e.type === "spring") return dL(e).map((v) => v * e.k);
+      if (springLike(e)) return dL(e).map((v) => v * springK(e));
       if (e.type === "damper") return times(dL(e), 1).map((v) => v * e.c);
       const P = q0p(e.a), Q = q0p(e.b);
       if (!gapPen(e, Math.hypot(Q.x - P.x, Q.y - P.y))) return [0, 0];
@@ -3624,7 +3784,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       o: "Systeem",
       obj: ""
     });
-    return out;
+    return sensorChannels().concat(out);
   }
   function chVal(S, key, i) {
     const [t, id, k] = key.split("|");
@@ -3644,6 +3804,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     if (t === "l") return S.N[id] ? S.N[id][i] : NaN;
     if (t === "s") return S.EF[id] ? S.EF[id][i] : NaN;
+    if (t === "m") {
+      const e = E(id);
+      return e ? sensorVal(S, e, k, i) : NaN;
+    }
     if (t === "c") {
       const c2 = S.C && S.C[id] ? S.C[id][i] : null;
       return c2 ? c2[k] : NaN;
@@ -4079,6 +4243,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     force: '<path d="M10 17V4.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M10 2.4l3.4 4.2H6.6z" fill="currentColor"/>',
     mass: '<circle cx="10" cy="10" r="4.6" fill="currentColor"/><path d="M4 16.6h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
     trace: '<path d="M2.5 13.5c3-9 12-9 15 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2.4 2.2" stroke-linecap="round"/><circle cx="10" cy="7.6" r="2.8" fill="var(--panel)" stroke="currentColor" stroke-width="1.7"/>',
+    loadcell: '<path d="M2.4 10h3.6M14 10h3.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><rect x="6" y="5.4" width="8" height="9.2" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7.6 8.2l2.4 3.6 2.4-3.6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
+    dsens: '<path d="M3 5.4v9.2M3 10h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M8 6.6v6.8M11 6.6v6.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M11 10h6M14.6 7.8L17 10l-2.4 2.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+    encoder: '<circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 4v2M10 14v2M4 10h2M14 10h2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M10 10l3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+    accel: '<rect x="5.4" y="9.4" width="9.2" height="6.2" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 8V2.8M7.8 5l2.2-2.4L12.2 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
     del: '<path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
   };
   var TOOLS = [
@@ -4100,6 +4268,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     { id: "force", nm: "Kracht", kb: "F", ic: "force", hint: "Klik een punt om er een <b>kracht</b> op te zetten." },
     { id: "mass", nm: "Massa", kb: "M", ic: "mass", hint: "Klik een punt om er een <b>puntmassa</b> aan toe te kennen." },
     { id: "trace", nm: "Spoor", kb: "T", ic: "trace", hint: "Klik een punt om zijn <b>baan</b> te tonen of te verbergen." },
+    { g: "Sensoren" },
+    { id: "loadcell", nm: "Krachtopnemer", kb: "Q", ic: "loadcell", hint: "Klik twee punten voor een <b>krachtopnemer</b> (loadcell): een stijve axiale veer k<sub>s</sub> in de krachtweg die de kracht meet. Hij maakt het systeem zachter: in serie met de rest. Stijfheid en massa stel je in bij Eigenschappen." },
+    { id: "dsens", nm: "Verplaatsing", kb: "W", ic: "dsens", hint: "Klik een punt, dan een tweede punt voor een <b>verplaatsingssensor</b> tussen die twee, of klik hetzelfde punt nog eens voor een sensor ten opzichte van de grond. Meet langs een richting in \xB5m, met bereik en resolutie." },
+    { id: "encoder", nm: "Hoekencoder", kb: "H", ic: "encoder", hint: "Klik een punt waar schakels samenkomen voor een <b>hoekencoder</b>: de hoek tussen twee schakels (of schakel en grond), met een resolutie in counts per omwenteling." },
+    { id: "accel", nm: "Versnelling", kb: "J", ic: "accel", hint: "Klik een punt voor een <b>versnellingsopnemer</b>: hij meet de versnelling langs een richting en zijn massa (standaard 10 g) komt bij het punt erbij." },
     { g: "Bewerken" },
     { id: "del", nm: "Verwijderen", kb: "X", ic: "del", hint: "Klik een punt of element om het te <b>verwijderen</b>." }
   ];
@@ -4168,7 +4341,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     document.addEventListener("keydown", (e) => {
       if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
       const k = e.key.toLowerCase();
-      const map = { v: "select", n: "node", l: "link", p: "pin", s: "slider", d: "driver", a: "actuator", r: "spring", c: "damper", g: "gap", k: "contact", b: "flexure", f: "force", m: "mass", t: "trace", x: "del" };
+      const map = { v: "select", n: "node", l: "link", p: "pin", s: "slider", d: "driver", a: "actuator", r: "spring", c: "damper", g: "gap", k: "contact", b: "flexure", q: "loadcell", w: "dsens", h: "encoder", j: "accel", f: "force", m: "mass", t: "trace", x: "del" };
       if (map[k]) {
         setTool(map[k]);
         e.preventDefault();
@@ -4418,13 +4591,13 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const n = N(s.id);
       if (!n) return "";
       const nm2 = n.name || n.id, parts = [];
-      const dm = n.m > 0 ? n.m : model.defMass || 0.1;
+      const sm = sensorMass(n.id), dm = (n.m > 0 ? n.m : model.defMass || 0.1) + sm;
       parts.push(block({
         title: "Massa in punt " + esc(nm2),
         eq: [c("\u03A3F = m\xB7a") + " ; " + c("F<sub>zwaarte</sub> = \u2212m\xB7g") + " (alleen als zwaartekracht aan staat)"],
         sym: [[c("m"), "massa van het punt in kg"], [c("g"), "9,81 m/s\xB2"]],
         live: [
-          kv("m", num2(dm) + " kg" + (n.m > 0 ? "" : " (standaard)")),
+          kv("m", num2(dm) + " kg" + (n.m > 0 ? "" : " (standaard)") + (sm > 0 ? " incl. " + num2(sm) + " kg sensor" : "")),
           kv("m\xB7g", num2(dm * 9.81) + " N" + (model.gravity ? "" : " (zwaartekracht uit)")),
           kv("Steun", n.support === "pin" ? "scharnier (vast)" : n.support === "slider" ? "glijder, hoek " + num2(n.dir) + "\xB0" : "vrij")
         ],
@@ -4472,6 +4645,99 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const A = N(e.a), B = N(e.b), L = A && B ? Math.hypot(B.x - A.x, B.y - A.y) : NaN;
     const nm = A && B ? esc(name(e.a) + name(e.b)) : "";
     switch (e.type) {
+      case "loadcell": {
+        const ks = springK(e), live = sensorLive(e), dt = loadcellDt(e, model.defMass), k10 = 10;
+        return block({
+          title: "Krachtopnemer " + esc(e.name || "") + " " + nm,
+          eq: [
+            c("F = k<sub>s</sub>\xB7\u0394") + "  en  " + c("\u0394 = F/k<sub>s</sub>"),
+            c("1/k<sub>tot</sub> = 1/k + 1/k<sub>s</sub>") + "  (opnemer in serie met stijfheid k)",
+            c("f = (1/2\u03C0)\xB7\u221A(k<sub>tot</sub>/m)") + "  : de eigenfrequentie daalt met " + c("\u221A(k<sub>tot</sub>/k)"),
+            "Massa: " + c("m<sub>opn</sub>/2") + " op elk uiteinde"
+          ],
+          sym: [
+            [c("k<sub>s</sub>"), "stijfheid van de opnemer (standaard 100 N/\xB5m = 10<sup>5</sup> N/mm)"],
+            [c("\u0394"), "vervorming van de opnemer zelf, \xB5m"],
+            [c("k<sub>tot</sub>"), "stijfheid van opnemer en omgeving samen"]
+          ],
+          live: [
+            kv("k<sub>s</sub>", num2(ks) + " N/mm = " + num2(ks / 1e3) + " N/\xB5m"),
+            kv("Eigen massa", num2(e.m || 0) + " kg"),
+            kv("Bij k = 10 N/mm", "k<sub>tot</sub> = " + num2(1 / (1 / k10 + 1 / ks)) + " N/mm (" + num2((1 / (1 / k10 + 1 / ks) / k10 - 1) * 100) + " %)"),
+            kv("F", live ? num2(live.F) + " N" : "\u2013"),
+            kv("\u0394 = F/k<sub>s</sub>", live ? num2(live.d) + " \xB5m" : "\u2013"),
+            kv("Max. tijdstap Dynamisch", isFinite(dt) ? num2(dt * 1e3) + " ms" : "\u2013")
+          ],
+          ass: [
+            "Alleen axiale stijfheid; geen dwarsstijfheid, geen demping en geen niet-lineariteit.",
+            "Kinematisch: stijve schakel, de kracht komt uit de statica. Dynamisch, Evenwicht en FRF: veer met rustlengte = getekende lengte.",
+            "Een stijve opnemer (hoge k<sub>s</sub>) vraagt in Dynamisch een kleine tijdstap."
+          ],
+          src: "src/core/sensors.js, src/core/dynamics.js (loads), src/core/frf.js (V)"
+        });
+      }
+      case "dsens": {
+        const live = sensorLive(e), between = e.b && N(e.b);
+        return block({
+          title: "Verplaatsingssensor " + esc(e.name || ""),
+          eq: [
+            between ? c("x = [(q<sub>b</sub> \u2212 q<sub>a</sub>) \u2212 (q<sub>b0</sub> \u2212 q<sub>a0</sub>)]\xB7n") : c("x = (q<sub>a</sub> \u2212 q<sub>a0</sub>)\xB7n"),
+            c("n = (cos \u03B1, sin \u03B1)"),
+            c("x<sub>uit</sub> = round(x/res)\xB7res") + ",  " + c("|x| > bereik") + " \u2192 buiten bereik"
+          ],
+          sym: [[c("q<sub>0</sub>"), "getekende stand"], [c("\u03B1"), "meetrichting vanaf de x-as"], [c("res, bereik"), "resolutie en meetbereik in \xB5m"]],
+          live: [
+            kv("Richting", num2(e.ang || 0) + "\xB0"),
+            kv("Bereik", "\xB1" + num2(e.range) + " \xB5m"),
+            kv("Resolutie", num2(e.res) + " \xB5m"),
+            kv("x", live ? num2(live.x) + " \xB5m" : "\u2013"),
+            kv("Status", live ? live.oor ? "buiten bereik" : "binnen bereik" : "\u2013")
+          ],
+          ass: ["Geen stijfheid of massa: de sensor verandert het systeem niet.", "Relatief ten opzichte van de getekende stand (beeld 0)."],
+          src: "src/core/sensors.js (dsensDisp)"
+        });
+      }
+      case "encoder": {
+        const live = sensorLive(e), res2 = encRes(e);
+        return block({
+          title: "Hoekencoder " + esc(e.name || ""),
+          eq: [
+            c("\u03B8 = (\u03B8<sub>1</sub> \u2212 \u03B8<sub>2</sub>) \u2212 (\u03B8<sub>1</sub> \u2212 \u03B8<sub>2</sub>)<sub>0</sub>"),
+            c("res = 2\u03C0 / counts per omwenteling"),
+            c("\u03B8<sub>geteld</sub> = round(\u03B8/res)\xB7res") + ", kwantisatiefout " + c("\u2264 res/2")
+          ],
+          sym: [[c("\u03B8<sub>1</sub>, \u03B8<sub>2</sub>"), "richting van de schakels vanuit het punt (\u03B8<sub>2</sub> = 0 voor de grond)"], [c("res"), "hoek per count"]],
+          live: [
+            kv("Counts/omwenteling", num2(e.cpr)),
+            kv("res", num2(res2 * 180 / Math.PI) + "\xB0 = " + num2(res2 * 1e6) + " \xB5rad"),
+            kv("\u03B8", live ? num2(live.th) + "\xB0 = " + num2(live.thu) + " \xB5rad" : "\u2013"),
+            kv("\u03B8 geteld", live ? num2(live.thq) + "\xB0" : "\u2013")
+          ],
+          ass: ["Geen massa of stijfheid; relatief ten opzichte van de getekende stand."],
+          src: "src/core/sensors.js (encAngle, encQuant)"
+        });
+      }
+      case "accel": {
+        const live = sensorLive(e), ms = e.m >= 0 ? e.m : 0.01, n = N(e.node);
+        const m0 = n ? (n.m > 0 ? n.m : model.defMass || 0.1) + sensorMass(e.node) - ms : 0;
+        return block({
+          title: "Versnellingsopnemer " + esc(e.name || "") + " op " + esc(name(e.node)),
+          eq: [
+            c("a = a<sub>punt</sub>\xB7n") + ", " + c("n = (cos \u03B1, sin \u03B1)") + ";  " + c("1 g = 9,80665 m/s\xB2"),
+            c("m<sub>punt</sub> = m + m<sub>s</sub>"),
+            c("f<sub>met</sub> = f\xB7\u221A(m/(m + m<sub>s</sub>))") + "  : de opnemer maakt het punt zwaarder"
+          ],
+          sym: [[c("m<sub>s</sub>"), "massa van de opnemer (standaard 0,01 kg), erbij op het punt"], [c("m"), "massa van het punt zonder opnemer"]],
+          live: [
+            kv("m<sub>s</sub>", num2(ms) + " kg"),
+            kv("m (zonder opnemer)", num2(m0) + " kg"),
+            kv("f-factor", num2(Math.sqrt(m0 / (m0 + ms)))),
+            kv("a", live ? num2(live.a) + " m/s\xB2 = " + num2(live.g) + " g" : "\u2013")
+          ],
+          ass: ["Puntmassa zonder eigen dynamica (geen resonantie van de opnemer zelf).", "Telt mee in Dynamisch, Evenwicht, FRF en de kinematische krachten."],
+          src: "src/core/sensors.js (sensorMass), src/core/dynamics.js (dm), src/core/frf.js (dm)"
+        });
+      }
       case "spring":
         return block({
           title: "Veer " + nm,
@@ -4689,7 +4955,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       model.frfIn,
       model.mode === "kin" ? ui.frame : 0,
       sel ? JSON.stringify(sel) : "",
-      sel && (sel.type === "contact" || sel.type === "flexure") ? ui.frame : 0,
+      sel && (sel.type === "contact" || sel.type === "flexure" || sel.type === "loadcell" || sel.type === "dsens" || sel.type === "encoder" || sel.type === "accel") ? ui.frame : 0,
       model.mode === "kin" ? model.nodes.map((n) => n.x + "," + n.y).join(";") : ""
     ].join("|");
   }
@@ -5113,6 +5379,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       }
       return;
     }
+    if (SENSORS[e.type]) {
+      sensorInspector(e);
+      return;
+    }
     if (e.type === "spring") {
       stSel.textContent = "veer";
       props.innerHTML = kind(ui.C.spring, "Veer") + '<p class="empty" style="margin:-4px 0 10px">' + N(e.a).name + " \u2013 " + N(e.b).name + "</p>" + numRow("sk", "Stijfheid k", e.k, "N/mm", 0.1) + numRow("sl", "Rustlengte L\u2080", e.L0, "mm", 0.5) + '<p class="empty" style="margin-top:8px">Huidige lengte ' + fmt(dist(N(e.a), N(e.b))) + " mm. Veerkracht volgt straks uit de kinematica \u2014 geen tijdsintegratie nodig.</p>";
@@ -5143,6 +5413,90 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       });
     }
   }
+  function sensorInspector(e) {
+    const props2 = document.getElementById("props"), stSel = document.getElementById("stSel");
+    const nmOf = (id) => N(id) ? N(id).name : "?";
+    const sel = (id, lab, opts, cur) => '<div class="row"><label for="' + id + '">' + lab + '</label><select id="' + id + '">' + opts.map((o) => '<option value="' + o[0] + '"' + (o[0] === cur ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></div>";
+    const head = (txt2, sub2) => kind(ui.C.ink2, SENSORS[e.type].nm + " " + (e.name || "")) + '<p class="empty" style="margin:-4px 0 10px">' + sub2 + "</p>";
+    const tail = '<p class="empty" style="margin:10px 0 0"><b>Nu</b></p><p class="empty" id="snLive" data-e="' + e.id + '" style="margin-top:2px">' + sensorLiveHtml(e) + "</p>";
+    stSel.textContent = SENSORS[e.type].short;
+    if (e.type === "loadcell") {
+      props2.innerHTML = head("", nmOf(e.a) + " \u2013 " + nmOf(e.b)) + numRow("lcks", "Stijfheid k\u209B", springK(e) / 1e3, "N/\xB5m", 10) + numRow("lcm", "Eigen massa (optioneel)", e.m || 0, "kg", 1e-3) + tail + '<p class="empty" style="margin-top:8px"><b>De opnemer zit in de krachtweg.</b> Hij is een axiale veer: F = k\u209B\xB7\u0394, dus hij vervormt zelf \u0394 = F/k\u209B en maakt het geheel zachter: 1/k<sub>tot</sub> = 1/k + 1/k\u209B. Zijn massa (half op elk punt) telt mee in Dynamisch en FRF. In Kinematisch is hij een stijve schakel; de kracht volgt uit de statica en \u0394 uit F/k\u209B.</p>';
+      bindNum("lcks", (v) => {
+        e.ks = Math.max(1e-9, v) * 1e3;
+      });
+      bindNum("lcm", (v) => {
+        e.m = Math.max(0, v);
+      });
+    } else if (e.type === "dsens") {
+      const between = e.b && N(e.b);
+      props2.innerHTML = head("", between ? nmOf(e.a) + " \u2194 " + nmOf(e.b) : nmOf(e.a) + " ten opzichte van de grond") + numRow("dsa", "Meetrichting", e.ang || 0, "\xB0", 5) + numRow("dsr", "Bereik \xB1", e.range, "\xB5m", 10) + numRow("dsres", "Resolutie", e.res, "\xB5m", 0.01) + tail + '<p class="empty" style="margin-top:8px">Meet de verandering van ' + (between ? "de afstand tussen de twee punten" : "de positie van het punt") + " langs de gekozen richting (0\xB0 is +x), ten opzichte van de getekende stand. Buiten het bereik wordt het label rood (\u201Cbuiten bereik\u201D). De sensor heeft geen stijfheid en geen massa: hij be\xEFnvloedt het systeem niet.</p>";
+      bindNum("dsa", (v) => {
+        e.ang = v;
+      });
+      bindNum("dsr", (v) => {
+        e.range = Math.max(0, v);
+      });
+      bindNum("dsres", (v) => {
+        e.res = Math.max(0, v);
+      });
+    } else if (e.type === "encoder") {
+      const here = barsAt(e.node), nm = (b) => "schakel " + nmOf(b.a) + nmOf(b.b);
+      props2.innerHTML = head("", "in punt " + nmOf(e.node)) + sel("ene1", "Hoek van", here.map((b) => [b.id, nm(b)]), e.e1) + sel("ene2", "ten opzichte van", [["", "de grond"]].concat(here.filter((b) => b.id !== e.e1).map((b) => [b.id, nm(b)])), e.e2 || "") + numRow("encpr", "Resolutie", e.cpr, "counts/omw.", 256) + tail + '<p class="empty" style="margin-top:8px">E\xE9n count is 360\xB0/' + nl2(fmt(e.cpr)) + " = <b>" + nl2(fmt(encRes(e) * 180 / Math.PI)) + "\xB0</b> = <b>" + nl2(fmt(encRes(e) * 1e6)) + " \xB5rad</b>. De getoonde \u201Cgeteld\u201D hoek is afgerond op hele counts: dat is wat de encoder werkelijk kan zien. De hoek is relatief ten opzichte van de getekende stand. De encoder heeft geen massa of stijfheid.</p>";
+      bindNum("encpr", (v) => {
+        e.cpr = Math.max(1, Math.round(v));
+      });
+      for (const [id, key] of [["ene1", "e1"], ["ene2", "e2"]]) {
+        const el = document.getElementById(id);
+        el.addEventListener("change", () => {
+          if (!atT0()) {
+            el.value = e[key] || "";
+            lockNudge();
+            return;
+          }
+          cancelJob();
+          e[key] = el.value;
+          if (e.e2 === e.e1) e.e2 = "";
+          if (!asyncMode()) ui.frame = 0;
+          rebuild();
+          syncDof();
+          draw();
+          pushHistory();
+          save();
+          buildInspector();
+        });
+      }
+    } else if (e.type === "accel") {
+      const m = e.m >= 0 ? e.m : 0.01;
+      props2.innerHTML = head("", "op punt " + nmOf(e.node)) + numRow("aca", "Meetrichting", e.ang || 0, "\xB0", 5) + numRow("acm", "Massa m\u209B", m, "kg", 1e-3) + tail + '<p class="empty" style="margin-top:8px"><b>De massa komt bij het punt erbij</b> (dynamica en FRF): de eigenfrequentie schuift met \u221A(m/(m+m\u209B)). Meet de versnelling langs de gekozen richting (0\xB0 is +x, 90\xB0 is +y) in m/s\xB2 en g.</p>';
+      bindNum("aca", (v) => {
+        e.ang = v;
+      });
+      bindNum("acm", (v) => {
+        e.m = Math.max(0, v);
+      });
+    }
+  }
+  var nlf = (v) => nl2(fmt(v));
+  function sensorLiveHtml(e) {
+    if (sim.sweep && sim.sweep.frf) return "FRF: de uitgang staat in het Bode-diagram (kies hem bij Metingen).";
+    const L = sensorLive(e), none = " \xB7 nog geen doorgerekende beweging";
+    let h = "";
+    if (e.type === "loadcell") {
+      h = "k\u209B <b>" + nlf(springK(e)) + "</b> N/mm = <b>" + nlf(springK(e) / 1e3) + "</b> N/\xB5m<br>" + (L ? "F <b>" + nlf(L.F) + "</b> N \xB7 \u03B4 = F/k\u209B <b>" + nlf(L.d) + "</b> \xB5m" : "F \u2013 \xB7 \u03B4 \u2013" + none);
+      if (model.mode === "dyn" && N(e.a) && N(e.b)) {
+        const dt = loadcellDt(e, model.defMass), now = (model.dtStep || 0.2) / 1e3;
+        h += '<br><span style="' + (now > dt ? "color:var(--driver);font-weight:600" : "") + '">Tijdstap \u2264 <b>' + nlf(dt * 1e3) + "</b> ms voor een stabiele integratie (nu " + nlf(now * 1e3) + " ms)" + (now > dt ? " \u2014 verklein hem in Instellingen" : "") + "</span>";
+      }
+    } else if (e.type === "dsens") {
+      h = L ? 'x <b style="' + (L.oor ? "color:var(--bad)" : "") + '">' + nlf(L.x) + "</b> \xB5m \xB7 afgerond op resolutie <b>" + nlf(L.q) + "</b> \xB5m<br>" + (L.oor ? '<span style="color:var(--bad);font-weight:600">buiten bereik (\xB1' + nlf(e.range) + " \xB5m)</span>" : "binnen bereik (\xB1" + nlf(e.range) + " \xB5m)") : "x \u2013" + none;
+    } else if (e.type === "encoder") {
+      h = L ? "\u03B8 <b>" + nl2(L.th.toFixed(4)) + "</b>\xB0 = <b>" + nlf(L.thu) + "</b> \xB5rad<br>geteld <b>" + nl2(L.thq.toFixed(4)) + "</b>\xB0 (kwantisatiefout " + nlf((L.thq - L.th) * Math.PI / 180 * 1e6) + " \xB5rad)" : "\u03B8 \u2013" + none;
+    } else if (e.type === "accel") {
+      h = L ? "a <b>" + nlf(L.a) + "</b> m/s\xB2 = <b>" + nl2(L.g.toFixed(3)) + "</b> g" : "a \u2013" + none;
+    }
+    return h;
+  }
   function contactLive(e) {
     const P = N(e.node), f2 = frame(e, P), h = hertz(e, f2.delta), st = liveContact(e);
     const Fn = st ? st.Fn : h.Fn;
@@ -5154,6 +5508,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (el) {
       const e = E(el.dataset.e);
       if (e && e.type === "contact" && N(e.node)) el.innerHTML = contactLive(e);
+    }
+    const sn = document.getElementById("snLive");
+    if (sn) {
+      const e = E(sn.dataset.e);
+      if (e && SENSORS[e.type]) sn.innerHTML = sensorLiveHtml(e);
     }
     const fx = document.getElementById("fxLive");
     if (fx) {
@@ -6538,10 +6897,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return [lo, hi];
   }
   function measurePlot() {
-    const wrap2 = plotCv.parentElement, cs = getComputedStyle(wrap2);
+    const wrap3 = plotCv.parentElement, cs = getComputedStyle(wrap3);
     ui.plotBox = {
-      w: wrap2.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
-      h: wrap2.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+      w: wrap3.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
+      h: wrap3.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
     };
   }
   function drawPlot() {
@@ -7023,6 +7382,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     for (const e of model.elems) if (e.type === "link" && e.driver) drawLink(e);
     for (const e of model.elems) if (e.type === "actuator") drawActuator(e);
     for (const e of model.elems) if (e.type === "flexure") drawFlexure(e);
+    for (const e of model.elems) if (SENSORS[e.type]) drawSensor(e);
     for (const n of model.nodes) drawSupport(n);
     for (const e of model.elems) if (e.type === "force") drawForce(e);
     for (const n of model.nodes) drawNode(n);
@@ -7166,7 +7526,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       label(tip.x + ux * 14, tip.y + uy * 14, fmt(mag) + " N", ui.C.accent, false, 1);
     }
     for (const e of model.elems) {
-      if (!isBar(e)) continue;
+      if (!isBar(e) || e.type === "loadcell") continue;
       const v = sim.sweep.N[e.id] ? sim.sweep.N[e.id][i] : NaN;
       if (!isFinite(v)) continue;
       const A = toScr(N(e.a)), B = toScr(N(e.b));
@@ -7296,6 +7656,197 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       false,
       2
     );
+  }
+  var GL = 34;
+  var nf = (v) => fmt(v).replace(".", ",");
+  function sensorSeg(e) {
+    const A = N(e.type === "encoder" || e.type === "accel" ? e.node : e.a);
+    if (!A) return null;
+    const s = toScr(A), t = (e.ang || 0) * Math.PI / 180, ux = Math.cos(t), uy = -Math.sin(t);
+    if (e.type === "encoder") return { a: s, r: 15 };
+    if (e.type === "accel") return { a: s, b: { x: s.x + ux * 28, y: s.y + uy * 28 } };
+    if (e.b && N(e.b)) return { a: s, b: toScr(N(e.b)) };
+    return { a: s, b: { x: s.x - ux * GL, y: s.y - uy * GL } };
+  }
+  function drawSensor(e) {
+    const g = sensorSeg(e);
+    if (!g) return;
+    const live = sensorLive(e), hl = isSel(e.id) || isHov(e.id), nm = e.name || SENSORS[e.type].pre;
+    let col = ui.C.ink2, txt2 = nm, sub2 = "", bad = false;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    const halo = (w2, f2) => {
+      if (!hl) return;
+      ctx.strokeStyle = ui.C.accent;
+      ctx.lineWidth = w2;
+      ctx.globalAlpha = isSel(e.id) ? 0.25 : 0.13;
+      f2();
+      ctx.globalAlpha = 1;
+    };
+    if (e.type === "encoder") {
+      const bb = encBars(e), r = g.r;
+      halo(10, () => {
+        ctx.beginPath();
+        ctx.arc(g.a.x, g.a.y, r, 0, 6.2832);
+        ctx.stroke();
+      });
+      ctx.fillStyle = ui.C.panel;
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      ctx.arc(g.a.x, g.a.y, r, 0, 6.2832);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(g.a.x, g.a.y, r, 0, 6.2832);
+      ctx.stroke();
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      for (let k = 0; k < 12; k++) {
+        const a = k * Math.PI / 6, c2 = Math.cos(a), s = Math.sin(a), r0 = r - (k % 3 ? 3 : 5);
+        ctx.moveTo(g.a.x + c2 * r0, g.a.y + s * r0);
+        ctx.lineTo(g.a.x + c2 * r, g.a.y + s * r);
+      }
+      ctx.stroke();
+      if (bb) {
+        const o = N(bb.b1.a === e.node ? bb.b1.b : bb.b1.a), p = toScr(o), L2 = Math.hypot(p.x - g.a.x, p.y - g.a.y) || 1;
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = ui.C.driver;
+        ctx.beginPath();
+        ctx.moveTo(g.a.x, g.a.y);
+        ctx.lineTo(g.a.x + (p.x - g.a.x) / L2 * (r - 2), g.a.y + (p.y - g.a.y) / L2 * (r - 2));
+        ctx.stroke();
+      } else col = ui.C.ink3;
+      if (live) {
+        txt2 += " " + nf(live.th) + "\xB0";
+        sub2 = "\xB5rad " + nf(live.thu) + " \xB7 geteld " + nf(live.thq) + "\xB0";
+      }
+      label(g.a.x, g.a.y + r + 13, txt2, col, false, 0);
+      if (sub2) label(g.a.x, g.a.y + r + 27, sub2, ui.C.ink3, false, 2);
+      return;
+    }
+    const dx = g.b.x - g.a.x, dy = g.b.y - g.a.y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L, px = -uy, py = ux;
+    const at = (t, s) => [g.a.x + ux * t + px * s, g.a.y + uy * t + py * s];
+    halo(e.type === "accel" ? 22 : 14, () => {
+      ctx.beginPath();
+      ctx.moveTo(g.a.x, g.a.y);
+      ctx.lineTo(g.b.x, g.b.y);
+      ctx.stroke();
+    });
+    ctx.strokeStyle = col;
+    ctx.fillStyle = ui.C.panel;
+    ctx.lineWidth = 1.8;
+    if (e.type === "loadcell") {
+      const bl = Math.min(L * 0.5, 30), w2 = 7.5, t0 = (L - bl) / 2;
+      ctx.beginPath();
+      ctx.moveTo(g.a.x, g.a.y);
+      ctx.lineTo(...at(t0, 0));
+      ctx.moveTo(...at(t0 + bl, 0));
+      ctx.lineTo(g.b.x, g.b.y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(...at(t0, w2));
+      ctx.lineTo(...at(t0 + bl, w2));
+      ctx.lineTo(...at(t0 + bl, -w2));
+      ctx.lineTo(...at(t0, -w2));
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(...at(t0 + bl * 0.25, w2 * 0.6));
+      ctx.lineTo(...at(t0 + bl * 0.5, -w2 * 0.6));
+      ctx.lineTo(...at(t0 + bl * 0.75, w2 * 0.6));
+      ctx.stroke();
+      if (live) {
+        txt2 += " " + nf(live.F) + " N";
+        sub2 = "\u03B4 " + nf(live.d) + " \xB5m";
+      }
+      const m = at(L / 2, 0);
+      label(m[0] + px * 19, m[1] + py * 19, txt2, col, false, 0);
+      if (sub2) label(m[0] + px * 33, m[1] + py * 33, sub2, ui.C.ink3, false, 2);
+      return;
+    }
+    if (e.type === "dsens") {
+      const between = e.b && N(e.b), m = L / 2;
+      ctx.setLineDash(between ? [4, 3] : []);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(g.a.x, g.a.y);
+      ctx.lineTo(...at(m - 3, 0));
+      ctx.moveTo(...at(m + 3, 0));
+      ctx.lineTo(g.b.x, g.b.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(...at(m - 3, 8));
+      ctx.lineTo(...at(m - 3, -8));
+      ctx.moveTo(...at(m + 3, 8));
+      ctx.lineTo(...at(m + 3, -8));
+      ctx.stroke();
+      if (!between) {
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(...at(L, 8));
+        ctx.lineTo(...at(L, -8));
+        for (let k = -2; k <= 2; k++) {
+          const q3 = at(L, k * 4);
+          ctx.moveTo(q3[0], q3[1]);
+          ctx.lineTo(q3[0] + ux * 5 + px * 3, q3[1] + uy * 5 + py * 3);
+        }
+        ctx.stroke();
+      }
+      const t = (e.ang || 0) * Math.PI / 180, ax = Math.cos(t), ay = -Math.sin(t), tip = [g.a.x + ax * 15, g.a.y + ay * 15];
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = ui.C.driver;
+      ctx.beginPath();
+      ctx.moveTo(g.a.x + ax * 5, g.a.y + ay * 5);
+      ctx.lineTo(tip[0], tip[1]);
+      ctx.moveTo(tip[0] - ax * 5 - ay * 3, tip[1] - ay * 5 + ax * 3);
+      ctx.lineTo(tip[0], tip[1]);
+      ctx.lineTo(tip[0] - ax * 5 + ay * 3, tip[1] - ay * 5 - ax * 3);
+      ctx.stroke();
+      if (live) {
+        txt2 += live.oor ? " buiten bereik" : " " + nf(live.x) + " \xB5m";
+        bad = live.oor;
+        sub2 = "\xB1" + nf(e.range) + " \xB5m \xB7 res " + nf(e.res) + " \xB5m";
+      }
+      const q2 = at(m, 0);
+      label(q2[0] + px * 17, q2[1] + py * 17, txt2, bad ? ui.C.bad : col, false, 0);
+      if (sub2) label(q2[0] + px * 31, q2[1] + py * 31, sub2, ui.C.ink3, false, 2);
+      return;
+    }
+    const w = 8, h = 6;
+    ctx.beginPath();
+    ctx.moveTo(g.a.x, g.a.y);
+    ctx.lineTo(...at(12, 0));
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(...at(12, w));
+    ctx.lineTo(...at(12 + 2 * h, w));
+    ctx.lineTo(...at(12 + 2 * h, -w));
+    ctx.lineTo(...at(12, -w));
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeStyle = ui.C.driver;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(...at(12 + 3, 0));
+    ctx.lineTo(...at(12 + 2 * h + 8, 0));
+    ctx.moveTo(...at(12 + 2 * h + 3, 3.5));
+    ctx.lineTo(...at(12 + 2 * h + 8, 0));
+    ctx.lineTo(...at(12 + 2 * h + 3, -3.5));
+    ctx.stroke();
+    if (live) {
+      txt2 += " " + nf(live.a) + " m/s\xB2";
+      sub2 = nf(live.g) + " g \xB7 +" + nf((e.m >= 0 ? e.m : 0.01) * 1e3) + " g massa";
+    }
+    const q = at(12 + h, 0);
+    label(q[0] + px * 22, q[1] + py * 22, txt2, col, false, 0);
+    if (sub2) label(q[0] + px * 36, q[1] + py * 36, sub2, ui.C.ink3, false, 2);
   }
   function drawActuator(e) {
     const A = toScr(N(e.a)), B = toScr(N(e.b));
@@ -7910,6 +8461,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       Object.assign(e, flexDefaults("cantilever", L));
       e.ref = flexDefaultRef(e);
     }
+    if (type === "loadcell") {
+      e.len = round2(L);
+      e.name = sensorName("loadcell");
+      Object.assign(e, sensorDefaults("loadcell"));
+    }
     if (type === "actuator") {
       e.len = round2(L);
       e.min = round2(L * 0.85);
@@ -7928,12 +8484,38 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     model.elems.push(e);
     return e;
   }
+  function addDsens(a, b) {
+    const A = N(a);
+    if (!A) return null;
+    const e = { id: eid(), type: "dsens", name: sensorName("dsens"), a, b: b || "", ...sensorDefaults("dsens") };
+    if (b && N(b)) e.ang = round2(Math.atan2(N(b).y - A.y, N(b).x - A.x) * 180 / Math.PI);
+    model.elems.push(e);
+    return e;
+  }
+  function addEncoder(nodeId) {
+    const bars = barsAt(nodeId);
+    if (!bars.length) return null;
+    const e = { id: eid(), type: "encoder", name: sensorName("encoder"), node: nodeId, e1: bars[0].id, e2: bars[1] ? bars[1].id : "", ...sensorDefaults("encoder") };
+    model.elems.push(e);
+    return e;
+  }
+  function addAccel(nodeId) {
+    if (!N(nodeId)) return null;
+    const e = { id: eid(), type: "accel", name: sensorName("accel"), node: nodeId, ...sensorDefaults("accel") };
+    model.elems.push(e);
+    return e;
+  }
+  function pruneEncoders() {
+    model.elems = model.elems.filter((e) => e.type !== "encoder" || model.elems.some((x) => x.id === e.e1) && (!e.e2 || model.elems.some((x) => x.id === e.e2)));
+  }
   function removeNode(id) {
     model.nodes = model.nodes.filter((n) => n.id !== id);
     model.elems = model.elems.filter((e) => e.a !== id && e.b !== id && e.node !== id);
+    pruneEncoders();
   }
   function removeElem(id) {
     model.elems = model.elems.filter((e) => e.id !== id);
+    pruneEncoders();
   }
   function removeSel() {
     if (!ui.sel) return;
@@ -7950,14 +8532,14 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   }
   function reharvest(nodeId) {
     for (const e of model.elems) {
-      if (e.a === nodeId || e.b === nodeId) {
+      if ((e.a === nodeId || e.b === nodeId) && N(e.a) && N(e.b)) {
         const L = dist(N(e.a), N(e.b));
         if (e.type === "actuator") {
           const d = round2(L) - e.len;
           e.min = round2(e.min + d);
           e.max = round2(e.max + d);
         }
-        if (isBar(e)) e.len = round2(L);
+        if (isBar(e) || e.type === "loadcell") e.len = round2(L);
         if (e.type === "flexure" && e.kind === "cantilever") e.L = round2(e.len / GAMMA);
         if (e.type === "spring") e.L0 = round2(L);
       }
@@ -8362,6 +8944,26 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         model.series.push({ key: "n|" + g("E").id + "|x" }, { key: "f|" + fx.id + "|sig" });
       }
     ),
+    // massa-veer op een zachte krachtopnemer: A (wand) - krachtopnemer - B (opspanning) - veer - C (massa)
+    loadcell: () => build(
+      [["A", 0, 0, "pin"], ["B", 50, 0, "slider", 0], ["C", 100, 0, "slider", 0]],
+      [
+        ["loadcell", "A", "B", { ks: 50, m: 0 }],
+        ["spring", "B", "C", { k: 10 }],
+        ["damper", "B", "C", { c: 0.02 }],
+        ["force", "C", 1, 0]
+      ],
+      (g) => {
+        g("B").m = 1e-3;
+        g("C").m = 1;
+        model.dtStep = 0.05;
+        model.simDur = 0.3;
+        const lc = model.elems.find((e) => e.type === "loadcell");
+        addDsens(g("C").id, "");
+        setModeUI("frf");
+        model.series.push({ key: "n|" + g("C").id + "|x" }, { key: "s|" + lc.id + "|F" }, { key: "m|" + lc.id + "|d" });
+      }
+    ),
     // stoommachine: actuator → veer → kruiskop → drijfstang → kruk met vliegwielmassa;
     // de kant van het dode punt waar de krukpen start bepaalt de draairichting
     steamL: () => steam(1),
@@ -8400,6 +9002,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     { id: "frf", nm: "Frequentie (FRF)" },
     { id: "fric", nm: "Wrijving & speling" },
     { id: "flex", nm: "Flexures" },
+    { id: "sens", nm: "Sensoren" },
     { id: "empty", nm: "Leeg" }
   ];
   var MODE_NAMES = { kin: "Kinematisch", dyn: "Dynamisch", equil: "Evenwicht", frf: "FRF" };
@@ -8536,6 +9139,13 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       modes: ["frf", "dyn"],
       desc: "Tafel op twee parallelle bladveren, aangestoten door een kracht; de FRF geeft de eerste eigenfrequentie.",
       text: "Twee bladveren van 50 \xD7 20 \xD7 0,5 mm (staal) geleiden de tafel; elk blad is getekend als twee halve bladen met een draaiveer (Howell, PRBM). Analytisch is c\u2093 = 2\xB712EI/L\xB3 = 8,40 N/mm; het PRBM geeft 8,71 N/mm, ongeveer 4 % stijver (K\u0398/(3\u03B3) = 1,039 in de theorie). De FRF vindt de eerste eigenfrequentie op 46,8 Hz, tegen 46,1 Hz analytisch voor 0,1 kg. Verklein de dikte t en kijk hoe de spanning \u03C3 bij de flexure meegroeit."
+    },
+    loadcell: {
+      title: "Loadcell in de krachtweg",
+      cat: "sens",
+      modes: ["frf", "dyn"],
+      desc: "Massa op een veer, opgehangen aan een zachte krachtopnemer; de FRF laat zien dat de opnemer de eigenfrequentie verlaagt.",
+      text: "Een massa van 1 kg hangt via een veer van 10 N/mm aan een krachtopnemer van 0,05 N/\xB5m (50 N/mm, bewust zacht). De opnemer staat in serie: 1/k\u209C\u2092\u209C = 1/10 + 1/50, dus k\u209C\u2092\u209C = 8,33 N/mm en f = \u221A(8333/1)/2\u03C0 = 14,5 Hz, tegen 15,9 Hz zonder opnemer; de FRF vindt 14,5 Hz. Er loopt 1 N door de opnemer en hij vervormt 20 \xB5m (F/k\u209B). Met de standaard 100 N/\xB5m (10\u2075 N/mm) was het verschil 0,005 %: zet k\u209B in de inspector hoger en zie de piek terugschuiven."
     },
     empty: {
       title: "Leeg canvas",
@@ -9317,7 +9927,12 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         if (!n) continue;
         const f2 = frame(e, n), s = toScr({ x: f2.fx, y: f2.fy }), u = { x: f2.tx, y: -f2.ty };
         d = segDist(sp, { x: s.x - u.x * 26, y: s.y - u.y * 26 }, { x: s.x + u.x * 26, y: s.y + u.y * 26 });
+      } else if (e.type === "encoder" || e.type === "accel" || e.type === "dsens") {
+        const g = sensorSeg(e);
+        if (!g) continue;
+        d = e.type === "encoder" ? Math.abs(Math.hypot(sp.x - g.a.x, sp.y - g.a.y) - g.r) : segDist(sp, g.a, g.b);
       } else {
+        if (!N(e.a) || !N(e.b)) continue;
         const A = toScr(N(e.a)), B = toScr(N(e.b));
         d = segDist(sp, A, B);
       }
@@ -9413,7 +10028,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         case "damper":
         case "actuator":
         case "gap":
-        case "flexure": {
+        case "flexure":
+        case "loadcell": {
           const n = hitN || addNode(snapPt(wp));
           edited = !hitN;
           if (!ui.pending) {
@@ -9430,6 +10046,33 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
           }
           break;
         }
+        case "dsens": {
+          if (!hitN) {
+            flash("Klik een bestaand punt.");
+            break;
+          }
+          if (!ui.pending) {
+            ui.pending = hitN.id;
+            break;
+          }
+          const e = addDsens(ui.pending, ui.pending === hitN.id ? "" : hitN.id);
+          ui.pending = null;
+          if (e) {
+            ui.sel = { kind: "elem", id: e.id };
+            edited = true;
+          }
+          break;
+        }
+        case "encoder":
+        case "accel":
+          if (hitN) {
+            const e = ui.tool === "encoder" ? addEncoder(hitN.id) : addAccel(hitN.id);
+            if (e) {
+              ui.sel = { kind: "elem", id: e.id };
+              edited = true;
+            } else flash("Een hoekencoder staat op een punt waar een schakel aan vastzit.");
+          } else flash("Klik een bestaand punt.");
+          break;
         case "pin": {
           const n = hitN || addNode(snapPt(wp));
           n.support = n.support === "pin" ? "free" : "pin";
@@ -9610,6 +10253,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     virtualplay: () => `<path class="g" d="M8 14L40 40L72 14"/><path class="g" d="M10 11l-3 3M16 17l-3 3M22 23l-3 3M28 29l-3 3M72 14l3 3M66 20l3 3M60 26l3 3M54 32l3 3"/><circle class="m" cx="40" cy="30" r="7.5"/>` + arrow(2, 30, 20, 30) + arrow(78, 30, 62, 30),
     preload: () => ln(8, 44, 72, 44, "g") + `<circle class="m" cx="40" cy="36" r="6"/>` + spring(40, 14, 40, 29) + ln(34, 4, 46, 4, "g") + arrow(58, 38, 58, 8),
     parallelguide: () => ln(4, 46, 76, 46, "g") + `<path class="k" d="M20 44Q16 38 20 32T20 20T20 10M60 44Q56 38 60 32T60 20T60 10"/><path class="dr" style="stroke-width:3.4" d="M14 8H66"/>` + arrow(2, 8, 12, 8),
+    loadcell: () => wall(8, 14, 38) + ln(8, 26, 20, 26, "k") + `<rect class="m" x="20" y="21" width="14" height="10" rx="1.5"/><path class="k" d="M23 23l4 6 4-6"/>` + ln(34, 26, 38, 26, "k") + spring(38, 26, 60, 26) + mass(66, 26) + arrow(2, 42, 20, 42),
     pendfrf: () => ln(30, 8, 30, 38) + pin(30, 8) + mass(30, 38) + arrow(38, 38, 70, 38),
     empty: () => `<rect class="dd" x="10" y="8" width="60" height="34" rx="4"/><path class="k" d="M40 20v10M35 25h10"/>`
   };

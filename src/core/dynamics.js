@@ -4,6 +4,7 @@ import { flexLoads, flexPhi, flexPot, flexRest, flexTrace, flexures } from "./fl
 import { actLen, drivers, gapForce, gapPen, hasFriction, isBar, jointDamper, N, omega } from "./elements.js";
 import { G, MM, relax } from "./kinematics.js";
 import { gauss, lsq } from "./linalg.js";
+import { sensorMass, springK, springL0, springLike } from "./sensors.js";
 import { model, sim } from "./state.js";
 
 /* ============================================================
@@ -30,7 +31,7 @@ export function* computeDyn() {
 
   const fixed = {};
   for (const n of model.nodes) if (n.support === "pin") fixed[n.id] = { x: n.x, y: n.y };
-  const dm = n => (n.m > 0 ? n.m : (model.defMass || 0.1));
+  const dm = n => (n.m > 0 ? n.m : (model.defMass || 0.1)) + sensorMass(n.id);     // plus massa van sensoren
   const mA = new Float64Array(nq);
   fr.forEach((n, i) => { mA[2 * i] = mA[2 * i + 1] = dm(n) * MM; });
 
@@ -104,12 +105,12 @@ export function* computeDyn() {
     const cv = model.cVisc || 0;
     if (cv) for (let i = 0; i < nq; i++) F[i] -= cv * v[i];   // demping op elk vrij punt
     for (const e of model.elems) {
-      if (e.type === "spring" || e.type === "damper" || e.type === "gap") {
+      if (springLike(e) || e.type === "damper" || e.type === "gap") {
         const P = pos(q, e.a), Q = pos(q, e.b);
         const dx = Q.x - P.x, dy = Q.y - P.y, L = Math.hypot(dx, dy) || 1;
         const ux = dx / L, uy = dy / L;
         let Fv;
-        if (e.type === "spring") Fv = e.k * (L - e.L0);
+        if (springLike(e)) Fv = springK(e) * (L - springL0(e));
         else {
           const vP = vel(v, e.a), vQ = vel(v, e.b);
           const Ld = (vQ.x - vP.x) * ux + (vQ.y - vP.y) * uy;
@@ -341,7 +342,7 @@ export function* computeDyn() {
   }
   for (const e of model.elems) {
     if (isBar(e)) S.N[e.id] = new Array(361);
-    if (e.type === "spring" || e.type === "damper" || e.type === "gap") S.EF[e.id] = new Array(361);
+    if (springLike(e) || e.type === "damper" || e.type === "gap") S.EF[e.id] = new Array(361);
   }
   S.C = {};
   for (const e of cons) { S.C[e.id] = new Array(361); S.EF[e.id] = new Array(361); }
@@ -466,7 +467,7 @@ export function* computeDyn() {
       const o = onPin[n.id];
       let fx = o.x + jPin[n.id].x, fy = o.y + jPin[n.id].y;
       for (const e of model.elems) {
-        if (e.type === "spring" || e.type === "damper" || e.type === "gap") {
+        if (springLike(e) || e.type === "damper" || e.type === "gap") {
           const sgn = e.a === n.id ? 1 : e.b === n.id ? -1 : 0;
           if (!sgn) continue;
           const P = pos(q, e.a), Q = pos(q, e.b);
@@ -493,11 +494,11 @@ export function* computeDyn() {
     for (const e of cons) E += contactPot(e, S.pos[e.node][f]) * 1e-3;
     for (const e of flexures()) E += flexPot(e, flexPhi(e, id => S.pos[id][f], fxRest)) * 1e-3;
     for (const e of model.elems) {
-      if (e.type !== "spring" && e.type !== "gap") continue;
+      if (!springLike(e) && e.type !== "gap") continue;
       const P = S.pos[e.a][f], Q = S.pos[e.b][f];
       const L = Math.hypot(Q.x - P.x, Q.y - P.y);
-      const d = e.type === "gap" ? gapPen(e, L) : L - e.L0;
-      E += 0.5 * (e.type === "gap" ? e.kc || 0 : e.k) * d * d * 1e-3;
+      const d = e.type === "gap" ? gapPen(e, L) : L - springL0(e);
+      E += 0.5 * (e.type === "gap" ? e.kc || 0 : springK(e)) * d * d * 1e-3;
     }
     S.E[f] = E;
   }

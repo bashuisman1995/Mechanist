@@ -1,6 +1,7 @@
 // Meetkanalen (grootheden per knoop en element) (zonder DOM).
 import { E, N } from "./elements.js";
 import { flexK, flexStress } from "./flexure.js";
+import { sensorChannels, sensorVal } from "./sensors.js";
 import { model, sim } from "./state.js";
 
 /* ---- measurable channels ---- */
@@ -67,7 +68,7 @@ export function channels() {
   }
   if (model.mode === "dyn") out.push({ key: "e||E", lab: "totale energie E", q: "E", u: "J", al: "E",
                                        g: "Systeem", o: "Systeem", obj: "" });
-  return out;
+  return sensorChannels().concat(out);        // sensoren staan bovenaan de keuzelijst
 }
 
 export function chVal(S, key, i) {
@@ -80,6 +81,7 @@ export function chVal(S, key, i) {
   }
   if (t === "l") return S.N[id] ? S.N[id][i] : NaN;
   if (t === "s") return S.EF[id] ? S.EF[id][i] : NaN;
+  if (t === "m") { const e = E(id); return e ? sensorVal(S, e, k, i) : NaN; }
   if (t === "c") {
     const c = S.C && S.C[id] ? S.C[id][i] : null;
     return c ? c[k] : NaN;

@@ -2,6 +2,7 @@
 import { contactDefaults } from "../core/contact.js";
 import { flexDefaults, flexDefaultRef, GAMMA } from "../core/flexure.js";
 import { dist, drivers, E, isBar, N } from "../core/elements.js";
+import { barsAt, sensorDefaults, sensorName } from "../core/sensors.js";
 import { eid, model, nid, ui } from "../core/state.js";
 import { changed } from "./solver.js";
 import { flash } from "./tools.js";
@@ -45,6 +46,7 @@ export function addTwoNode(type, a, b) {
   if (type === "damper") { e.c = 0.05; }
   if (type === "gap") { e.min = round2(L - 2); e.max = round2(L + 2); e.kc = 50; e.cc = 0.05; }
   if (type === "flexure") { e.len = round2(L); Object.assign(e, flexDefaults("cantilever", L)); e.ref = flexDefaultRef(e); }
+  if (type === "loadcell") { e.len = round2(L); e.name = sensorName("loadcell"); Object.assign(e, sensorDefaults("loadcell")); }
   if (type === "actuator") {
     e.len = round2(L);                               // lengte op t = 0
     e.min = round2(L * 0.85); e.max = round2(L * 1.15); e.freq = 0.5;
@@ -62,11 +64,36 @@ export function addContact(nodeId) {
   return e;
 }
 
+// verplaatsingssensor (b leeg = ten opzichte van de grond), hoekencoder en versnellingsopnemer
+export function addDsens(a, b) {
+  const A = N(a); if (!A) return null;
+  const e = { id: eid(), type: "dsens", name: sensorName("dsens"), a, b: b || "", ...sensorDefaults("dsens") };
+  if (b && N(b)) e.ang = round2(Math.atan2(N(b).y - A.y, N(b).x - A.x) * 180 / Math.PI);
+  model.elems.push(e);
+  return e;
+}
+export function addEncoder(nodeId) {
+  const bars = barsAt(nodeId); if (!bars.length) return null;
+  const e = { id: eid(), type: "encoder", name: sensorName("encoder"), node: nodeId, e1: bars[0].id, e2: bars[1] ? bars[1].id : "", ...sensorDefaults("encoder") };
+  model.elems.push(e);
+  return e;
+}
+export function addAccel(nodeId) {
+  if (!N(nodeId)) return null;
+  const e = { id: eid(), type: "accel", name: sensorName("accel"), node: nodeId, ...sensorDefaults("accel") };
+  model.elems.push(e);
+  return e;
+}
+// encoders verliezen hun schakels als die verdwijnen
+function pruneEncoders() {
+  model.elems = model.elems.filter(e => e.type !== "encoder" || (model.elems.some(x => x.id === e.e1) && (!e.e2 || model.elems.some(x => x.id === e.e2))));
+}
 export function removeNode(id) {
   model.nodes = model.nodes.filter(n => n.id !== id);
   model.elems = model.elems.filter(e => e.a !== id && e.b !== id && e.node !== id);
+  pruneEncoders();
 }
-export function removeElem(id) { model.elems = model.elems.filter(e => e.id !== id); }
+export function removeElem(id) { model.elems = model.elems.filter(e => e.id !== id); pruneEncoders(); }
 export function removeSel() {
   if (!ui.sel) return;
   if (ui.sel.kind === "node") removeNode(ui.sel.id); else removeElem(ui.sel.id);
@@ -82,13 +109,13 @@ export function crankAngle(l) {
 // Lengths / rest lengths follow the sketch while you drag.
 export function reharvest(nodeId) {
   for (const e of model.elems) {
-    if (e.a === nodeId || e.b === nodeId) {
+    if ((e.a === nodeId || e.b === nodeId) && N(e.a) && N(e.b)) {
       const L = dist(N(e.a), N(e.b));
       if (e.type === "actuator") {          // het slagbereik schuift mee met de getekende lengte
         const d = round2(L) - e.len;
         e.min = round2(e.min + d); e.max = round2(e.max + d);
       }
-      if (isBar(e)) e.len = round2(L);
+      if (isBar(e) || e.type === "loadcell") e.len = round2(L);
       if (e.type === "flexure" && e.kind === "cantilever") e.L = round2(e.len / GAMMA);
       if (e.type === "spring") e.L0 = round2(L);
     }

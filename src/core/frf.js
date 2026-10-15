@@ -3,6 +3,7 @@ import { contactPot } from "./contact.js";
 import { flexK, flexPhi, flexPot, flexRef, flexRest, flexStressRate } from "./flexure.js";
 import { actLen, actuators, drivers, E, gapPen, isBar, jointDamper, N } from "./elements.js";
 import { bounds, G, MM, relax } from "./kinematics.js";
+import { sensorMass, springK, springL0, springLike, encBars, G_MM } from "./sensors.js";
 import { backSubT, cholesky, congruence, gauss, jacobiEig, lsq } from "./linalg.js";
 import { model, sim } from "./state.js";
 
@@ -42,7 +43,7 @@ export function* computeFrf() {
   const bars = model.elems.filter(e => isBar(e) && !e.driver && N(e.a) && N(e.b) &&
     !(N(e.a).support === "pin" && N(e.b).support === "pin"));
   const slis = model.nodes.filter(n => n.support === "slider");
-  const dm = n => (n.m > 0 ? n.m : (model.defMass || 0.1));
+  const dm = n => (n.m > 0 ? n.m : (model.defMass || 0.1)) + sensorMass(n.id);     // plus massa van sensoren
   const isIn = e => inp.e === e;
   const pos = (q, id) => fi.has(id) ? { x: q[2 * fi.get(id)], y: q[2 * fi.get(id) + 1] } : N(id);
   const vel = (v, id) => fi.has(id) ? { x: v[2 * fi.get(id)], y: v[2 * fi.get(id) + 1] } : { x: 0, y: 0 };
@@ -113,9 +114,9 @@ export function* computeFrf() {
     let v = 0;
     if (model.gravity) fr.forEach((n, i) => { v += dm(n) * G * q[2 * i + 1]; });
     for (const e of model.elems) {
-      if (e.type === "spring") {
+      if (springLike(e)) {
         const P = pos(q, e.a), Q = pos(q, e.b), L = Math.hypot(Q.x - P.x, Q.y - P.y);
-        v += 0.5 * e.k * (L - e.L0) * (L - e.L0);
+        v += 0.5 * springK(e) * (L - springL0(e)) * (L - springL0(e));
       } else if (e.type === "gap") {                 // aanslag telt alleen mee als hij raakt
         const P = pos(q, e.a), Q = pos(q, e.b), d = gapPen(e, Math.hypot(Q.x - P.x, Q.y - P.y));
         v += 0.5 * (e.kc || 0) * d * d;
@@ -329,19 +330,41 @@ export function frfVal(S, key, i) {
   }
   const e = E(id); if (!e) return null;
   if (t === "a") return dL(e);
+  const rot = (a, b) => {   // rotatie van de lijn a -> b (rad per eenheid van de ingang)
+    const P = q0p(a), Q = q0p(b), L = Math.hypot(Q.x - P.x, Q.y - P.y) || 1, ux = (Q.x - P.x) / L, uy = (Q.y - P.y) / L;
+    const pa = [d(a, 0), d(a, 1)], pb = [d(b, 0), d(b, 1)];
+    return [0, 1].map(c => (ux * (pb[1][c] - pa[1][c]) - uy * (pb[0][c] - pa[0][c])) / L);
+  };
+  if (t === "m") {            // sensoren: lineaire uitgangen (verplaatsing in µm, hoek in °/µrad, versnelling in m/s² of g)
+    if (e.type === "loadcell") return dL(e).map(v => v * 1000);
+    if (e.type === "dsens") {
+      const a = (e.ang || 0) * Math.PI / 180, cx = Math.cos(a), cy = Math.sin(a), betw = e.b && N(e.b);
+      return [0, 1].map(c => {
+        const A = [d(e.a, 0)[c], d(e.a, 1)[c]], B = betw ? [d(e.b, 0)[c], d(e.b, 1)[c]] : [0, 0];
+        return (betw ? (B[0] - A[0]) * cx + (B[1] - A[1]) * cy : A[0] * cx + A[1] * cy) * 1000;
+      });
+    }
+    if (e.type === "encoder") {
+      const bb = encBars(e); if (!bb) return null;
+      const dirRot = bar => rot(e.node, bar.a === e.node ? bar.b : bar.a);
+      const r1 = dirRot(bb.b1), r2 = bb.b2 ? dirRot(bb.b2) : [0, 0], sc = k === "thu" ? 1e6 : 180 / Math.PI;
+      return [(r1[0] - r2[0]) * sc, (r1[1] - r2[1]) * sc];
+    }
+    if (e.type === "accel") {
+      const a = (e.ang || 0) * Math.PI / 180, ax = times(d(e.node, 0), 2), ay = times(d(e.node, 1), 2);
+      const sc = (k === "g" ? 1 / G_MM : 1e-3);
+      return [0, 1].map(c => (ax[c] * Math.cos(a) + ay[c] * Math.sin(a)) * sc);
+    }
+    return null;
+  }
   if (t === "f") {            // flexure: lineaire verandering van de scharnierhoek φ, daaruit spanning en moment
-    const rot = (a, b) => {   // rotatie van de lijn a -> b (rad per eenheid van de ingang)
-      const P = q0p(a), Q = q0p(b), L = Math.hypot(Q.x - P.x, Q.y - P.y) || 1, ux = (Q.x - P.x) / L, uy = (Q.y - P.y) / L;
-      const pa = [d(a, 0), d(a, 1)], pb = [d(b, 0), d(b, 1)];
-      return [0, 1].map(c => (ux * (pb[1][c] - pa[1][c]) - uy * (pb[0][c] - pa[0][c])) / L);
-    };
     const r = flexRef(e), th = rot(e.a, e.b), tr = r ? rot(e.a, r.a === e.a ? r.b : r.a) : [0, 0];
     const ph = [th[0] - tr[0], th[1] - tr[1]];
     const sc = k === "phi" ? 180 / Math.PI : k === "sig" ? flexStressRate(e).rate : flexK(e) * 1e-3;
     return [ph[0] * sc, ph[1] * sc];
   }
   if (t === "s") {
-    if (e.type === "spring") return dL(e).map(v => v * e.k);
+    if (springLike(e)) return dL(e).map(v => v * springK(e));
     if (e.type === "damper") return times(dL(e), 1).map(v => v * e.c);
     // speling: alleen stijfheid en demping als hij in evenwicht tegen een aanslag ligt
     const P = q0p(e.a), Q = q0p(e.b);

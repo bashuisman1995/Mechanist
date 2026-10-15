@@ -2,7 +2,7 @@
 import { contactDefaults, deltaFor } from "../core/contact.js";
 import { asyncMode, N } from "../core/elements.js";
 import { eid, model, sim, ui } from "../core/state.js";
-import { addNode, addTwoNode, crankAngle } from "./edit.js";
+import { addDsens, addNode, addTwoNode, crankAngle } from "./edit.js";
 import { setModeUI } from "./options.js";
 import { togglePlay } from "./playback.js";
 import { cancelJob, changed, solveNow } from "./solver.js";
@@ -273,6 +273,20 @@ export const EXAMPLES = {
       model.series.push({ key: "n|" + g("E").id + "|x" }, { key: "f|" + fx.id + "|sig" });
     }
   ),
+  // massa-veer op een zachte krachtopnemer: A (wand) - krachtopnemer - B (opspanning) - veer - C (massa)
+  loadcell: () => build(
+    [["A", 0, 0, "pin"], ["B", 50, 0, "slider", 0], ["C", 100, 0, "slider", 0]],
+    [["loadcell", "A", "B", { ks: 50, m: 0 }], ["spring", "B", "C", { k: 10 }], ["damper", "B", "C", { c: 0.02 }],
+     ["force", "C", 1, 0]],
+    g => {
+      g("B").m = 0.001; g("C").m = 1;
+      model.dtStep = 0.05; model.simDur = 0.3;
+      const lc = model.elems.find(e => e.type === "loadcell");
+      addDsens(g("C").id, "");
+      setModeUI("frf");
+      model.series.push({ key: "n|" + g("C").id + "|x" }, { key: "s|" + lc.id + "|F" }, { key: "m|" + lc.id + "|d" });
+    }
+  ),
   // stoommachine: actuator → veer → kruiskop → drijfstang → kruk met vliegwielmassa;
   // de kant van het dode punt waar de krukpen start bepaalt de draairichting
   steamL: () => steam(1),
@@ -305,6 +319,7 @@ export const CATEGORIES = [
   { id: "frf", nm: "Frequentie (FRF)" },
   { id: "fric", nm: "Wrijving & speling" },
   { id: "flex", nm: "Flexures" },
+  { id: "sens", nm: "Sensoren" },
   { id: "empty", nm: "Leeg" }
 ];
 export const MODE_NAMES = { kin: "Kinematisch", dyn: "Dynamisch", equil: "Evenwicht", frf: "FRF" };
@@ -403,6 +418,11 @@ export const EXAMPLE_META = {
     title: "Parallelgeleiding met bladveren", cat: "flex", modes: ["frf", "dyn"],
     desc: "Tafel op twee parallelle bladveren, aangestoten door een kracht; de FRF geeft de eerste eigenfrequentie.",
     text: "Twee bladveren van 50 \u00d7 20 \u00d7 0,5 mm (staal) geleiden de tafel; elk blad is getekend als twee halve bladen met een draaiveer (Howell, PRBM). Analytisch is c\u2093 = 2\u00b712EI/L\u00b3 = 8,40 N/mm; het PRBM geeft 8,71 N/mm, ongeveer 4 % stijver (K\u0398/(3\u03b3) = 1,039 in de theorie). De FRF vindt de eerste eigenfrequentie op 46,8 Hz, tegen 46,1 Hz analytisch voor 0,1 kg. Verklein de dikte t en kijk hoe de spanning \u03c3 bij de flexure meegroeit."
+  },
+  loadcell: {
+    title: "Loadcell in de krachtweg", cat: "sens", modes: ["frf", "dyn"],
+    desc: "Massa op een veer, opgehangen aan een zachte krachtopnemer; de FRF laat zien dat de opnemer de eigenfrequentie verlaagt.",
+    text: "Een massa van 1 kg hangt via een veer van 10 N/mm aan een krachtopnemer van 0,05 N/\u00b5m (50 N/mm, bewust zacht). De opnemer staat in serie: 1/k\u209c\u2092\u209c = 1/10 + 1/50, dus k\u209c\u2092\u209c = 8,33 N/mm en f = \u221a(8333/1)/2\u03c0 = 14,5 Hz, tegen 15,9 Hz zonder opnemer; de FRF vindt 14,5 Hz. Er loopt 1 N door de opnemer en hij vervormt 20 \u00b5m (F/k\u209b). Met de standaard 100 N/\u00b5m (10\u2075 N/mm) was het verschil 0,005 %: zet k\u209b in de inspector hoger en zie de piek terugschuiven."
   },
   empty: {
     title: "Leeg canvas", cat: "empty", modes: ["kin"],
