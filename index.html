@@ -693,45 +693,82 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
 .calc-item { display: block; width: 100%; text-align: left; background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 7px 9px; cursor: pointer; color: var(--ink); }
 .calc-item:hover { background: var(--panel-2); }
 .calc-item[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--line-2); font-weight: 500; }
-.calc-detail { overflow-y: auto; overflow-x: hidden; padding: 16px 20px 40px; min-width: 0; max-width: 980px; }
+.calc-detail { overflow-y: auto; overflow-x: hidden; padding: 16px 22px 40px; min-width: 0; max-width: 1180px; font-variant-numeric: tabular-nums; }
+.calc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .calc-detail h2 { margin: 0; font-size: 20px; letter-spacing: -.01em; }
-.calc-detail h3 { margin: 22px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); }
-.calc-sub { margin: 2px 0 14px; color: var(--ink-2); }
-.calc-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
-.calc-fig { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
-.calc-fig svg { display: block; width: 100%; height: auto; }
-.calc-fig .s-line { stroke: var(--ink); stroke-width: 2.2; fill: none; stroke-linecap: round; }
-.calc-fig .s-ghost { stroke: var(--ink-3); stroke-width: 1.2; stroke-dasharray: 4 3; fill: none; }
+.calc-sub { margin: 2px 0 0; color: var(--ink-2); }
+.calc-reset { flex: none; background: var(--panel); border: 1px solid var(--line-2); border-radius: 6px; padding: 5px 10px; font-size: 12.5px; color: var(--ink-2); cursor: pointer; }
+.calc-reset:hover { background: var(--panel-2); color: var(--ink); }
+.calc-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px 18px; align-items: start; }
+.calc-keys { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.calc-left, .calc-right { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.calc-key { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 9px 12px; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.calc-key .k { font-size: 12px; color: var(--ink-2); }
+.calc-key .v { font-size: 26px; font-weight: 600; letter-spacing: -.01em; line-height: 1.15; overflow-wrap: anywhere; }
+.calc-key .v .u { font-size: 13px; font-weight: 400; color: var(--ink-3); letter-spacing: 0; }
+.calc-key .s { font-size: 11.5px; color: var(--ink-3); min-height: 1.3em; }
+.calc-key[data-status="ok"] { border-left-color: var(--accent); }
+.calc-key[data-status="warn"] { border-left-color: var(--driver); background: var(--driver-soft); }
+.calc-key[data-status="bad"] { border-left-color: var(--bad); background: var(--driver-soft); }
+.calc-key[data-status="ok"] .v { color: var(--accent); }
+.calc-key[data-status="warn"] .v { color: var(--driver); }
+.calc-key[data-status="bad"] .v { color: var(--bad); }
+.calc-grid.is-bad .calc-fig, .calc-grid.is-bad .calc-keys, .calc-grid.is-bad .calc-res { opacity: .45; }
+.calc-fig { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 4px; }
+.calc-fig svg { display: block; width: 100%; height: auto; max-height: 400px; }
+.calc-fig .s-leaf { fill: none; stroke: var(--ink); }
+.calc-fig .s-ghost { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 4 3; fill: none; }
 .calc-fig .s-fix { fill: var(--panel-2); stroke: var(--ink-3); stroke-width: 1.2; }
-.calc-fig .s-hatch { stroke: var(--hatch); stroke-width: 1.2; fill: none; }
+.calc-fig .s-hl { stroke: var(--hatch); stroke-width: 1.2; }
 .calc-fig .s-dim { stroke: var(--accent); stroke-width: 1.2; fill: none; }
-.calc-fig .s-txt { fill: var(--ink-2); font-size: 12px; font-style: italic; }
-.calc-in { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.calc-fig .s-arrf { fill: var(--accent); }
+.calc-fig .s-sec { fill: var(--accent-soft); stroke: var(--ink-2); stroke-width: 1.2; }
+.calc-fig .s-pivot { fill: var(--driver); }
+.calc-fig .s-neck { stroke: none; }
+.calc-fig .s-txt { fill: var(--ink-2); font-size: 9.5px; font-variant-numeric: tabular-nums; }
+.calc-fig .s-val { fill: var(--ink); }
+.calc-fig .s-small { font-size: 8.5px; fill: var(--ink-3); }
+.calc-fig .s-bold { font-weight: 600; }
+.calc-warnbox:empty { display: none; }
+.calc-res { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 0; }
+.calc-res > div { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-width: 0; }
+.calc-res dt { font-size: 11.5px; color: var(--ink-2); line-height: 1.3; }
+.calc-res dd { margin: 1px 0 0; font-size: 15px; font-weight: 500; overflow-wrap: anywhere; }
+.calc-res dd .u { font-size: 11.5px; font-weight: 400; color: var(--ink-3); }
+.calc-res > div.bad { border-color: var(--bad); background: var(--driver-soft); }
+.calc-res > div.bad dd { color: var(--bad); }
+.calc-warn { background: var(--driver-soft); border: 1px solid var(--driver); border-left-width: 4px; border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+.calc-sec { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.calc-sec > summary { cursor: pointer; padding: 8px 12px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); list-style: none; display: flex; align-items: center; gap: 8px; }
+.calc-sec > summary::-webkit-details-marker { display: none; }
+.calc-sec > summary::before { content: "▸"; font-size: 11px; color: var(--ink-3); transition: transform .12s; }
+.calc-sec[open] > summary::before { transform: rotate(90deg); }
+.calc-sec-b { padding: 2px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+.calc-inputs { display: flex; flex-direction: column; gap: 10px; }
 .fld { display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; color: var(--ink-2); min-width: 0; }
-.fld select, .fld input { background: var(--panel); border: 1px solid var(--line-2); border-radius: 6px; padding: 6px 8px; min-width: 0; width: 100%; color: var(--ink); }
-.fld .inp { display: flex; align-items: center; gap: 6px; }
-.fld .inp b { font-weight: 400; color: var(--ink-3); min-width: 44px; }
-.fld input { font-variant-numeric: tabular-nums; }
+.fld-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fld-row label { min-width: 0; }
+.fld select, .fld input[type="number"] { background: var(--panel); border: 1px solid var(--line-2); border-radius: 6px; padding: 4px 8px; min-width: 0; color: var(--ink); font-variant-numeric: tabular-nums; }
+.fld > select, .fld > span + select { width: 100%; padding: 6px 8px; }
+.fld .inp { display: flex; align-items: center; gap: 6px; flex: none; }
+.fld .inp input { width: 92px; text-align: right; }
+.fld .inp b { font-weight: 400; color: var(--ink-3); width: 46px; font-size: 12px; }
+.fld input[aria-invalid="true"] { border-color: var(--bad); }
+.fld .sl { width: 100%; margin: 2px 0 0; accent-color: var(--accent); height: 18px; }
 .chk { font-size: 12.5px; color: var(--ink-2); display: flex; gap: 6px; align-items: center; }
-.mat-info { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; margin-top: -4px; }
-.calc-res { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin: 0; }
-.calc-res > div { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 0; }
-.calc-res dt { font-size: 12px; color: var(--ink-2); }
-.calc-res dd { margin: 2px 0 0; font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.calc-res dd .u { font-size: 12px; font-weight: 400; color: var(--ink-3); }
-.calc-res > div.bad { border-color: var(--driver); background: var(--driver-soft); }
-.calc-warn { background: var(--driver-soft); border: 1px solid var(--driver); border-left-width: 4px; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; }
+.mat-info { font-size: 12px; color: var(--ink-3); margin-top: -4px; }
 .calc-formulas .fm { border-bottom: 1px solid var(--line); padding: 8px 0; }
+.calc-formulas .fm:last-child { border-bottom: 0; }
 .fm-h { font-size: 12px; color: var(--ink-3); margin-bottom: 3px; }
 .fm-g, .fm-n { font-family: "IBM Plex Serif", Georgia, serif; font-size: 15px; line-height: 2; overflow-wrap: anywhere; }
-.fm-n { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.fm-n { color: var(--ink-2); }
 .fm-lab { font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: 11px; color: var(--accent); margin-right: 6px; }
 .fr { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; line-height: 1.25; margin: 0 2px; }
 .fr > span:first-child { border-bottom: 1px solid currentColor; padding: 0 3px; }
 .fr > span:last-child { padding: 0 3px; }
-.calc-assume { margin: 0; padding-left: 18px; color: var(--ink-2); line-height: 1.5; }
+.calc-assume { margin: 0; padding-left: 18px; color: var(--ink-2); line-height: 1.5; font-size: 13px; }
 .calc-assume li { margin-bottom: 4px; }
-.calc-src { margin-top: 14px; font-size: 12.5px; color: var(--ink-2); }
+.calc-src { margin: 0; font-size: 12.5px; color: var(--ink-2); }
 .calc-src span { color: var(--accent); font-weight: 500; }
 @media (max-width: 700px) {
   .calc { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
@@ -740,8 +777,18 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   .calc-gh { width: 100%; margin: 0; }
   .calc-item { width: auto; border-color: var(--line-2); padding: 5px 8px; font-size: 13px; }
   .calc-detail { padding: 12px 16px 40px; }
-  .calc-top { grid-template-columns: minmax(0, 1fr); }
-  .calc-res { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .calc-grid { display: flex; flex-direction: column; gap: 12px; }
+  .calc-left, .calc-right { display: contents; }
+  .calc-fig { order: 1; }
+  .calc-keys { order: 2; gap: 6px; }
+  .calc-warnbox { order: 3; }
+  .calc-inputs { order: 4; }
+  .calc-res { order: 5; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .calc-right > .calc-card { order: 6; }
+  .calc-key { padding: 6px 8px; }
+  .calc-key .v { font-size: 18px; }
+  .calc-key .k { font-size: 11px; }
+  .calc-key .s { font-size: 10.5px; }
   .app.calc-on .brand .docname, .app.calc-on .brand .ver { display: none; }
 }
 
@@ -762,6 +809,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
 .meetbar .chip.on { background: var(--driver); border-color: var(--driver); color: #fff; }
 .meetbar .chk { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
 .meetbar .out { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px; color: var(--ink); }
+@media (min-width: 701px) and (max-width: 980px) {
+  .calc-grid { grid-template-columns: minmax(0, 1fr); }
+}
 </style>
 <script>
   // Vangnet: als het script niet laadt of vastloopt, zie je dat in plaats van een lege pagina.
@@ -1371,8 +1421,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function frictionLoads(pos, vel, q, v, load2, add) {
     const vS = Math.max(1e-6, model.fricVs || 5), ve = Math.max(1e-6, model.fricVe || 2);
     const mu = (n, s) => {
-      const a = Math.abs(s), ms = n.mus || 0, mk = n.muk || 0;
-      return Math.sign(s) * (mk + (ms - mk) * Math.exp(-(a / vS) * (a / vS))) * Math.tanh(a / ve);
+      const a = Math.abs(s), ms = n.mus || 0, mk2 = n.muk || 0;
+      return Math.sign(s) * (mk2 + (ms - mk2) * Math.exp(-(a / vS) * (a / vS))) * Math.tanh(a / ve);
     };
     const torque = (B, tau) => {
       if (!B.e) return;
@@ -3280,9 +3330,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     const pos0 = modes.filter((m) => m.f > 1e-6);
     let f0 = model.frfMin > 0 ? model.frfMin : pos0.length ? pos0[0].f / 20 : 0.1;
-    let f12 = model.frfMax > 0 ? model.frfMax : pos0.length ? pos0[pos0.length - 1].f * 20 : 100;
+    let f13 = model.frfMax > 0 ? model.frfMax : pos0.length ? pos0[pos0.length - 1].f * 20 : 100;
     f0 = Math.max(1e-4, f0);
-    if (!(f12 > f0 * 1.01)) f12 = f0 * 100;
+    if (!(f13 > f0 * 1.01)) f13 = f0 * 100;
     const S = {
       frf: true,
       f: new Array(361),
@@ -3341,7 +3391,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     S.at = solveAt;
     for (let i = 0; i <= 360; i++) {
       if (i % 60 === 0) yield { phase: "frf", f: i };
-      const f2 = f0 * Math.pow(f12 / f0, i / 360);
+      const f2 = f0 * Math.pow(f13 / f0, i / 360);
       S.f[i] = S.t[i] = f2;
       const r = solveAt(f2);
       if (!r.ok) S.ok[i] = false;
@@ -3844,14 +3894,14 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     pickList.innerHTML = html;
   }
-  function insertFx(txt) {
+  function insertFx(txt2) {
     const el = pickFxInp;
     const a = el.selectionStart != null ? el.selectionStart : el.value.length;
     const b = el.selectionEnd != null ? el.selectionEnd : a;
     const before = el.value.slice(0, a), after = el.value.slice(b);
     const pad = before && !/[\s(+\-*/^,]$/.test(before) ? " " : "";
-    el.value = before + pad + txt + after;
-    const p = (before + pad + txt).length;
+    el.value = before + pad + txt2 + after;
+    const p = (before + pad + txt2).length;
     el.focus();
     el.setSelectionRange(p, p);
     checkFx();
@@ -4181,20 +4231,20 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   function block(b) {
     const i = copies.length;
     const sec = (t, items, cls) => items && items.length ? '<div class="hw-h">' + t + "</div>" + (cls === "ul" ? "<ul>" + items.map((x) => "<li>" + x + "</li>").join("") + "</ul>" : items.map((x) => '<div class="hw-' + cls + '">' + x + "</div>").join("")) : "";
-    const txt = [b.title, ""];
+    const txt2 = [b.title, ""];
     const add = (t, items, f2) => {
       if (items && items.length) {
-        txt.push(t + ":");
-        items.forEach((x) => txt.push("  " + (f2 ? f2(x) : plain(x))));
-        txt.push("");
+        txt2.push(t + ":");
+        items.forEach((x) => txt2.push("  " + (f2 ? f2(x) : plain(x))));
+        txt2.push("");
       }
     };
     add("Vergelijkingen", b.eq);
     add("Betekenis", b.sym, (x) => plain(x[0]) + " = " + plain(x[1]));
     add("Met jouw getallen", b.live);
     add("Aannames", b.ass);
-    if (b.src) txt.push("Bron: " + plain(b.src));
-    copies.push(txt.join("\n").replace(/\n{3,}/g, "\n\n").trim());
+    if (b.src) txt2.push("Bron: " + plain(b.src));
+    copies.push(txt2.join("\n").replace(/\n{3,}/g, "\n\n").trim());
     return '<section class="hw-block"><div class="hw-top"><h3>' + b.title + '</h3><button type="button" class="hw-copy" data-i="' + i + '">Kopieer</button></div>' + sec("Vergelijkingen", b.eq, "eq") + (b.sym && b.sym.length ? '<div class="hw-h">Betekenis</div><dl class="hw-sym">' + b.sym.map((x) => "<dt>" + x[0] + "</dt><dd>" + x[1] + "</dd>").join("") + "</dl>" : "") + sec("Met jouw getallen", b.live, "live") + sec("Aannames", b.ass, "ul") + (b.src ? '<div class="hw-src">Bron: ' + b.src + "</div>" : "") + "</section>";
   }
   var kv = (k, v) => "<span>" + k + "</span> <b>" + v + "</b>";
@@ -5457,10 +5507,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     applyFrame(deg);
     scrub.value = Math.round(ui.frame);
     angOut.textContent = fmtNow(Math.round(ui.frame));
-    const f12 = document.getElementById("ethNow");
-    if (f12) {
-      const d = E(f12.dataset.e);
-      if (d) f12.textContent = Math.round(d.theta) + "\xB0";
+    const f13 = document.getElementById("ethNow");
+    if (f13) {
+      const d = E(f13.dataset.e);
+      if (d) f13.textContent = Math.round(d.theta) + "\xB0";
     }
     syncContactLive();
     ui.hoverI = null;
@@ -6543,9 +6593,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       return;
     }
     const subs = groups.map((gr) => {
-      const u = gr.u, set = gr.set;
+      const u = gr.u, set2 = gr.set;
       let lo = Infinity, hi = -Infinity;
-      for (const s of set) {
+      for (const s of set2) {
         if (s.mn < lo) lo = s.mn;
         if (s.mx > hi) hi = s.mx;
       }
@@ -6570,7 +6620,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         if (dec.length >= 2) tk = dec.length > 5 ? dec.filter((v, i) => i % 2 === 0) : dec;
       }
       const tstep = tk.length > 1 ? tk[1] - tk[0] : (hi - lo) / 3;
-      return { u, set, lo, hi, tk, log: gr.log, labs: tk.map((v) => gr.log ? fmtPow(v) : fmtTick(v, tstep)) };
+      return { u, set: set2, lo, hi, tk, log: gr.log, labs: tk.map((v) => gr.log ? fmtPow(v) : fmtTick(v, tstep)) };
     });
     let tw = 0;
     for (const sb of subs) for (const t of sb.labs) tw = Math.max(tw, pctx.measureText(t).width);
@@ -6846,8 +6896,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         }
         lines.push(r.join(","));
       }
-      const txt = lines.join("\n");
-      navigator.clipboard.writeText(txt).then(
+      const txt2 = lines.join("\n");
+      navigator.clipboard.writeText(txt2).then(
         () => {
           document.getElementById("hint").innerHTML = "<b>CSV naar klembord</b> \u2014 " + (lines.length - 1) + " regels.";
         },
@@ -8511,18 +8561,6 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   }
   var sub = (s, t) => s + "<sub>" + t + "</sub>";
   var sup = (s, t) => s + "<sup>" + t + "</sup>";
-  var SVG_OPEN = '<svg viewBox="0 0 260 190" role="img" aria-label="Schets met afmetingen" xmlns="http://www.w3.org/2000/svg">';
-  var dimV = (x, y1, y2, lab) => '<path class="s-dim" d="M' + x + " " + y1 + "V" + y2 + "M" + (x - 4) + " " + y1 + "H" + (x + 4) + "M" + (x - 4) + " " + y2 + "H" + (x + 4) + '"/><text class="s-txt" x="' + (x - 7) + '" y="' + ((y1 + y2) / 2 + 4) + '" text-anchor="end">' + lab + "</text>";
-  var dimH = (y, x1, x2, lab) => '<path class="s-dim" d="M' + x1 + " " + y + "H" + x2 + "M" + x1 + " " + (y - 4) + "V" + (y + 4) + "M" + x2 + " " + (y - 4) + "V" + (y + 4) + '"/><text class="s-txt" x="' + (x1 + x2) / 2 + '" y="' + (y - 6) + '" text-anchor="middle">' + lab + "</text>";
-  var block2 = (x, y, w, h, hatch) => '<rect class="s-fix" x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '"/>' + (hatch ? '<path class="s-hatch" d="' + Array.from({ length: Math.floor(w / 8) }, (_, i) => "M" + (x + 4 + i * 8) + " " + (y + h) + "l-6 6").join("") + '"/>' : "");
-  var section = (x, y) => '<rect class="s-line" x="' + x + '" y="' + y + '" width="26" height="5" fill="var(--accent-soft)"/><text class="s-txt" x="' + (x + 13) + '" y="' + (y - 5) + '" text-anchor="middle">b</text><text class="s-txt" x="' + (x + 32) + '" y="' + (y + 5) + '">t</text>';
-  var SCHEMA = {
-    leaf: SVG_OPEN + block2(70, 150, 90, 12, true) + block2(70 + 20, 22, 90, 12, false) + '<path class="s-ghost" d="M115 150V34"/><path class="s-line" d="M115 150C115 110 135 74 135 34"/>' + dimV(54, 150, 34, "L") + dimH(16, 115, 135, "u") + section(196, 92) + "</svg>",
-    par: SVG_OPEN + block2(60, 150, 130, 12, true) + block2(70, 22, 130, 12, false) + '<path class="s-ghost" d="M100 150V34M150 150V34"/><path class="s-line" d="M100 150C100 110 110 74 110 34M150 150C150 110 160 74 160 34"/>' + dimV(44, 150, 34, "L") + dimH(14, 100, 110, "u") + section(204, 92) + "</svg>",
-    cross: SVG_OPEN + block2(70, 160, 120, 12, true) + block2(70, 14, 120, 12, false) + '<path class="s-line" d="M95 160L165 26M165 160L95 26"/><circle cx="130" cy="93" r="3" fill="var(--driver)"/>' + dimV(60, 160, 26, "L") + '<text class="s-txt" x="136" y="86">\u03C6</text><text class="s-txt" x="136" y="110">50 %</text>' + section(200, 92) + "</svg>",
-    notch: SVG_OPEN + block2(14, 70, 70, 50, true) + block2(176, 70, 70, 50, false) + '<path class="s-line" d="M84 70H102A28 28 0 0 0 158 70H176M84 120H102A28 28 0 0 1 158 120H176"/><path class="s-dim" d="M130 70V120M126 70H134M126 120H134"/><text class="s-txt" x="136" y="99">t</text><path class="s-dim" d="M130 98L113 74"/><text class="s-txt" x="104" y="64">R</text><text class="s-txt" x="130" y="150" text-anchor="middle">b = breedte (loodrecht op het vlak)</text></svg>',
-    wire: SVG_OPEN + block2(70, 150, 120, 12, true) + block2(80, 22, 120, 12, false) + '<path class="s-ghost" d="M130 150V34"/><path class="s-line" d="M130 150C130 110 150 74 150 34"/>' + dimV(54, 150, 34, "L") + dimH(16, 130, 150, "u") + '<circle class="s-line" cx="215" cy="100" r="9" fill="var(--accent-soft)"/><text class="s-txt" x="215" y="124" text-anchor="middle">d</text></svg>'
-  };
   var f = (id, label2, unit, def, min) => ({ id, label: label2, unit, def, min: min == null ? 0 : min });
   var IN_M = f("m", "Massa m op de vrije kant", "kg", 0.1);
   var IN_F = f("F", "Axiale drukkracht F", "N", 0);
@@ -8544,7 +8582,6 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       group: "Flexures",
       name: "Bladveer",
       short: "Enkele bladveer, geleid eind (S-vorm)",
-      svg: SCHEMA.leaf,
       inputs: [f("L", "Lengte L", "mm", 20, 0.01), f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dikte t", "mm", 0.2, 1e-3), f("u", "Uitwijking u", "mm", 0.5, 0), IN_F, IN_M, IN_PLATE],
       run: (p, M) => {
         const r = leafSpring(Object.assign({}, p, M));
@@ -8590,7 +8627,6 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       group: "Flexures",
       name: "Parallelle bladveer",
       short: "Twee bladen, geleide tafel",
-      svg: SCHEMA.par,
       inputs: [f("L", "Lengte L per blad", "mm", 20, 0.01), f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dikte t", "mm", 0.2, 1e-3), f("u", "Uitwijking u", "mm", 0.5, 0), IN_F, IN_M, IN_PLATE],
       run: (p, M) => {
         const r = parallelLeaf(Object.assign({}, p, M));
@@ -8632,7 +8668,6 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       group: "Flexures",
       name: "Kruisveerscharnier",
       short: "Twee gekruiste bladen, kruising op 50 %",
-      svg: SCHEMA.cross,
       inputs: [f("L", "Lengte L per blad", "mm", 20, 0.01), f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dikte t", "mm", 0.2, 1e-3), f("phi", "Rotatie \u03C6", "\xB0", 5, 0), f("r", "Afstand massa tot draaipunt", "mm", 50, 0.01), IN_F, IN_M, IN_PLATE],
       run: (p, M) => {
         const q = Object.assign({}, p, M, { phi: p.phi * DEG });
@@ -8672,7 +8707,6 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       group: "Flexures",
       name: "Scharnier met inkeping",
       short: "Cirkelvormige inkeping (notch hinge)",
-      svg: SCHEMA.notch,
       inputs: [f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dunste doorsnede t", "mm", 0.3, 1e-3), f("R", "Inkepingsstraal R", "mm", 3, 0.01), f("phi", "Rotatie \u03C6", "\xB0", 0.3, 0), f("Kt", "Spanningsconcentratie K_t", "\u2013", 1.5, 1), f("r", "Afstand massa tot draaipunt", "mm", 50, 0.01), IN_M, IN_PLATE],
       run: (p, M) => {
         const r = notchHinge(Object.assign({}, p, M, { phi: p.phi * DEG }));
@@ -8711,7 +8745,6 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       group: "Flexures",
       name: "Draadflexure",
       short: "Dunne draad als scharnier of veer",
-      svg: SCHEMA.wire,
       inputs: [
         f("L", "Lengte L", "mm", 50, 0.01),
         f("d", "Diameter d", "mm", 1, 1e-3),
@@ -8759,12 +8792,301 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       source: SRC_S + "; " + SRC_H + "."
     }
   ];
-  var state = { cur: "leaf", mat: "staal", vals: {} };
-  CALCS.forEach((c2) => {
-    state.vals[c2.id] = {};
+  var NS = "http://www.w3.org/2000/svg";
+  var f1 = (x) => Math.round(x * 10) / 10;
+  function set(e, a) {
+    for (const k in a) e.setAttribute(k, a[k]);
+    return e;
+  }
+  function mk(tag, attrs, parent) {
+    const e = document.createElementNS(NS, tag);
+    set(e, attrs || {});
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function txt(parent, cls, anchor) {
+    return mk("text", { class: "s-txt " + (cls || ""), "text-anchor": anchor || "middle" }, parent);
+  }
+  var SVG_DEFS = '<defs><marker id="calcArr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L8 4L0 8z" class="s-arrf"/></marker><pattern id="calcHatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0V7" class="s-hl"/></pattern></defs>';
+  function mkDim(parent, one) {
+    const a = { class: "s-dim", "marker-end": "url(#calcArr)" };
+    if (!one) a["marker-start"] = "url(#calcArr)";
+    return { p: mk("path", a, parent), t: txt(parent, "s-val", "middle") };
+  }
+  function setDim(d, x1, y1, x2, y2, tx, ty, label2, anchor) {
+    set(d.p, { d: "M" + f1(x1) + " " + f1(y1) + "L" + f1(x2) + " " + f1(y2) });
+    set(d.t, { x: f1(tx), y: f1(ty), "text-anchor": anchor || "middle" });
+    d.t.textContent = label2;
+  }
+  var showEl = (e, on) => {
+    e.style.display = on ? "" : "none";
+  };
+  function mkBlock(parent) {
+    return { r: mk("rect", { class: "s-fix" }, parent), h: mk("rect", { fill: "url(#calcHatch)" }, parent) };
+  }
+  function setBlock(b, x, y, w, h, hatch, on) {
+    set(b.r, { x: f1(x), y: f1(y), width: f1(w), height: h });
+    set(b.h, { x: f1(x), y: f1(y + h), width: f1(w), height: 7 });
+    showEl(b.r, on !== false);
+    showEl(b.h, hatch && on !== false);
+  }
+  function stressCol(x) {
+    x = isFinite(x) ? Math.max(0, Math.min(1, x)) : 1;
+    const h = x < 0.5 ? 135 - 95 * (x / 0.5) : 40 - 40 * ((x - 0.5) / 0.5);
+    return "hsl(" + Math.round(h) + ",68%,44%)";
+  }
+  function mkFoot(svg, R) {
+    R.note = txt(svg, "s-small", "start");
+    R.leg = txt(svg, "s-small s-bold", "start");
+    set(R.note, { x: 10, y: 226 });
+    set(R.leg, { x: 10, y: 239 });
+  }
+  function setFoot(R, r, M, facs) {
+    const ratio = r.sigma / M.sigma, col = stressCol(ratio);
+    R.leg.textContent = "\u03C3 = " + num3(r.sigma) + " MPa \xB7 " + Math.round(ratio * 100) + " % van \u03C3_toel";
+    R.leg.style.fill = col;
+    const parts = facs.filter((x) => x[1] > 1.15).map((x) => x[0] + " \xD7" + num3(x[1], 2));
+    R.note.textContent = parts.length ? "\xD7 schaal: " + parts.join(", ") : "";
+    return col;
+  }
+  function mkInset(svg, R, wire) {
+    R.inH = txt(svg, "s-small", "middle");
+    R.inH.textContent = "doorsnede";
+    set(R.inH, { x: 275, y: 118 });
+    if (wire) R.inC = mk("circle", { class: "s-sec", cx: 275, cy: 138, r: 16 }, svg);
+    else R.inR = mk("rect", { class: "s-sec", x: 247, y: 126, width: 56 }, svg);
+    R.in1 = txt(svg, "s-val");
+    R.in2 = txt(svg, "s-val");
+  }
+  function setInset(R, p, wire) {
+    if (wire) {
+      set(R.in1, { x: 275, y: 170 });
+      R.in1.textContent = "d = " + num3(p.d) + " mm";
+      R.in2.textContent = "";
+      return 1;
+    }
+    const real = p.t / p.b * 56, bh = Math.min(Math.max(real, 3), 28);
+    set(R.inR, { height: f1(bh) });
+    set(R.in1, { x: 275, y: f1(126 + bh + 14) });
+    R.in1.textContent = "b = " + num3(p.b) + " mm";
+    set(R.in2, { x: 275, y: f1(126 + bh + 27) });
+    R.in2.textContent = "t = " + num3(p.t) + " mm";
+    return bh / real;
+  }
+  function beamFig(kind2) {
+    const wire = kind2 === "wire", n = kind2 === "par" ? 2 : 1;
+    return {
+      build(svg) {
+        const R = { leaf: [] };
+        R.ghost = mk("path", { class: "s-ghost" }, svg);
+        R.ext = mk("path", { class: "s-ghost" }, svg);
+        for (let k = 0; k < n; k++) R.leaf.push(mk("path", { class: "s-leaf" }, svg));
+        R.base = mkBlock(svg);
+        R.table = mkBlock(svg);
+        R.tip = mk("circle", { class: "s-fix", r: 4 }, svg);
+        R.dL = mkDim(svg);
+        R.dU = mkDim(svg);
+        mkInset(svg, R, wire);
+        mkFoot(svg, R);
+        return R;
+      },
+      draw(R, p, r, M) {
+        const guided = !wire || p.bc === "guided", Lp = 150, s = Lp / p.L, yb = 200, yt = yb - Lp;
+        const th = wire ? p.d : p.t, tp = Math.max(th * s, wire ? 1.8 : 3), tFac = tp / (th * s);
+        let up = p.u * s, uFac = 1;
+        if (up > 0 && up < 8) {
+          uFac = 8 / up;
+          up = 8;
+        }
+        up = Math.min(up, 70);
+        const xs = n === 1 ? [150] : [125, 185], hw = 45, x0 = xs[0] - hw, x1 = xs[n - 1] + hw;
+        const col = stressCol(r.sigma / M.sigma);
+        set(R.ghost, { d: xs.map((x) => "M" + x + " " + yb + "V" + yt).join("") });
+        xs.forEach((xi, k) => {
+          set(R.leaf[k], { d: "M" + xi + " " + yb + "C" + xi + " " + f1(yb - Lp / 3) + " " + f1(xi + (guided ? up : up / 2)) + " " + f1(yb - 2 * Lp / 3) + " " + f1(xi + up) + " " + yt, "stroke-width": f1(tp) });
+          R.leaf[k].style.stroke = col;
+        });
+        setBlock(R.base, x0, yb, x1 - x0, 12, true);
+        setBlock(R.table, x0 + up, yt - 12, x1 - x0, 12, false, guided);
+        showEl(R.tip, !guided);
+        set(R.tip, { cx: f1(xs[0] + up), cy: yt, r: f1(Math.max(tp / 2 + 1.5, 3.5)) });
+        setDim(R.dL, x0 - 14, yb, x0 - 14, yt, x0 - 20, (yb + yt) / 2 + 4, "L = " + num3(p.L) + " mm", "end");
+        const yu = yt - 26, on = p.u > 0;
+        showEl(R.dU.p, on);
+        showEl(R.dU.t, on);
+        showEl(R.ext, on);
+        setDim(R.dU, xs[0], yu, xs[0] + up, yu, xs[0] + up / 2 + (up < 30 ? 20 : 0), yu - 6, "u = " + num3(p.u) + " mm", up < 30 ? "start" : "middle");
+        set(R.ext, { d: "M" + xs[0] + " " + (yt - 14) + "V" + (yu - 4) + "M" + f1(xs[0] + up) + " " + (yt - 14) + "V" + (yu - 4) });
+        const insF = setInset(R, p, wire);
+        setFoot(R, r, M, [[wire ? "diameter" : "dikte", tFac], ["uitwijking", uFac], ["doorsnede", insF]]);
+      }
+    };
+  }
+  function crossFig() {
+    return {
+      build(svg) {
+        const R = {};
+        R.gA = mk("path", { class: "s-ghost" }, svg);
+        R.la = mk("path", { class: "s-leaf" }, svg);
+        R.lb = mk("path", { class: "s-leaf" }, svg);
+        R.base = mkBlock(svg);
+        R.tg = mk("g", {}, svg);
+        R.table = mk("rect", { class: "s-fix" }, R.tg);
+        R.dot = mk("circle", { r: 3.5, class: "s-pivot" }, svg);
+        R.arc = mk("path", { class: "s-dim", "marker-end": "url(#calcArr)" }, svg);
+        R.phiT = txt(svg, "s-val", "start");
+        R.lT = txt(svg, "s-val", "end");
+        mkInset(svg, R, false);
+        mkFoot(svg, R);
+        return R;
+      },
+      draw(R, p, r, M) {
+        const C = { x: 150, y: 120 }, Ls = 140, al = 35 * DEG, h = Ls / 2 * Math.sin(al), v = Ls / 2 * Math.cos(al);
+        const s = Ls / p.L, tp = Math.max(p.t * s, 3), tFac = tp / (p.t * s);
+        let pd = p.phi, pf = 1;
+        if (pd > 0 && pd < 7) {
+          pf = 7 / pd;
+          pd = 7;
+        }
+        pd = Math.min(pd, 25);
+        const a = pd * DEG, co = Math.cos(a), si = Math.sin(a);
+        const rot = (x, y) => [C.x + (x - C.x) * co - (y - C.y) * si, C.y + (x - C.x) * si + (y - C.y) * co];
+        const col = stressCol(r.sigma / M.sigma), sa = Math.sin(al), ca = Math.cos(al);
+        const leaf = (el, bx, dx) => {
+          const P0 = [bx, C.y + v], T = rot(bx + 2 * h * dx, C.y - v), dr = [dx * sa * co + ca * si, dx * sa * si - ca * co];
+          set(el, { d: "M" + f1(P0[0]) + " " + f1(P0[1]) + "C" + f1(P0[0] + dx * sa * Ls / 3) + " " + f1(P0[1] - ca * Ls / 3) + " " + f1(T[0] - dr[0] * Ls / 3) + " " + f1(T[1] - dr[1] * Ls / 3) + " " + f1(T[0]) + " " + f1(T[1]), "stroke-width": f1(tp) });
+          el.style.stroke = col;
+        };
+        leaf(R.la, C.x - h, 1);
+        leaf(R.lb, C.x + h, -1);
+        set(R.gA, { d: "M" + f1(C.x - h) + " " + f1(C.y + v) + "L" + f1(C.x + h) + " " + f1(C.y - v) + "M" + f1(C.x + h) + " " + f1(C.y + v) + "L" + f1(C.x - h) + " " + f1(C.y - v) });
+        setBlock(R.base, C.x - 75, C.y + v, 150, 12, true);
+        set(R.table, { x: C.x - 75, y: f1(C.y - v - 12), width: 150, height: 12 });
+        set(R.tg, { transform: "rotate(" + f1(pd) + " " + C.x + " " + C.y + ")" });
+        set(R.dot, { cx: C.x, cy: C.y });
+        const ra = 100, t0 = -60 * DEG, t1 = t0 + a;
+        set(R.arc, { d: "M" + f1(C.x + ra * Math.cos(t0)) + " " + f1(C.y + ra * Math.sin(t0)) + "A" + ra + " " + ra + " 0 0 1 " + f1(C.x + ra * Math.cos(t1)) + " " + f1(C.y + ra * Math.sin(t1)) });
+        const tm = t0 + a / 2;
+        set(R.phiT, { x: f1(C.x + (ra + 8) * Math.cos(tm)), y: f1(C.y + (ra + 8) * Math.sin(tm) + 4) });
+        R.phiT.textContent = "\u03C6 = " + num3(p.phi) + "\xB0";
+        set(R.lT, { x: f1(C.x - h - 12), y: f1(C.y + v - 6) });
+        R.lT.textContent = "L = " + num3(p.L) + " mm";
+        const insF = setInset(R, p, false);
+        setFoot(R, r, M, [["dikte", tFac], ["rotatie", pf], ["doorsnede", insF]]);
+      }
+    };
+  }
+  function notchFig() {
+    return {
+      build(svg) {
+        const R = {};
+        R.ghost = mk("path", { class: "s-ghost" }, svg);
+        R.left = mk("path", { class: "s-fix" }, svg);
+        R.lh = mk("rect", { fill: "url(#calcHatch)" }, svg);
+        R.rg = mk("g", {}, svg);
+        R.right = mk("path", { class: "s-fix" }, R.rg);
+        R.neck = mk("rect", { class: "s-neck" }, svg);
+        R.dT = mkDim(svg, true);
+        R.dR = mk("path", { class: "s-dim", "marker-end": "url(#calcArr)" }, svg);
+        R.rT = txt(svg, "s-val");
+        R.arc = mk("path", { class: "s-dim", "marker-end": "url(#calcArr)" }, svg);
+        R.phiT = txt(svg, "s-val", "start");
+        R.bT = txt(svg, "s-val");
+        mkFoot(svg, R);
+        return R;
+      },
+      draw(R, p, r, M) {
+        const cx = 150, cy = 112, s = 80 / (p.t + 2 * p.R);
+        const Rp = p.R * s, tp = Math.max(p.t * s, 3), tFac = tp / (p.t * s), H = tp + 2 * Rp, Lb = 50;
+        let pd = p.phi, pf = 1;
+        if (pd > 0 && pd < 6) {
+          pf = 6 / pd;
+          pd = 6;
+        }
+        pd = Math.min(pd, 25);
+        const yT = cy - H / 2, yB = cy + H / 2, xl = cx - Rp - Lb, xr = cx + Rp + Lb, g = f1(Rp) + " " + f1(Rp) + " 0 0 ";
+        set(R.left, { d: "M" + f1(xl) + " " + f1(yT) + "H" + f1(cx - Rp) + "A" + g + "0 " + cx + " " + f1(cy - tp / 2) + "V" + f1(cy + tp / 2) + "A" + g + "0 " + f1(cx - Rp) + " " + f1(yB) + "H" + f1(xl) + "Z" });
+        set(R.lh, { x: f1(xl - 7), y: f1(yT), width: 7, height: f1(H) });
+        set(R.right, { d: "M" + f1(xr) + " " + f1(yT) + "H" + f1(cx + Rp) + "A" + g + "1 " + cx + " " + f1(cy - tp / 2) + "V" + f1(cy + tp / 2) + "A" + g + "1 " + f1(cx + Rp) + " " + f1(yB) + "H" + f1(xr) + "Z" });
+        set(R.rg, { transform: "rotate(" + f1(pd) + " " + cx + " " + cy + ")" });
+        set(R.ghost, { d: "M" + f1(cx + Rp) + " " + f1(yT) + "H" + f1(xr) + "V" + f1(yB) + "H" + f1(cx + Rp) });
+        const col = stressCol(r.sigma / M.sigma);
+        set(R.neck, { x: f1(cx - Rp * 0.45), y: f1(cy - tp / 2), width: f1(Rp * 0.9), height: f1(tp) });
+        R.neck.style.fill = col;
+        setDim(R.dT, cx, cy + tp / 2 + Math.min(Rp * 0.8, 26), cx, cy + tp / 2, cx, yB + 14, "t = " + num3(p.t) + " mm", "middle");
+        set(R.dR, { d: "M" + cx + " " + f1(yT) + "L" + f1(cx + Rp * 0.707) + " " + f1(yT + Rp * 0.707) });
+        set(R.rT, { x: cx, y: f1(yT - 8) });
+        R.rT.textContent = "R = " + num3(p.R) + " mm";
+        const ra = Rp + Lb + 12, t1 = pd * DEG;
+        set(R.arc, { d: "M" + f1(cx + ra) + " " + cy + "A" + f1(ra) + " " + f1(ra) + " 0 0 1 " + f1(cx + ra * Math.cos(t1)) + " " + f1(cy + ra * Math.sin(t1)) });
+        set(R.phiT, { x: f1(cx + ra + 8), y: f1(cy + ra * Math.sin(t1) / 2 + 4) });
+        R.phiT.textContent = "\u03C6 = " + num3(p.phi) + "\xB0";
+        set(R.bT, { x: cx, y: 212 });
+        R.bT.textContent = "b = " + num3(p.b) + " mm (loodrecht op het vlak)";
+        setFoot(R, r, M, [["dunste doorsnede", tFac], ["rotatie", pf]]);
+      }
+    };
+  }
+  var FIGS = { leaf: beamFig("leaf"), par: beamFig("par"), cross: crossFig(), notch: notchFig(), wire: beamFig("wire") };
+  var RANGE = {
+    L: [5, 200, 1],
+    b: [1, 100, 1],
+    t: [0.02, 2, 1],
+    u: [0.01, 10, 1],
+    d: [0.05, 5, 1],
+    R: [0.1, 30, 1],
+    F: [0.01, 1e3, 1],
+    m: [1e-3, 10, 1],
+    r: [5, 500, 1],
+    Kt: [1, 4, 0],
+    phi: [0, 20, 0]
+  };
+  function rng(c2, i) {
+    if (c2.id === "notch" && i.id === "phi") return [0.01, 5, 1];
+    return RANGE[i.id];
+  }
+  var GROUP = { L: "Geometrie", b: "Geometrie", t: "Geometrie", d: "Geometrie", R: "Geometrie", Kt: "Geometrie", bc: "Geometrie", plate: "Materiaal" };
+  var grpOf = (i) => GROUP[i.id] || "Belasting";
+  function toPos(c2, i, v) {
+    const g = rng(c2, i);
+    if (!g) return 0;
+    if (g[2]) {
+      if (!(v > 0)) return 0;
+      return Math.round(Math.max(0, Math.min(1, Math.log(v / g[0]) / Math.log(g[1] / g[0]))) * 1e3);
+    }
+    return Math.round(Math.max(0, Math.min(1, (v - g[0]) / (g[1] - g[0]))) * 1e3);
+  }
+  function fromPos(c2, i, pos) {
+    const g = rng(c2, i), s = pos / 1e3;
+    if (g[2]) return s === 0 && i.min === 0 ? 0 : +(g[0] * Math.pow(g[1] / g[0], s)).toPrecision(3);
+    return +(g[0] + s * (g[1] - g[0])).toPrecision(3);
+  }
+  var KEYS = {
+    leaf: (r) => [["Stijfheid c_x", "N/mm", num3(r.cx)], ["Max. uitwijking u_max", "mm", num3(r.uMax)]],
+    cross: (r) => [["Draaistijfheid c_\u03C6", "Nmm/rad", num3(r.c)], ["Max. rotatie \u03C6_max", "\xB0", num3(r.phiMax / DEG)]],
+    wire: (r) => [["Buigstijfheid c_b", "N/mm", num3(r.cb)], ["Max. uitwijking u_max", "mm", num3(r.uMax)]]
+  };
+  KEYS.par = KEYS.leaf;
+  KEYS.notch = KEYS.cross;
+  function safety(r, M) {
+    const sS = r.sigma > 0 ? M.sigma / r.sigma : Infinity, sK = isFinite(r.margin) ? r.margin : Infinity, s = Math.min(sS, sK);
+    return {
+      s,
+      status: s < 1 ? "bad" : s < 2 ? "warn" : "ok",
+      sub: "\u03C3_toel/\u03C3 = " + (isFinite(sS) ? num3(sS) : "\u221E") + (isFinite(sK) ? " \xB7 knik = " + num3(sK) : "")
+    };
+  }
+  var state = { cur: "leaf", mats: {}, vals: {}, open: { Geometrie: true, Materiaal: true, Belasting: true, Formules: false, Aannames: false }, raf: 0 };
+  var defaults = (c2) => {
+    const o = {};
     c2.inputs.forEach((i) => {
-      state.vals[c2.id][i.id] = i.def;
+      o[i.id] = i.def;
     });
+    return o;
+  };
+  CALCS.forEach((c2) => {
+    state.vals[c2.id] = defaults(c2);
+    state.mats[c2.id] = "staal";
   });
   var calcOf = (id) => CALCS.find((c2) => c2.id === id) || CALCS[0];
   function params(c2) {
@@ -8776,47 +9098,127 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   }
   var invalid = (c2, p) => c2.inputs.filter((i) => typeof i.def === "number" && !(isFinite(p[i.id]) && p[i.id] >= i.min && (i.min === 0 || p[i.id] > 0)));
   function matParams() {
-    const m = material(state.mat);
+    const m = material(state.mats[state.cur]);
     return { E: m.E, nu: m.nu, sigma: m.sigma };
   }
-  function renderResults() {
-    const c2 = calcOf(state.cur), p = params(c2), box3 = $("calcOut");
-    const bad = invalid(c2, p);
+  var fmtv = (v) => String(+Number(v).toPrecision(3));
+  var REF = null;
+  function render() {
+    state.raf = 0;
+    if (!REF) return;
+    const c2 = calcOf(state.cur), p = params(c2), bad = invalid(c2, p), M = matParams();
+    c2.inputs.forEach((i) => {
+      const n = REF.fields[i.id];
+      if (n && n.type === "number") n.setAttribute("aria-invalid", String(bad.indexOf(i) >= 0));
+    });
     if (bad.length) {
-      box3.innerHTML = '<div class="calc-warn" role="alert">Controleer de invoer: ' + bad.map((i) => i.label).join(", ") + ".</div>";
-      $("calcFormulas").innerHTML = "";
+      REF.warn.innerHTML = '<div class="calc-warn" role="alert">Controleer de invoer: ' + bad.map((i) => i.label).join(", ") + ".</div>";
+      REF.warnH = "";
+      REF.root.classList.add("is-bad");
       return;
     }
-    const o = c2.run(p, matParams());
-    let h = "";
-    if (o.warn.length) h += '<div class="calc-warn" role="alert">' + o.warn.map((w) => "<div>\u26A0 " + w + "</div>").join("") + "</div>";
-    h += '<dl class="calc-res">' + o.out.map((x) => '<div class="' + (x.bad ? "bad" : "") + '"><dt>' + x.k + '</dt><dd data-res="' + x.k + '">' + x.v + (x.unit ? ' <span class="u">' + x.unit + "</span>" : "") + "</dd></div>").join("") + "</dl>";
-    box3.innerHTML = h;
-    const fm = c2.formulas(p, matParams(), o.r);
-    $("calcFormulas").innerHTML = fm.map((x) => '<div class="fm"><div class="fm-h">' + x[0] + '</div><div class="fm-g">' + x[1] + '</div><div class="fm-n"><span class="fm-lab">met jouw getallen</span> ' + x[2] + "</div></div>").join("");
-  }
-  function renderDetail() {
-    const c2 = calcOf(state.cur), v = state.vals[c2.id];
-    let h = "<h2>" + c2.name + '</h2><p class="calc-sub">' + c2.short + "</p>";
-    h += '<div class="calc-top"><figure class="calc-fig">' + c2.svg + '</figure><form class="calc-in" onsubmit="return false">';
-    h += '<label class="fld"><span>Materiaal</span><select id="calcMat">' + MATERIALS2.map((m) => '<option value="' + m.id + '"' + (m.id === state.mat ? " selected" : "") + ">" + m.naam + "</option>").join("") + "</select></label>";
-    h += '<div class="mat-info" id="calcMatInfo"></div>';
-    c2.inputs.forEach((i) => {
-      if (i.type === "check") h += '<label class="chk"><input type="checkbox" data-in="' + i.id + '"' + (v[i.id] ? " checked" : "") + "> " + i.label + "</label>";
-      else if (i.type === "select") h += '<label class="fld"><span>' + i.label + '</span><select data-in="' + i.id + '">' + i.options.map((o) => '<option value="' + o[0] + '"' + (v[i.id] === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></label>";
-      else h += '<label class="fld"><span>' + i.label + '</span><span class="inp"><input type="number" inputmode="decimal" step="any" data-in="' + i.id + '" value="' + v[i.id] + '"><b>' + i.unit + "</b></span></label>";
+    REF.root.classList.remove("is-bad");
+    const o = c2.run(p, M), r = o.r;
+    const wh = o.warn.length ? '<div class="calc-warn" role="alert">' + o.warn.map((w) => "<div>\u26A0 " + w + "</div>").join("") + "</div>" : "";
+    if (wh !== REF.warnH) {
+      REF.warn.innerHTML = wh;
+      REF.warnH = wh;
+    }
+    o.out.forEach((x, k) => {
+      const cell = REF.cells[k];
+      if (!cell) return;
+      cell.dd.firstChild.nodeValue = x.v + (x.unit ? " " : "");
+      cell.u.textContent = x.unit || "";
+      cell.box.classList.toggle("bad", !!x.bad);
     });
-    h += "</form></div>";
-    h += '<h3>Resultaat</h3><div id="calcOut"></div>';
-    h += '<h3>Formules</h3><div id="calcFormulas" class="calc-formulas"></div>';
-    h += '<h3>Aannames</h3><ul class="calc-assume">' + c2.assume.map((a) => "<li>" + a + "</li>").join("") + "</ul>";
-    h += '<p class="calc-src"><span>Bron</span> ' + c2.source + "</p>";
+    const ks = KEYS[c2.id](r), sf = safety(r, M);
+    [ks[0], ks[1], ["Veiligheid", "", isFinite(sf.s) ? "\xD7 " + num3(sf.s) : "\u221E"]].forEach((k, n) => {
+      const e = REF.keys[n];
+      e.v.firstChild.nodeValue = k[2] + (k[1] ? " " : "");
+      e.u.textContent = k[1];
+    });
+    REF.keys[2].box.setAttribute("data-status", sf.status);
+    REF.keys[2].sub.textContent = sf.sub;
+    REF.keys[0].sub.textContent = "";
+    REF.keys[1].sub.textContent = "bij \u03C3_toel = " + num3(M.sigma) + " MPa";
+    FIGS[c2.id].draw(REF.fig, p, r, M);
+    if (state.open.Formules) renderFormulas(c2, p, M, r);
+  }
+  function renderFormulas(c2, p, M, r) {
+    REF.formulas.innerHTML = c2.formulas(p, M, r).map((x) => '<div class="fm"><div class="fm-h">' + x[0] + '</div><div class="fm-g">' + x[1] + '</div><div class="fm-n"><span class="fm-lab">met jouw getallen</span> ' + x[2] + "</div></div>").join("");
+  }
+  var schedule = () => {
+    if (!state.raf) state.raf = requestAnimationFrame(render);
+  };
+  function inputHtml(c2, i, v) {
+    if (i.type === "check") return '<label class="chk"><input type="checkbox" data-in="' + i.id + '"' + (v[i.id] ? " checked" : "") + "> " + i.label + "</label>";
+    if (i.type === "select") return '<label class="fld"><span>' + i.label + '</span><select data-in="' + i.id + '">' + i.options.map((o) => '<option value="' + o[0] + '"' + (v[i.id] === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></label>";
+    return '<div class="fld"><div class="fld-row"><label for="in_' + i.id + '">' + i.label + '</label><span class="inp"><input id="in_' + i.id + '" type="number" inputmode="decimal" step="any" data-in="' + i.id + '" value="' + v[i.id] + '"><b>' + i.unit + '</b></span></div><input type="range" class="sl" min="0" max="1000" step="1" data-sl="' + i.id + '" aria-label="' + i.label + '" value="' + toPos(c2, i, v[i.id]) + '"></div>';
+  }
+  var secHtml = (name2, body) => '<details class="calc-sec" data-sec="' + name2 + '"' + (state.open[name2] ? " open" : "") + "><summary>" + name2 + '</summary><div class="calc-sec-b">' + body + "</div></details>";
+  function renderDetail() {
+    if (state.raf) {
+      cancelAnimationFrame(state.raf);
+      state.raf = 0;
+    }
+    const c2 = calcOf(state.cur), v = state.vals[c2.id], M0 = matParams();
+    const body = { Geometrie: "", Materiaal: "", Belasting: "" };
+    body.Materiaal += '<label class="fld"><span>Materiaal</span><select id="calcMat">' + MATERIALS2.map((m) => '<option value="' + m.id + '"' + (m.id === state.mats[c2.id] ? " selected" : "") + ">" + m.naam + "</option>").join("") + '</select></label><div class="mat-info" id="calcMatInfo"></div>';
+    c2.inputs.forEach((i) => {
+      body[grpOf(i)] += inputHtml(c2, i, v);
+    });
+    let h = '<div class="calc-head"><div><h2>' + c2.name + '</h2><p class="calc-sub">' + c2.short + '</p></div><button type="button" class="calc-reset" id="calcReset" title="Zet deze calculator terug op de beginwaarden">\u21BA Reset</button></div>';
+    h += '<div class="calc-grid" id="calcGrid"><div class="calc-keys">' + [0, 1, 2].map((n) => '<div class="calc-key" data-key="' + n + '"><span class="k"></span><b class="v">0<span class="u"></span></b><span class="s"></span></div>').join("") + "</div>";
+    h += '<div class="calc-left"><figure class="calc-fig"><svg id="calcSvg" viewBox="0 0 320 245" role="img" aria-label="Schets met afmetingen"></svg></figure><div id="calcWarn" class="calc-warnbox"></div><dl class="calc-res" id="calcOut"></dl></div>';
+    h += '<div class="calc-right"><div class="calc-inputs">' + secHtml("Geometrie", body.Geometrie) + secHtml("Materiaal", body.Materiaal) + secHtml("Belasting", body.Belasting) + "</div>";
+    h += '<details class="calc-sec calc-card" data-sec="Formules"' + (state.open.Formules ? " open" : "") + '><summary>Formules</summary><div class="calc-sec-b calc-formulas" id="calcFormulas"></div></details>';
+    h += '<details class="calc-sec calc-card" data-sec="Aannames"' + (state.open.Aannames ? " open" : "") + '><summary>Aannames en bron</summary><div class="calc-sec-b"><ul class="calc-assume">' + c2.assume.map((a) => "<li>" + a + "</li>").join("") + '</ul><p class="calc-src"><span>Bron</span> ' + c2.source + "</p></div></details></div></div>";
     $("calcDetail").innerHTML = h;
+    const o0 = c2.run(defaults(c2), M0), out = $("calcOut"), cells = [];
+    o0.out.forEach((x) => {
+      const box3 = document.createElement("div"), dt = document.createElement("dt"), dd = document.createElement("dd"), u = document.createElement("span");
+      dt.textContent = x.k;
+      dd.setAttribute("data-res", x.k);
+      u.className = "u";
+      dd.appendChild(document.createTextNode(""));
+      dd.appendChild(u);
+      box3.appendChild(dt);
+      box3.appendChild(dd);
+      out.appendChild(box3);
+      cells.push({ box: box3, dd, u });
+    });
+    const fields = {}, sliders = {};
+    $("calcDetail").querySelectorAll("[data-in]").forEach((n) => {
+      fields[n.dataset.in] = n;
+    });
+    $("calcDetail").querySelectorAll("[data-sl]").forEach((n) => {
+      sliders[n.dataset.sl] = n;
+    });
+    const svg = $("calcSvg");
+    svg.innerHTML = SVG_DEFS;
+    REF = {
+      root: $("calcGrid"),
+      warn: $("calcWarn"),
+      warnH: "",
+      cells,
+      fields,
+      sliders,
+      formulas: $("calcFormulas"),
+      keys: [0, 1, 2].map((n) => {
+        const b = $("calcDetail").querySelector('[data-key="' + n + '"]');
+        return { box: b, v: b.querySelector(".v"), u: b.querySelector(".v .u"), sub: b.querySelector(".s") };
+      }),
+      fig: FIGS[c2.id].build(svg)
+    };
+    const kl = KEYS[c2.id](o0.r);
+    REF.keys.forEach((k, n) => {
+      k.box.querySelector(".k").textContent = n < 2 ? kl[n][0] : "Veiligheid";
+    });
     updMatInfo();
-    renderResults();
+    render();
   }
   function updMatInfo() {
-    const m = material(state.mat);
+    const m = material(state.mats[state.cur]);
     $("calcMatInfo").textContent = "E = " + num3(m.E / 1e3) + " GPa \xB7 \u03BD = " + num3(m.nu) + " \xB7 \u03C3_toel = " + num3(m.sigma) + " MPa";
   }
   function renderList() {
@@ -8833,7 +9235,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     $("calcRoot").hidden = !calc;
     document.querySelectorAll("#workSeg [data-w]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.w === w)));
     if (!calc) window.dispatchEvent(new Event("resize"));
-    else if (!$("calcDetail").firstChild) renderDetail();
+    else if (!REF) renderDetail();
   }
   function initCalc() {
     renderList();
@@ -8848,20 +9250,43 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       renderList();
       renderDetail();
     });
-    $("calcDetail").addEventListener("input", (e) => {
+    const det = $("calcDetail");
+    det.addEventListener("input", (e) => {
       const t = e.target, c2 = calcOf(state.cur);
       if (t.id === "calcMat") {
-        state.mat = t.value;
+        state.mats[c2.id] = t.value;
         updMatInfo();
-        renderResults();
+        render();
+        return;
+      }
+      if (t.dataset.sl) {
+        const inp2 = c2.inputs.find((i) => i.id === t.dataset.sl), val2 = fromPos(c2, inp2, +t.value);
+        state.vals[c2.id][inp2.id] = val2;
+        REF.fields[inp2.id].value = fmtv(val2);
+        schedule();
         return;
       }
       const id = t.dataset.in;
       if (!id) return;
       const inp = c2.inputs.find((i) => i.id === id);
-      state.vals[c2.id][id] = inp.type === "check" ? t.checked : inp.type === "select" ? t.value : parseFloat(String(t.value).replace(",", "."));
-      renderResults();
+      const val = inp.type === "check" ? t.checked : inp.type === "select" ? t.value : parseFloat(String(t.value).replace(",", "."));
+      state.vals[c2.id][id] = val;
+      if (REF.sliders[id]) REF.sliders[id].value = toPos(c2, inp, val);
+      render();
     });
+    det.addEventListener("click", (e) => {
+      if (!e.target.closest("#calcReset")) return;
+      const c2 = calcOf(state.cur);
+      state.vals[c2.id] = defaults(c2);
+      state.mats[c2.id] = "staal";
+      renderDetail();
+    });
+    det.addEventListener("toggle", (e) => {
+      const s = e.target.dataset && e.target.dataset.sec;
+      if (!s) return;
+      state.open[s] = e.target.open;
+      if (s === "Formules" && e.target.open) schedule();
+    }, true);
   }
 
   // src/ui/interact.js
@@ -9136,7 +9561,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   }
 
   // src/ui/library.js
-  var f1 = (n) => Math.round(n * 10) / 10;
+  var f12 = (n) => Math.round(n * 10) / 10;
   var ln = (a, b, c2, d, cls) => `<path class="${cls || "k"}" d="M${a} ${b}L${c2} ${d}"/>`;
   var pl = (pts, cls) => `<path class="${cls || "k"}" d="M${pts.map((p) => p.join(" ")).join("L")}"/>`;
   var pin = (x, y) => `<path class="g" d="M${x - 4} ${y + 6}h8M${x - 3} ${y + 6}l-2 2.5M${x} ${y + 6}l-2 2.5M${x + 3} ${y + 6}l-2 2.5"/><path class="g" d="M${x} ${y}L${x - 3.5} ${y + 6}M${x} ${y}L${x + 3.5} ${y + 6}"/><circle class="n" cx="${x}" cy="${y}" r="2.4"/>`;
@@ -9144,17 +9569,17 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   var mass = (x, y) => `<circle class="m" cx="${x}" cy="${y}" r="3.6"/>`;
   var wall = (x, y1, y2) => `<path class="g" d="M${x} ${y1}V${y2}"/>` + Array.from({ length: 4 }, (_, i) => {
     const y = y1 + (i + 0.5) * (y2 - y1) / 4;
-    return `<path class="g" d="M${x} ${f1(y)}l${x > 40 ? 3 : -3} -3"/>`;
+    return `<path class="g" d="M${x} ${f12(y)}l${x > 40 ? 3 : -3} -3"/>`;
   }).join("");
   function spring(a, b, c2, d) {
     const dx = c2 - a, dy = d - b, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
     const lead = 5, n = 6, pts = [[a, b], [a + ux * lead, b + uy * lead]];
     for (let i = 0; i < n; i++) {
       const t = lead + (L - 2 * lead) * (i + 0.5) / n, s = i % 2 ? -3 : 3;
-      pts.push([f1(a + ux * t + nx * s), f1(b + uy * t + ny * s)]);
+      pts.push([f12(a + ux * t + nx * s), f12(b + uy * t + ny * s)]);
     }
     pts.push([c2 - ux * lead, d - uy * lead], [c2, d]);
-    return pl(pts.map((p) => [f1(p[0]), f1(p[1])]), "s");
+    return pl(pts.map((p) => [f12(p[0]), f12(p[1])]), "s");
   }
   var damper = (a, b, c2, d) => {
     const m = (a + c2) / 2;
@@ -9176,7 +9601,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     shaker: () => shakerBase(0),
     steamL: () => ln(4, 41, 76, 41, "g") + ln(14, 36, 20, 24) + ln(20, 24, 40, 36) + box(40, 38) + spring(45, 38, 56, 38) + box(59, 38) + `<path class="dr" style="stroke-width:3.4" d="M63 38H74"/>` + pin(14, 36) + pin(76, 38) + mass(20, 24),
     frictionslide: () => {
-      const d = [0.93, -0.37], n = [-0.37, -0.93], o = [36, 30], p = (u, v) => [f1(o[0] + d[0] * u + n[0] * v), f1(o[1] + d[1] * u + n[1] * v)];
+      const d = [0.93, -0.37], n = [-0.37, -0.93], o = [36, 30], p = (u, v) => [f12(o[0] + d[0] * u + n[0] * v), f12(o[1] + d[1] * u + n[1] * v)];
       const top = p(34, 0);
       return ln(6, 42, 74, 15, "g") + Array.from({ length: 6 }, (_, i) => ln(12 + i * 11, 40 - i * 4.3, 10 + i * 11, 44 - i * 4.3, "g")).join("") + pl([p(-9, 0), p(9, 0), p(9, 9), p(-9, 9), p(-9, 0)], "m") + spring(p(9, 4.5)[0], p(9, 4.5)[1], top[0] + n[0] * 4.5, top[1] + n[1] * 4.5) + pin(top[0] + n[0] * 4.5, top[1] + n[1] * 4.5 - 2);
     },
@@ -9336,7 +9761,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     box2.style.left = Math.max(m, Math.min(pos[0], vw - bw - m)) + "px";
     box2.style.top = Math.max(m, Math.min(pos[1], vh - bh - m)) + "px";
   }
-  function render() {
+  function render2() {
     const st = STEPS[idx], last = idx === STEPS.length - 1;
     box2.querySelector(".tn").textContent = idx + 1 + " van " + STEPS.length;
     box2.querySelector("h3").textContent = st.title;
@@ -9371,7 +9796,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (idx >= STEPS.length - 1) endTour();
     else {
       idx++;
-      render();
+      render2();
     }
   }
   function startTour(force) {
@@ -9395,7 +9820,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     document.addEventListener("keydown", onKey, true);
     idx = 0;
     markSeen();
-    render();
+    render2();
   }
 
   // src/ui/menu.js

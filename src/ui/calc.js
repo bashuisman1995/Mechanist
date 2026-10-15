@@ -17,36 +17,6 @@ function fr(a, b) { return '<span class="fr"><span>' + a + "</span><span>" + b +
 const sub = (s, t) => s + "<sub>" + t + "</sub>";
 const sup = (s, t) => s + "<sup>" + t + "</sup>";
 
-// ---------- schematische tekeningen ----------
-const SVG_OPEN = '<svg viewBox="0 0 260 190" role="img" aria-label="Schets met afmetingen" xmlns="http://www.w3.org/2000/svg">';
-const dimV = (x, y1, y2, lab) => '<path class="s-dim" d="M' + x + " " + y1 + "V" + y2 + 'M' + (x - 4) + " " + y1 + "H" + (x + 4) + "M" + (x - 4) + " " + y2 + "H" + (x + 4) +
-  '"/><text class="s-txt" x="' + (x - 7) + '" y="' + ((y1 + y2) / 2 + 4) + '" text-anchor="end">' + lab + "</text>";
-const dimH = (y, x1, x2, lab) => '<path class="s-dim" d="M' + x1 + " " + y + "H" + x2 + "M" + x1 + " " + (y - 4) + "V" + (y + 4) + "M" + x2 + " " + (y - 4) + "V" + (y + 4) +
-  '"/><text class="s-txt" x="' + ((x1 + x2) / 2) + '" y="' + (y - 6) + '" text-anchor="middle">' + lab + "</text>";
-const block = (x, y, w, h, hatch) => '<rect class="s-fix" x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '"/>' +
-  (hatch ? '<path class="s-hatch" d="' + Array.from({ length: Math.floor(w / 8) }, (_, i) => "M" + (x + 4 + i * 8) + " " + (y + h) + "l-6 6").join("") + '"/>' : "");
-const section = (x, y) => '<rect class="s-line" x="' + x + '" y="' + y + '" width="26" height="5" fill="var(--accent-soft)"/>' +
-  '<text class="s-txt" x="' + (x + 13) + '" y="' + (y - 5) + '" text-anchor="middle">b</text><text class="s-txt" x="' + (x + 32) + '" y="' + (y + 5) + '">t</text>';
-
-const SCHEMA = {
-  leaf: SVG_OPEN + block(70, 150, 90, 12, true) + block(70 + 20, 22, 90, 12, false) +
-    '<path class="s-ghost" d="M115 150V34"/><path class="s-line" d="M115 150C115 110 135 74 135 34"/>' +
-    dimV(54, 150, 34, "L") + dimH(16, 115, 135, "u") + section(196, 92) + "</svg>",
-  par: SVG_OPEN + block(60, 150, 130, 12, true) + block(70, 22, 130, 12, false) +
-    '<path class="s-ghost" d="M100 150V34M150 150V34"/><path class="s-line" d="M100 150C100 110 110 74 110 34M150 150C150 110 160 74 160 34"/>' +
-    dimV(44, 150, 34, "L") + dimH(14, 100, 110, "u") + section(204, 92) + "</svg>",
-  cross: SVG_OPEN + block(70, 160, 120, 12, true) + block(70, 14, 120, 12, false) +
-    '<path class="s-line" d="M95 160L165 26M165 160L95 26"/>' + '<circle cx="130" cy="93" r="3" fill="var(--driver)"/>' +
-    dimV(60, 160, 26, "L") + '<text class="s-txt" x="136" y="86">φ</text><text class="s-txt" x="136" y="110">50 %</text>' + section(200, 92) + "</svg>",
-  notch: SVG_OPEN + block(14, 70, 70, 50, true) + block(176, 70, 70, 50, false) +
-    '<path class="s-line" d="M84 70H102A28 28 0 0 0 158 70H176M84 120H102A28 28 0 0 1 158 120H176"/>' +
-    '<path class="s-dim" d="M130 70V120M126 70H134M126 120H134"/><text class="s-txt" x="136" y="99">t</text>' +
-    '<path class="s-dim" d="M130 98L113 74"/><text class="s-txt" x="104" y="64">R</text>' + '<text class="s-txt" x="130" y="150" text-anchor="middle">b = breedte (loodrecht op het vlak)</text></svg>',
-  wire: SVG_OPEN + block(70, 150, 120, 12, true) + block(80, 22, 120, 12, false) +
-    '<path class="s-ghost" d="M130 150V34"/><path class="s-line" d="M130 150C130 110 150 74 150 34"/>' +
-    dimV(54, 150, 34, "L") + dimH(16, 130, 150, "u") + '<circle class="s-line" cx="215" cy="100" r="9" fill="var(--accent-soft)"/><text class="s-txt" x="215" y="124" text-anchor="middle">d</text></svg>',
-};
-
 // ---------- invoervelden ----------
 const MAT = { id: "mat", type: "material" };
 const f = (id, label, unit, def, min) => ({ id, label, unit, def, min: min == null ? 0 : min });
@@ -70,7 +40,7 @@ const SRC_H = 'Smith, <i>Flexures: Elements of Elastic Mechanisms</i> (Gordon &a
 
 const CALCS = [
   {
-    id: "leaf", group: "Flexures", name: "Bladveer", short: "Enkele bladveer, geleid eind (S-vorm)", svg: SCHEMA.leaf,
+    id: "leaf", group: "Flexures", name: "Bladveer", short: "Enkele bladveer, geleid eind (S-vorm)", 
     inputs: [f("L", "Lengte L", "mm", 20, 0.01), f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dikte t", "mm", 0.2, 0.001), f("u", "Uitwijking u", "mm", 0.5, 0), IN_F, IN_M, IN_PLATE],
     run: (p, M) => {
       const r = leafSpring(Object.assign({}, p, M));
@@ -101,7 +71,7 @@ const CALCS = [
     source: SRC_S + ".",
   },
   {
-    id: "par", group: "Flexures", name: "Parallelle bladveer", short: "Twee bladen, geleide tafel", svg: SCHEMA.par,
+    id: "par", group: "Flexures", name: "Parallelle bladveer", short: "Twee bladen, geleide tafel", 
     inputs: [f("L", "Lengte L per blad", "mm", 20, 0.01), f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dikte t", "mm", 0.2, 0.001), f("u", "Uitwijking u", "mm", 0.5, 0), IN_F, IN_M, IN_PLATE],
     run: (p, M) => {
       const r = parallelLeaf(Object.assign({}, p, M));
@@ -128,7 +98,7 @@ const CALCS = [
     source: SRC_S + ".",
   },
   {
-    id: "cross", group: "Flexures", name: "Kruisveerscharnier", short: "Twee gekruiste bladen, kruising op 50 %", svg: SCHEMA.cross,
+    id: "cross", group: "Flexures", name: "Kruisveerscharnier", short: "Twee gekruiste bladen, kruising op 50 %", 
     inputs: [f("L", "Lengte L per blad", "mm", 20, 0.01), f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dikte t", "mm", 0.2, 0.001), f("phi", "Rotatie φ", "°", 5, 0), f("r", "Afstand massa tot draaipunt", "mm", 50, 0.01), IN_F, IN_M, IN_PLATE],
     run: (p, M) => {
       const q = Object.assign({}, p, M, { phi: p.phi * DEG });
@@ -154,7 +124,7 @@ const CALCS = [
     source: SRC_S + "; " + SRC_H + ".",
   },
   {
-    id: "notch", group: "Flexures", name: "Scharnier met inkeping", short: "Cirkelvormige inkeping (notch hinge)", svg: SCHEMA.notch,
+    id: "notch", group: "Flexures", name: "Scharnier met inkeping", short: "Cirkelvormige inkeping (notch hinge)", 
     inputs: [f("b", "Breedte b", "mm", 10, 0.01), f("t", "Dunste doorsnede t", "mm", 0.3, 0.001), f("R", "Inkepingsstraal R", "mm", 3, 0.01), f("phi", "Rotatie φ", "°", 0.3, 0), f("Kt", "Spanningsconcentratie K_t", "–", 1.5, 1), f("r", "Afstand massa tot draaipunt", "mm", 50, 0.01), IN_M, IN_PLATE],
     run: (p, M) => {
       const r = notchHinge(Object.assign({}, p, M, { phi: p.phi * DEG }));
@@ -180,7 +150,7 @@ const CALCS = [
     source: SRC_H + "; Paros &amp; Weisbord, <i>How to design flexure hinges</i>, Machine Design 37 (1965).",
   },
   {
-    id: "wire", group: "Flexures", name: "Draadflexure", short: "Dunne draad als scharnier of veer", svg: SCHEMA.wire,
+    id: "wire", group: "Flexures", name: "Draadflexure", short: "Dunne draad als scharnier of veer", 
     inputs: [f("L", "Lengte L", "mm", 50, 0.01), f("d", "Diameter d", "mm", 1, 0.001), f("u", "Zijwaartse uitwijking u", "mm", 0.5, 0), IN_F, IN_M,
       { id: "bc", type: "select", label: "Uiteinden", def: "guided", options: [["guided", "Beide ingeklemd, eind geleid (12EI/L³)"], ["free", "Eén eind ingeklemd, ander vrij (3EI/L³)"]] }],
     run: (p, M) => {
@@ -212,9 +182,225 @@ const CALCS = [
   },
 ];
 
-// ---------- toestand ----------
-const state = { cur: "leaf", mat: "staal", vals: {} };
-CALCS.forEach(c => { state.vals[c.id] = {}; c.inputs.forEach(i => { state.vals[c.id][i.id] = i.def; }); });
+// ---------- parametrische tekeningen ----------
+// De SVG wordt één keer opgebouwd; daarna worden alleen attributen en tekst bijgewerkt.
+const NS = "http://www.w3.org/2000/svg";
+const f1 = x => Math.round(x * 10) / 10;
+function set(e, a) { for (const k in a) e.setAttribute(k, a[k]); return e; }
+function mk(tag, attrs, parent) { const e = document.createElementNS(NS, tag); set(e, attrs || {}); if (parent) parent.appendChild(e); return e; }
+function txt(parent, cls, anchor) { return mk("text", { class: "s-txt " + (cls || ""), "text-anchor": anchor || "middle" }, parent); }
+const SVG_DEFS = '<defs><marker id="calcArr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L8 4L0 8z" class="s-arrf"/></marker>' +
+  '<pattern id="calcHatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0V7" class="s-hl"/></pattern></defs>';
+function mkDim(parent, one) {
+  const a = { class: "s-dim", "marker-end": "url(#calcArr)" };
+  if (!one) a["marker-start"] = "url(#calcArr)";
+  return { p: mk("path", a, parent), t: txt(parent, "s-val", "middle") };
+}
+function setDim(d, x1, y1, x2, y2, tx, ty, label, anchor) {
+  set(d.p, { d: "M" + f1(x1) + " " + f1(y1) + "L" + f1(x2) + " " + f1(y2) });
+  set(d.t, { x: f1(tx), y: f1(ty), "text-anchor": anchor || "middle" }); d.t.textContent = label;
+}
+const showEl = (e, on) => { e.style.display = on ? "" : "none"; };
+function mkBlock(parent) { return { r: mk("rect", { class: "s-fix" }, parent), h: mk("rect", { fill: "url(#calcHatch)" }, parent) }; }
+function setBlock(b, x, y, w, h, hatch, on) {
+  set(b.r, { x: f1(x), y: f1(y), width: f1(w), height: h });
+  set(b.h, { x: f1(x), y: f1(y + h), width: f1(w), height: 7 });
+  showEl(b.r, on !== false); showEl(b.h, hatch && on !== false);
+}
+// groen -> oranje -> rood bij oplopende σ/σ_toel
+function stressCol(x) {
+  x = isFinite(x) ? Math.max(0, Math.min(1, x)) : 1;
+  const h = x < 0.5 ? 135 - 95 * (x / 0.5) : 40 - 40 * ((x - 0.5) / 0.5);
+  return "hsl(" + Math.round(h) + ",68%,44%)";
+}
+function mkFoot(svg, R) { R.note = txt(svg, "s-small", "start"); R.leg = txt(svg, "s-small s-bold", "start"); set(R.note, { x: 10, y: 226 }); set(R.leg, { x: 10, y: 239 }); }
+function setFoot(R, r, M, facs) {
+  const ratio = r.sigma / M.sigma, col = stressCol(ratio);
+  R.leg.textContent = "σ = " + num(r.sigma) + " MPa · " + Math.round(ratio * 100) + " % van σ_toel"; R.leg.style.fill = col;
+  const parts = facs.filter(x => x[1] > 1.15).map(x => x[0] + " ×" + num(x[1], 2));
+  R.note.textContent = parts.length ? "× schaal: " + parts.join(", ") : "";
+  return col;
+}
+// doorsnede b × t (of draad d) als inzet
+function mkInset(svg, R, wire) {
+  R.inH = txt(svg, "s-small", "middle"); R.inH.textContent = "doorsnede"; set(R.inH, { x: 275, y: 118 });
+  if (wire) R.inC = mk("circle", { class: "s-sec", cx: 275, cy: 138, r: 16 }, svg);
+  else R.inR = mk("rect", { class: "s-sec", x: 247, y: 126, width: 56 }, svg);
+  R.in1 = txt(svg, "s-val"); R.in2 = txt(svg, "s-val");
+}
+function setInset(R, p, wire) {
+  if (wire) { set(R.in1, { x: 275, y: 170 }); R.in1.textContent = "d = " + num(p.d) + " mm"; R.in2.textContent = ""; return 1; }
+  const real = p.t / p.b * 56, bh = Math.min(Math.max(real, 3), 28);
+  set(R.inR, { height: f1(bh) });
+  set(R.in1, { x: 275, y: f1(126 + bh + 14) }); R.in1.textContent = "b = " + num(p.b) + " mm";
+  set(R.in2, { x: 275, y: f1(126 + bh + 27) }); R.in2.textContent = "t = " + num(p.t) + " mm";
+  return bh / real;
+}
+
+function beamFig(kind) {
+  const wire = kind === "wire", n = kind === "par" ? 2 : 1;
+  return {
+    build(svg) {
+      const R = { leaf: [] };
+      R.ghost = mk("path", { class: "s-ghost" }, svg); R.ext = mk("path", { class: "s-ghost" }, svg);
+      for (let k = 0; k < n; k++) R.leaf.push(mk("path", { class: "s-leaf" }, svg));
+      R.base = mkBlock(svg); R.table = mkBlock(svg);
+      R.tip = mk("circle", { class: "s-fix", r: 4 }, svg);
+      R.dL = mkDim(svg); R.dU = mkDim(svg);
+      mkInset(svg, R, wire); mkFoot(svg, R);
+      return R;
+    },
+    draw(R, p, r, M) {
+      const guided = !wire || p.bc === "guided", Lp = 150, s = Lp / p.L, yb = 200, yt = yb - Lp;
+      const th = wire ? p.d : p.t, tp = Math.max(th * s, wire ? 1.8 : 3), tFac = tp / (th * s);
+      let up = p.u * s, uFac = 1;
+      if (up > 0 && up < 8) { uFac = 8 / up; up = 8; }
+      up = Math.min(up, 70);
+      const xs = n === 1 ? [150] : [125, 185], hw = 45, x0 = xs[0] - hw, x1 = xs[n - 1] + hw;
+      const col = stressCol(r.sigma / M.sigma);
+      set(R.ghost, { d: xs.map(x => "M" + x + " " + yb + "V" + yt).join("") });
+      xs.forEach((xi, k) => {
+        set(R.leaf[k], { d: "M" + xi + " " + yb + "C" + xi + " " + f1(yb - Lp / 3) + " " + f1(xi + (guided ? up : up / 2)) + " " + f1(yb - 2 * Lp / 3) + " " + f1(xi + up) + " " + yt, "stroke-width": f1(tp) });
+        R.leaf[k].style.stroke = col;
+      });
+      setBlock(R.base, x0, yb, x1 - x0, 12, true);
+      setBlock(R.table, x0 + up, yt - 12, x1 - x0, 12, false, guided);
+      showEl(R.tip, !guided); set(R.tip, { cx: f1(xs[0] + up), cy: yt, r: f1(Math.max(tp / 2 + 1.5, 3.5)) });
+      setDim(R.dL, x0 - 14, yb, x0 - 14, yt, x0 - 20, (yb + yt) / 2 + 4, "L = " + num(p.L) + " mm", "end");
+      const yu = yt - 26, on = p.u > 0;
+      showEl(R.dU.p, on); showEl(R.dU.t, on); showEl(R.ext, on);
+      setDim(R.dU, xs[0], yu, xs[0] + up, yu, xs[0] + up / 2 + (up < 30 ? 20 : 0), yu - 6, "u = " + num(p.u) + " mm", up < 30 ? "start" : "middle");
+      set(R.ext, { d: "M" + xs[0] + " " + (yt - 14) + "V" + (yu - 4) + "M" + f1(xs[0] + up) + " " + (yt - 14) + "V" + (yu - 4) });
+      const insF = setInset(R, p, wire);
+      setFoot(R, r, M, [[wire ? "diameter" : "dikte", tFac], ["uitwijking", uFac], ["doorsnede", insF]]);
+    },
+  };
+}
+
+function crossFig() {
+  return {
+    build(svg) {
+      const R = {};
+      R.gA = mk("path", { class: "s-ghost" }, svg);
+      R.la = mk("path", { class: "s-leaf" }, svg); R.lb = mk("path", { class: "s-leaf" }, svg);
+      R.base = mkBlock(svg);
+      R.tg = mk("g", {}, svg); R.table = mk("rect", { class: "s-fix" }, R.tg);
+      R.dot = mk("circle", { r: 3.5, class: "s-pivot" }, svg);
+      R.arc = mk("path", { class: "s-dim", "marker-end": "url(#calcArr)" }, svg); R.phiT = txt(svg, "s-val", "start");
+      R.lT = txt(svg, "s-val", "end");
+      mkInset(svg, R, false); mkFoot(svg, R);
+      return R;
+    },
+    draw(R, p, r, M) {
+      const C = { x: 150, y: 120 }, Ls = 140, al = 35 * DEG, h = Ls / 2 * Math.sin(al), v = Ls / 2 * Math.cos(al);
+      const s = Ls / p.L, tp = Math.max(p.t * s, 3), tFac = tp / (p.t * s);
+      let pd = p.phi, pf = 1;
+      if (pd > 0 && pd < 7) { pf = 7 / pd; pd = 7; }
+      pd = Math.min(pd, 25);
+      const a = pd * DEG, co = Math.cos(a), si = Math.sin(a);
+      const rot = (x, y) => [C.x + (x - C.x) * co - (y - C.y) * si, C.y + (x - C.x) * si + (y - C.y) * co];
+      const col = stressCol(r.sigma / M.sigma), sa = Math.sin(al), ca = Math.cos(al);
+      const leaf = (el, bx, dx) => {
+        const P0 = [bx, C.y + v], T = rot(bx + 2 * h * dx, C.y - v), dr = [dx * sa * co + ca * si, dx * sa * si - ca * co];
+        set(el, { d: "M" + f1(P0[0]) + " " + f1(P0[1]) + "C" + f1(P0[0] + dx * sa * Ls / 3) + " " + f1(P0[1] - ca * Ls / 3) + " " + f1(T[0] - dr[0] * Ls / 3) + " " + f1(T[1] - dr[1] * Ls / 3) + " " + f1(T[0]) + " " + f1(T[1]), "stroke-width": f1(tp) });
+        el.style.stroke = col;
+      };
+      leaf(R.la, C.x - h, 1); leaf(R.lb, C.x + h, -1);
+      set(R.gA, { d: "M" + f1(C.x - h) + " " + f1(C.y + v) + "L" + f1(C.x + h) + " " + f1(C.y - v) + "M" + f1(C.x + h) + " " + f1(C.y + v) + "L" + f1(C.x - h) + " " + f1(C.y - v) });
+      setBlock(R.base, C.x - 75, C.y + v, 150, 12, true);
+      set(R.table, { x: C.x - 75, y: f1(C.y - v - 12), width: 150, height: 12 });
+      set(R.tg, { transform: "rotate(" + f1(pd) + " " + C.x + " " + C.y + ")" });
+      set(R.dot, { cx: C.x, cy: C.y });
+      const ra = 100, t0 = -60 * DEG, t1 = t0 + a;
+      set(R.arc, { d: "M" + f1(C.x + ra * Math.cos(t0)) + " " + f1(C.y + ra * Math.sin(t0)) + "A" + ra + " " + ra + " 0 0 1 " + f1(C.x + ra * Math.cos(t1)) + " " + f1(C.y + ra * Math.sin(t1)) });
+      const tm = t0 + a / 2; set(R.phiT, { x: f1(C.x + (ra + 8) * Math.cos(tm)), y: f1(C.y + (ra + 8) * Math.sin(tm) + 4) });
+      R.phiT.textContent = "φ = " + num(p.phi) + "°";
+      set(R.lT, { x: f1(C.x - h - 12), y: f1(C.y + v - 6) }); R.lT.textContent = "L = " + num(p.L) + " mm";
+      const insF = setInset(R, p, false);
+      setFoot(R, r, M, [["dikte", tFac], ["rotatie", pf], ["doorsnede", insF]]);
+    },
+  };
+}
+
+function notchFig() {
+  return {
+    build(svg) {
+      const R = {};
+      R.ghost = mk("path", { class: "s-ghost" }, svg);
+      R.left = mk("path", { class: "s-fix" }, svg); R.lh = mk("rect", { fill: "url(#calcHatch)" }, svg);
+      R.rg = mk("g", {}, svg); R.right = mk("path", { class: "s-fix" }, R.rg);
+      R.neck = mk("rect", { class: "s-neck" }, svg);
+      R.dT = mkDim(svg, true); R.dR = mk("path", { class: "s-dim", "marker-end": "url(#calcArr)" }, svg); R.rT = txt(svg, "s-val");
+      R.arc = mk("path", { class: "s-dim", "marker-end": "url(#calcArr)" }, svg); R.phiT = txt(svg, "s-val", "start");
+      R.bT = txt(svg, "s-val"); mkFoot(svg, R);
+      return R;
+    },
+    draw(R, p, r, M) {
+      const cx = 150, cy = 112, s = 80 / (p.t + 2 * p.R);
+      const Rp = p.R * s, tp = Math.max(p.t * s, 3), tFac = tp / (p.t * s), H = tp + 2 * Rp, Lb = 50;
+      let pd = p.phi, pf = 1;
+      if (pd > 0 && pd < 6) { pf = 6 / pd; pd = 6; }
+      pd = Math.min(pd, 25);
+      const yT = cy - H / 2, yB = cy + H / 2, xl = cx - Rp - Lb, xr = cx + Rp + Lb, g = f1(Rp) + " " + f1(Rp) + " 0 0 ";
+      set(R.left, { d: "M" + f1(xl) + " " + f1(yT) + "H" + f1(cx - Rp) + "A" + g + "0 " + cx + " " + f1(cy - tp / 2) + "V" + f1(cy + tp / 2) + "A" + g + "0 " + f1(cx - Rp) + " " + f1(yB) + "H" + f1(xl) + "Z" });
+      set(R.lh, { x: f1(xl - 7), y: f1(yT), width: 7, height: f1(H) });
+      set(R.right, { d: "M" + f1(xr) + " " + f1(yT) + "H" + f1(cx + Rp) + "A" + g + "1 " + cx + " " + f1(cy - tp / 2) + "V" + f1(cy + tp / 2) + "A" + g + "1 " + f1(cx + Rp) + " " + f1(yB) + "H" + f1(xr) + "Z" });
+      set(R.rg, { transform: "rotate(" + f1(pd) + " " + cx + " " + cy + ")" });
+      set(R.ghost, { d: "M" + f1(cx + Rp) + " " + f1(yT) + "H" + f1(xr) + "V" + f1(yB) + "H" + f1(cx + Rp) });
+      const col = stressCol(r.sigma / M.sigma);
+      set(R.neck, { x: f1(cx - Rp * 0.45), y: f1(cy - tp / 2), width: f1(Rp * 0.9), height: f1(tp) }); R.neck.style.fill = col;
+      // t: pijl vanuit de onderste inkeping naar de dunste doorsnede
+      setDim(R.dT, cx, cy + tp / 2 + Math.min(Rp * 0.8, 26), cx, cy + tp / 2, cx, yB + 14, "t = " + num(p.t) + " mm", "middle");
+      // R: straal in de bovenste inkeping
+      set(R.dR, { d: "M" + cx + " " + f1(yT) + "L" + f1(cx + Rp * 0.707) + " " + f1(yT + Rp * 0.707) });
+      set(R.rT, { x: cx, y: f1(yT - 8) }); R.rT.textContent = "R = " + num(p.R) + " mm";
+      const ra = Rp + Lb + 12, t1 = pd * DEG;
+      set(R.arc, { d: "M" + f1(cx + ra) + " " + cy + "A" + f1(ra) + " " + f1(ra) + " 0 0 1 " + f1(cx + ra * Math.cos(t1)) + " " + f1(cy + ra * Math.sin(t1)) });
+      set(R.phiT, { x: f1(cx + ra + 8), y: f1(cy + ra * Math.sin(t1) / 2 + 4) }); R.phiT.textContent = "φ = " + num(p.phi) + "°";
+      set(R.bT, { x: cx, y: 212 }); R.bT.textContent = "b = " + num(p.b) + " mm (loodrecht op het vlak)";
+      setFoot(R, r, M, [["dunste doorsnede", tFac], ["rotatie", pf]]);
+    },
+  };
+}
+const FIGS = { leaf: beamFig("leaf"), par: beamFig("par"), cross: crossFig(), notch: notchFig(), wire: beamFig("wire") };
+
+// ---------- sliders: [min, max, logaritmisch] ----------
+const RANGE = {
+  L: [5, 200, 1], b: [1, 100, 1], t: [0.02, 2, 1], u: [0.01, 10, 1], d: [0.05, 5, 1], R: [0.1, 30, 1],
+  F: [0.01, 1000, 1], m: [0.001, 10, 1], r: [5, 500, 1], Kt: [1, 4, 0], phi: [0, 20, 0],
+};
+function rng(c, i) { if (c.id === "notch" && i.id === "phi") return [0.01, 5, 1]; return RANGE[i.id]; }
+const GROUP = { L: "Geometrie", b: "Geometrie", t: "Geometrie", d: "Geometrie", R: "Geometrie", Kt: "Geometrie", bc: "Geometrie", plate: "Materiaal" };
+const grpOf = i => GROUP[i.id] || "Belasting";
+function toPos(c, i, v) {
+  const g = rng(c, i);
+  if (!g) return 0;
+  if (g[2]) { if (!(v > 0)) return 0; return Math.round(Math.max(0, Math.min(1, Math.log(v / g[0]) / Math.log(g[1] / g[0]))) * 1000); }
+  return Math.round(Math.max(0, Math.min(1, (v - g[0]) / (g[1] - g[0]))) * 1000);
+}
+function fromPos(c, i, pos) {
+  const g = rng(c, i), s = pos / 1000;
+  if (g[2]) return (s === 0 && i.min === 0) ? 0 : +(g[0] * Math.pow(g[1] / g[0], s)).toPrecision(3);
+  return +(g[0] + s * (g[1] - g[0])).toPrecision(3);
+}
+
+// ---------- belangrijkste uitkomsten ----------
+const KEYS = {
+  leaf: r => [["Stijfheid c_x", "N/mm", num(r.cx)], ["Max. uitwijking u_max", "mm", num(r.uMax)]],
+  cross: r => [["Draaistijfheid c_φ", "Nmm/rad", num(r.c)], ["Max. rotatie φ_max", "°", num(r.phiMax / DEG)]],
+  wire: r => [["Buigstijfheid c_b", "N/mm", num(r.cb)], ["Max. uitwijking u_max", "mm", num(r.uMax)]],
+};
+KEYS.par = KEYS.leaf; KEYS.notch = KEYS.cross;
+function safety(r, M) {
+  const sS = r.sigma > 0 ? M.sigma / r.sigma : Infinity, sK = isFinite(r.margin) ? r.margin : Infinity, s = Math.min(sS, sK);
+  return { s, status: s < 1 ? "bad" : s < 2 ? "warn" : "ok",
+    sub: "σ_toel/σ = " + (isFinite(sS) ? num(sS) : "∞") + (isFinite(sK) ? " · knik = " + num(sK) : "") };
+}
+
+// ---------- toestand (in het geheugen, per calculator) ----------
+const state = { cur: "leaf", mats: {}, vals: {}, open: { Geometrie: true, Materiaal: true, Belasting: true, Formules: false, Aannames: false }, raf: 0 };
+const defaults = c => { const o = {}; c.inputs.forEach(i => { o[i.id] = i.def; }); return o; };
+CALCS.forEach(c => { state.vals[c.id] = defaults(c); state.mats[c.id] = "staal"; });
 const calcOf = id => CALCS.find(c => c.id === id) || CALCS[0];
 
 function params(c) {
@@ -224,49 +410,92 @@ function params(c) {
 }
 const invalid = (c, p) => c.inputs.filter(i => typeof i.def === "number" &&
   !(isFinite(p[i.id]) && p[i.id] >= i.min && (i.min === 0 || p[i.id] > 0)));
+function matParams() { const m = material(state.mats[state.cur]); return { E: m.E, nu: m.nu, sigma: m.sigma }; }
+const fmtv = v => String(+Number(v).toPrecision(3));
 
 // ---------- weergave ----------
-function matParams() { const m = material(state.mat); return { E: m.E, nu: m.nu, sigma: m.sigma }; }
-
-function renderResults() {
-  const c = calcOf(state.cur), p = params(c), box = $("calcOut");
-  const bad = invalid(c, p);
+let REF = null;   // verwijzingen naar de huidige DOM
+function render() {
+  state.raf = 0;
+  if (!REF) return;
+  const c = calcOf(state.cur), p = params(c), bad = invalid(c, p), M = matParams();
+  c.inputs.forEach(i => { const n = REF.fields[i.id]; if (n && n.type === "number") n.setAttribute("aria-invalid", String(bad.indexOf(i) >= 0)); });
   if (bad.length) {
-    box.innerHTML = '<div class="calc-warn" role="alert">Controleer de invoer: ' + bad.map(i => i.label).join(", ") + ".</div>";
-    $("calcFormulas").innerHTML = "";
+    REF.warn.innerHTML = '<div class="calc-warn" role="alert">Controleer de invoer: ' + bad.map(i => i.label).join(", ") + ".</div>";
+    REF.warnH = "";
+    REF.root.classList.add("is-bad");
     return;
   }
-  const o = c.run(p, matParams());
-  let h = "";
-  if (o.warn.length) h += '<div class="calc-warn" role="alert">' + o.warn.map(w => "<div>⚠ " + w + "</div>").join("") + "</div>";
-  h += '<dl class="calc-res">' + o.out.map(x => '<div class="' + (x.bad ? "bad" : "") + '"><dt>' + x.k + '</dt><dd data-res="' + x.k + '">' + x.v + (x.unit ? ' <span class="u">' + x.unit + "</span>" : "") + "</dd></div>").join("") + "</dl>";
-  box.innerHTML = h;
-  const fm = c.formulas(p, matParams(), o.r);
-  $("calcFormulas").innerHTML = fm.map(x => '<div class="fm"><div class="fm-h">' + x[0] + '</div><div class="fm-g">' + x[1] + '</div><div class="fm-n"><span class="fm-lab">met jouw getallen</span> ' + x[2] + "</div></div>").join("");
+  REF.root.classList.remove("is-bad");
+  const o = c.run(p, M), r = o.r;
+  const wh = o.warn.length ? '<div class="calc-warn" role="alert">' + o.warn.map(w => "<div>⚠ " + w + "</div>").join("") + "</div>" : "";
+  if (wh !== REF.warnH) { REF.warn.innerHTML = wh; REF.warnH = wh; }
+  o.out.forEach((x, k) => {
+    const cell = REF.cells[k];
+    if (!cell) return;
+    cell.dd.firstChild.nodeValue = x.v + (x.unit ? " " : "");
+    cell.u.textContent = x.unit || "";
+    cell.box.classList.toggle("bad", !!x.bad);
+  });
+  const ks = KEYS[c.id](r), sf = safety(r, M);
+  [ks[0], ks[1], ["Veiligheid", "", isFinite(sf.s) ? "× " + num(sf.s) : "∞"]].forEach((k, n) => {
+    const e = REF.keys[n]; e.v.firstChild.nodeValue = k[2] + (k[1] ? " " : ""); e.u.textContent = k[1];
+  });
+  REF.keys[2].box.setAttribute("data-status", sf.status); REF.keys[2].sub.textContent = sf.sub;
+  REF.keys[0].sub.textContent = ""; REF.keys[1].sub.textContent = "bij σ_toel = " + num(M.sigma) + " MPa";
+  FIGS[c.id].draw(REF.fig, p, r, M);
+  if (state.open.Formules) renderFormulas(c, p, M, r);
 }
+function renderFormulas(c, p, M, r) {
+  REF.formulas.innerHTML = c.formulas(p, M, r).map(x => '<div class="fm"><div class="fm-h">' + x[0] + '</div><div class="fm-g">' + x[1] + '</div><div class="fm-n"><span class="fm-lab">met jouw getallen</span> ' + x[2] + "</div></div>").join("");
+}
+const schedule = () => { if (!state.raf) state.raf = requestAnimationFrame(render); };
+
+function inputHtml(c, i, v) {
+  if (i.type === "check") return '<label class="chk"><input type="checkbox" data-in="' + i.id + '"' + (v[i.id] ? " checked" : "") + "> " + i.label + "</label>";
+  if (i.type === "select") return '<label class="fld"><span>' + i.label + '</span><select data-in="' + i.id + '">' + i.options.map(o => '<option value="' + o[0] + '"' + (v[i.id] === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></label>";
+  return '<div class="fld"><div class="fld-row"><label for="in_' + i.id + '">' + i.label + '</label><span class="inp"><input id="in_' + i.id + '" type="number" inputmode="decimal" step="any" data-in="' + i.id + '" value="' + v[i.id] + '"><b>' + i.unit + "</b></span></div>" +
+    '<input type="range" class="sl" min="0" max="1000" step="1" data-sl="' + i.id + '" aria-label="' + i.label + '" value="' + toPos(c, i, v[i.id]) + '"></div>';
+}
+const secHtml = (name, body) => '<details class="calc-sec" data-sec="' + name + '"' + (state.open[name] ? " open" : "") + "><summary>" + name + '</summary><div class="calc-sec-b">' + body + "</div></details>";
 
 function renderDetail() {
-  const c = calcOf(state.cur), v = state.vals[c.id];
-  let h = '<h2>' + c.name + '</h2><p class="calc-sub">' + c.short + "</p>";
-  h += '<div class="calc-top"><figure class="calc-fig">' + c.svg + "</figure><form class=\"calc-in\" onsubmit=\"return false\">";
-  h += '<label class="fld"><span>Materiaal</span><select id="calcMat">' + MATERIALS.map(m => '<option value="' + m.id + '"' + (m.id === state.mat ? " selected" : "") + ">" + m.naam + "</option>").join("") + "</select></label>";
-  h += '<div class="mat-info" id="calcMatInfo"></div>';
-  c.inputs.forEach(i => {
-    if (i.type === "check") h += '<label class="chk"><input type="checkbox" data-in="' + i.id + '"' + (v[i.id] ? " checked" : "") + "> " + i.label + "</label>";
-    else if (i.type === "select") h += '<label class="fld"><span>' + i.label + '</span><select data-in="' + i.id + '">' + i.options.map(o => '<option value="' + o[0] + '"' + (v[i.id] === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></label>";
-    else h += '<label class="fld"><span>' + i.label + '</span><span class="inp"><input type="number" inputmode="decimal" step="any" data-in="' + i.id + '" value="' + v[i.id] + '"><b>' + i.unit + "</b></span></label>";
-  });
-  h += "</form></div>";
-  h += '<h3>Resultaat</h3><div id="calcOut"></div>';
-  h += '<h3>Formules</h3><div id="calcFormulas" class="calc-formulas"></div>';
-  h += '<h3>Aannames</h3><ul class="calc-assume">' + c.assume.map(a => "<li>" + a + "</li>").join("") + "</ul>";
-  h += '<p class="calc-src"><span>Bron</span> ' + c.source + "</p>";
+  if (state.raf) { cancelAnimationFrame(state.raf); state.raf = 0; }
+  const c = calcOf(state.cur), v = state.vals[c.id], M0 = matParams();
+  const body = { Geometrie: "", Materiaal: "", Belasting: "" };
+  body.Materiaal += '<label class="fld"><span>Materiaal</span><select id="calcMat">' + MATERIALS.map(m => '<option value="' + m.id + '"' + (m.id === state.mats[c.id] ? " selected" : "") + ">" + m.naam + "</option>").join("") + "</select></label>" + '<div class="mat-info" id="calcMatInfo"></div>';
+  c.inputs.forEach(i => { body[grpOf(i)] += inputHtml(c, i, v); });
+  let h = '<div class="calc-head"><div><h2>' + c.name + '</h2><p class="calc-sub">' + c.short + '</p></div><button type="button" class="calc-reset" id="calcReset" title="Zet deze calculator terug op de beginwaarden">↺ Reset</button></div>';
+  h += '<div class="calc-grid" id="calcGrid"><div class="calc-keys">' +
+    [0, 1, 2].map(n => '<div class="calc-key" data-key="' + n + '"><span class="k"></span><b class="v">0<span class="u"></span></b><span class="s"></span></div>').join("") + "</div>";
+  h += '<div class="calc-left"><figure class="calc-fig"><svg id="calcSvg" viewBox="0 0 320 245" role="img" aria-label="Schets met afmetingen"></svg></figure><div id="calcWarn" class="calc-warnbox"></div><dl class="calc-res" id="calcOut"></dl></div>';
+  h += '<div class="calc-right"><div class="calc-inputs">' + secHtml("Geometrie", body.Geometrie) + secHtml("Materiaal", body.Materiaal) + secHtml("Belasting", body.Belasting) + "</div>";
+  h += '<details class="calc-sec calc-card" data-sec="Formules"' + (state.open.Formules ? " open" : "") + '><summary>Formules</summary><div class="calc-sec-b calc-formulas" id="calcFormulas"></div></details>';
+  h += '<details class="calc-sec calc-card" data-sec="Aannames"' + (state.open.Aannames ? " open" : "") + '><summary>Aannames en bron</summary><div class="calc-sec-b"><ul class="calc-assume">' + c.assume.map(a => "<li>" + a + "</li>").join("") + '</ul><p class="calc-src"><span>Bron</span> ' + c.source + "</p></div></details></div></div>";
   $("calcDetail").innerHTML = h;
+  // resultaatkaarten (vaste opbouw per calculator; daarna alleen tekst bijwerken)
+  const o0 = c.run(defaults(c), M0), out = $("calcOut"), cells = [];
+  o0.out.forEach(x => {
+    const box = document.createElement("div"), dt = document.createElement("dt"), dd = document.createElement("dd"), u = document.createElement("span");
+    dt.textContent = x.k; dd.setAttribute("data-res", x.k); u.className = "u"; dd.appendChild(document.createTextNode("")); dd.appendChild(u);
+    box.appendChild(dt); box.appendChild(dd); out.appendChild(box); cells.push({ box, dd, u });
+  });
+  const fields = {}, sliders = {};
+  $("calcDetail").querySelectorAll("[data-in]").forEach(n => { fields[n.dataset.in] = n; });
+  $("calcDetail").querySelectorAll("[data-sl]").forEach(n => { sliders[n.dataset.sl] = n; });
+  const svg = $("calcSvg"); svg.innerHTML = SVG_DEFS;
+  REF = {
+    root: $("calcGrid"), warn: $("calcWarn"), warnH: "", cells, fields, sliders, formulas: $("calcFormulas"),
+    keys: [0, 1, 2].map(n => { const b = $("calcDetail").querySelector('[data-key="' + n + '"]'); return { box: b, v: b.querySelector(".v"), u: b.querySelector(".v .u"), sub: b.querySelector(".s") }; }),
+    fig: FIGS[c.id].build(svg),
+  };
+  const kl = KEYS[c.id](o0.r);
+  REF.keys.forEach((k, n) => { k.box.querySelector(".k").textContent = n < 2 ? kl[n][0] : "Veiligheid"; });
   updMatInfo();
-  renderResults();
+  render();
 }
 function updMatInfo() {
-  const m = material(state.mat);
+  const m = material(state.mats[state.cur]);
   $("calcMatInfo").textContent = "E = " + num(m.E / 1000) + " GPa · ν = " + num(m.nu) + " · σ_toel = " + num(m.sigma) + " MPa";
 }
 
@@ -284,7 +513,7 @@ export function setWork(w) {
   $("calcRoot").hidden = !calc;
   document.querySelectorAll("#workSeg [data-w]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.w === w)));
   if (!calc) window.dispatchEvent(new Event("resize"));
-  else if (!$("calcDetail").firstChild) renderDetail();
+  else if (!REF) renderDetail();
 }
 
 export function initCalc() {
@@ -299,13 +528,33 @@ export function initCalc() {
     state.cur = b.dataset.c;
     renderList(); renderDetail();
   });
-  $("calcDetail").addEventListener("input", e => {
+  const det = $("calcDetail");
+  det.addEventListener("input", e => {
     const t = e.target, c = calcOf(state.cur);
-    if (t.id === "calcMat") { state.mat = t.value; updMatInfo(); renderResults(); return; }
+    if (t.id === "calcMat") { state.mats[c.id] = t.value; updMatInfo(); render(); return; }
+    if (t.dataset.sl) {                       // slider -> getalveld; tekenen via rAF
+      const inp = c.inputs.find(i => i.id === t.dataset.sl), val = fromPos(c, inp, +t.value);
+      state.vals[c.id][inp.id] = val; REF.fields[inp.id].value = fmtv(val);
+      schedule(); return;
+    }
     const id = t.dataset.in;
     if (!id) return;
     const inp = c.inputs.find(i => i.id === id);
-    state.vals[c.id][id] = inp.type === "check" ? t.checked : inp.type === "select" ? t.value : parseFloat(String(t.value).replace(",", "."));
-    renderResults();
+    const val = inp.type === "check" ? t.checked : inp.type === "select" ? t.value : parseFloat(String(t.value).replace(",", "."));
+    state.vals[c.id][id] = val;
+    if (REF.sliders[id]) REF.sliders[id].value = toPos(c, inp, val);
+    render();
   });
+  det.addEventListener("click", e => {
+    if (!e.target.closest("#calcReset")) return;
+    const c = calcOf(state.cur);
+    state.vals[c.id] = defaults(c); state.mats[c.id] = "staal";
+    renderDetail();
+  });
+  det.addEventListener("toggle", e => {
+    const s = e.target.dataset && e.target.dataset.sec;
+    if (!s) return;
+    state.open[s] = e.target.open;
+    if (s === "Formules" && e.target.open) schedule();
+  }, true);
 }
