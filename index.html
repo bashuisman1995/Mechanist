@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mechanismeschets</title>
-<meta name="mech-build" content="783c457">
+<meta name="mech-build" content="0b6b398">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -16957,7 +16957,12 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const mname = (id) => (MATERIALS2.filter((m) => m.id === id)[0] || { naam: id }).naam;
       return { key: k, label: v.label, before: mname(v.value), after: mname(d[j]), options: MATERIALS2.map((m) => m.naam).join(", ") };
     });
-    const outRows = show.map((o) => ({ label: o.label, unit: o.unit, before: f2(before[o.key], Math.abs(before[o.key])), after: f2(after[o.key], Math.abs(before[o.key])), afterRaw: after[o.key], role: o.key === S2.obj ? "doel" : consKeys.indexOf(o.key) >= 0 ? "rand" : "" }));
+    const unitScale = {};
+    show.forEach((o) => {
+      const u = o.unit || "";
+      unitScale[u] = Math.max(unitScale[u] || 0, Math.abs(before[o.key]) || 0, Math.abs(after[o.key]) || 0);
+    });
+    const outRows = show.map((o) => ({ label: o.label, unit: o.unit, before: f2(before[o.key], unitScale[o.unit || ""]), after: f2(after[o.key], unitScale[o.unit || ""]), afterRaw: after[o.key], role: o.key === S2.obj ? "doel" : consKeys.indexOf(o.key) >= 0 ? "rand" : "" }));
     const cons = p.consIn.map((r, i) => ({ label: opts.constraints[i].label, active: res2.active.some((a) => a.name === "c" + i) }));
     const bounds2 = res2.activeBounds.map((b) => {
       const v = vars.filter((q) => q.id === b.name)[0];

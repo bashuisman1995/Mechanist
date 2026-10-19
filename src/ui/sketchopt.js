@@ -194,7 +194,10 @@ function buildP(R) {
     const mname = id => (MATERIALS.filter(m => m.id === id)[0] || { naam: id }).naam;
     return { key: k, label: v.label, before: mname(v.value), after: mname(d[j]), options: MATERIALS.map(m => m.naam).join(", ") };
   });
-  const outRows = show.map(o => ({ label: o.label, unit: o.unit, before: f(before[o.key], Math.abs(before[o.key])), after: f(after[o.key], Math.abs(before[o.key])), afterRaw: after[o.key], role: o.key === S.obj ? "doel" : consKeys.indexOf(o.key) >= 0 ? "rand" : "" }));
+  // schaal per eenheid: een restwaarde als 9,7e-10 µm naast 13 µm toont als 0
+  const unitScale = {};
+  show.forEach(o => { const u = o.unit || ""; unitScale[u] = Math.max(unitScale[u] || 0, Math.abs(before[o.key]) || 0, Math.abs(after[o.key]) || 0); });
+  const outRows = show.map(o => ({ label: o.label, unit: o.unit, before: f(before[o.key], unitScale[o.unit || ""]), after: f(after[o.key], unitScale[o.unit || ""]), afterRaw: after[o.key], role: o.key === S.obj ? "doel" : consKeys.indexOf(o.key) >= 0 ? "rand" : "" }));
   const cons = p.consIn.map((r, i) => ({ label: opts.constraints[i].label, active: res.active.some(a => a.name === "c" + i) }));
   const bounds = res.activeBounds.map(b => { const v = vars.filter(q => q.id === b.name)[0]; return (v ? v.label : b.name) + " op " + b.bound; });
   const track = [S.obj].concat(consKeys.filter(k => k !== S.obj));
