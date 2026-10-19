@@ -1,5 +1,6 @@
 // Metingen kiezen en de lijst met reeksen.
-import { compile, exprUnit } from "../core/formula.js";
+import { chVal } from "../core/channels.js";
+import { alias, compile, exprUnit } from "../core/formula.js";
 import { model, sim, ui, view } from "../core/state.js";
 import { draw } from "./draw.js";
 import { fmtHz, sg } from "./format.js";
@@ -106,6 +107,7 @@ function checkFx() {
 }
 
 function setSerie(idx, sr) {
+  if (sr.expr && model.mode === "stiff") sr.stiff = true;            // een formule van statische waarden hoort bij de modus Stijfheid
   if (idx < 0) model.series.push(sr); else model.series[idx] = sr;
   ui.pdata = null; renderSeries(); drawPlot(); save();
 }
@@ -115,10 +117,32 @@ export function toggleSerie(key) {
   ui.pdata = null; renderSeries(); drawPlot(); save();
 }
 
+// metingen met een statische waarde (modus Stijfheid) horen niet in de tijdgrafieken van de andere modi, en omgekeerd
+const isStiffKey = k => /^[uk]\|/.test(k || "");
+const showSerie = sr => (model.mode === "stiff" ? !!(sr.stiff || isStiffKey(sr.key)) : !(sr.stiff || isStiffKey(sr.key)));
+// Stijfheid: één waarde per meting (of formule), uit de statische oplossing
+export function stiffSeriesRows() {
+  return model.series.filter(showSerie).map(sr => Object.assign({ lab: serieLab(sr) }, stiffValue(sr)));
+}
+function stiffValue(sr) {
+  try {
+    if (!(sim.stiff && sim.stiff.ok)) return { v: NaN, u: "", err: "geen oplossing" };
+    if (sr.expr) {
+      const c = compile(sr.expr);
+      return { v: c.f(nm => (nm === "t" ? 0 : chVal(null, alias(nm).key, 0))), u: exprUnit(c.used, sr.expr) };
+    }
+    const c = sim.CHM.get(sr.key);
+    return { v: chVal(null, sr.key, 0), u: c ? c.u : "" };
+  } catch (e) { return { v: NaN, u: "", err: e.message }; }
+}
+
 export function renderSeries() {
   refreshChannels();
   const note = document.getElementById("serieNote");
-  if (!model.series.length) {
+  if (model.mode === "stiff") note.textContent = "";
+  const shown = model.series.map((sr, i) => i).filter(i => showSerie(model.series[i]));
+  if (!shown.length) {
+    if (model.mode === "stiff") { seriesBox.innerHTML = '<p class="empty">Kies <b>Metingen…</b> voor de verplaatsing van een punt of de grootste spanning van een balk, of <b>ƒ Formule</b> voor bijvoorbeeld <code>ux_C − ux_B</code>. De waarde staat hier.</p>'; return; }
     seriesBox.innerHTML = "";
     note.textContent = sim.sweep
       ? "Klik op Metingen\u2026, of selecteer een onderdeel en kies hoe je het meet."
@@ -127,9 +151,9 @@ export function renderSeries() {
   }
   note.textContent = sim.sweep && !sim.sweep.stat && !sim.sweep.frf
     ? "Krachten zijn niet bepaald: het stelsel is niet vierkant." : "";
-  seriesBox.innerHTML = model.series.map((sr, i) =>
+  seriesBox.innerHTML = shown.map(i => [model.series[i], i]).map(([sr, i]) =>
     '<div class="serie">' +
-      '<span class="sw" style="background:' + serieColor(i) + '"></span>' +
+      '<span class="sw" style="background:' + (model.mode === "stiff" ? "var(--ink-3)" : serieColor(i)) + '"></span>' +
       (sr.expr
         ? '<input class="fx" data-f="' + i + '" value="' + String(sr.expr).replace(/"/g, "&quot;") + '">'
         : '<button class="lab" data-i="' + i + '">' + serieLab(sr) + '</button>') +
@@ -140,7 +164,7 @@ export function renderSeries() {
     el.addEventListener("click", () => openPick(+el.dataset.i)));
   seriesBox.querySelectorAll(".fx").forEach(el => {
     const commit = () => {
-      model.series[+el.dataset.f] = { expr: el.value };
+      model.series[+el.dataset.f] = model.series[+el.dataset.f].stiff ? { expr: el.value, stiff: true } : { expr: el.value };
       ui.pdata = null; syncSeriesValues(); drawPlot(); save();
     };
     el.addEventListener("change", commit);
@@ -160,6 +184,14 @@ const degs = p => { const r = Math.round(p) || 0; return (r < 0 ? "\u2212" : "")
 const num = (v, u) => !isFinite(v) ? "\u2013" : sg(v) + (u ? " " + u : "");
 
 export function syncSeriesValues() {
+  if (model.mode === "stiff") {
+    seriesBox.querySelectorAll("[data-v]").forEach(el => {
+      const r = stiffValue(model.series[+el.dataset.v]);
+      const h = r.err ? '<b style="color:var(--bad)">' + r.err + "</b>" : "<b>" + num(r.v, r.u) + "</b>";
+      if (el.__h !== h) { el.__h = h; el.innerHTML = h; }
+    });
+    return;
+  }
   if (!sim.sweep) return;
   if (!ui.pdata) buildPdata();
   const i = Math.max(0, Math.min(360, ui.hoverI !== null ? ui.hoverI : Math.round(ui.frame)));

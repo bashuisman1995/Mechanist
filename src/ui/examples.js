@@ -21,7 +21,7 @@ function addContact(nodeId, ax, ay, ang, c0) {
 function build(nodes, elems, after) {
   if (ui.playing) togglePlay();
   cancelJob(); sim.solved = null;
-  model.nodes = []; model.elems = []; model.series = []; sim.uid = 1; ui.nameCounter = 0;
+  model.nodes = []; model.elems = []; model.series = []; model.stiffPath = []; model.stiffQ = ["ux", "uy"]; sim.uid = 1; ui.nameCounter = 0;
   model.durMode = "fixed"; model.xAxis = "time";
   model.gravity = false; model.jointDamp = false; model.cVisc = 0; model.dT = 0; model.thermNode = "";
   document.getElementById("gravChk").checked = false;

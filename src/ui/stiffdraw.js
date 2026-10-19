@@ -2,8 +2,10 @@
 import { N } from "../core/elements.js";
 import { effectiveScale, jointFor, memberCurve, modeScale, modelKey, NSEG } from "../core/stiffness.js";
 import { isBeam } from "../core/axial.js";
+import { orderPath } from "../core/stiffpath.js";
 import { model, sim, ui } from "../core/state.js";
 import { REL_FE, fmtAngle, fmtForce, fmtHz, fmtLen, fmtMoment } from "./format.js";
+import { pathIds } from "./stiffpath.js";
 import { ctx, toScr } from "./view.js";
 
 // kleurverloop voor σ/σ_toel: blauw (0) – groen – geel – rood (≥ 1)
@@ -35,6 +37,19 @@ export function drawStiff(label) {
     pts.forEach((p, i) => { const s = toScr(p); if (i) ctx.lineTo(s.x, s.y); else ctx.moveTo(s.x, s.y); });
     ctx.stroke(); ctx.setLineDash([]);
   };
+  if (ui.stiffView === "pad") {                   // het gekozen pad (verloop in de lade): halo, begin en eind
+    const items = orderPath(res, pathIds());
+    items.forEach((it, i) => {
+      const pts = memberCurve(sys, it.rec, u, sh.scale, it.rec.kind === "beam" ? NSEG : 1, !sh.mode);
+      ctx.globalAlpha = .32; line(pts, ui.C.driver, 13); ctx.globalAlpha = 1;
+      const first = i === 0, last = i === items.length - 1;
+      if (first || last) {
+        const q = toScr(pts[(first ? it.rev : !it.rev) ? pts.length - 1 : 0]);
+        ctx.fillStyle = ui.C.driver; ctx.beginPath(); ctx.arc(q.x, q.y, 5, 0, 6.2832); ctx.fill();
+        label(q.x + 9, q.y - 12, first ? "s = 0" : "eind", ui.C.driver, true, 0);
+      }
+    });
+  }
   for (const rec of res.members) {
     if (rec.kind === "contact") continue;
     const sel = ui.sel && ui.sel.id === rec.e.id;

@@ -14,7 +14,9 @@ import { fmtHz, fmtLen, fmtStress, fmtTime, sg } from "./format.js";
 import { howHtml } from "./how.js";
 import { buildPdata, drawPlot, plotCv, serieLab } from "./plot.js";
 import { esc, showReport } from "./report.js";
+import { stiffSeriesRows } from "./picker.js";
 import { stiffKeyHtml, tablesHtml } from "./stiff.js";
+import { pathPlotImage, pathSummaryHtml } from "./stiffpath.js";
 import { cv } from "./view.js";
 
 const nm = id => { const n = N(id); return n ? n.name : "?"; };
@@ -231,7 +233,12 @@ function stiffResults() {
   if (R.empty || !R.ok) return statusHtml() + '<div class="rep-box">' + stiffKeyHtml(R) + "</div>";
   let h = statusHtml() + '<div class="rep-box">' + stiffKeyHtml(R) + "</div>";
   if (R.modes && R.modes.length) h += "<h3>Eigenfrequenties (ongedempt)</h3>" + tbl(["Mode", "f"], R.modes.map((m, k) => [String(k + 1), fmtHz(m.f)]));
-  return h + '<div class="rep-twin">' + tablesHtml(R) + "</div>";
+  h += '<div class="rep-twin">' + tablesHtml(R) + "</div>";
+  const rows = stiffSeriesRows();
+  if (rows.length) h += "<h3>Metingen</h3>" + tbl(["Meting", "Waarde", "Eenheid"], rows.map(r => [esc(r.lab), r.err ? esc(r.err) : sg(r.v, 4), esc(r.u || "")]));
+  const pu = pathPlotImage(640);
+  if (pu) h += "<h3>Verloop langs een pad</h3>" + figure(pu, pathSummaryHtml().replace(/<[^>]+>/g, "") + " Punten markeren het begin en eind van elke balk.", "Verloop langs het gekozen pad");
+  return h;
 }
 function resultsHtml() {
   if (model.mode === "stiff") return stiffResults();

@@ -64,6 +64,7 @@ function load(key) {
     model.dT = d.dT || 0; model.thermNode = d.thermNode || "";
     setModeUI(d.mode === "dyn" || d.mode === "frf" || d.mode === "stiff" ? d.mode : "kin");
     model.stiffNode = d.stiffNode || ""; model.stiffAng = d.stiffAng !== undefined ? d.stiffAng : 90; model.stiffScale = d.stiffScale || 0;
+    model.stiffPath = Array.isArray(d.stiffPath) ? d.stiffPath : []; model.stiffQ = Array.isArray(d.stiffQ) && d.stiffQ.length ? d.stiffQ : ["ux", "uy"];
     for (const e of model.elems) if (e.driver && e.theta0 === undefined) e.theta0 = e.theta || 0;
     sim.uid = d.uid || 1; ui.nameCounter = d.nameCounter || 0;
     for (const n of model.nodes) { if (n.ax === undefined) { n.ax = n.x; n.ay = n.y; } }
@@ -80,7 +81,7 @@ function load(key) {
    ============================================================ */
 const DOC_KEYS = ["nodes", "elems", "series", "mode", "gravity", "showForces",
                   "simDur", "dtStep", "defMass", "xAxis", "grid", "snap", "rigidDrag",
-                  "autoSolve", "durMode", "cVisc", "maxT", "jointDamp", "cJoint", "frfIn", "frfMin", "frfMax", "name", "fricVs", "fricVe", "dT", "thermNode", "stiffNode", "stiffAng", "stiffScale"];
+                  "autoSolve", "durMode", "cVisc", "maxT", "jointDamp", "cJoint", "frfIn", "frfMin", "frfMax", "name", "fricVs", "fricVe", "dT", "thermNode", "stiffNode", "stiffAng", "stiffScale", "stiffPath", "stiffQ"];
 export function doc() {
   const o = {};
   for (const k of DOC_KEYS) o[k] = model[k];
@@ -89,6 +90,8 @@ export function doc() {
 export function loadDoc(d) {
   if (!d || !Array.isArray(d.nodes)) throw new Error("geen geldig model");
   for (const k of DOC_KEYS) if (d[k] !== undefined) model[k] = d[k];
+  if (!Array.isArray(d.stiffPath)) model.stiffPath = [];
+  if (!Array.isArray(d.stiffQ) || !d.stiffQ.length) model.stiffQ = ["ux", "uy"];
   for (const n of model.nodes) if (n.ax === undefined) { n.ax = n.x; n.ay = n.y; }
   for (const e of model.elems) if (e.driver && e.theta0 === undefined) e.theta0 = e.theta || 0;
   model.series = (model.series || []).filter(x => x && (x.key || x.expr));

@@ -1,9 +1,9 @@
 // Werkplek "Calculators": flexure-rekenhulpen naast de schets. Alleen UI; de formules staan in src/calc/.
 import { MATERIALS, MATERIAL_SOURCE, material } from "../calc/materials.js";
 import { crossPivot, leafSpring, notchHinge, parallelLeaf, wireFlexure } from "../calc/flexures.js";
-import { effModulus, effRadius, hertzSphere, kinCoupling } from "../calc/contact.js";
+import { effModulus, effRadius, hertzSphere, kelvinCoupling, kinCoupling } from "../calc/contact.js";
 import { dynAmp, fnForT, isolator, msd, overshoot, peakAmp, servo, settleInfo, settleTime, step as stepResp, transmissibility } from "../calc/dynamics.js";
-import { athermal, dLength, lumped } from "../calc/thermal.js";
+import { athermal, dLength, lumped, thermalCentre } from "../calc/thermal.js";
 import { numStr } from "./format.js";
 import { showReport } from "./report.js";
 import { initCalcOpt, optCancel, optMount, optOpen, optSection } from "./calcopt.js";
@@ -29,6 +29,7 @@ const sup = (s, t) => s + "<sup>" + t + "</sup>";
 
 // ---------- literatuur ----------
 const LIT = {
+  soemersTh: 'Soemers, <i>Design Principles for Precision Mechanisms</i> (T-Pointprint, 2010), delen over statisch bepaald opleggen en thermische effecten',
   soemers: 'Soemers, <i>Design Principles for Precision Mechanisms</i> (T-Pointprint, 2010), par. bladveren',
   roark: 'Young &amp; Budynas, <i>Roark’s Formulas for Stress and Strain</i> (McGraw-Hill, 7e, 2002), balkformules',
   gere: 'Gere &amp; Goodno, <i>Mechanics of Materials</i> (Cengage), buiging en axiale belasting',
@@ -50,6 +51,7 @@ const LIT = {
   franklin: 'Franklin, Powell &amp; Emami-Naeini, <i>Feedback Control of Dynamic Systems</i> (Pearson), stijgtijd en bandbreedte',
   munnig: 'Munnig Schmidt, Schitter, Rankers &amp; Van Eijk, <i>The Design of High Performance Mechatronics</i> (IOS Press, 3e, 2020), regelaar en eigenfrequentie',
   incropera: 'Incropera &amp; DeWitt, <i>Fundamentals of Heat and Mass Transfer</i> (Wiley), lumped-capacitance methode, Biot-getal',
+  slocum3: 'Slocum &amp; Donmez, <i>Kinematic couplings for precision fixturing – Part 1: Formulation of design parameters</i>, Precision Engineering 10 (1988) 85–92; Slocum, <i>Design of three-groove kinematic couplings</i>, Precision Engineering 14 (1992) 67–76',
   invar: 'Slocum, <i>Precision Machine Design</i> (SME, 1992), thermische uitzetting en athermisch ontwerp',
 };
 const SRC_S = LIT.soemers;
@@ -524,12 +526,15 @@ CALCS.push({
 });
 
 CALCS.push({
-  id: "kc", group: "Contact", name: "Kinematische koppeling", short: "Maxwell: 3 bollen in 3 V-groeven, zes contacten",
-  inputs: [f("R", "Straal bol R", "mm", 6, 0.01, [1, 25, 1], "Geometrie"), bound(f("gamma", "Openingshoek van de V-groef γ", "°", 90, 10, [30, 150, 0], "Geometrie"), 179, "γ"),
+  id: "kc", group: "Contact", name: "Kinematische koppeling", short: "Maxwell (3 V-groeven) of Kelvin (tetraëder, V-groef, vlak): zes contacten",
+  inputs: [selIn("variant", "Variant", "maxwell", [["maxwell", "Maxwell: 3 V-groeven (6 flanken)"], ["kelvin", "Kelvin: tetraëder + V-groef + vlak (3+2+1)"]], "Geometrie"),
+    f("R", "Straal bol R", "mm", 6, 0.01, [1, 25, 1], "Geometrie"), bound(f("gamma", "Openingshoek van de V-groef γ", "°", 90, 10, [30, 150, 0], "Geometrie"), 179, "γ"),
+    bound(f("gammaC", "Openingshoek van de tetraëder γₖ (alleen Kelvin)", "°", 90, 10, [30, 150, 0], "Geometrie"), 179, "γₖ"),
     f("F", "Totale voorspanning F (langs de as)", "N", 60, 0.001, [1, 5000, 1], "Belasting"), bound(f("mu", "Wrijvingscoëfficiënt μ", "–", 0.15, 0, [0.02, 0.6, 0], "Belasting"), 2, "μ")].concat(MAT_DEF),
   lim: P0_LIM,
   run: (p, M) => {
     const m1 = material(p.mat1), m2 = material(p.mat2);
+    if (p.variant === "kelvin") return runKelvin(p, M, m1, m2);
     const k = kinCoupling({ F: p.F, R: p.R, gamma: p.gamma, mu: p.mu, E1: m1.E, nu1: m1.nu, E2: m2.E, nu2: m2.nu });
     const r = Object.assign({}, k, { margin: M.sigma / k.p0, m1, m2 }), w = [];
     if (r.margin < 1) w.push("p₀ = " + num(k.p0) + " MPa is hoger dan p₀,toel = " + num(M.sigma) + " MPa: kans op blijvende indrukking en daarmee herhaalfout.");
@@ -543,10 +548,10 @@ CALCS.push({
         res("Tangentiële stijfheid k_t = 8·G*·a", num(k.kt / 1000), "N/µm"), res("Slipkracht per groef 2·μ·N", num(k.QGroove), "N"),
         res("Verplaatsing tot slippen μ·N/k_t", num(k.xStick * 1e6), "nm"), res("Virtueel spel (volledig slippen)", num(k.xSlip * 1e6), "nm")] };
   },
-  keys: (r, p, M) => [K("Stijfheid langs de as k_ax", "N/µm", num(r.kAx / 1000), "6 contacten, N = " + num(r.N) + " N elk"),
+  keys: (r, p, M) => [K("Stijfheid langs de as k_ax", "N/µm", num(r.kAx / 1000), r.kelvin ? "3 + 2 + 1 contacten, bepalend: " + r.gov.label : "6 contacten, N = " + num(r.N) + " N elk"),
     K("Virtueel spel (schatting)", "nm", num(r.xSlip * 1e6), "tot volledig slippen, μ = " + num(p.mu)),
-    K("Veiligheid p₀,toel/p₀", "", isFinite(r.margin) ? "× " + num(r.margin) : "∞", "p₀ = " + num(r.p0) + " MPa", statOf(r.margin))],
-  formulas: (p, M, r) => [
+    K("Veiligheid p₀,toel/p₀", "", isFinite(r.margin) ? "× " + num(r.margin) : "∞", "p₀ = " + num(r.p0) + " MPa" + (r.kelvin ? " (" + r.gov.label + ")" : ""), statOf(r.margin))],
+  formulas: (p, M, r) => p.variant === "kelvin" ? kelvinFormulas(p, M, r) : [
     ["Normaalkracht per contact (3 groeven × 2 flanken)", "6·N·sin(γ/2) = F  ⇒  N = " + fr("F", "6·sin(γ/2)"), "N = " + fr(num(p.F), "6·sin(" + num(p.gamma / 2) + "°)") + " = " + num(r.N) + " N", LIT.slocum + ". Aanname: voorspanning in het zwaartepunt, alle groeven even zwaar belast"],
     ["Effectieve modulus", fr("1", "E*") + " = " + fr("1 − " + sub("ν", "1") + "²", sub("E", "1")) + " + " + fr("1 − " + sub("ν", "2") + "²", sub("E", "2")), "E* = " + num(r.Es) + " MPa", LIT.johnson],
     ["Hertz per contact (bol op vlakke flank, R = bolstraal)", "a = (" + fr("3·N·R", "4·E*") + ")<sup>1/3</sup>,  δ = " + fr("a²", "R") + ",  " + sub("p", "0") + " = " + fr("3·N", "2π·a²"),
@@ -560,13 +565,58 @@ CALCS.push({
       sub("x", "stick") + " = " + num(r.xStick * 1e6) + " nm,  " + sub("x", "slip") + " = " + num(r.xSlip * 1e6) + " nm", LIT.johnson + " (Mindlin: δ = 3(2−ν)μN/(8Ga) bij Q = μN, identieke lichamen; gelijk aan 3μN/(16G*a) met G* = G/(2(2−ν))). Het model erachter staat onder Aannames"],
     ["Veiligheid", "n = " + fr(sub("p", "0,toel"), sub("p", "0")), "n = " + fr(num(M.sigma), num(r.p0)) + " = " + num(r.margin), "p₀,toel is jouw invoer (standaard 1,6·σ_y)"],
   ],
-  assume: ["Maxwell-koppeling: drie bollen, elk in een V-groef met de groefassen in een vlak loodrecht op de voorspanning; zes puntcontacten bepalen zes vrijheidsgraden exact (geen overbepaling). Een Kelvin-koppeling (kegel, V-groef, vlak) heeft ook zes contacten, maar met verschillende krachten per contact; die is hier niet apart uitgewerkt.",
+  assume: ["Maxwell-koppeling: drie bollen, elk in een V-groef met de groefassen in een vlak loodrecht op de voorspanning; zes puntcontacten bepalen zes vrijheidsgraden exact (geen overbepaling). Een Kelvin-koppeling heeft ook zes contacten, maar met verschillende krachten per contact; kies daarvoor de variant Kelvin.",
     "De voorspanning F werkt in het zwaartepunt van de drie bollen, dus elke groef draagt F/3, elke flank N = F/(6·sin(γ/2)). Een excentrische belasting of extern moment verdeelt de krachten anders; controleer dan op afheffen.",
     "Contact per flank is Hertz bol-op-vlak met de bolstraal R; k_ax telt alleen de contactveerstijfheid (de omringende constructie komt er in serie bij). De groefas is een vrije richting: daar houdt alleen wrijving vast.",
     "Virtueel spel: bij een belastingwisseling langs de groefas (bijv. thermische uitzetting) moet het contact eerst elastisch rekken (Mindlin-stijfheid k_t = 8·G*·a, lineair) en slipt pas bij Q = μ·N. De verplaatsing tot volledig slippen 3μN/(16·G*·a) (Mindlin) is de orde van grootte van de herhaalfout (hysterese). Dit is een lineaire schatting; werkelijk gedrag hangt af van oppervlakteruwheid, smering, deeltjes en de belastinghistorie.",
+    "Kelvin: bol A in een tetraëder (drie vlakke flanken onder 120°, 3 contacten), bol B in een V-groef waarvan de as naar A wijst (2 contacten), bol C op een plat vlak (1 contact). De drie bollen liggen onder 120° op een cirkel, de voorspanning werkt langs de as door het zwaartepunt, de bolmiddelpunten liggen in één horizontaal vlak, wrijvingsloos. Dan draagt elke bol F/3 verticaal en heffen de horizontale componenten van de tetraëderflanken en de groefflanken elkaar op. Het vlak krijgt dus F/3, elke groefflank F/(6·sin(γ/2)) en elke tetraëderflank F/(9·sin(γₖ/2)). Het contact met de grootste kracht heeft ook de hoogste druk en bepaalt de veiligheid.",
+    "Kelvin: een excentrische voorspanning of een extern moment verschuift deze krachten (het vlak of een groefflank kan dan afheffen); dat is hier niet doorgerekend. De ‘tetraëder’ is drie vlakke facetten (puntcontacten), geen kegel: een bol in een kegel raakt langs een cirkel en dat is geen Hertz-punt.",
     "μ is jouw invoer (staal op staal droog ≈ 0,15–0,8; gesmeerd 0,05–0,15). p₀,toel is een richtwaarde (standaard 1,6·σ_y): onder blijvende indrukking verslechtert de herhaalbaarheid."],
-  source: LIT.slocum + "; " + LIT.johnson + ".",
+  source: LIT.slocum + "; " + LIT.slocum3 + "; " + LIT.johnson + ".",
 });
+
+// Kelvin-variant van de kinematische koppeling: krachten uit de statica per contactsoort, Hertz per contact
+function runKelvin(p, M, m1, m2) {
+  const k = kelvinCoupling({ F: p.F, R: p.R, gamma: p.gamma, gammaC: p.gammaC, mu: p.mu, E1: m1.E, nu1: m1.nu, E2: m2.E, nu2: m2.nu });
+  const [cone, groove, flat] = k.contacts;
+  const r = Object.assign({}, k, { margin: M.sigma / k.p0, m1, m2, kelvin: true, cone, groove, flat }), w = [];
+  if (r.margin < 1) w.push("p₀ = " + num(k.p0) + " MPa in het contact ‘" + k.gov.label + "’ is hoger dan p₀,toel = " + num(M.sigma) + " MPa: kans op blijvende indrukking en daarmee herhaalfout.");
+  else if (r.margin < 1.5) w.push("p₀ in het contact ‘" + k.gov.label + "’ ligt binnen 50 % van p₀,toel; weinig marge.");
+  if (p.gamma < 60) w.push("γ = " + num(p.gamma) + "° is scherp: de groefflanken krijgen " + num(groove.N) + " N en kunnen klemmen.");
+  if (p.gammaC < 60) w.push("γₖ = " + num(p.gammaC) + "° is scherp: de tetraëderflanken kunnen klemmen.");
+  if (k.a / p.R > 0.1) w.push("a/R = " + num(k.a / p.R) + " > 0,1: Hertz wordt onnauwkeurig.");
+  if (k.gov.id !== "flat") w.push("Het vlak (F/3 = " + num(flat.N) + " N) is niet bepalend: de " + k.gov.label + " draagt het zwaarst. Verander γ of γₖ voor een gelijkmatiger verdeling.");
+  const pr = c => num(c.p0);
+  return { r, warn: w,
+    out: [res("Kracht per tetraëderflank (3×) N", num(cone.N), "N"), res("Kracht per groefflank (2×) N", num(groove.N), "N"), res("Kracht op het vlak (1×) N", num(flat.N), "N"),
+      res("Bepalend contact (hoogste druk)", k.gov.label, ""),
+      res("Contactstraal a (bepalend)", num(k.a * 1000), "µm"), res("Nadering δ (bepalend)", num(k.delta * 1000), "µm"),
+      res("Maximale druk p₀ (bepalend)", num(k.p0), "MPa", r.margin < 1), res("Druk p₀ tetraëder / groef / vlak", pr(cone) + " / " + pr(groove) + " / " + pr(flat), "MPa"),
+      res("Veiligheid p₀,toel/p₀", isFinite(r.margin) ? num(r.margin) : "∞", "", r.margin < 1),
+      res("Normaalstijfheid k_n (bepalend)", num(k.kn / 1000), "N/µm"), res("Koppelingsstijfheid langs de as k_ax", num(k.kAx / 1000), "N/µm"),
+      res("Tangentiële stijfheid k_t = 8·G*·a (bepalend)", num(k.kt / 1000), "N/µm"), res("Slipkracht per groef 2·μ·N", num(k.QGroove), "N"),
+      res("Verplaatsing tot slippen μ·N/k_t (bepalend)", num(k.xStick * 1e6), "nm"), res("Virtueel spel (volledig slippen)", num(k.xSlip * 1e6), "nm")] };
+}
+function kelvinFormulas(p, M, r) {
+  const g = r.groove, c = r.cone, v = r.flat;
+  return [
+    ["Verticaal evenwicht per bol (voorspanning in het zwaartepunt, momentenevenwicht om twee horizontale assen)", "Σ" + sub("F", "z") + " = F,  elke bol draagt " + fr("F", "3"), "F/3 = " + num(p.F / 3) + " N per bol", LIT.slocum + ". Aanname: drie bollen onder 120° op een cirkel, F op de as, middelpunten in één horizontaal vlak, wrijvingsloos"],
+    ["Horizontaal evenwicht", "tetraëder: drie gelijke horizontale componenten onder 120° heffen op; groef: twee gelijke flanken heffen op; vlak: geen horizontale kracht", "Σ" + sub("F", "x,y") + " = 0 en ΣM" + sub("z", "") + " = 0 zijn dan vanzelf voldaan (de krachten snijden elk in het bolmiddelpunt)", "De groefas moet naar de tetraëder wijzen; anders houdt de groef de draaiing om de as niet tegen (6 vrijheidsgraden niet vastgelegd)"],
+    ["Vlak (1 contact)", sub("N", "vlak") + " = " + fr("F", "3"), sub("N", "vlak") + " = " + num(v.N) + " N", LIT.slocum],
+    ["V-groef (2 flanken)", "2·" + sub("N", "g") + "·sin(γ/2) = " + fr("F", "3") + "  ⇒  " + sub("N", "g") + " = " + fr("F", "6·sin(γ/2)"), sub("N", "g") + " = " + fr(num(p.F), "6·sin(" + num(p.gamma / 2) + "°)") + " = " + num(g.N) + " N", LIT.slocum + "; " + LIT.slocum3],
+    ["Tetraëder (3 flanken)", "3·" + sub("N", "t") + "·sin(γₖ/2) = " + fr("F", "3") + "  ⇒  " + sub("N", "t") + " = " + fr("F", "9·sin(γₖ/2)"), sub("N", "t") + " = " + fr(num(p.F), "9·sin(" + num(p.gammaC / 2) + "°)") + " = " + num(c.N) + " N", LIT.slocum],
+    ["Effectieve modulus", fr("1", "E*") + " = " + fr("1 − " + sub("ν", "1") + "²", sub("E", "1")) + " + " + fr("1 − " + sub("ν", "2") + "²", sub("E", "2")), "E* = " + num(r.Es) + " MPa", LIT.johnson],
+    ["Hertz per contact (bol op vlakke flank)", "a = (" + fr("3·N·R", "4·E*") + ")<sup>1/3</sup>,  " + sub("p", "0") + " = " + fr("3·N", "2π·a²"),
+      "tetraëder a = " + num(c.a * 1000) + " µm, p₀ = " + num(c.p0) + " MPa;  groef a = " + num(g.a * 1000) + " µm, p₀ = " + num(g.p0) + " MPa;  vlak a = " + num(v.a * 1000) + " µm, p₀ = " + num(v.p0) + " MPa", LIT.johnson],
+    ["Bepalend contact", "p₀ ∝ N<sup>1/3</sup> (zelfde R en E*): het contact met de grootste N heeft de hoogste druk", "bepalend: " + r.gov.label + " met N = " + num(r.gov.N) + " N en p₀ = " + num(r.p0) + " MPa", LIT.johnson],
+    ["Stijfheid per contact", sub("k", "n") + " = 2·E*·a", "tetraëder " + num(c.kn / 1000) + ", groef " + num(g.kn / 1000) + ", vlak " + num(v.kn / 1000) + " N/µm", LIT.johnson],
+    ["Stijfheid langs de voorspanningsas", sub("k", "ax") + " = 3·" + sub("k", "n,t") + "·sin²(γₖ/2) + 2·" + sub("k", "n,g") + "·sin²(γ/2) + " + sub("k", "n,v"),
+      sub("k", "ax") + " = " + num(3 * c.kn * c.s ** 2 / 1000) + " + " + num(2 * g.kn * g.s ** 2 / 1000) + " + " + num(v.kn / 1000) + " = " + num(r.kAx / 1000) + " N/µm", "Elke flank draagt k_n·sin² (normaal gedeeld over de flanknormaal) bij; het vlak volledig. Alleen de Hertz-veerstijfheid; legering, vlakheid en omliggende constructie zijn niet inbegrepen"],
+    ["Effectieve schuifmodulus en tangentiële stijfheid", "1/G* = (2 − " + sub("ν", "1") + ")/" + sub("G", "1") + " + (2 − " + sub("ν", "2") + ")/" + sub("G", "2") + ",  " + sub("k", "t") + " = 8·G*·a", "G* = " + num(r.Gs) + " MPa,  k_t (bepalend) = " + num(r.kt / 1000) + " N/µm", LIT.johnson + " (Mindlin)"],
+    ["Virtueel spel (schatting, bepalend contact)", sub("x", "stick") + " = " + fr("μ·N", sub("k", "t")) + ";  " + sub("x", "slip") + " = 1,5·" + sub("x", "stick"), sub("x", "stick") + " = " + num(r.xStick * 1e6) + " nm,  " + sub("x", "slip") + " = " + num(r.xSlip * 1e6) + " nm", LIT.johnson + " (Mindlin). Het model erachter staat onder Aannames"],
+    ["Veiligheid", "n = " + fr(sub("p", "0,toel"), sub("p", "0")), "n = " + fr(num(M.sigma), num(r.p0)) + " = " + num(r.margin), "p₀,toel is jouw invoer (standaard 1,6·σ_y)"],
+  ];
+}
 
 // ---------- Dynamica ----------
 const DMODE = [["zeta", "ζ in %"], ["c", "c in N·s/m"], ["Q", "Q-factor (1/2ζ)"]];
@@ -760,6 +810,82 @@ CALCS.push({
   source: LIT.incropera + "; " + LIT.invar + ".",
 });
 
+
+// Thermisch centrum: stijve plaat op drie steunen met elk een vrije richting (blad, sleuf), uitzetting van plaat t.o.v. basis
+const TC_AN = [90, 210, 330], TC_TH = [90, 30, 150];
+const tcIn = [];
+for (let i = 1; i <= 3; i++) {
+  tcIn.push(f("r" + i, "Steun " + i + ": afstand tot plaatmidden", "mm", 50, 0, [5, 200, 0], "Geometrie"),
+    f("a" + i, "Steun " + i + ": positiehoek (0° = +x)", "°", TC_AN[i - 1], 0, [0, 360, 0], "Geometrie"),
+    f("t" + i, "Steun " + i + ": vrije richting (sleuf, blad)", "°", TC_TH[i - 1], 0, [0, 180, 0], "Geometrie"));
+}
+CALCS.push({
+  id: "tc", group: "Thermisch", name: "Thermisch centrum", short: "Plaat op drie steunen met een vrije richting: waar zet hij uit rond?",
+  inputs: tcIn.concat([f("dT", "Temperatuurverandering ΔT", "K", 5, 0, [0.1, 50, 1], "Belasting"),
+    f("rp", "Probe: afstand tot plaatmidden", "mm", 60, 0, [0, 200, 0], "Belasting"), f("ap", "Probe: positiehoek (0° = +x)", "°", 0, 0, [0, 360, 0], "Belasting"),
+    matIn("matP", "Materiaal plaat", "alu"), matIn("matB", "Materiaal basis", "staal")]),
+  run: (p, M) => {
+    const mp = material(p.matP), mb = material(p.matB), w = [];
+    const sup = [1, 2, 3].map(i => ({ x: p["r" + i] * Math.cos(p["a" + i] * DEG), y: p["r" + i] * Math.sin(p["a" + i] * DEG), th: p["t" + i] }));
+    const c = thermalCentre(sup), dal = mp.alpha - mb.alpha, delta = dal * 1e-6 * p.dT;                     // δ: relatieve rek van de plaat t.o.v. de basis
+    const probe = { x: p.rp * Math.cos(p.ap * DEG), y: p.rp * Math.sin(p.ap * DEG) };
+    const r = { c, sup, probe, dal, delta, mp, mb, ok: !c.singular };
+    const NA = "n.v.t.";
+    if (c.singular) {
+      w.push("De stijve richtingen (loodrecht op de vrije richtingen) snijden elkaar in één punt of lopen evenwijdig. De opstelling is een mechanisme: de plaat is niet bepaald en kan vrij draaien of schuiven. Er is geen thermisch centrum; draai een vrije richting.");
+    } else {
+      const d = c.disp(probe);
+      r.d = { x: d.x * delta, y: d.y * delta }; r.mag = Math.hypot(r.d.x, r.d.y); r.rc = Math.hypot(probe.x - c.c.x, probe.y - c.c.y);
+      r.cd = Math.hypot(c.c.x, c.c.y); r.rot = c.theta * delta; r.forc = delta * c.resid; r.dK = r.mag * 1e6 / (p.dT > 0 ? p.dT : 1);
+      if (c.ill) w.push("De steunen zijn bijna singulier (det = " + num(c.det) + "): de plaat reageert zeer gevoelig op kleine afwijkingen, het centrum ligt ver weg.");
+      if (!c.concurrent) w.push("De drie lijnen langs de vrije richtingen snijden niet in één punt (grootste afstand tot het gemeenschappelijke punt: " + num(c.resid) + " mm). De plaat zet daardoor niet zuiver uit maar draait mee, θ = " + num(Math.abs(r.rot) * 1e6) + " µrad bij ΔT. Zonder dat meedraaien zouden de steunen " + num(r.forc * 1000) + " µm moeten wijken (dwang).");
+      if (r.cd > 3 * Math.max(p.r1, p.r2, p.r3, 1)) w.push("Het thermisch centrum ligt ver buiten de plaat (" + num(r.cd) + " mm van het midden): de drift van de probe wordt vooral een verschuiving.");
+      if (Math.abs(dal) < 1e-9) w.push("Plaat en basis hebben dezelfde α: er is geen relatieve uitzetting, dus geen drift.");
+    }
+    return { r, warn: w,
+      out: [res("Verschil α = α_plaat − α_basis", num(dal), "µm/(m·K)"), res("Relatieve rek δ = Δα·ΔT", num(delta * 1e6), "µm/m"),
+        res("Thermisch centrum x", c.singular ? NA : num(c.c.x), c.singular ? "" : "mm"), res("Thermisch centrum y", c.singular ? NA : num(c.c.y), c.singular ? "" : "mm"),
+        res("Afstand centrum tot plaatmidden", c.singular ? NA : num(r.cd), c.singular ? "" : "mm"),
+        res("Rotatie van de plaat bij ΔT", c.singular ? NA : num(r.rot * 1e6), c.singular ? "" : "µrad", !c.singular && !c.concurrent),
+        res("Residu van de vrije-richtingslijnen", c.singular ? NA : num(c.resid), c.singular ? "" : "mm", !c.singular && !c.concurrent),
+        res("Dwangverplaatsing δ·residu (als draaien niet mag)", c.singular ? NA : num(r.forc * 1000), c.singular ? "" : "µm"),
+        res("Probe: verplaatsing Δx", c.singular ? NA : num(r.d.x * 1000), c.singular ? "" : "µm"), res("Probe: verplaatsing Δy", c.singular ? NA : num(r.d.y * 1000), c.singular ? "" : "µm"),
+        res("Probe: drift |Δ|", c.singular ? NA : num(r.mag * 1000), c.singular ? "" : "µm"), res("Probe: afstand tot centrum", c.singular ? NA : num(r.rc), c.singular ? "" : "mm"),
+        res("Probe: drift per kelvin", c.singular ? NA : num(r.mag * 1e6 / (p.dT > 0 ? p.dT : 1)), c.singular ? "" : "nm/K"),
+        res("Schuifweg steun 1 langs zijn vrije richting", c.singular ? NA : num(c.slide[0] * delta * 1000), c.singular ? "" : "µm"),
+        res("Schuifweg steun 2 langs zijn vrije richting", c.singular ? NA : num(c.slide[1] * delta * 1000), c.singular ? "" : "µm"),
+        res("Schuifweg steun 3 langs zijn vrije richting", c.singular ? NA : num(c.slide[2] * delta * 1000), c.singular ? "" : "µm"),
+        res("Toestand van de steunen", c.singular ? "mechanisme" : c.concurrent ? "bepaald, zuivere uitzetting" : "bepaald, plaat draait mee", "", c.singular)] };
+  },
+  keys: (r, p) => [
+    r.ok ? K("Drift van de probe", "µm", num(r.mag * 1000), "op " + num(r.rc) + " mm van het centrum · δ = " + num(r.delta * 1e6) + " µm/m", r.mag * 1000 > 1 ? "warn" : "ok") : K("Drift van de probe", "", "n.v.t.", "geen thermisch centrum", "bad"),
+    r.ok ? K("Thermisch centrum", "mm", num(r.c.c.x) + " ; " + num(r.c.c.y), "afstand tot plaatmidden " + num(r.cd) + " mm") : K("Thermisch centrum", "", "n.v.t.", "mechanisme", "bad"),
+    r.ok ? K("Rotatie van de plaat", "µrad", num(r.rot * 1e6), r.c.concurrent ? "lijnen snijden in één punt: zuivere uitzetting" : "lijnen snijden niet: residu " + num(r.c.resid) + " mm", r.c.concurrent ? "ok" : "warn") : K("Rotatie van de plaat", "", "n.v.t.", "singulier", "bad")],
+  formulas: (p, M, r) => {
+    const c = r.c;
+    if (c.singular) return [["Singulier", "det A = 0", "det A = " + num(c.det), LIT.soemersTh + "; " + LIT.slocum]];
+    const row = (i) => { const q = c.lines[i]; return "[" + num(q.nx) + ", " + num(q.ny) + ", " + num((-q.nx * q.y + q.ny * q.x) / c.L) + "]"; };
+    return [
+      ["Relatieve rek van plaat t.o.v. basis", "δ = (" + sub("α", "plaat") + " − " + sub("α", "basis") + ")·ΔT", "δ = (" + num(r.mp.alpha) + " − " + num(r.mb.alpha) + ")·10⁻⁶·" + num(p.dT) + " = " + num(r.delta * 1e6) + " µm/m", LIT.invar],
+      ["Verplaatsing van een plaatpunt p (ten opzichte van de basis)", "d(p) = u + θ·J·p + δ·p,  J: draaiing over 90°", "onbekend: u = (u_x, u_y) en θ (kleine rotatie)", LIT.soemersTh + "; " + LIT.slocum],
+      ["Steunvoorwaarde: een steun laat alleen beweging langs zijn vrije richting e<sub>i</sub> toe", sub("n", "i") + "·d(" + sub("x", "i") + ") = 0,  " + sub("n", "i") + " = (−sin θ<sub>i</sub>, cos θ<sub>i</sub>) ⊥ " + sub("e", "i"), "drie vergelijkingen in (u_x, u_y, L·θ), per eenheid δ; rijen [n_x, n_y, n·(J·x)/L]: " + row(0) + ", " + row(1) + ", " + row(2) + ";  det = " + num(c.det), LIT.soemersTh],
+      ["Oplossing (alles evenredig met δ)", "A·w = −b,  w = (u′<sub>x</sub>, u′<sub>y</sub>, L·θ′)", "u′ = (" + num(c.u.x) + "; " + num(c.u.y) + ") mm,  θ′ = " + num(c.theta) + " (per eenheid δ)", "Cramer’s regel op een 3×3-stelsel"],
+      ["Thermisch centrum: punt zonder verplaatsing", "d(c) = 0  ⇒  c = −(I + θ′J)<sup>−1</sup>·u′", "c = (" + num(c.c.x) + "; " + num(c.c.y) + ") mm", LIT.soemersTh + " (thermisch centrum van een statisch bepaalde opstelling)"],
+      ["Zuivere uitzetting (θ′ = 0)", "snijden de lijnen door x<sub>i</sub> langs e<sub>i</sub> in één punt c, dan geldt n<sub>i</sub>·(x<sub>i</sub> − c) = 0 en d(p) = δ·(p − c)", c.concurrent ? "de drie lijnen snijden: residu " + num(c.resid) + " mm, θ = 0" : "de lijnen snijden niet: residu " + num(c.resid) + " mm, θ = " + num(r.rot * 1e6) + " µrad", LIT.slocum],
+      ["Drift van de probe", "d(P) = (δ·I + θ·J)·(P − c);  |d| = δ·√(1 + θ′²)·|P − c|", "|d| = " + num(r.delta * 1e6) + "·10⁻⁶·" + num(Math.hypot(1, c.theta)) + "·" + num(r.rc) + " = " + num(r.mag * 1000) + " µm  (bij θ′ = 0: Δα·r·ΔT)", LIT.soemersTh],
+      ["Schuifweg van steun i", sub("s", "i") + " = d(" + sub("x", "i") + ")·" + sub("e", "i"), "s = " + num(c.slide[0] * r.delta * 1000) + ", " + num(c.slide[1] * r.delta * 1000) + ", " + num(c.slide[2] * r.delta * 1000) + " µm", "Zo ver moet elke sleuf of elk blad meegeven; bij een bladveer is dit de doorbuiging"],
+      ["Dwang als de plaat niet mag draaien", "residu = max<sub>i</sub> |n<sub>i</sub>·(x<sub>i</sub> − c<sub>LS</sub>)|,  dwangverplaatsing = δ·residu", "c_LS = (" + (c.cLS ? num(c.cLS.x) + "; " + num(c.cLS.y) : "–") + ") mm,  δ·residu = " + num(r.forc * 1000) + " µm", "c_LS is het kleinste-kwadratenpunt van de drie vrije lijnen"],
+    ];
+  },
+  assume: ["Stijve, vlakke plaat op precies drie steunen in 2D: elk steunpunt houdt één richting vast (loodrecht op zijn vrije richting) en is in de vrije richting spelingvrij en wrijvingsloos (ideale sleuf of bladveer). Drie steunen zijn statisch bepaald: de plaat zet spanningsloos uit, hoe de lijnen ook liggen.",
+    "De plaat zet uniform uit (één α, één temperatuur) ten opzichte van de basis, kleine verplaatsingen (eerste orde). De basis zet ook uit, maar alleen het verschil δ = Δα·ΔT telt; de uitkomst is de verplaatsing ten opzichte van de basis.",
+    "Het thermisch centrum is het punt van de plaat dat niet beweegt. Snijden de drie lijnen langs de vrije richtingen in één punt, dan zet de plaat zuiver uit rond dat punt (klassieke drie radiale sleuven onder 120°: het midden). Anders draait de plaat een beetje mee; het centrum is dan het draaicentrum van die beweging.",
+    "Zijn de drie stijve richtingen (de lijnen langs de beperkingen) concurrent of evenwijdig, dan is de opstelling een mechanisme (singulier) en bestaat er geen centrum. Wie dit wil vermijden, laat de stijve richtingen niet door één punt gaan.",
+    "Werkelijke bladveren zijn niet oneindig stijf in hun stijve richting en geven een kleine kruisverschuiving; de plaatvervorming zelf (kromtrekken door een temperatuurgradiënt) en de vervorming van de steunen zijn niet meegenomen.",
+    "Dwang (een vierde steun of een steun die niet vrij schuift) levert bij niet-concurrente lijnen spanning in de plaat; hier alleen als verplaatsingsmaat δ·residu gegeven, niet als kracht."],
+  source: LIT.soemersTh + "; " + LIT.slocum + ".",
+});
+
 // ---------- tekeningen voor de nieuwe calculators ----------
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const lg = Math.log10;
@@ -844,7 +970,8 @@ function kcFig() {
     build(svg) {
       const R = { gr: [], ba: [], ax: [] };
       R.tri = mk("path", { class: "s-ghost" }, svg);
-      for (let i = 0; i < 3; i++) { R.gr.push(mk("path", { class: "s-slot" }, svg)); R.ba.push(mk("circle", { class: "s-ball", r: 9 }, svg)); R.ax.push(mk("path", { class: "s-ghost" }, svg)); }
+      R.bt = [];
+      for (let i = 0; i < 3; i++) { R.gr.push(mk("path", { class: "s-slot" }, svg)); R.ba.push(mk("circle", { class: "s-ball", r: 9 }, svg)); R.ax.push(mk("path", { class: "s-ghost" }, svg)); R.bt.push(txt(svg, "s-small s-bold", "middle")); }
       R.cen = mk("circle", { class: "s-fix", cx: 82, cy: 108, r: 7 }, svg); R.cenx = mk("path", { class: "s-dim", d: "M78.5 104.5L85.5 111.5M85.5 104.5L78.5 111.5" }, svg);
       R.tv = txt(svg, "s-small", "middle"); set(R.tv, { x: 82, y: 20 }); R.tv.textContent = "bovenaanzicht";
       R.fT = txt(svg, "s-val", "start"); set(R.fT, { x: 88, y: 121 });
@@ -861,11 +988,24 @@ function kcFig() {
       const c0 = { x: 82, y: 108 }, rr = 52, ang = [-90, 30, 150];
       const pts = ang.map(a => [c0.x + rr * Math.cos(a * DEG), c0.y + rr * Math.sin(a * DEG)]);
       set(R.tri, { d: "M" + pts.map(q => f1(q[0]) + " " + f1(q[1])).join("L") + "Z" });
+      const kel = !!r.kelvin, gi = kel ? ["cone", "groove", "flat"].indexOf(r.gov.id) : -1;
       ang.forEach((a, i) => {
-        const ux = Math.cos(a * DEG), uy = Math.sin(a * DEG), q = pts[i];
-        set(R.gr[i], { d: "M" + f1(q[0] - ux * 22) + " " + f1(q[1] - uy * 22) + "L" + f1(q[0] + ux * 16) + " " + f1(q[1] + uy * 16), "stroke-width": 11 });
+        let ux = Math.cos(a * DEG), uy = Math.sin(a * DEG), q = pts[i], pa = "";
+        if (kel && i === 1) { const dx = pts[0][0] - q[0], dy = pts[0][1] - q[1], dl = Math.hypot(dx, dy); ux = dx / dl; uy = dy / dl; }      // groefas wijst naar de tetraëder
+        if (kel && i === 0) {                                                   // tetraëder: drie facetten rond de bol
+          const tp = [0, 120, 240].map(t => [q[0] + 17 * Math.cos((t + 90) * DEG), q[1] + 17 * Math.sin((t + 90) * DEG)]);
+          pa = "M" + tp.map(z => f1(z[0]) + " " + f1(z[1])).join("L") + "Z";
+          set(R.gr[i], { d: pa, "stroke-width": 3, "stroke-linejoin": "round" });
+        } else if (kel && i === 2) {                                            // plat vlak: vierkante pad
+          set(R.gr[i], { d: "M" + f1(q[0] - 14) + " " + f1(q[1] - 14) + "h28v28h-28Z", "stroke-width": 3, "stroke-linejoin": "round" });
+        } else set(R.gr[i], { d: "M" + f1(q[0] - ux * 22) + " " + f1(q[1] - uy * 22) + "L" + f1(q[0] + ux * 16) + " " + f1(q[1] + uy * 16), "stroke-width": 11 });
         set(R.ba[i], { cx: f1(q[0]), cy: f1(q[1]) });
+        R.ba[i].style.stroke = kel && i === gi ? "var(--driver)" : ""; R.ba[i].style.strokeWidth = kel && i === gi ? "2.6" : "";
+        showEl(R.ax[i], !(kel && i !== 1));
         set(R.ax[i], { d: "M" + f1(q[0] - ux * 22) + " " + f1(q[1] - uy * 22) + "L" + f1(q[0] + ux * 16) + " " + f1(q[1] + uy * 16) });
+        const cn = kel ? [r.cone, r.groove, r.flat][i] : null;
+        showEl(R.bt[i], kel);
+        if (kel) { set(R.bt[i], i === 0 ? { x: f1(q[0] + 26), y: f1(q[1] + 4), "text-anchor": "start" } : { x: f1(q[0]), y: f1(q[1] + 36), "text-anchor": "middle" }); R.bt[i].textContent = cn.count + "×" + num(cn.N) + " N"; R.bt[i].style.fill = i === gi ? "var(--driver)" : ""; }
       });
       R.fT.textContent = "F";
       // doorsnede: V-groef met opening γ, bol met straal R (log-schaal)
@@ -879,18 +1019,19 @@ function kcFig() {
       set(R.bl, { cx: f1(bc.x), cy: f1(bc.y), r: f1(Rp) });
       const nL = [cg, -sg], nR = [-cg, -sg];                                                  // naar de bol toe (links- en rechtsflank)
       const cpL = [bc.x - nL[0] * Rp, bc.y - nL[1] * Rp], cpR = [bc.x - nR[0] * Rp, bc.y - nR[1] * Rp];
-      const ap = clamp(r.a * Rp / p.R, 2.5, 12), tl = [sg, cg];
+      const gN = r.kelvin ? r.groove.N : r.N, gA = r.kelvin ? r.groove.a : r.a;
+      const ap = clamp(gA * Rp / p.R, 2.5, 12), tl = [sg, cg];
       set(R.c1, { d: "M" + f1(cpL[0] - tl[0] * ap) + " " + f1(cpL[1] + tl[1] * ap) + "L" + f1(cpL[0] + tl[0] * ap) + " " + f1(cpL[1] - tl[1] * ap), "stroke-width": 3 });
       set(R.c2, { d: "M" + f1(cpR[0] + tl[0] * ap) + " " + f1(cpR[1] + tl[1] * ap) + "L" + f1(cpR[0] - tl[0] * ap) + " " + f1(cpR[1] - tl[1] * ap), "stroke-width": 3 });
       set(R.n1, { d: arrowPath(cpL[0] - nL[0] * 26, cpL[1] - nL[1] * 26, cpL[0] - nL[0] * 2, cpL[1] - nL[1] * 2) });
       set(R.n2, { d: arrowPath(cpR[0] - nR[0] * 26, cpR[1] - nR[1] * 26, cpR[0] - nR[0] * 2, cpR[1] - nR[1] * 2) });
       set(R.fa, { d: arrowPath(bc.x, 34, bc.x, bc.y - Rp - 2) });
-      set(R.nT, { x: f1(ax - ex - 6), y: f1(cpL[1] - 6), "text-anchor": "end" }); R.nT.textContent = "N = " + num(r.N) + " N";
-      set(R.gT, { x: ax, y: f1(ay + 18) }); R.gT.textContent = "γ = " + num(p.gamma) + "°";
+      showEl(R.nT, false);
+      set(R.gT, { x: ax, y: f1(ay + 18) }); R.gT.textContent = "γ = " + num(p.gamma) + "° · N = " + num(gN) + " N per flank";
       const ra = 22;
       set(R.arc, { d: "M" + f1(ax - ra * sg) + " " + f1(ay - ra * cg) + "A" + ra + " " + ra + " 0 0 0 " + f1(ax + ra * sg) + " " + f1(ay - ra * cg) });
       const col = stressCol(1 / r.margin);
-      R.note.textContent = "per contact: 2a = " + num(2 * r.a * 1000) + " µm · k_t = " + num(r.kt / 1000) + " N/µm · p₀ = " + num(r.p0) + " MPa";
+      R.note.textContent = kel ? "bepalend: " + r.gov.label + " · 2a = " + num(2 * r.a * 1000) + " µm · p₀ = " + num(r.p0) + " MPa" : "per contact: 2a = " + num(2 * r.a * 1000) + " µm · k_t = " + num(r.kt / 1000) + " N/µm · p₀ = " + num(r.p0) + " MPa";
       R.leg.textContent = "virtueel spel ≈ " + num(r.xSlip * 1e6) + " nm (schatting) · k_ax = " + num(r.kAx / 1000) + " N/µm"; R.leg.style.fill = col;
     },
   };
@@ -1121,7 +1262,72 @@ function tauFig() {
     },
   };
 }
-Object.assign(FIGS, { hertz: hertzFig(), kc: kcFig(), msd: msdFig(), iso: isoFig(), servo: servoFig(), exp: expFig(), tau: tauFig() });
+
+function tcFig() {
+  return {
+    build(svg) {
+      const R = { ln: [], sl: [], ar: [], nm: [] };
+      const cp = mk("clipPath", { id: "tcClip" }, svg); mk("rect", { x: 4, y: 6, width: 312, height: 190 }, cp);
+      R.plate = mk("circle", { class: "s-fix" }, svg);
+      R.g = mk("g", { "clip-path": "url(#tcClip)" }, svg);
+      for (let i = 0; i < 3; i++) R.ln.push(mk("path", { class: "s-ghost" }, R.g));
+      R.mid = mk("path", { class: "s-dim s-thin" }, svg);
+      R.pr = mk("path", { class: "s-ghost" }, svg);
+      for (let i = 0; i < 3; i++) {
+        R.sl.push(mk("rect", { class: "s-ball", width: 24, height: 9, rx: 2 }, svg));
+        R.ar.push(mk("path", { class: "s-dim", "marker-end": "url(#calcArr)", "marker-start": "url(#calcArr)" }, svg));
+        R.nm.push(txt(svg, "s-small s-bold", "middle"));
+      }
+      R.cr = mk("circle", { class: "s-dim", r: 8 }, svg); R.cd = mk("circle", { class: "s-pivot", r: 3.5 }, svg); R.cT = txt(svg, "s-val s-bold", "start");
+      R.pd = mk("circle", { class: "s-pt", r: 4 }, svg); R.pT = txt(svg, "s-small", "start");
+      R.da = mk("path", { class: "s-dim s-force", "marker-end": "url(#calcArr)" }, svg); R.dT = txt(svg, "s-small s-bold", "start");
+      R.no = txt(svg, "s-val s-bold", "middle");
+      footLines(svg, R, 214);
+      return R;
+    },
+    draw(R, p, r, M) {
+      const O = { x: 160, y: 98 }, c = r.c;
+      const ext = Math.max(p.r1, p.r2, p.r3, p.rp, 1), sc = 78 / (ext * 1.2);
+      const S = q => ({ x: O.x + sc * q.x, y: O.y - sc * q.y });
+      const Rp = Math.max(p.r1, p.r2, p.r3) * 1.18 * sc;
+      set(R.plate, { cx: O.x, cy: O.y, r: f1(Math.max(Rp, 10)) });
+      set(R.mid, { d: "M" + (O.x - 4) + " " + O.y + "h8M" + O.x + " " + (O.y - 4) + "v8" });
+      r.sup.forEach((q, i) => {
+        const e = c.lines[i], s0 = S(q), ux = e.dx, uy = -e.dy, L = 190;
+        set(R.ln[i], { d: "M" + f1(s0.x - ux * L) + " " + f1(s0.y - uy * L) + "L" + f1(s0.x + ux * L) + " " + f1(s0.y + uy * L) });
+        set(R.sl[i], { x: f1(s0.x - 12), y: f1(s0.y - 4.5), transform: "rotate(" + f1(Math.atan2(uy, ux) / DEG) + " " + f1(s0.x) + " " + f1(s0.y) + ")" });
+        set(R.ar[i], { d: "M" + f1(s0.x - ux * 20) + " " + f1(s0.y - uy * 20) + "L" + f1(s0.x + ux * 20) + " " + f1(s0.y + uy * 20) });
+        const out = Math.hypot(q.x, q.y) > 1e-9 ? { x: q.x / Math.hypot(q.x, q.y), y: q.y / Math.hypot(q.x, q.y) } : { x: 0, y: 1 };
+        set(R.nm[i], { x: f1(s0.x + out.x * 26), y: f1(s0.y - out.y * 26 + 3) }); R.nm[i].textContent = String(i + 1);
+      });
+      const pr = S(r.probe);
+      set(R.pd, { cx: f1(pr.x), cy: f1(pr.y) });
+      set(R.pT, { x: f1(pr.x + 7), y: f1(pr.y - 6) }); R.pT.textContent = "probe";
+      showEl(R.cr, r.ok); showEl(R.cd, r.ok); showEl(R.cT, r.ok); showEl(R.pr, r.ok); showEl(R.da, r.ok); showEl(R.dT, r.ok); showEl(R.no, !r.ok);
+      R.no.textContent = "geen thermisch centrum"; set(R.no, { x: 160, y: 196 }); R.no.style.fill = stressCol(1.2);
+      if (r.ok) {
+        let cs = S(c.c), off = false;
+        const cl = { x: clamp(cs.x, 14, 306), y: clamp(cs.y, 16, 190) };
+        if (cl.x !== cs.x || cl.y !== cs.y) { off = true; cs = cl; }
+        set(R.cr, { cx: f1(cs.x), cy: f1(cs.y) }); set(R.cd, { cx: f1(cs.x), cy: f1(cs.y) });
+        set(R.cT, { x: f1(cs.x + 10), y: f1(cs.y + 14), "text-anchor": cs.x > 250 ? "end" : "start" }); R.cT.textContent = off ? "C (buiten beeld)" : "C";
+        if (cs.x > 250) set(R.cT, { x: f1(cs.x - 10) });
+        set(R.pr, { d: "M" + f1(cs.x) + " " + f1(cs.y) + "L" + f1(pr.x) + " " + f1(pr.y) });
+        // driftpijl (sterk vergroot): lengte vast 30 px
+        const m = r.mag * 1000;
+        if (m > 1e-9) {
+          const k = 30 / m, ex = pr.x + r.d.x * 1000 * k, ey = pr.y - r.d.y * 1000 * k;
+          set(R.da, { d: arrowPath(pr.x, pr.y, ex, ey) });
+          set(R.dT, { x: f1(pr.x + 8), y: f1(pr.y + 16) }); R.dT.textContent = "Δ = " + num(m) + " µm";
+        } else { showEl(R.da, false); set(R.dT, { x: f1(pr.x + 8), y: f1(pr.y + 16) }); R.dT.textContent = "Δ = 0"; showEl(R.dT, true); }
+      }
+      R.note.textContent = r.ok ? "centrum (" + num(c.c.x) + " ; " + num(c.c.y) + ") mm · θ = " + num(r.rot * 1e6) + " µrad · pijl vergroot, niet op schaal" : "de stijve richtingen snijden in één punt of lopen evenwijdig";
+      R.leg.textContent = r.ok ? (c.concurrent ? "vrije lijnen snijden in één punt: zuivere uitzetting" : "vrije lijnen snijden niet: residu " + num(c.resid) + " mm, plaat draait mee") : "mechanisme: geen bepaalde stand";
+      R.leg.style.fill = !r.ok ? stressCol(1.2) : c.concurrent ? "" : stressCol(0.9);
+    },
+  };
+}
+Object.assign(FIGS, { hertz: hertzFig(), kc: kcFig(), msd: msdFig(), iso: isoFig(), servo: servoFig(), exp: expFig(), tau: tauFig(), tc: tcFig() });
 
 
 // ---------- sliders: [min, max, logaritmisch] ----------
@@ -1209,6 +1415,7 @@ function render() {
   REF.last = { c, p, M, o, r };
   const wh = clH + (oor ? '<div class="calc-warn" role="alert"><div>⚠ Uitkomst ' + OOR + ': de invoer geeft een niet-eindige waarde. Kies een kleinere of grotere waarde (of een andere combinatie van massa, stijfheid en demping).</div></div>' : "") + (o.warn.length ? '<div class="calc-warn" role="alert">' + o.warn.map(w => "<div>⚠ " + w + "</div>").join("") + "</div>" : "");
   if (wh !== REF.warnH) { REF.warn.innerHTML = wh; REF.warnH = wh; }
+  if (o.out.map(x => x.k).join("|") !== REF.cellSig) buildCells(o.out);
   o.out.forEach((x, k) => {
     const cell = REF.cells[k];
     if (!cell) return;
@@ -1247,6 +1454,17 @@ function inputHtml(c, i, v) {
 }
 const secHtml = (name, body) => '<details class="calc-sec" data-sec="' + name + '"' + (state.open[name] ? " open" : "") + "><summary>" + name + '</summary><div class="calc-sec-b">' + body + "</div></details>";
 
+// resultaatkaarten: opnieuw opgebouwd zodra de lijst koppen verandert (bijv. een andere variant); anders alleen tekst bijwerken
+function buildCells(outList) {
+  const out = $("calcOut"), cells = [];
+  out.textContent = "";
+  outList.forEach(x => {
+    const box = document.createElement("div"), dt = document.createElement("dt"), dd = document.createElement("dd"), u = document.createElement("span");
+    dt.textContent = x.k; dd.setAttribute("data-res", x.k); u.className = "u"; dd.appendChild(document.createTextNode("")); dd.appendChild(u);
+    box.appendChild(dt); box.appendChild(dd); out.appendChild(box); cells.push({ box, dd, u });
+  });
+  REF.cells = cells; REF.cellSig = outList.map(x => x.k).join("|");
+}
 function renderDetail() {
   optCtx.preview(null);
   optCancel();
@@ -1269,21 +1487,17 @@ function renderDetail() {
   h += '<details class="calc-sec calc-card" data-sec="Aannames"' + (state.open.Aannames ? " open" : "") + '><summary>Aannames en bron</summary><div class="calc-sec-b"><ul class="calc-assume">' + c.assume.map(a => "<li>" + a + "</li>").join("") + '</ul><p class="calc-src"><span>Bron</span> ' + c.source + "</p></div></details></div></div>";
   $("calcDetail").innerHTML = h;
   // resultaatkaarten (vaste opbouw per calculator; daarna alleen tekst bijwerken)
-  const o0 = c.run(defaults(c), M0), out = $("calcOut"), cells = [];
-  o0.out.forEach(x => {
-    const box = document.createElement("div"), dt = document.createElement("dt"), dd = document.createElement("dd"), u = document.createElement("span");
-    dt.textContent = x.k; dd.setAttribute("data-res", x.k); u.className = "u"; dd.appendChild(document.createTextNode("")); dd.appendChild(u);
-    box.appendChild(dt); box.appendChild(dd); out.appendChild(box); cells.push({ box, dd, u });
-  });
+  const o0 = c.run(defaults(c), M0);
   const fields = {}, sliders = {};
   $("calcDetail").querySelectorAll("[data-in]").forEach(n => { fields[n.dataset.in] = n; });
   $("calcDetail").querySelectorAll("[data-sl]").forEach(n => { sliders[n.dataset.sl] = n; });
   const svg = $("calcSvg"); svg.innerHTML = SVG_DEFS;
   REF = {
-    root: $("calcGrid"), warn: $("calcWarn"), warnH: "", cells, fields, sliders, formulas: $("calcFormulas"),
+    root: $("calcGrid"), warn: $("calcWarn"), warnH: "", cells: [], cellSig: "", fields, sliders, formulas: $("calcFormulas"),
     keys: [0, 1, 2].map(n => { const b = $("calcDetail").querySelector('[data-key="' + n + '"]'); return { box: b, v: b.querySelector(".v"), u: b.querySelector(".v .u"), sub: b.querySelector(".s") }; }),
     fig: FIGS[c.id].build(svg),
   };
+  buildCells(o0.out);
   const kl = keysOf(c, o0.r, defaults(c), M0);
   REF.keys.forEach((k, n) => { k.box.querySelector(".k").textContent = kl[n].k; });
   updMatInfo();

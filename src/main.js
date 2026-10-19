@@ -14,6 +14,7 @@ import { initPlayback } from "./ui/playback.js";
 import { initPlot } from "./ui/plot.js";
 import { initSketchOpt } from "./ui/sketchopt.js";
 import { initStiff } from "./ui/stiff.js";
+import { initStiffPath } from "./ui/stiffpath.js";
 import { changed } from "./ui/solver.js";
 import { startTour } from "./ui/tour.js";
 import { initTools, setTool } from "./ui/tools.js";
@@ -33,6 +34,7 @@ initFiles();
 initLayout();
 initCalc();
 initStiff();
+initStiffPath();
 initSketchOpt();
 
 setTool("select");

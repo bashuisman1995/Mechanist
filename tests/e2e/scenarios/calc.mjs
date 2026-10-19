@@ -7,7 +7,7 @@ export default async ({ browser, url, check }) => {
   const frame = () => p.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
   await p.click('#workSeg [data-w="calc"]');
   check('calculators zichtbaar, schets verborgen', (await visible(p, '#calcRoot')) && !(await visible(p, '.main')));
-  check('lijst bevat 12 calculators', (await p.$$('#calcList .calc-item')).length === 12);
+  check('lijst bevat 13 calculators', (await p.$$('#calcList .calc-item')).length === 13);
   const r0 = await res();
   check('Bladveer: c_x = 2,1 N/mm', /^2,1\s*N\/mm/.test(r0), r0);
   await p.fill('[data-in="t"]', '0.1');

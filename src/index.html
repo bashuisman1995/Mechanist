@@ -158,6 +158,10 @@
           <div class="drawer-head">
             <button class="btn ghost ico" id="drawerBtn" title="In- of uitklappen" aria-label="Metingen in- of uitklappen">&#9662;</button>
             <h2>Metingen</h2>
+            <span class="seg" id="stiffView" role="group" aria-label="Weergave in de lade" hidden>
+              <button type="button" data-v="tab" aria-pressed="true" title="Verplaatsingen, reacties en balken in tabellen">Tabellen</button>
+              <button type="button" data-v="pad" aria-pressed="false" title="Verplaatsing, draaiing, moment en spanning langs een pad van balken">Verloop langs pad</button>
+            </span>
             <label for="xSel">x-as</label>
             <select id="xSel" aria-label="Grootheid op de x-as"></select>
             <span class="grow"></span>
@@ -170,7 +174,7 @@
         <div class="drawer-body">
           <div class="stifftab" id="stiffTab" hidden></div>
           <div class="plotwrap"><canvas id="plot"></canvas></div>
-          <div class="serieslist" id="series"></div>
+          <div class="serieslist"><div class="pathctl" id="pathCtl" hidden></div><div id="series"></div></div>
         </div>
       </section>
     </div>
@@ -215,7 +219,6 @@
           <div class="pane" data-p="how" hidden>
             <div class="sect">
               <div id="howPanel"></div>
-              <p class="empty" id="howPlaceholder">Formules volgen.</p>
             </div>
           </div>
 

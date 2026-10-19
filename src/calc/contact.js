@@ -39,3 +39,28 @@ export function kinCoupling(p) {
     QGroove: 2 * p.mu * N,                               // slipkracht per groef langs de groefas
     xStick, xSlip: 1.5 * xStick });                      // volledig slippen (Mindlin): 3μN/(16 G* a) = 1,5·μN/k_t
 }
+
+/**
+ * Kelvin-koppeling: drie bollen onder 120° op een cirkel. Bol A zit in een tetraëder (drie vlakke flanken, 3 contacten),
+ * bol B in een V-groef waarvan de as naar A wijst (2 contacten), bol C op een plat vlak (1 contact): 3 + 2 + 1 = 6.
+ * Voorspanning F langs de as door het zwaartepunt, wrijvingsloos, bolmiddelpunten in één horizontaal vlak.
+ * Statica: elke bol draagt F/3 verticaal (momentenevenwicht om twee horizontale assen). De horizontale componenten van
+ * de drie tetraëderflanken (onder 120°, gelijk) en van de twee groefflanken heffen elkaar op; zo is ook de kracht in
+ * het vlak en het moment om de as nul. Dus: vlak N = F/3, groefflank N = F/(6·sin(γ/2)), tetraëderflank N = F/(9·sin(γk/2)),
+ * met sin(γ/2) de verticale component van de flanknormaal. Per contact Hertz bol-op-vlak (de flanken zijn vlak).
+ */
+export function kelvinCoupling(p) {
+  const sg = Math.sin(p.gamma * DEG / 2), sk = Math.sin(p.gammaC * DEG / 2);
+  const Es = effModulus(p.E1, p.nu1, p.E2, p.nu2);
+  const Gs = effShear(shearModulus(p.E1, p.nu1), p.nu1, shearModulus(p.E2, p.nu2), p.nu2);
+  const mk = (id, label, count, N, s) => {
+    const h = hertzSphere({ F: N, R: p.R, Es }), kt = 8 * Gs * h.a;
+    return Object.assign(h, { id, label, count, N, s, kt, kAx: count * h.kn * s * s, xStick: p.mu * N / kt });
+  };
+  const contacts = [mk("cone", "tetraëder", 3, p.F / (9 * sk), sk), mk("groove", "V-groef", 2, p.F / (6 * sg), sg), mk("flat", "vlak", 1, p.F / 3, 1)];
+  let gov = contacts[0];
+  contacts.forEach(c => { if (c.p0 > gov.p0) gov = c; });
+  return { contacts, gov, Es, Gs, kAx: contacts.reduce((a, c) => a + c.kAx, 0),
+    N: gov.N, a: gov.a, delta: gov.delta, p0: gov.p0, kn: gov.kn, kt: gov.kt,
+    QGroove: 2 * p.mu * contacts[1].N, xStick: gov.xStick, xSlip: 1.5 * gov.xStick };
+}

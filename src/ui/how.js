@@ -627,8 +627,6 @@ function keyOf() {
 
 export function renderHow(el) {
   if (!el || el.offsetParent === null) return;         // tabblad niet zichtbaar
-  const ph = document.getElementById("howPlaceholder");
-  if (ph) ph.hidden = true;
   if (!wired) {
     wired = true;
     el.addEventListener("click", ev => {

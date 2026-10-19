@@ -1,5 +1,5 @@
 // Meetkanalen (grootheden per knoop en element) (zonder DOM).
-import { axialA, axialK, isAxial } from "./axial.js";
+import { axialA, axialK, isAxial, isBeam } from "./axial.js";
 import { E, N } from "./elements.js";
 import { flexK, flexStress } from "./flexure.js";
 import { sensorChannels, sensorVal } from "./sensors.js";
@@ -74,8 +74,15 @@ export function channels() {
   }
   if (model.mode === "stiff") for (const n of model.nodes) {          // statische verplaatsingen van de punten (modus Stijfheid)
     const o = "Punt " + n.name;
-    [["ux", "u\u2093", "\u00b5m", "ux"], ["uy", "u_y", "\u00b5m", "uy"], ["th", "\u03c6", "\u00b5rad", "phi"]].forEach(([k, q, u, al]) =>
+    [["ux", "u\u2093", "\u00b5m", "ux"], ["uy", "u_y", "\u00b5m", "uy"], ["u", "|u|", "\u00b5m", "u"], ["th", "\u03c6", "\u00b5rad", "phi"]].forEach(([k, q, u, al]) =>
       out.push({ key: "u|" + n.id + "|" + k, lab: n.name + " \u00b7 " + q + " (statisch)", q, u, al: al + "_" + n.name, g: "Verplaatsingen", o, obj: n.id, stiff: true }));
+  }
+  if (model.mode === "stiff") for (const e of model.elems) {          // grootste waarden per balk of staaf (modus Stijfheid)
+    if (!isBeam(e) && !isAxial(e)) continue;
+    const p = pair(e), o = (isBeam(e) ? "Balk " : "Axiale staaf ") + p;
+    out.push({ key: "k|" + e.id + "|sig", lab: o.toLowerCase() + " \u00b7 \u03c3max", q: "\u03c3max", u: "MPa", al: "smax_" + p, g: "Verplaatsingen", o, obj: e.id, stiff: true });
+    out.push({ key: "k|" + e.id + "|N", lab: o.toLowerCase() + " \u00b7 N", q: "N", u: "N", al: "Nbar_" + p, g: "Verplaatsingen", o, obj: e.id, stiff: true });
+    if (isBeam(e)) out.push({ key: "k|" + e.id + "|M", lab: o.toLowerCase() + " \u00b7 Mmax", q: "Mmax", u: "N\u00b7m", al: "Mmax_" + p, g: "Verplaatsingen", o, obj: e.id, stiff: true });
   }
   if (model.mode === "dyn") out.push({ key: "e||E", lab: "totale energie E", q: "E", u: "J", al: "E",
                                        g: "Systeem", o: "Systeem", obj: "" });
@@ -86,7 +93,12 @@ export function chVal(S, key, i) {
   const [t, id, k] = key.split("|");
   if (t === "u") {            // statische verplaatsing uit de modus Stijfheid, in µm of µrad
     const d = sim.stiff && sim.stiff.ok ? sim.stiff.nodes.get(id) : null;
-    return d ? (k === "ux" ? d.ux * 1000 : k === "uy" ? d.uy * 1000 : d.th * 1e6) : NaN;
+    return d ? (k === "ux" ? d.ux * 1000 : k === "uy" ? d.uy * 1000 : k === "u" ? Math.hypot(d.ux, d.uy) * 1000 : d.th * 1e6) : NaN;
+  }
+  if (t === "k") {            // grootste kracht-, moment- of spanningswaarde van een balk of staaf (modus Stijfheid)
+    const r = sim.stiff && sim.stiff.ok ? sim.stiff.members.find(m => m.e && m.e.id === id && (m.kind === "beam" || m.kind === "axial")) : null;
+    if (!r) return NaN;
+    return k === "sig" ? r.sigMax : k === "N" ? r.NN : r.kind === "beam" ? r.Mmax / 1000 : NaN;
   }
   if (t === "n") {
     if (!S.pos[id]) return NaN;

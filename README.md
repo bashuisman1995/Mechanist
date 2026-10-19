@@ -84,6 +84,16 @@ NODE_PATH=<map met playwright>/node_modules node tests/e2e/run.mjs   # browserte
     opgelegde balk) staat de formule van Roark naast de FE-uitkomst.
     Eerste orde: de tekening is de onbelaste stand; spanningsverstijving en
     afschuiving zijn verwaarloosd.
+- **Verloop langs een pad** (Stijfheid, lade onder het canvas: *Verloop langs pad*): kies een rij balken (Volledig) en axiale staven door
+  ze in de tekening aan te klikken of met *Alle balken*, en zie verplaatsing (u<sub>x</sub>, u<sub>y</sub>, |u|), draaiing, buigend
+  moment en spanning als functie van de afgelegde weg *s* in mm, één deelgrafiek per eenheid in de eenheid van de formatter. Het pad
+  staat als halo in de tekening, de aanwijzer geeft waarden, en het rekenblad en CSV nemen het mee. *Metingen…* en *ƒ Formule* werken
+  in Stijfheid op statische waarden (verplaatsingen van punten, σ<sub>max</sub>, N en M<sub>max</sub> per balk; bijv. `ux_C - ux_B`).
+- **Calculators** (werkplek naast Schets): flexures, contact, dynamica en thermisch, elk met schuifregelaars, een parametrische schets,
+  drie kerngetallen, formules met bron, waarschuwingen, Kopieer, Link, Rekenblad en Optimaliseer. Nieuw: **Kinematische koppeling**
+  met de varianten Maxwell (3 V-groeven) en Kelvin (tetraëder, V-groef, vlak: 3+2+1 contacten, krachten uit de statica, bepalend
+  contact), en **Thermisch centrum** (stijve plaat op drie steunen met een vrije richting; het punt dat bij uitzetting niet
+  beweegt, de drift van een probe, en een melding bij niet-concurrente lijnen of een mechanisme).
 - **Rekenen op de achtergrond:** dynamisch rekenen gebeurt in stukjes, met
   voortgangsbalk en Stop-knop. Standaard pas je eerst het model aan en druk je
   daarna op **Bereken** (F5); automatisch herberekenen kan aan in Instellingen.
@@ -212,7 +222,7 @@ src/style.css     vormgeving, licht en donker thema
 src/main.js       startpunt
 src/core/         rekenkern: state, linalg, elements, kinematics, dynamics,
                   frf, channels, formula, contact, flexure, sensors, axial, thermal,
-                  optimize (optimaliseerder), optsketch (parameters en uitkomsten van de schets)
+                  stiffpath (verloop langs een pad), optimize (optimaliseerder), optsketch (parameters en uitkomsten van de schets)
 src/ui/           tekenen, inspector, grafieken, metingen, afspelen, bestanden, ...
 tools/build.py    bundelt met esbuild en schrijft index.html
 tests/e2e/        browsertests tegen gecontroleerde waarden

@@ -7,6 +7,7 @@ import { draw } from "./draw.js";
 import { REL_FE, colUnit, fmtAngle, fmtHz, fmtLen, fmtMoment, fmtQ, fmtStiff, fmtStress, numStr, scaleOf, sg } from "./format.js";
 import { save } from "./persist.js";
 import { touched } from "./solver.js";
+import { drawPathPlot, pathSelect, renderPathCtl } from "./stiffpath.js";
 
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 const fscale = v => "×" + sg(v, v >= 100 ? 3 : 2);
@@ -193,13 +194,21 @@ export function renderStiffUI() {
   const h2 = drawer.querySelector(".drawer-head h2"); if (h2) h2.textContent = on ? "Verplaatsingen en reacties" : "Metingen";
   sect.hidden = !on; tab.hidden = !on; box.hidden = !on;
   const th = document.getElementById("thermSect"); if (th) th.hidden = on;
-  if (!on) { renderBar(null); return; }
+  const pad = on && ui.stiffView === "pad";
+  drawer.classList.toggle("pathview", pad);
+  const sv = document.getElementById("stiffView");
+  if (sv) { sv.hidden = !on; sv.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === (pad ? "pad" : "tab")))); }
+  tab.hidden = !on || pad;
+  if (!on) { renderBar(null); renderPathCtl(); return; }
   if (res) { renderBox(res); renderTab(res); }
   renderBar(res);
+  renderPathCtl();
+  if (pad) requestAnimationFrame(drawPathPlot);
 }
 
 // selectie van een punt wordt het punt voor "stijfheid in punt"
 export function stiffSelect() {
+  pathSelect();
   if (model.mode !== "stiff" || !ui.sel || ui.sel.kind !== "node" || model.stiffNode === ui.sel.id) return;
   model.stiffNode = ui.sel.id; renderStiffUI();
 }
@@ -215,6 +224,11 @@ export function initStiff() {
   auto.addEventListener("change", () => {
     model.stiffScale = auto.checked ? 0 : Math.max(1, effectiveScale(sim.stiff));
     renderStiffUI(); draw(); save();
+  });
+  document.getElementById("stiffView").addEventListener("click", ev => {
+    const b = ev.target.closest("button"); if (!b) return;
+    ui.stiffView = b.dataset.v === "pad" ? "pad" : "tab";
+    renderStiffUI(); draw();
   });
   const fold = document.getElementById("stiffFold"), bar = document.getElementById("stiffBar");
   fold.addEventListener("click", () => {

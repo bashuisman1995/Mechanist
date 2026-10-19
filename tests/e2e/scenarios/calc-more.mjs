@@ -9,7 +9,7 @@ export default async ({ browser, url, check }) => {
   const val = t => parseFloat(t.replace(/ /g, '').replace(',', '.'));
   const key = n => p.$eval(`[data-key="${n}"]`, e => e.textContent.replace(/\s+/g, ' '));
   await p.click('#workSeg [data-w="calc"]');
-  check('lijst bevat 12 calculators in 4 groepen', (await p.$$('#calcList .calc-item')).length === 12 && (await p.$$('#calcList .calc-group')).length === 4);
+  check('lijst bevat 13 calculators in 4 groepen', (await p.$$('#calcList .calc-item')).length === 13 && (await p.$$('#calcList .calc-group')).length === 4);
 
   // Hertz: staal/staal, R = 5 mm, F = 10 N: a = 68,8 µm, p0 = 1010 MPa, k = 15,9 N/µm
   await p.click('[data-c="hertz"]');

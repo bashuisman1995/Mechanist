@@ -12,6 +12,7 @@ import { goto, togglePlay } from "./playback.js";
 import { serieColor } from "./theme.js";
 import { flash } from "./tools.js";
 import { powTick, sg, tickStr } from "./format.js";
+import { drawPathPlot } from "./stiffpath.js";
 
 /* ============================================================
    Metingen & grafiek
@@ -140,6 +141,7 @@ function measurePlot() {
 }
 
 export function drawPlot() {
+  if (model.mode === "stiff") { drawPathPlot(); return; }          // Stijfheid: verloop langs een pad
   readColors();
   if (!ui.pdata) buildPdata();
   const live = ui.pdata ? ui.pdata.ss.filter(s => s.ok) : [];

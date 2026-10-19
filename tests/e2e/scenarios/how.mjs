@@ -7,7 +7,7 @@ export default async ({ browser, url, check }) => {
   let t = await txt();
   check('kinematica: titel en Gauss-Newton', /Kinematica/.test(t) && /J·Δq = −Φ/.test(t), t.slice(0, 80));
   check('kinematica: Grübler en DOF live', /Grübler/.test(t) && /Vrijheidsgraden/.test(t));
-  check('placeholder verborgen', !(await visible(p, '#howPlaceholder')));
+  check('geen placeholder meer in het tabblad', (await p.$$('#howPlaceholder')).length === 0);
   // selectie van een stang toont de elementwet
   await p.click('[data-t="props"]'); await p.click('[data-t="how"]');
   await loadExample(p, 'springload');   // dynamisch voorbeeld met veer
