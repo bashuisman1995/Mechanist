@@ -299,7 +299,7 @@ export function* computeFrf() {
   }
   S.at = solveAt;
   for (let i = 0; i <= 360; i++) {
-    if (i % 60 === 0) yield { phase: "frf", f: i };
+    if (i % 60 === 0) yield { phase: "frf", f: i, modes };   // modes: voor Optimaliseer (eigenfrequentie zonder de hele sweep)
     const f = f0 * Math.pow(f1 / f0, i / 360);
     S.f[i] = S.t[i] = f;
     const r = solveAt(f);

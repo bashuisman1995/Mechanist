@@ -202,6 +202,7 @@
           <button role="tab" data-t="props" aria-selected="true">Eigenschappen</button>
           <button role="tab" data-t="how" aria-selected="false">Hoe rekent dit?</button>
           <button role="tab" data-t="meas" aria-selected="false" hidden>Metingen</button>
+          <button role="tab" data-t="opt" aria-selected="false">Optimaliseer</button>
           <button role="tab" data-t="set" aria-selected="false">Instellingen</button>
         </div>
         <div class="panes" id="panes">
@@ -219,6 +220,13 @@
           </div>
 
           <div class="pane" data-p="meas" hidden id="paneMeas"></div>
+
+          <div class="pane" data-p="opt" hidden>
+            <div class="sect">
+              <h2>Optimaliseer</h2>
+              <div id="skOpt" class="opt-sketch"></div>
+            </div>
+          </div>
 
           <div class="pane" data-p="set" hidden>
             <div class="sect">

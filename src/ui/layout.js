@@ -25,6 +25,8 @@ export function setTab(t) {
   model.tab = t;
   if (t === "meas") requestAnimationFrame(drawPlot);
   if (t === "how") renderHowNow();
+  const insp = document.querySelector(".inspector"); if (insp) insp.dataset.tab = t;     // CSS: bij Optimaliseer krijgt de lijst de ruimte
+  document.dispatchEvent(new CustomEvent("mech-tab", { detail: t }));
   try { localStorage.setItem("mechschets.tab", t); } catch (_) {}
 }
 

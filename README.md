@@ -128,6 +128,16 @@ NODE_PATH=<map met playwright>/node_modules node tests/e2e/run.mjs   # browserte
   punt (Δx, Δy in µm) met een staafgrafiek van ∂x/∂L·α·L·ΔT per staaf, analytisch uit de Jacobiaan (J·dq = dL). Bij axiale staven in een
   overbepaalde constructie geeft Evenwicht de thermische spanning, N = EA·(ΔL_geom − α·L·ΔT)/L (ingeklemd: N = −E·A·α·ΔT). Voorbeelden:
   Thermische drift van een meetarm, Thermische spanning in een ingeklemde staaf.
+- **Optimaliseer** (tabblad in Schets, knop bij elke calculator): kies een doel (minimaliseren, maximaliseren of "= waarde"), vink de
+  variabelen aan die mogen veranderen (met min en max, optioneel logaritmisch), voeg randvoorwaarden toe (een uitkomst ≤ of ≥ een waarde)
+  en laat eventueel alle materialen opsommen. De optimaliseerder (`src/core/optimize.js`) is Nelder–Mead zonder afgeleiden op variabelen in
+  [0, 1], met gulden snede voor één variabele, een gladde uitwendige straf voor de randvoorwaarden plus een harde eindcontrole, en enkele
+  Latin-hypercube-starts met een vaste zaadwaarde. Hij rekent in stukjes per beeld (voortgang en Stop) en toont: het optimum (voor → na),
+  welke randvoorwaarden en grenzen actief zijn, een convergentieplotje, een gevoeligheidsregel (+1 % L → −2,9 % c_x) en de knoppen
+  **Toepassen** (calculator: met **Terug**; schets: één stap voor ongedaan maken) en **Kopieer** (platte-tekstrapport). In Schets zijn de
+  variabelen punten (x, y), massa's, veren, dempers, flexures, balkprofielen, axiale oppervlakken en materialen; elke stap rekent op een
+  kopie van het model met de bestaande oplosser van de modus (`src/core/optsketch.js`). **Athermisch maken** is één klik. Voorbeeld:
+  Athermische meetarm optimaliseren. Let op: een lokaal optimum is mogelijk; controleer het resultaat.
 - **Bewerken op t = 0:** buiten t = 0 kun je alleen kijken; een balk en de
   oranje knop brengen je terug naar t = 0 (of druk op Home).
 - **Metingen:** kies grootheden in een compacte tabel (één regel per onderdeel),
@@ -201,7 +211,8 @@ src/index.html    opmaak
 src/style.css     vormgeving, licht en donker thema
 src/main.js       startpunt
 src/core/         rekenkern: state, linalg, elements, kinematics, dynamics,
-                  frf, channels, formula, contact, flexure, sensors, axial, thermal
+                  frf, channels, formula, contact, flexure, sensors, axial, thermal,
+                  optimize (optimaliseerder), optsketch (parameters en uitkomsten van de schets)
 src/ui/           tekenen, inspector, grafieken, metingen, afspelen, bestanden, ...
 tools/build.py    bundelt met esbuild en schrijft index.html
 tests/e2e/        browsertests tegen gecontroleerde waarden

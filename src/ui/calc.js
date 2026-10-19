@@ -6,6 +6,7 @@ import { dynAmp, fnForT, isolator, msd, overshoot, peakAmp, servo, settleInfo, s
 import { athermal, dLength, lumped } from "../calc/thermal.js";
 import { numStr } from "./format.js";
 import { showReport } from "./report.js";
+import { initCalcOpt, optCancel, optMount, optOpen, optSection } from "./calcopt.js";
 
 const $ = id => document.getElementById(id);
 const DEG = Math.PI / 180;
@@ -14,7 +15,9 @@ const DEG = Math.PI / 180;
 // Komma als decimaalteken; duizendtallen (vanaf 4 cijfers) met een dunne spatie, nooit met een punt:
 // "4.228" zou voor een decimaal doorgaan. Alles wat boven 1000 komt blijft dus ondubbelzinnig: "4 228".
 let nonFin = 0;                          // aantal niet-eindige waarden dat tijdens deze berekening is opgemaakt
+let lastRaw = NaN;                       // laatst opgemaakte getal: res() bewaart het als rekenwaarde voor Optimaliseer
 function sig(x, n) {
+  lastRaw = x;
   if (typeof x === "number" && !isFinite(x) && !isNaN(x)) { nonFin++; return x > 0 ? "∞" : "—"; }
   if (isNaN(x)) { nonFin++; return "—"; }
   return numStr(x, n);
@@ -88,7 +91,16 @@ function geomWarn(p, kind) {
 function massWarn(p, r) {
   return r.mLeaf > 0.05 * p.m ? ["Bladmassa is " + num(100 * r.mLeaf / p.m) + " % van m: eigenfrequentie wordt te hoog geschat."] : [];
 }
-const res = (k, v, unit, bad) => ({ k, v, unit, bad });
+// raw = de rekenwaarde achter de tekst v. Alleen als de tekst er (op 0,6 % na) mee overeenkomt; anders NaN (dan is het geen enkel getal).
+function rawOf(v) {
+  const r = lastRaw; lastRaw = NaN;
+  const t = String(v);
+  if (/^∞/.test(t)) return Infinity;
+  const q = parseFloat(t.replace(/[\s\u202f\u00a0]/g, "").replace(/\u2212/g, "-").replace(",", "."));
+  if (!isFinite(q) || !isFinite(r)) return NaN;
+  return Math.abs(r - q) <= 0.006 * Math.abs(r) + 1e-12 ? r : NaN;
+}
+const res = (k, v, unit, bad) => ({ k, v, unit, bad, raw: rawOf(v) });
 const stressBad = (r, M) => r.sigma > M.sigma;
 const nFac = (r, M) => (r.sigma > 0 ? M.sigma / r.sigma : Infinity);
 const nRes = (r, M) => res("Veiligheidsfactor n = σ_toel/σ", isFinite(nFac(r, M)) ? num(nFac(r, M)) : "∞", "", nFac(r, M) < 1);
@@ -1165,11 +1177,11 @@ function clampP(c, p) {
 const OOR = "buiten bereik";
 const invalid = (c, p) => c.inputs.filter(i => typeof i.def === "number" &&
   !(isFinite(p[i.id]) && p[i.id] >= i.min && (i.min === 0 || p[i.id] > 0)));
-function matParams(c, p) {
+function matParams(c, p, matId) {
   c = c || calcOf(state.cur);
   const sg = state.sigmas[c.id];
   if (c.lim) return { sigma: sg > 0 ? sg : c.lim.auto(p || state.vals[c.id]) };      // eigen materiaalkeuzes (invoer van type mat)
-  const m = material(state.mats[c.id]);
+  const m = material(matId || state.mats[c.id]);
   return { E: m.E, nu: m.nu, sigma: sg > 0 ? sg : m.sigma, alpha: m.alpha, rho: m.rho };
 }
 const ownMat = c => !!c.noMat || c.inputs.some(i => i.type === "mat");
@@ -1236,6 +1248,7 @@ function inputHtml(c, i, v) {
 const secHtml = (name, body) => '<details class="calc-sec" data-sec="' + name + '"' + (state.open[name] ? " open" : "") + "><summary>" + name + '</summary><div class="calc-sec-b">' + body + "</div></details>";
 
 function renderDetail() {
+  optCancel();
   if (state.raf) { cancelAnimationFrame(state.raf); state.raf = 0; }
   const c = calcOf(state.cur), v = state.vals[c.id], M0 = matParams(c, v), own = ownMat(c);
   const body = { Geometrie: "", Materiaal: "", Belasting: "" };
@@ -1245,11 +1258,12 @@ function renderDetail() {
     (c.lim ? '<div class="fld-hint">' + c.lim.hint + "</div>" : "") + "</div>";
   if (!own || matsOf(c).length) body.Materiaal += '<div class="mat-info" id="calcMatInfo"></div><div class="mat-src" id="calcMatSrc"></div>';
   c.inputs.forEach(i => { if (i.type !== "mat") body[grpOf(i)] += inputHtml(c, i, v); });
-  let h = '<div class="calc-head"><div><h2>' + c.name + '</h2><p class="calc-sub">' + c.short + '</p></div><div class="calc-acts"><button type="button" class="calc-reset" id="calcCopy" title="Kopieer een rekenblad (invoer, uitkomsten, formules, bronnen) als tekst">Kopieer</button><button type="button" class="calc-reset" id="calcPrint" title="Een schoon A4-rekenblad om af te drukken of als PDF te bewaren">Rekenblad</button><button type="button" class="calc-reset" id="calcLink" title="Kopieer een link met deze invoerwaarden">Link</button><button type="button" class="calc-reset" id="calcReset" title="Zet deze calculator terug op de beginwaarden">↺ Reset</button></div></div><div class="calc-actmsg" id="calcActMsg" role="status" aria-live="polite"></div>';
+  let h = '<div class="calc-head"><div><h2>' + c.name + '</h2><p class="calc-sub">' + c.short + '</p></div><div class="calc-acts"><button type="button" class="calc-reset" id="calcOpt" title="Zoek de beste waarden voor een doel, met grenzen en randvoorwaarden">Optimaliseer</button><button type="button" class="calc-reset" id="calcCopy" title="Kopieer een rekenblad (invoer, uitkomsten, formules, bronnen) als tekst">Kopieer</button><button type="button" class="calc-reset" id="calcPrint" title="Een schoon A4-rekenblad om af te drukken of als PDF te bewaren">Rekenblad</button><button type="button" class="calc-reset" id="calcLink" title="Kopieer een link met deze invoerwaarden">Link</button><button type="button" class="calc-reset" id="calcReset" title="Zet deze calculator terug op de beginwaarden">↺ Reset</button></div></div><div class="calc-actmsg" id="calcActMsg" role="status" aria-live="polite"></div>';
   h += '<div class="calc-grid" id="calcGrid"><div class="calc-keys">' +
     [0, 1, 2].map(n => '<div class="calc-key" data-key="' + n + '"><span class="k"></span><b class="v">0<span class="u"></span></b><span class="s"></span></div>').join("") + "</div>";
   h += '<div class="calc-left"><figure class="calc-fig"><svg id="calcSvg" viewBox="0 0 320 245" role="img" aria-label="Schets met afmetingen"></svg></figure><div id="calcWarn" class="calc-warnbox"></div><dl class="calc-res" id="calcOut"></dl></div>';
   h += '<div class="calc-right"><div class="calc-inputs">' + secHtml("Geometrie", body.Geometrie) + (body.Materiaal ? secHtml("Materiaal", body.Materiaal) : "") + secHtml("Belasting", body.Belasting) + "</div>";
+  h += optSection(c);
   h += '<details class="calc-sec calc-card" data-sec="Formules"' + (state.open.Formules ? " open" : "") + '><summary>Formules</summary><div class="calc-sec-b calc-formulas" id="calcFormulas"></div></details>';
   h += '<details class="calc-sec calc-card" data-sec="Aannames"' + (state.open.Aannames ? " open" : "") + '><summary>Aannames en bron</summary><div class="calc-sec-b"><ul class="calc-assume">' + c.assume.map(a => "<li>" + a + "</li>").join("") + '</ul><p class="calc-src"><span>Bron</span> ' + c.source + "</p></div></details></div></div>";
   $("calcDetail").innerHTML = h;
@@ -1272,6 +1286,8 @@ function renderDetail() {
   const kl = keysOf(c, o0.r, defaults(c), M0);
   REF.keys.forEach((k, n) => { k.box.querySelector(".k").textContent = kl[n].k; });
   updMatInfo();
+  const os = $("calcOptSec"); if (os && state.open.Optimaliseer) os.open = true;
+  optMount();
   render();
 }
 function updMatInfo() {
@@ -1305,7 +1321,26 @@ export function setWork(w) {
   else if (!REF) renderDetail();
 }
 
+// Optimaliseer: één evaluatie van een calculator met andere invoer en/of materiaal, zonder het scherm te raken
+function evalCalc(c, vals, matOver) {
+  const p = Object.assign({}, vals);
+  if (matOver) for (const k in matOver) if (k !== "_") p[k] = matOver[k];
+  if (invalid(c, p).length) return null;
+  clampP(c, p);
+  const M = matParams(c, p, matOver && matOver._);
+  nonFin = 0;
+  let o;
+  try { o = c.run(p, M); } catch (_) { return null; }
+  return { o, p, M };
+}
+const optCtx = {
+  state, calcOf: () => calcOf(state.cur), rangeOf: (c, i) => rng(c, i) || [i.def > 0 ? i.def / 10 : 0, i.def > 0 ? i.def * 10 : 1, i.def > 0 ? 1 : 0],
+  ownMat, matsOf, MATERIALS, grpOf, evalCalc, renderDetail: () => renderDetail(),
+  toClipboard: t => toClipboard(t)
+};
+
 export function initCalc() {
+  initCalcOpt(optCtx);
   renderList();
   $("workSeg").addEventListener("click", e => {
     const b = e.target.closest("[data-w]");

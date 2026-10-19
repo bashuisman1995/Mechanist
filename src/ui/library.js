@@ -62,6 +62,8 @@ const THUMB = {
     ln(34, 26, 38, 26, "k") + spring(38, 26, 60, 26) + mass(66, 26) + arrow(2, 42, 20, 42),
   thermarm: () => wall(8, 8, 42) + ln(8, 12, 62, 26, "k") + ln(8, 38, 62, 26, "dr") + dot(62, 26, 2.6) + pin(8, 12) + pin(8, 38) +
     arrow(70, 26, 70, 14) + `<path class="g" d="M66 33q4 3 8 0"/>`,
+  athermarm: () => wall(8, 8, 42) + ln(8, 20, 66, 20, "k") + ln(66, 30, 30, 30, "dr") + `<path class="g" d="M66 14v32M30 24v12"/>` + dot(30, 30, 2.6) + dot(66, 20, 2) + pin(8, 20) +
+    `<path class="f" d="M30 42v-6"/>` + arrow(40, 44, 22, 44),
   thermclamp: () => wall(6, 14, 38) + wall(74, 14, 38) + ln(6, 26, 26, 26, "k") + ln(26, 26, 74, 26, "k") + box(40, 26) +
     `<path class="f" d="M10 14h8M62 14h8M14 12l-4 2 4 2M66 12l4 2-4 2"/>`,
   stiffcant: () => wall(10, 14, 38) + `<path class="k" style="stroke-width:3.4" d="M10 26Q40 26 66 36"/>` + `<path class="g" stroke-dasharray="3 2" d="M10 26H66"/>` + `<rect class="m" x="37" y="23" width="6" height="6" rx="1" transform="rotate(10 40 26)"/>` + arrow(66, 8, 66, 30),

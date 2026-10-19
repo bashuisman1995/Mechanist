@@ -106,6 +106,7 @@ export function changed() {
   if (ui.sel && narrow && narrow.matches && model.tab === "meas") setTab("props");
   if (model.mode === "frf") syncDynInputs();
   rebuild(); syncDof(); syncInspector(); draw(); pushHistory(); save();
+  document.dispatchEvent(new Event("mech-changed"));       // o.a. het tabblad Optimaliseer ververst zijn lijsten
 }
 // alleen weergave veranderd (bijv. een spoor aan of uit): niet herberekenen
 export function touched() { draw(); pushHistory(); save(); }

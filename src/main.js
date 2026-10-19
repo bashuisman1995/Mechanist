@@ -12,6 +12,7 @@ import { b64, doc, initPersist, KEY, loadDoc, PREV, syncHistoryBtns } from "./ui
 import { initPicker } from "./ui/picker.js";
 import { initPlayback } from "./ui/playback.js";
 import { initPlot } from "./ui/plot.js";
+import { initSketchOpt } from "./ui/sketchopt.js";
 import { initStiff } from "./ui/stiff.js";
 import { changed } from "./ui/solver.js";
 import { startTour } from "./ui/tour.js";
@@ -32,6 +33,7 @@ initFiles();
 initLayout();
 initCalc();
 initStiff();
+initSketchOpt();
 
 setTool("select");
 requestAnimationFrame(() => {

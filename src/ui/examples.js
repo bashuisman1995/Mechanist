@@ -294,6 +294,13 @@ export const EXAMPLES = {
     [["link", "A", "C", { mat: "alu" }], ["link", "B", "C", { mat: "staal" }]],
     g => { model.dT = 5; model.thermNode = g("C").id; }
   ),
+  // athermische meetarm: stalen staaf A->B naar rechts, aluminium staaf B->C terug naar links; de tip C ligt op L_AB - L_BC van A.
+  // Drift van C = (α_staal·L_AB − α_alu·L_BC)·ΔT: nul bij L_BC/L_AB = α_staal/α_alu. Begint bij L_BC = 90 mm (drift −4,0 µm bij 10 K)
+  athermarm: () => build(
+    [["A", 0, 0, "pin"], ["B", 150, 0, "slider", 0], ["C", 60, 0, "slider", 0]],
+    [["link", "A", "B", { mat: "staal" }], ["link", "B", "C", { mat: "alu" }]],
+    g => { model.dT = 10; model.thermNode = g("C").id; }
+  ),
   // twee axiale stalen staven (100 mm, 2 mm²) tussen twee vaste punten, ΔT = 20 K: thermische drukspanning in Evenwicht
   thermclamp: () => build(
     [["A", 0, 0, "pin"], ["B", 100, 0, "slider", 0], ["C", 200, 0, "pin"]],
@@ -365,6 +372,7 @@ export const CATEGORIES = [
   { id: "sens", nm: "Sensoren" },
   { id: "therm", nm: "Thermisch" },
   { id: "stiff", nm: "Stijfheid" },
+  { id: "opt", nm: "Optimalisatie" },
   { id: "empty", nm: "Leeg" }
 ];
 export const MODE_NAMES = { kin: "Kinematisch", dyn: "Dynamisch", equil: "Evenwicht", frf: "FRF", stiff: "Stijfheid" };
@@ -473,6 +481,11 @@ export const EXAMPLE_META = {
     title: "Thermische drift van een meetarm", cat: "therm", modes: ["kin"],
     desc: "Tastarm op een aluminium en een stalen staaf; ΔT = 5 K laat de tip in µm wegdrijven.",
     text: "De tip C hangt aan een aluminium staaf (\u03b1 = 23,6) en een stalen staaf (\u03b1 = 11,5) van elk 152 mm, op een frame. Bij \u0394T = 5 K rekt de aluminium staaf 18 \u00b5m en de stalen 8,7 \u00b5m; in het Resultaat staat de verschuiving van de tip: \u0394x = +13,5 \u00b5m en \u0394y = +28,0 \u00b5m. De grafiek toont per staaf zijn bijdrage \u2202x/\u2202L\u00b7\u03b1\u00b7L\u00b7\u0394T: de bijdragen aan y zijn groot en tegengesteld (+54,6 en \u221226,6 \u00b5m), de aluminium staaf wint. Zet bij Eigenschappen beide staven op staal: dan valt \u0394y weg (0 \u00b5m, symmetrisch) en blijft alleen \u0394x = +8,9 \u00b5m over. Het kan ook met twee verschillende materialen: kies de lengtes zo dat \u03b1\u00b7L gelijk is (de aluminium staaf dan 0,49 keer zo lang als de stalen), of zet de aluminium staaf op Invar. Zo maak je de tip athermisch in de meetrichting."
+  },
+  athermarm: {
+    title: "Athermische meetarm optimaliseren", cat: "opt", modes: ["kin"],
+    desc: "Stalen en aluminium staaf in tegengestelde richting: de optimaliseerder maakt de tip athermisch.",
+    text: "Een stalen staaf AB (150 mm, \u03b1 = 11,5) loopt naar rechts, een aluminium staaf BC (\u03b1 = 23,6) loopt terug naar links; de tip C ligt op L_AB \u2212 L_BC van A (de twee staven liggen op \u00e9\u00e9n lijn). Bij \u0394T = 10 K drijft C ongeveer 4 \u00b5m weg (Resultaat: thermische verschuiving). Open het tabblad Optimaliseer en druk op \u201cAthermisch maken\u201d: de optimaliseerder zoekt de x van C waarbij de drift nul is. Analytisch moet gelden \u03b1_AB\u00b7L_AB = \u03b1_BC\u00b7L_BC, dus L_BC/L_AB = 11,5/23,6 = 0,487: de aluminium staaf wordt 73,1 mm en C komt op x = 76,9 mm. Het convergentieplotje en de gevoeligheid (+1 % x \u2192 % drift) laten zien hoe het gevonden is; Toepassen zet de waarde in het model, Ctrl+Z haalt hem weer weg."
   },
   thermclamp: {
     title: "Thermische spanning in een ingeklemde staaf", cat: "therm", modes: ["dyn", "equil"],
