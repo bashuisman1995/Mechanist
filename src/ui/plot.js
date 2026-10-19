@@ -250,9 +250,12 @@ export function drawPlot() {
     pctx.font = '400 10px "IBM Plex Mono", ui-monospace, monospace';
     pctx.strokeStyle = ui.C.line; pctx.lineWidth = 1;
     pctx.textAlign = "right"; pctx.textBaseline = "middle";
+    const drawn = [];                               // y van de getekende labels: nooit dichter dan 14 px bij elkaar
     sb.tk.forEach((tv, k) => {
       const y = Math.round(Y(tv)) + .5;
       pctx.beginPath(); pctx.moveTo(PAD.L, y); pctx.lineTo(PAD.L + pw, y); pctx.stroke();
+      if (drawn.some(d => Math.abs(d - y) < 14)) return;
+      drawn.push(y);
       pctx.fillStyle = ui.C.ink3; pctx.fillText(sb.labs[k], PAD.L - 6, y);
     });
     if (sb.lo < 0 && sb.hi > 0) {

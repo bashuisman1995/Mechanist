@@ -294,10 +294,11 @@ export const EXAMPLES = {
     [["link", "A", "C", { mat: "alu" }], ["link", "B", "C", { mat: "staal" }]],
     g => { model.dT = 5; model.thermNode = g("C").id; }
   ),
-  // athermische meetarm: stalen staaf A->B naar rechts, aluminium staaf B->C terug naar links; de tip C ligt op L_AB - L_BC van A.
-  // Drift van C = (α_staal·L_AB − α_alu·L_BC)·ΔT: nul bij L_BC/L_AB = α_staal/α_alu. Begint bij L_BC = 90 mm (drift −4,0 µm bij 10 K)
+  // athermische meetarm, gevouwen (re-entrant): stalen staaf A->B (300 mm) naar rechts; B glijdt langs de x-as. Daar vouwt de aluminium staaf B->C
+  // terug naar links naar de tip C, die 15 mm hoger in een horizontale geleiding glijdt. Tip-drift = (α_staal·L_AB − α_alu·L_BC²/x_BC)·ΔT, met x_BC de
+  // horizontale afstand B-C (L_BC·cos φ, φ ~ 5°): nul bij L_BC/L_AB ≈ α_staal/α_alu. Begint bij C op x = 100 mm: drift −13 µm bij 10 K.
   athermarm: () => build(
-    [["A", 0, 0, "pin"], ["B", 150, 0, "slider", 0], ["C", 60, 0, "slider", 0]],
+    [["A", 0, 0, "pin"], ["B", 300, 0, "slider", 0], ["C", 100, 15, "slider", 0]],
     [["link", "A", "B", { mat: "staal" }], ["link", "B", "C", { mat: "alu" }]],
     g => { model.dT = 10; model.thermNode = g("C").id; }
   ),
@@ -484,8 +485,8 @@ export const EXAMPLE_META = {
   },
   athermarm: {
     title: "Athermische meetarm optimaliseren", cat: "opt", modes: ["kin"],
-    desc: "Stalen en aluminium staaf in tegengestelde richting: de optimaliseerder maakt de tip athermisch.",
-    text: "Een stalen staaf AB (150 mm, \u03b1 = 11,5) loopt naar rechts, een aluminium staaf BC (\u03b1 = 23,6) loopt terug naar links; de tip C ligt op L_AB \u2212 L_BC van A (de twee staven liggen op \u00e9\u00e9n lijn). Bij \u0394T = 10 K drijft C ongeveer 4 \u00b5m weg (Resultaat: thermische verschuiving). Open het tabblad Optimaliseer en druk op \u201cAthermisch maken\u201d: de optimaliseerder zoekt de x van C waarbij de drift nul is. Analytisch moet gelden \u03b1_AB\u00b7L_AB = \u03b1_BC\u00b7L_BC, dus L_BC/L_AB = 11,5/23,6 = 0,487: de aluminium staaf wordt 73,1 mm en C komt op x = 76,9 mm. Het convergentieplotje en de gevoeligheid (+1 % x \u2192 % drift) laten zien hoe het gevonden is; Toepassen zet de waarde in het model, Ctrl+Z haalt hem weer weg."
+    desc: "Gevouwen meetarm: stalen staaf heen, aluminium staaf terug naar de tip; de optimaliseerder maakt de tip athermisch.",
+    text: "Het klassieke gevouwen (re-entrant) ontwerp. Frame A (links) draagt een stalen staaf AB van 300 mm (\u03b1 = 11,5 \u00b5m/(m\u00b7K)) naar rechts; het draaipunt B glijdt langs de x-as. Daar vouwt een aluminium staaf BC (\u03b1 = 23,6) terug naar links, naar de tastip C die 15 mm hoger in een horizontale geleiding glijdt. De tip ligt op x = L_AB \u2212 x_BC van A, dus staal verschuift hem naar rechts en aluminium naar links. Bij \u0394T = 10 K drijft C \u221213 \u00b5m weg (Resultaat: thermische verschuiving; de aluminium staaf is te lang). Open het tabblad Optimaliseer en druk op \u201cAthermisch maken\u201d: de optimaliseerder zoekt de x van C waarbij de drift nul is. Analytisch moet gelden \u03b1_staal\u00b7L_AB = \u03b1_alu\u00b7L_BC, dus L_BC/L_AB = 11,5/23,6 = 0,487, ofwel L_BC \u2248 146 mm en C op x \u2248 155 mm. Omdat BC 15 mm uit de lijn staat, telt alleen de horizontale component mee; dat geeft een correctie van \u00bd\u00b7(15/146)\u00b2 = 0,5 %, de optimaliseerder vindt L_BC/L_AB = 0,485. Het convergentieplotje en de gevoeligheid (+1 % x \u2192 drift) laten zien hoe het gevonden is; Toepassen zet de waarde in het model, Ctrl+Z haalt hem weer weg."
   },
   thermclamp: {
     title: "Thermische spanning in een ingeklemde staaf", cat: "therm", modes: ["dyn", "equil"],

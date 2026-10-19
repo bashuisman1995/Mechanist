@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mechanismeschets</title>
-<meta name="mech-build" content="cd041c6">
+<meta name="mech-build" content="783c457">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -720,6 +720,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
 .calc-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px 18px; align-items: start; }
 .calc-keys { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .calc-left, .calc-right { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+/* tekening en kerngetallen blijven in beeld terwijl rechts (bv. Optimaliseer) scrolt */
+.calc-left { position: sticky; top: 0; align-self: start; max-height: calc(100vh - 66px); overflow-y: auto; }
+.calc-grid.is-prev .calc-fig { outline: 2px dashed var(--accent); outline-offset: -2px; }
+.calc-grid.is-prev .calc-fig::after { content: "voorbeeld: optimum"; display: block; text-align: center; font-size: 11px; color: var(--accent); padding: 2px 0 0; }
+.opt-tbl td.n:last-child, .opt-tbl th:last-child { cursor: help; }
 .calc-key { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 9px 12px; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .calc-key .k { font-size: 12px; color: var(--ink-2); }
 .calc-key .v { font-size: 26px; font-weight: 600; letter-spacing: -.01em; line-height: 1.15; overflow-wrap: anywhere; }
@@ -804,6 +809,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   .calc-detail { padding: 12px 16px 40px; }
   .calc-grid { display: flex; flex-direction: column; gap: 12px; }
   .calc-left, .calc-right { display: contents; }
+  .calc-left { position: static; max-height: none; overflow: visible; }
   .calc-fig { order: 1; }
   .calc-keys { order: 2; gap: 6px; }
   .calc-warnbox { order: 3; }
@@ -2332,10 +2338,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       const t = A[c2];
       A[c2] = A[p];
       A[p] = t;
-      const pv = A[c2][c2];
+      const pv2 = A[c2][c2];
       for (let r = 0; r < n; r++) {
         if (r === c2) continue;
-        const f2 = A[r][c2] / pv;
+        const f2 = A[r][c2] / pv2;
         if (!f2) continue;
         for (let k = c2; k <= n; k++) A[r][k] -= f2 * A[c2][k];
       }
@@ -3027,17 +3033,17 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     }
     const cons = model.elems.filter((e) => e.type === "contact" && fi.has(e.node));
     let zCur = new Float64Array(cons.length);
-    const pv = (q2, v2, id) => ({ p: pos2(q2, id), v: vel(v2, id) });
+    const pv2 = (q2, v2, id) => ({ p: pos2(q2, id), v: vel(v2, id) });
     function clampZ(q2, v2, z) {
       cons.forEach((e, k) => {
-        const s = pv(q2, v2, e.node), c2 = contactForce(e, s.p, s.v, z[k]);
+        const s = pv2(q2, v2, e.node), c2 = contactForce(e, s.p, s.v, z[k]);
         z[k] = c2.z;
       });
     }
     function loads(q2, v2, zv) {
       const F = new Float64Array(nq), EF = {}, CF = {}, dz = new Float64Array(cons.length);
       cons.forEach((e, k) => {
-        const s = pv(q2, v2, e.node), c2 = contactForce(e, s.p, s.v, zv[k]), i = fi.get(e.node);
+        const s = pv2(q2, v2, e.node), c2 = contactForce(e, s.p, s.v, zv[k]), i = fi.get(e.node);
         F[2 * i] += c2.fx;
         F[2 * i + 1] += c2.fy;
         EF[e.id] = c2.Fn;
@@ -9355,12 +9361,15 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         pctx.lineWidth = 1;
         pctx.textAlign = "right";
         pctx.textBaseline = "middle";
+        const drawn = [];
         sb.tk.forEach((tv, k) => {
           const y = Math.round(Y(tv)) + 0.5;
           pctx.beginPath();
           pctx.moveTo(PAD.L, y);
           pctx.lineTo(PAD.L + pw, y);
           pctx.stroke();
+          if (drawn.some((d) => Math.abs(d - y) < 14)) return;
+          drawn.push(y);
           pctx.fillStyle = ui.C.ink3;
           pctx.fillText(sb.labs[k], PAD.L - 6, y);
         });
@@ -10073,11 +10082,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     for (const e of model.elems) {
       if (!isBar(e) && !isAxial(e) || e.type === "loadcell") continue;
       const v = sim.sweep.N[e.id] ? sim.sweep.N[e.id][i] : isAxial(e) && sim.sweep.EF && sim.sweep.EF[e.id] ? sim.sweep.EF[e.id][i] : NaN;
-      if (!isFinite(v)) continue;
+      if (!isFinite(v) || Math.abs(v) < 1e-6) continue;
       const A = toScr(N(e.a)), B = toScr(N(e.b));
       label(
         (A.x + B.x) / 2,
-        (A.y + B.y) / 2 + 13,
+        (A.y + B.y) / 2 + (matTagOn(e) ? 24 : 13),
         (v >= 0 ? "+" : "") + fmtForce(v),
         v >= 0 ? ui.C.spring : ui.C.force,
         false,
@@ -10096,6 +10105,13 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   }
   function isHov(id) {
     return ui.hover === id;
+  }
+  var MAT_TAG = { staal: "St", rvs: "RVS", alu: "Al", titaan: "Ti", cube: "CuBe", fbrons: "CuSn", invar: "Inv", alumina: "Al\u2082O\u2083", wc: "WC", zerodur: "Zer" };
+  var MAT_TINT = { alu: "#3b82c4", rvs: "#7a8a96", titaan: "#8a63c7", cube: "#c4762e", fbrons: "#b8862e", invar: "#2e9d6a", alumina: "#c4547a", wc: "#555e8a", zerodur: "#2e9da0" };
+  function matTagOn(e) {
+    if (!isThermal(e) || e.driver) return false;
+    if (model.mode !== "stiff" && !model.elems.some((x) => isThermal(x) && dTOf(x) !== 0)) return false;
+    return model.elems.some((x) => isThermal(x) && (x.mat || "staal") !== "staal");
   }
   function drawLink(e) {
     const A = toScr(N(e.a)), B = toScr(N(e.b));
@@ -10124,6 +10140,16 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     ctx.moveTo(A.x, A.y);
     ctx.lineTo(B.x, B.y);
     ctx.stroke();
+    const tag = matTagOn(e);
+    if (tag && MAT_TINT[e.mat]) {
+      ctx.strokeStyle = MAT_TINT[e.mat];
+      ctx.lineWidth = ax ? 1.8 : 2.4;
+      ctx.beginPath();
+      ctx.moveTo(A.x, A.y);
+      ctx.lineTo(B.x, B.y);
+      ctx.stroke();
+    }
+    if (tag) label((A.x + B.x) / 2, (A.y + B.y) / 2 + 12, MAT_TAG[matOf(e).id] || matOf(e).id, MAT_TINT[e.mat] || ui.C.ink2, false, 2);
     if (e.driver) drawCrankArrow(A, B);
     if (bm) label((A.x + B.x) / 2, (A.y + B.y) / 2 + 26, "EA\xB7EI", ui.C.spring, false, 2);
     if (ax) {
@@ -10795,7 +10821,9 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const s = toScr(n);
     label(s.x + 11, s.y - 11, n.name + (n.m > 0 ? "  " + fmt(n.m) + " kg" : ""), ui.C.ink2, true, 0);
   }
+  var ZERO_LBL = /^[+\u2212-]?0(?:[.,]0*)?\s*(?:N|mm|\u00b5m|N\u00b7mm|N\/mm|N\/\u00b5m|Nm|kg|rad|\u00b0)?$/;
   function label(x, y, text, color, left, pri) {
+    if (ZERO_LBL.test(String(text).trim())) return;
     LBL.push({ x, y, text, color, left: !!left, pri: pri === void 0 ? 2 : pri });
   }
   function drawRubber() {
@@ -11556,10 +11584,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         model.thermNode = g("C").id;
       }
     ),
-    // athermische meetarm: stalen staaf A->B naar rechts, aluminium staaf B->C terug naar links; de tip C ligt op L_AB - L_BC van A.
-    // Drift van C = (α_staal·L_AB − α_alu·L_BC)·ΔT: nul bij L_BC/L_AB = α_staal/α_alu. Begint bij L_BC = 90 mm (drift −4,0 µm bij 10 K)
+    // athermische meetarm, gevouwen (re-entrant): stalen staaf A->B (300 mm) naar rechts; B glijdt langs de x-as. Daar vouwt de aluminium staaf B->C
+    // terug naar links naar de tip C, die 15 mm hoger in een horizontale geleiding glijdt. Tip-drift = (α_staal·L_AB − α_alu·L_BC²/x_BC)·ΔT, met x_BC de
+    // horizontale afstand B-C (L_BC·cos φ, φ ~ 5°): nul bij L_BC/L_AB ≈ α_staal/α_alu. Begint bij C op x = 100 mm: drift −13 µm bij 10 K.
     athermarm: () => build(
-      [["A", 0, 0, "pin"], ["B", 150, 0, "slider", 0], ["C", 60, 0, "slider", 0]],
+      [["A", 0, 0, "pin"], ["B", 300, 0, "slider", 0], ["C", 100, 15, "slider", 0]],
       [["link", "A", "B", { mat: "staal" }], ["link", "B", "C", { mat: "alu" }]],
       (g) => {
         model.dT = 10;
@@ -11826,8 +11855,8 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       title: "Athermische meetarm optimaliseren",
       cat: "opt",
       modes: ["kin"],
-      desc: "Stalen en aluminium staaf in tegengestelde richting: de optimaliseerder maakt de tip athermisch.",
-      text: "Een stalen staaf AB (150 mm, \u03B1 = 11,5) loopt naar rechts, een aluminium staaf BC (\u03B1 = 23,6) loopt terug naar links; de tip C ligt op L_AB \u2212 L_BC van A (de twee staven liggen op \xE9\xE9n lijn). Bij \u0394T = 10 K drijft C ongeveer 4 \xB5m weg (Resultaat: thermische verschuiving). Open het tabblad Optimaliseer en druk op \u201CAthermisch maken\u201D: de optimaliseerder zoekt de x van C waarbij de drift nul is. Analytisch moet gelden \u03B1_AB\xB7L_AB = \u03B1_BC\xB7L_BC, dus L_BC/L_AB = 11,5/23,6 = 0,487: de aluminium staaf wordt 73,1 mm en C komt op x = 76,9 mm. Het convergentieplotje en de gevoeligheid (+1 % x \u2192 % drift) laten zien hoe het gevonden is; Toepassen zet de waarde in het model, Ctrl+Z haalt hem weer weg."
+      desc: "Gevouwen meetarm: stalen staaf heen, aluminium staaf terug naar de tip; de optimaliseerder maakt de tip athermisch.",
+      text: "Het klassieke gevouwen (re-entrant) ontwerp. Frame A (links) draagt een stalen staaf AB van 300 mm (\u03B1 = 11,5 \xB5m/(m\xB7K)) naar rechts; het draaipunt B glijdt langs de x-as. Daar vouwt een aluminium staaf BC (\u03B1 = 23,6) terug naar links, naar de tastip C die 15 mm hoger in een horizontale geleiding glijdt. De tip ligt op x = L_AB \u2212 x_BC van A, dus staal verschuift hem naar rechts en aluminium naar links. Bij \u0394T = 10 K drijft C \u221213 \xB5m weg (Resultaat: thermische verschuiving; de aluminium staaf is te lang). Open het tabblad Optimaliseer en druk op \u201CAthermisch maken\u201D: de optimaliseerder zoekt de x van C waarbij de drift nul is. Analytisch moet gelden \u03B1_staal\xB7L_AB = \u03B1_alu\xB7L_BC, dus L_BC/L_AB = 11,5/23,6 = 0,487, ofwel L_BC \u2248 146 mm en C op x \u2248 155 mm. Omdat BC 15 mm uit de lijn staat, telt alleen de horizontale component mee; dat geeft een correctie van \xBD\xB7(15/146)\xB2 = 0,5 %, de optimaliseerder vindt L_BC/L_AB = 0,485. Het convergentieplotje en de gevoeligheid (+1 % x \u2192 drift) laten zien hoe het gevonden is; Toepassen zet de waarde in het model, Ctrl+Z haalt hem weer weg."
     },
     thermclamp: {
       title: "Thermische spanning in een ingeklemde staaf",
@@ -12615,7 +12644,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const r = P.res, id = P.id;
     const stat = r.feasible ? '<div class="opt-stat opt-ok" id="' + id + 'Stat">Toelaatbaar optimum na ' + r.evals + " evaluaties" + (r.stopped ? " (gestopt)" : "") + ". Reden van stoppen: " + esc5(r.reason.replace(/ \(.*/, "")) + ".</div>" : '<div class="opt-stat opt-bad" id="' + id + 'Stat" role="alert">Geen toelaatbare oplossing gevonden binnen de grenzen (' + r.evals + " evaluaties, " + esc5(r.reason.replace(/^geen toelaatbare oplossing gevonden \(/, "").replace(/\)$/, "")) + "). Verruim een grens of een randvoorwaarde. Hieronder het punt met de kleinste overschrijding.</div>";
     const chg = (a, b) => a !== b;
-    let t = '<table class="opt-tbl" id="' + id + 'Tbl"><thead><tr><th>Invoer</th><th>Voor</th><th>Na</th></tr></thead><tbody>';
+    let t = '<table class="opt-tbl" id="' + id + 'Tbl"><thead><tr><th>Invoer</th><th>Voor</th><th title="Wijs een waarde in deze kolom aan: de tekening toont dan het optimum">Na</th></tr></thead><tbody>';
     P.vars.forEach((v) => {
       t += "<tr" + (v.opt ? ' class="opt-chg"' : "") + "><td>" + esc5(v.label) + '</td><td class="n">' + esc5(n3(v.before)) + '</td><td class="n" data-raw="' + v.after + '" data-id="' + esc5(v.id || "") + '"><b>' + esc5(n3(v.after)) + "</b> " + esc5(v.unit || "") + (v.bound ? ' <span class="opt-tag" title="Op de grens van het toegestane bereik">' + (v.bound === "min" ? "min" : "max") + "</span>" : "") + "</td></tr>";
     });
@@ -12623,7 +12652,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       t += '<tr class="opt-chg"><td>' + esc5(d.label) + '</td><td class="n">' + esc5(d.before) + '</td><td class="n"><b>' + esc5(d.after) + "</b></td></tr>";
     });
     t += "</tbody></table>";
-    let o = '<table class="opt-tbl" id="' + id + 'Out"><thead><tr><th>Uitkomst</th><th>Voor</th><th>Na</th></tr></thead><tbody>';
+    let o = '<table class="opt-tbl" id="' + id + 'Out"><thead><tr><th>Uitkomst</th><th>Voor</th><th title="Wijs een waarde in deze kolom aan: de tekening toont dan het optimum">Na</th></tr></thead><tbody>';
     P.outs.forEach((x) => {
       o += "<tr" + (x.role ? ' class="opt-' + x.role + '"' : "") + "><td>" + esc5(x.label) + (x.role === "doel" ? ' <span class="opt-tag">doel</span>' : x.role === "rand" ? ' <span class="opt-tag">rand</span>' : "") + '</td><td class="n">' + esc5(x.before) + '</td><td class="n" data-raw="' + (x.afterRaw != null ? x.afterRaw : "") + '"><b>' + esc5(x.after) + "</b> " + esc5(x.unit || "") + "</td></tr>";
     });
@@ -12808,6 +12837,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     return { vals, base, bOut, vars, consIn, dKeys, discrete, target };
   }
   function start() {
+    ctx2.preview(null);
     const c2 = ctx2.calcOf(), s = st(c2);
     if (s.run) return;
     const p = problem(c2, s);
@@ -12992,6 +13022,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     box3.innerHTML = resultHtml(s.P);
   }
   function apply() {
+    ctx2.preview(null);
     const c2 = ctx2.calcOf(), s = S[c2.id];
     if (!s || !s.P) return;
     const P = s.P, vals = ctx2.state.vals[c2.id];
@@ -13012,6 +13043,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     if (m) m.textContent = "Waarden toegepast. Met Terug zet je ze terug.";
   }
   function undo2() {
+    ctx2.preview(null);
     const c2 = ctx2.calcOf(), s = S[c2.id];
     if (!s || !s.undo) return;
     ctx2.state.vals[c2.id] = s.undo.vals;
@@ -13033,9 +13065,29 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       if (m) m.textContent = ok ? "Optimalisatierapport gekopieerd (" + text.split("\n").length + " regels)." : "Kopi\xEBren geweigerd door de browser.";
     });
   }
+  function previewOptimum() {
+    const c2 = ctx2.calcOf(), s = S[c2.id];
+    if (!s || !s.P || !s.res) return;
+    const P = s.P, vals = {}, mats = {};
+    P.names.forEach((n, i) => {
+      vals[n] = P.xs[i];
+    });
+    P.dKeys.forEach((k, j) => {
+      if (k === "_") mats._ = P.aIds[j];
+      else vals[k] = P.aIds[j];
+    });
+    ctx2.preview(vals, mats);
+  }
   function initCalcOpt(c2) {
     ctx2 = c2;
     const det = $("calcDetail");
+    const naCell = (t) => t.closest && t.closest("#optRes .opt-tbl td.n:last-child, #optRes .opt-tbl th:last-child");
+    det.addEventListener("mouseover", (e) => {
+      if (naCell(e.target)) previewOptimum();
+    });
+    det.addEventListener("mouseout", (e) => {
+      if (naCell(e.target) && !naCell(e.relatedTarget || document.body)) ctx2.preview(null);
+    });
     det.addEventListener("click", (e) => {
       const t = e.target;
       if (t.closest("#calcOpt")) {
@@ -14916,6 +14968,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
   }
   var secHtml = (name2, body) => '<details class="calc-sec" data-sec="' + name2 + '"' + (state.open[name2] ? " open" : "") + "><summary>" + name2 + '</summary><div class="calc-sec-b">' + body + "</div></details>";
   function renderDetail() {
+    optCtx.preview(null);
     optCancel();
     if (state.raf) {
       cancelAnimationFrame(state.raf);
@@ -15042,8 +15095,31 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     grpOf,
     evalCalc,
     renderDetail: () => renderDetail(),
-    toClipboard: (t) => toClipboard2(t)
+    toClipboard: (t) => toClipboard2(t),
+    // voorbeeld: toon tijdelijk andere waarden in tekening en uitkomsten (vals = {id: waarde} of null = terug naar de echte invoer)
+    preview(vals, mats) {
+      if (!vals) {
+        if (!pv) return;
+        state.vals[pv.id] = pv.vals;
+        state.mats[pv.id] = pv.mat;
+        pv = null;
+        if (REF2) {
+          REF2.root.classList.remove("is-prev");
+          render();
+        }
+        return;
+      }
+      const c2 = calcOf(state.cur);
+      if (!pv) pv = { id: c2.id, vals: state.vals[c2.id], mat: state.mats[c2.id] };
+      state.vals[c2.id] = Object.assign({}, pv.vals, vals);
+      if (mats && mats._) state.mats[c2.id] = mats._;
+      if (REF2) {
+        REF2.root.classList.add("is-prev");
+        render();
+      }
+    }
   };
+  var pv = null;
   function initCalc() {
     initCalcOpt(optCtx);
     renderList();

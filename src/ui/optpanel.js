@@ -114,14 +114,14 @@ export function resultHtml(P) {
     ? '<div class="opt-stat opt-ok" id="' + id + 'Stat">Toelaatbaar optimum na ' + r.evals + " evaluaties" + (r.stopped ? " (gestopt)" : "") + ". Reden van stoppen: " + esc(r.reason.replace(/ \(.*/, "")) + ".</div>"
     : '<div class="opt-stat opt-bad" id="' + id + 'Stat" role="alert">Geen toelaatbare oplossing gevonden binnen de grenzen (' + r.evals + " evaluaties, " + esc(r.reason.replace(/^geen toelaatbare oplossing gevonden \(/, "").replace(/\)$/, "")) + "). Verruim een grens of een randvoorwaarde. Hieronder het punt met de kleinste overschrijding.</div>";
   const chg = (a, b) => a !== b;
-  let t = '<table class="opt-tbl" id="' + id + 'Tbl"><thead><tr><th>Invoer</th><th>Voor</th><th>Na</th></tr></thead><tbody>';
+  let t = '<table class="opt-tbl" id="' + id + 'Tbl"><thead><tr><th>Invoer</th><th>Voor</th><th title="Wijs een waarde in deze kolom aan: de tekening toont dan het optimum">Na</th></tr></thead><tbody>';
   P.vars.forEach(v => {
     t += "<tr" + (v.opt ? ' class="opt-chg"' : "") + "><td>" + esc(v.label) + '</td><td class="n">' + esc(n3(v.before)) + "</td><td class=\"n\" data-raw=\"" + v.after + "\" data-id=\"" + esc(v.id || "") + "\"><b>" + esc(n3(v.after)) + "</b> " + esc(v.unit || "") +
       (v.bound ? ' <span class="opt-tag" title="Op de grens van het toegestane bereik">' + (v.bound === "min" ? "min" : "max") + "</span>" : "") + "</td></tr>";
   });
   P.discrete.forEach(d => { t += '<tr class="opt-chg"><td>' + esc(d.label) + '</td><td class="n">' + esc(d.before) + '</td><td class="n"><b>' + esc(d.after) + "</b></td></tr>"; });
   t += "</tbody></table>";
-  let o = '<table class="opt-tbl" id="' + id + 'Out"><thead><tr><th>Uitkomst</th><th>Voor</th><th>Na</th></tr></thead><tbody>';
+  let o = '<table class="opt-tbl" id="' + id + 'Out"><thead><tr><th>Uitkomst</th><th>Voor</th><th title="Wijs een waarde in deze kolom aan: de tekening toont dan het optimum">Na</th></tr></thead><tbody>';
   P.outs.forEach(x => {
     o += "<tr" + (x.role ? ' class="opt-' + x.role + '"' : "") + "><td>" + esc(x.label) + (x.role === "doel" ? ' <span class="opt-tag">doel</span>' : x.role === "rand" ? ' <span class="opt-tag">rand</span>' : "") +
       '</td><td class="n">' + esc(x.before) + '</td><td class="n" data-raw="' + (x.afterRaw != null ? x.afterRaw : "") + '"><b>' + esc(x.after) + "</b> " + esc(x.unit || "") + "</td></tr>";

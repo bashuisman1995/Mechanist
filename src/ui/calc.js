@@ -1248,6 +1248,7 @@ function inputHtml(c, i, v) {
 const secHtml = (name, body) => '<details class="calc-sec" data-sec="' + name + '"' + (state.open[name] ? " open" : "") + "><summary>" + name + '</summary><div class="calc-sec-b">' + body + "</div></details>";
 
 function renderDetail() {
+  optCtx.preview(null);
   optCancel();
   if (state.raf) { cancelAnimationFrame(state.raf); state.raf = 0; }
   const c = calcOf(state.cur), v = state.vals[c.id], M0 = matParams(c, v), own = ownMat(c);
@@ -1336,8 +1337,23 @@ function evalCalc(c, vals, matOver) {
 const optCtx = {
   state, calcOf: () => calcOf(state.cur), rangeOf: (c, i) => rng(c, i) || [i.def > 0 ? i.def / 10 : 0, i.def > 0 ? i.def * 10 : 1, i.def > 0 ? 1 : 0],
   ownMat, matsOf, MATERIALS, grpOf, evalCalc, renderDetail: () => renderDetail(),
-  toClipboard: t => toClipboard(t)
+  toClipboard: t => toClipboard(t),
+  // voorbeeld: toon tijdelijk andere waarden in tekening en uitkomsten (vals = {id: waarde} of null = terug naar de echte invoer)
+  preview(vals, mats) {
+    if (!vals) {
+      if (!pv) return;
+      state.vals[pv.id] = pv.vals; state.mats[pv.id] = pv.mat; pv = null;
+      if (REF) { REF.root.classList.remove("is-prev"); render(); }
+      return;
+    }
+    const c = calcOf(state.cur);
+    if (!pv) pv = { id: c.id, vals: state.vals[c.id], mat: state.mats[c.id] };
+    state.vals[c.id] = Object.assign({}, pv.vals, vals);
+    if (mats && mats._) state.mats[c.id] = mats._;
+    if (REF) { REF.root.classList.add("is-prev"); render(); }
+  }
 };
+let pv = null;
 
 export function initCalc() {
   initCalcOpt(optCtx);

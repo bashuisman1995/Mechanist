@@ -1,6 +1,6 @@
 // Tekenen van het mechanisme op het canvas.
 import { frame as contactFrame, liveContact } from "../core/contact.js";
-import { isAxial, isBeam } from "../core/axial.js";
+import { dTOf, isAxial, isBeam, isThermal, matOf } from "../core/axial.js";
 import { dist, drivers, gapPen, isBar, N } from "../core/elements.js";
 import { flexLivePhi, flexStress } from "../core/flexure.js";
 import { encBars, loadcellDt, SENSORS, sensorLive } from "../core/sensors.js";
@@ -193,9 +193,9 @@ function drawLiveForces() {
   for (const e of model.elems) {
     if ((!isBar(e) && !isAxial(e)) || e.type === "loadcell") continue;
     const v = sim.sweep.N[e.id] ? sim.sweep.N[e.id][i] : isAxial(e) && sim.sweep.EF && sim.sweep.EF[e.id] ? sim.sweep.EF[e.id][i] : NaN;
-    if (!isFinite(v)) continue;
+    if (!isFinite(v) || Math.abs(v) < 1e-6) continue;        // geen "+0 N"
     const A = toScr(N(e.a)), B = toScr(N(e.b));
-    label((A.x + B.x) / 2, (A.y + B.y) / 2 + 13,
+    label((A.x + B.x) / 2, (A.y + B.y) / 2 + (matTagOn(e) ? 24 : 13),
       (v >= 0 ? "+" : "") + fmtForce(v), v >= 0 ? ui.C.spring : ui.C.force, false, 1);
   }
 
@@ -210,6 +210,14 @@ function drawLiveForces() {
 function isSel(id) { return ui.sel && ui.sel.id === id; }
 function isHov(id) { return ui.hover === id; }
 
+// materiaal zichtbaar op de staaf: korte naam en tint (alleen als het ertoe doet: ΔT ≠ 0 of Stijfheid, en er is een afwijkend materiaal)
+const MAT_TAG = { staal: "St", rvs: "RVS", alu: "Al", titaan: "Ti", cube: "CuBe", fbrons: "CuSn", invar: "Inv", alumina: "Al\u2082O\u2083", wc: "WC", zerodur: "Zer" };
+const MAT_TINT = { alu: "#3b82c4", rvs: "#7a8a96", titaan: "#8a63c7", cube: "#c4762e", fbrons: "#b8862e", invar: "#2e9d6a", alumina: "#c4547a", wc: "#555e8a", zerodur: "#2e9da0" };
+function matTagOn(e) {
+  if (!isThermal(e) || e.driver) return false;
+  if (model.mode !== "stiff" && !model.elems.some(x => isThermal(x) && dTOf(x) !== 0)) return false;
+  return model.elems.some(x => isThermal(x) && (x.mat || "staal") !== "staal");
+}
 function drawLink(e) {
   const A = toScr(N(e.a)), B = toScr(N(e.b));
   const col = e.driver ? ui.C.driver : ui.C.ink;
@@ -226,6 +234,12 @@ function drawLink(e) {
   ctx.strokeStyle = ui.C.ground; ctx.lineWidth = ax ? 1.1 : 1.4;
   ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
 
+  const tag = matTagOn(e);
+  if (tag && MAT_TINT[e.mat]) {
+    ctx.strokeStyle = MAT_TINT[e.mat]; ctx.lineWidth = ax ? 1.8 : 2.4;
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+  }
+  if (tag) label((A.x + B.x) / 2, (A.y + B.y) / 2 + 12, MAT_TAG[matOf(e).id] || matOf(e).id, MAT_TINT[e.mat] || ui.C.ink2, false, 2);
   if (e.driver) drawCrankArrow(A, B);
   if (bm) label((A.x + B.x) / 2, (A.y + B.y) / 2 + 26, "EA\u00b7EI", ui.C.spring, false, 2);
   if (ax) {                                                       // klein "EA"-label; oranje als de tijdstap te groot is voor de stijfheid
@@ -666,7 +680,9 @@ function drawNodeLabel(n) {
 }
 
 // pri: 0 = puntnaam, 1 = kracht/moment, 2 = maat/veerwaarde, 3 = bijzaak
+const ZERO_LBL = /^[+\u2212-]?0(?:[.,]0*)?\s*(?:N|mm|\u00b5m|N\u00b7mm|N\/mm|N\/\u00b5m|Nm|kg|rad|\u00b0)?$/;
 function label(x, y, text, color, left, pri) {
+  if (ZERO_LBL.test(String(text).trim())) return;           // nulwaarden niet op het canvas
   LBL.push({ x, y, text, color, left: !!left, pri: pri === undefined ? 2 : pri });
 }
 

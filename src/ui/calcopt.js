@@ -131,6 +131,7 @@ function problem(c, s) {
 }
 
 function start() {
+  ctx.preview(null);
   const c = ctx.calcOf(), s = st(c);
   if (s.run) return;
   const p = problem(c, s);
@@ -230,6 +231,7 @@ function showResult(c) {
 
 /* ---------- toepassen, terug, kopieer ---------- */
 function apply() {
+  ctx.preview(null);
   const c = ctx.calcOf(), s = S[c.id];
   if (!s || !s.P) return;
   const P = s.P, vals = ctx.state.vals[c.id];
@@ -244,6 +246,7 @@ function apply() {
   const m = $("calcOptMsg"); if (m) m.textContent = "Waarden toegepast. Met Terug zet je ze terug.";
 }
 function undo() {
+  ctx.preview(null);
   const c = ctx.calcOf(), s = S[c.id];
   if (!s || !s.undo) return;
   ctx.state.vals[c.id] = s.undo.vals; ctx.state.mats[c.id] = s.undo.mat;
@@ -262,9 +265,21 @@ function copy() {
 }
 
 /* ---------- gebeurtenissen ---------- */
+// voorbeeld: tekening en uitkomsten tonen het optimum zolang je een "Na"-waarde aanwijst
+function previewOptimum() {
+  const c = ctx.calcOf(), s = S[c.id];
+  if (!s || !s.P || !s.res) return;
+  const P = s.P, vals = {}, mats = {};
+  P.names.forEach((n, i) => { vals[n] = P.xs[i]; });
+  P.dKeys.forEach((k, j) => { if (k === "_") mats._ = P.aIds[j]; else vals[k] = P.aIds[j]; });
+  ctx.preview(vals, mats);
+}
 export function initCalcOpt(c) {
   ctx = c;
   const det = $("calcDetail");
+  const naCell = t => t.closest && t.closest("#optRes .opt-tbl td.n:last-child, #optRes .opt-tbl th:last-child");
+  det.addEventListener("mouseover", e => { if (naCell(e.target)) previewOptimum(); });
+  det.addEventListener("mouseout", e => { if (naCell(e.target) && !naCell(e.relatedTarget || document.body)) ctx.preview(null); });
   det.addEventListener("click", e => {
     const t = e.target;
     if (t.closest("#calcOpt")) { optOpen(); return; }

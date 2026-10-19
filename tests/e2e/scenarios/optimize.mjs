@@ -45,7 +45,14 @@ export default async ({ browser, url, check }) => {
   check('echt toelaatbaar: c_x ≥ 0,5', await p.$$eval('#calcOptOut tr.opt-rand', x => x.length) >= 1 && cx >= 0.5 - 1e-9, String(cx));
   check('convergentieplotje en gevoeligheidsregel', !!(await p.$('#optRes svg.opt-plot path.opt-ln')) && /\+1 %.*→/.test(await p.$eval('#calcOptSens', e => e.textContent)), await p.$eval('#calcOptSens', e => e.textContent));
   await p.$eval('#optRes', e => { const d = document.getElementById('calcDetail'); d.scrollTop = e.getBoundingClientRect().top - d.getBoundingClientRect().top + d.scrollTop - 8; });
-  await p.screenshot({ path: '/tmp/claude-0/-home-user-Mechanist/1e45fc4c-94b6-53cc-82eb-8e0cec55c972/scratchpad/opt_calc_result.png' });
+  check('resultaat open: tekening en kerngetallen blijven zichtbaar (sticky)', await p.evaluate(() => { const r = document.querySelector('.calc-left').getBoundingClientRect(); return r.top >= 0 && r.top < 200 && r.height > 100; }));
+  const uBefore = await p.$eval('#calcOut', e => e.textContent);
+  await p.hover('#calcOptOut tr.opt-doel td.n:last-child'); await p.waitForTimeout(150);
+  check('aanwijzen van Na: tekening en uitkomsten tonen het optimum', await p.$eval('#calcGrid', e => e.classList.contains('is-prev')) && (await p.$eval('#calcOut', e => e.textContent)) !== uBefore);
+  await p.screenshot({ path: '/tmp/claude-0/-home-user-Mechanist/1e45fc4c-94b6-53cc-82eb-8e0cec55c972/scratchpad/fixf5_calc_preview.png' });
+  await p.mouse.move(5, 5); await p.waitForTimeout(150);
+  check('weg bewegen: terug naar de echte invoer', !(await p.$eval('#calcGrid', e => e.classList.contains('is-prev'))) && (await p.$eval('#calcOut', e => e.textContent)) === uBefore);
+  await p.screenshot({ path: '/tmp/claude-0/-home-user-Mechanist/1e45fc4c-94b6-53cc-82eb-8e0cec55c972/scratchpad/fixf5_calc_result.png' });
   await p.click('#calcOptCopy'); await p.waitForTimeout(150);
   const rep = await p.$eval('#calcOptCopy', e => e.dataset.report || '');
   check('Kopieer: rapport met probleemdefinitie, methode, resultaat en geschiedenis', ['PROBLEEMDEFINITIE', 'METHODE', 'RESULTAAT', 'VERLOOP', 'lokaal optimum'].every(s => rep.indexOf(s) >= 0) && !/e[+-]\d/.test(rep.replace(/1e[-+]?\d/g, '')), rep.slice(0, 200));
@@ -79,17 +86,18 @@ export default async ({ browser, url, check }) => {
   const d0 = parseFloat((await p.$eval('#thD', e => e.textContent)).replace(/\s/g, '').replace(',', '.'));
   await p.mouse.click(600, 300);
   await p.click('[data-t="opt"]'); await p.waitForTimeout(200);
-  await p.screenshot({ path: '/tmp/claude-0/-home-user-Mechanist/1e45fc4c-94b6-53cc-82eb-8e0cec55c972/scratchpad/opt_sk_form.png' });
+  await p.screenshot({ path: '/tmp/claude-0/-home-user-Mechanist/1e45fc4c-94b6-53cc-82eb-8e0cec55c972/scratchpad/fixf5_sk_form.png' });
   await p.click('#skAth');
   await p.waitForSelector('#skOptTbl', { timeout: 30000 });
   const xC = await raw(p, '#skOptTbl td[data-id^="nx:"]');
-  const ratio = (150 - xC) / 150, ath = 11.5 / 23.6;
+  const ratio = Math.hypot(300 - xC, 15) / 300, ath = 11.5 / 23.6;      // gevouwen arm: BC ligt 15 mm uit de lijn
   const dAfter = await raw(p, '#skOptOut tr.opt-doel td[data-raw]');
-  check('athermisch: startdrift ~ 4 µm', d0 > 3.9 && d0 < 4.1, String(d0));
+  check('athermisch: startdrift ~ 13 µm', d0 > 12.5 && d0 < 13.5, String(d0));
   check('athermisch: drift < 1 % van de startdrift', Math.abs(dAfter) < 0.01 * d0, dAfter + ' µm tegen ' + d0);
   check('athermisch: L_BC/L_AB = α_staal/α_alu (= ' + ath.toFixed(4) + ') binnen 1 %', Math.abs(ratio - ath) / ath < 0.01, String(ratio));
+  check('athermisch: gevouwen geometrie, C ligt 15 mm boven de steunlijn A-B', await p.evaluate(() => { const n = JSON.parse(localStorage.getItem('mechschets.r1')).nodes; return n.length === 3 && Math.abs(Math.abs(n[2].y - n[0].y) - 15) < 1e-6 && Math.abs(n[1].x - 300) < 0.1; }));
   await p.$eval('#skRes', e => { const d = e.closest('.pane'); d.scrollTop = 0; e.scrollIntoView({ block: 'start' }); });
-  await p.screenshot({ path: '/tmp/claude-0/-home-user-Mechanist/1e45fc4c-94b6-53cc-82eb-8e0cec55c972/scratchpad/opt_sk_result.png' });
+  await p.screenshot({ path: '/tmp/claude-0/-home-user-Mechanist/1e45fc4c-94b6-53cc-82eb-8e0cec55c972/scratchpad/fixf5_sk_result.png' });
   const xBefore = await p.evaluate(() => JSON.parse(localStorage.getItem('mechschets.r1')).nodes.map(n => n.x).join());
   await p.click('#skOptApply'); await p.waitForTimeout(500);
   const dNow = parseFloat((await p.$eval('#thD', e => e.textContent)).replace(/\s/g, '').replace(',', '.'));
