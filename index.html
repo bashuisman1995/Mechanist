@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Thalomex Precision Toolbox</title>
-<meta name="mech-build" content="6d8a345">
+<meta name="mech-build" content="635d09c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -674,12 +674,8 @@ input[type="checkbox"]:checked::after { opacity: 1; }
   .serie { grid-template-columns: 11px 1fr 40px; }
   .chip, .picklist button.chip { min-height: 40px; }
   .picklist button, .prow { min-height: 40px; }
-  .statusbar button, .brand, .status, .calc-reset, .calc-item, .hw-copy, .serie .lab, #libChips .chip, .opt-more > summary, .opt-x { min-height: 40px; }
-  .opt-x { min-width: 40px; }
-  .opt-more > summary, .calc-sec > summary { display: flex; align-items: center; }
+  .statusbar button, .brand, .status, .serie .lab { min-height: 40px; }
   .chk label { min-height: 40px; display: inline-flex; align-items: center; }
-  .fld .sl, .transport input[type="range"], .stiffbar input[type="range"] { height: 40px; }
-  .hw-copy { padding-inline: 12px; }
 }
 
 /* ---------- narrow ---------- */
@@ -1235,6 +1231,17 @@ input[type="checkbox"]:checked::after { opacity: 1; }
 .opt-sketch .opt-var .opt-u { color: var(--ink-3); font-size: 11.5px; }
 .inspector[data-tab="opt"] .result .thermbox, .inspector[data-tab="opt"] .result #statusDetail { display: none; }
 @media (max-width: 700px) { .calc-acts { flex: 1 1 100%; justify-content: flex-start; } }
+
+/* ---------- aanraakscherm, onderdelen die hierboven pas later zijn gedefinieerd: minstens 40 px ---------- */
+@media (pointer: coarse) {
+  .calc-reset, .calc-item, .hw-copy, #libChips .chip, .opt-x, .meetbar .chip, .stiffbar .chip, .pc-chips .chip, .pc-acts .btn { min-height: 40px; }
+  .opt-x { min-width: 40px; }
+  .hw-copy { padding-inline: 12px; }
+  .opt-more > summary, .calc-sec > summary { display: flex; align-items: center; min-height: 40px; }
+  .fld .sl, .transport input[type="range"], .stiffbar input[type="range"] { height: 40px; }
+  .calc-sel { min-height: 44px; }
+  .joint-seg button { min-height: 40px; }
+}
 </style>
 <script>
   // Vangnet: als het script niet laadt of vastloopt, zie je dat in plaats van een lege pagina.
