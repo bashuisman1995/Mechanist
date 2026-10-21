@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mechanismeschets</title>
+<title>Thalomex Precision Toolbox</title>
 <meta name="mech-build" content="">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="style.css">
 <script>
   // Vangnet: als het script niet laadt of vastloopt, zie je dat in plaats van een lege pagina.
@@ -40,36 +40,35 @@
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand">
-      <h1>Mechanismeschets</h1>
-      <span class="ver">v0.8</span>
-      <span class="docname" id="docName" title="Naam van dit model (wordt de bestandsnaam bij opslaan)"></span>
-    </div>
+    <button type="button" class="brand" id="brand" title="Back to start" data-i18n-title="look.brand.back"><span class="bname">Thalomex</span><small>Precision Toolbox</small><span class="ver" hidden>v0.8</span></button>
+    <h1 class="sr-only">Thalomex Precision Toolbox</h1>
 
-    <div class="seg" id="workSeg" role="group" aria-label="Werkplek">
-      <button type="button" data-w="sketch" aria-pressed="true">Schets</button>
-      <button type="button" data-w="calc" aria-pressed="false">Calculators</button>
+    <div class="grp" id="workSeg" role="group" aria-label="Werkplek">
+      <button type="button" class="tb" data-w="sketch" aria-pressed="false">Schets</button>
+      <button type="button" class="tb" data-w="calc" aria-pressed="false">Calculators</button>
     </div>
 
     <div class="modewrap">
       <span class="cap">Modus</span>
-      <div class="seg" id="modeSeg" role="group" aria-label="Rekenmodus">
-        <button type="button" data-v="kin" aria-pressed="true" title="Exacte oplossing per krukstand">Kinematisch</button>
-        <button type="button" data-v="dyn" aria-pressed="false" title="Tijdintegratie over een vaste duur: veren en dempers sturen de beweging">Dynamisch</button>
-        <button type="button" data-v="equil" aria-pressed="false" title="Dynamisch, tot het mechanisme tot rust komt: de duur volgt uit het evenwicht">Evenwicht</button>
-        <button type="button" data-v="frf" aria-pressed="false" title="Frequentieresponsie: hoe een trilling van een actuator, kruk of kracht doorwerkt, per frequentie">FRF</button>
-        <button type="button" data-v="stiff" aria-pressed="false" title="Lineaire statische stijfheid: balken met buiging (EA + EI), vervorming, spanning, stijfheid in een punt en eigenfrequenties">Stijfheid</button>
+      <div class="grp" id="modeSeg" role="group" aria-label="Rekenmodus">
+        <button type="button" class="tb" data-v="kin" aria-pressed="true" title="Exacte oplossing per krukstand">Kinematisch</button>
+        <button type="button" class="tb" data-v="dyn" aria-pressed="false" title="Tijdintegratie over een vaste duur: veren en dempers sturen de beweging">Dynamisch</button>
+        <button type="button" class="tb" data-v="equil" aria-pressed="false" title="Dynamisch, tot het mechanisme tot rust komt: de duur volgt uit het evenwicht">Evenwicht</button>
+        <button type="button" class="tb" data-v="frf" aria-pressed="false" title="Frequentieresponsie: hoe een trilling van een actuator, kruk of kracht doorwerkt, per frequentie">FRF</button>
+        <button type="button" class="tb" data-v="stiff" aria-pressed="false" title="Lineaire statische stijfheid: balken met buiging (EA + EI), vervorming, spanning, stijfheid in een punt en eigenfrequenties">Stijfheid</button>
       </div>
     </div>
 
+    <span class="docname" id="docName" title="Naam van dit model (wordt de bestandsnaam bij opslaan)"></span>
     <span class="grow"></span>
 
     <div class="topbar-group">
-      <button class="btn ghost ico" id="undoBtn" title="Ongedaan maken (Ctrl+Z)" aria-label="Ongedaan maken">&#8630;</button>
-      <button class="btn ghost ico" id="redoBtn" title="Opnieuw (Ctrl+Shift+Z)" aria-label="Opnieuw">&#8631;</button>
+      <button class="tb ico" id="undoBtn" title="Ongedaan maken (Ctrl+Z)" aria-label="Ongedaan maken"><i data-ic="undo" data-ic-size="18"></i></button>
+      <button class="tb ico" id="redoBtn" title="Opnieuw (Ctrl+Shift+Z)" aria-label="Opnieuw"><i data-ic="redo" data-ic-size="18"></i></button>
       <div class="sep"></div>
+      <button class="tb" id="libBtn" aria-haspopup="dialog" aria-expanded="false" title="Voorbeelden en een leeg canvas">Bibliotheek</button>
       <div class="menuwrap">
-        <button class="btn" id="menuBtn" aria-haspopup="true" aria-expanded="false">Bestand</button>
+        <button class="tb" id="menuBtn" aria-haspopup="true" aria-expanded="false">Bestand</button>
         <div class="menu" id="menu" hidden role="menu">
           <button role="menuitem" data-a="open">Openen&hellip; <span class="kbd">Ctrl+O</span></button>
           <button role="menuitem" data-a="save">Opslaan als bestand&hellip; <span class="kbd">Ctrl+S</span></button>
@@ -83,9 +82,7 @@
           <button role="menuitem" data-a="tour">Rondleiding</button>
         </div>
       </div>
-      <button class="btn" id="libBtn" aria-haspopup="dialog" aria-expanded="false" title="Voorbeelden en een leeg canvas">Bibliotheek</button>
-      <button class="btn ghost ico" id="fitBtn" title="Passend maken" aria-label="Passend maken">&#10530;</button>
-      <button class="btn ghost ico" id="themeBtn" title="Licht of donker" aria-label="Thema wisselen">&#9681;</button>
+      <button class="tb ico" id="themeBtn" title="Licht of donker" aria-label="Thema wisselen"><i data-ic="theme" data-ic-size="18"></i></button>
     </div>
   </header>
 
@@ -96,11 +93,12 @@
       <div class="stage">
         <canvas id="cv"></canvas>
         <div class="zoomer">
-          <button id="zin" title="Inzoomen" aria-label="Inzoomen">+</button>
-          <button id="zout" title="Uitzoomen" aria-label="Uitzoomen">&minus;</button>
-          <button id="helpBtn" title="Uitleg en tips (?)" aria-label="Uitleg en tips tonen">?</button>
+          <button id="zin" title="Inzoomen" aria-label="Inzoomen"><i data-ic="plus" data-ic-size="18"></i></button>
+          <button id="zout" title="Uitzoomen" aria-label="Uitzoomen"><i data-ic="minus" data-ic-size="18"></i></button>
+          <button id="fitBtn" title="Passend maken" aria-label="Passend maken"><i data-ic="fit" data-ic-size="18"></i></button>
+          <button id="helpBtn" title="Uitleg en tips (?)" aria-label="Uitleg en tips tonen"><i data-ic="help" data-ic-size="18"></i></button>
         </div>
-        <div class="hint" id="hint"></div>
+        <div class="hint" id="hint" aria-live="polite"></div>
       </div>
 
       <div class="dock">
@@ -110,10 +108,10 @@
         </div>
       <div class="transport" id="transport">
         <button class="play" id="rewBtn" title="Terug naar t = 0 om te bewerken (Home)" aria-label="Terug naar t = 0">
-          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5h2v11H3zM12 1.5l-7 5.5 7 5.5z" fill="currentColor"/></svg>
+          <svg width="16" height="16" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5h2v11H3zM12 1.5l-7 5.5 7 5.5z" fill="currentColor"/></svg>
         </button>
         <button class="play" id="playBtn" title="Afspelen" aria-label="Afspelen">
-          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path id="playIco" d="M3 1.5l9 5.5-9 5.5z" fill="currentColor"/></svg>
+          <svg width="16" height="16" viewBox="0 0 14 14" aria-hidden="true"><path id="playIco" d="M3 1.5l9 5.5-9 5.5z" fill="currentColor"/></svg>
         </button>
       <div class="stiffbar" id="stiffBar" hidden>
         <span class="sb-mag" title="Vergroting van de vervorming"><label for="stiffSc">Vergroting</label> <b id="stiffMag" class="mag">&times;1</b></span>
@@ -135,7 +133,7 @@
           <option value="0.5" selected>0,5&times;</option>
           <option value="1">1&times;</option>
         </select>
-        <span class="msg" id="tmsg" hidden></span>
+        <span class="msg" id="tmsg" role="status" hidden></span>
         <progress id="tprog" max="1" hidden></progress>
         <button class="btn" id="stopBtn" hidden title="Berekening afbreken">Stop</button>
         <button class="btn primary" id="solveBtn" hidden title="Doorrekenen (F5)">Bereken</button>
@@ -188,11 +186,11 @@
       <section class="result" id="result" aria-label="Resultaat">
         <h2>Resultaat</h2>
         <button class="status" id="statusBtn" aria-expanded="false" title="Details tonen">
-          <span class="big" id="dofVal">&ndash;</span>
+          <span class="big" id="dofVal" aria-live="polite">&ndash;</span>
           <span class="of" id="dofOf"></span>
-          <span class="chev" aria-hidden="true">&#9662;</span>
+          <span class="chev" aria-hidden="true"><i data-ic="down" data-ic-size="14"></i></span>
         </button>
-        <div class="state" id="resState"></div>
+        <div class="state" id="resState" role="status" aria-live="polite"></div>
         <div id="thermBox" class="thermbox" hidden></div>
         <div id="stiffBox" class="thermbox stiffbox" hidden></div>
         <div id="statusDetail" hidden>
@@ -383,7 +381,7 @@
     <div class="card libwrap" role="dialog" aria-modal="true" aria-labelledby="libTitle">
       <div class="libhead">
         <h3 id="libTitle">Bibliotheek</h3>
-        <button class="btn ghost ico" id="libClose" aria-label="Sluiten" title="Sluiten (Esc)">&times;</button>
+        <button class="btn ghost ico" id="libClose" aria-label="Sluiten" title="Sluiten (Esc)"><i data-ic="close" data-ic-size="18"></i></button>
       </div>
       <div class="chips" id="libChips" role="group" aria-label="Filter"></div>
       <div class="libgrid" id="libGrid"></div>

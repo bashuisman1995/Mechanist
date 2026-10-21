@@ -10,7 +10,7 @@ export const model = {
   rigidDrag: false,
   series: [], gravity: false, showForces: true,
   mode: "kin", simDur: 2, dtStep: 0.2, defMass: 0.1, xAxis: "time",
-  railSlim: false, drawerOpen: true, drawerH: 232, tab: "props",
+  railSlim: true, drawerOpen: true, drawerH: 232, tab: "props",
   autoSolve: false, durMode: "fixed", cVisc: 0, maxT: 30,
   jointDamp: false, cJoint: 0.05, frfIn: "", frfMin: 0, frfMax: 0, fricVs: 5, fricVe: 2,
   stiffPath: [], stiffQ: ["ux", "uy"],           // Stijfheid: balken van het pad (volgorde) en de uitgezette grootheden

@@ -62,7 +62,7 @@ export default async ({ browser, url, check }) => {
   await p.click('#stiffChips .chip[data-m="0"]'); await p.waitForTimeout(150);
   check('mode 1 gekozen', await p.$eval('#stiffChips .chip[data-m="0"]', e => e.classList.contains('on')));
   await p.click('#playBtn'); await p.waitForTimeout(300);
-  check('afspelen animeert (pauzeknop)', /Pauzeren/.test(await p.$eval('#playBtn', e => e.title)));
+  check('afspelen animeert (pauzeknop)', /Pauzeren/.test(await p.$eval('#playBtn', e => e.getAttribute('data-tip') || e.title)));
   await p.click('#playBtn');
   await p.click('#stiffChips .chip[data-m="-1"]');
 

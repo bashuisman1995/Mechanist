@@ -5,6 +5,7 @@ import { removeSel } from "./edit.js";
 import { syncInspector } from "./inspector.js";
 import { atT0, lockNudge, togglePlay, toT0 } from "./playback.js";
 import { cancelJob } from "./solver.js";
+import { showToast } from "./components.js";
 import { cv } from "./view.js";
 
 /* ============================================================
@@ -113,7 +114,7 @@ export function flash(m) {
   hintShow();
   setTimeout(() => { if (Date.now() - flashT >= 2600) setTool(ui.tool); }, 2700);
 }
-export function toast(t) { document.getElementById("hint").innerHTML = "<b>" + t + "</b>"; hintShow(); }
+export function toast(t) { showToast(t); }
 
 export function initTools() {
   // na de eerste handeling op de tekening verdwijnt de hint; "?" haalt hem terug

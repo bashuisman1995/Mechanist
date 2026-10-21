@@ -46,7 +46,7 @@ export default async ({ browser, url, check }) => {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 780 } });
   await ctx.addInitScript(() => { Object.defineProperty(window, 'localStorage', { get() { throw new Error('geblokkeerd'); } }); });
   p = await ctx.newPage(); p.errs = []; p.on('pageerror', e => p.errs.push(e.message));
-  await p.goto(url); await p.waitForSelector('.tour-bubble', { timeout: 5000 });
+  await p.goto(url); await p.waitForSelector('#menuBtn'); await p.click('#workSeg [data-w="sketch"]'); await p.waitForSelector('.tour-bubble', { timeout: 5000 });
   const inView = await p.evaluate(() => { const r = document.querySelector('.tour-bubble').getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; });
   check('rondleiding werkt zonder localStorage op 390 px', inView && p.errs.length === 0, p.errs.join('|'));
   await ctx.close();
