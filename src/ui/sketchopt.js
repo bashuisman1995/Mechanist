@@ -1,7 +1,7 @@
 // Schets: het tabblad "Optimaliseer". Parameters van het model (punten, veren, flexures, balkprofielen, materialen) en een uitkomst
 // van de huidige modus; src/core/optimize.js zoekt de beste waarden, src/core/optsketch.js rekent elke stap op een kopie van het model.
-import { optimizeGen, sensitivity } from "../core/optimize.js";
-import { applyAssign, evaluate, listOutputs, listVars, takeSnap } from "../core/optsketch.js";
+import { optimizeGen, sensitivity, sensitivityGen } from "../core/optimize.js";
+import { applyAssign, evaluate, evaluateGen, listOutputs, listVars, takeSnap } from "../core/optsketch.js";
 import { thermalNode } from "../core/thermal.js";
 import { model } from "../core/state.js";
 import { MATERIALS } from "../calc/materials.js";
@@ -128,33 +128,54 @@ function start() {
   const maxEval = Math.max(20, Math.round(+S.maxEval) || 250);
   const keyList = [S.obj].concat(p.consIn.map(r => r.out)).filter((k, i, a) => a.indexOf(k) === i);
   let lastKey = "", last = null, errMsg = "", tTot = 0;
-  const ev = (x, d) => {
-    const key = x.join() + "|" + d.join();
-    if (key === lastKey) return last;
+  const assignOf = (x, d) => {
     const assign = {};
     p.vars.forEach((v, i) => { assign[v.name] = x[i]; });
     p.dKeys.forEach((k, i) => { assign[k] = d[i]; });
+    return assign;
+  };
+  const ev = (x, d) => {
+    const key = x.join() + "|" + d.join();
+    if (key === lastKey) return last;
     const t0 = performance.now();
-    const r = evaluate(snap, assign, keyList, { fx });
+    const r = evaluate(snap, assignOf(x, d), keyList, { fx });
     tTot += performance.now() - t0;
     if (r.err) errMsg = r.err;
     lastKey = key; last = r.vals;
     return r.vals;
   };
+  // cooperative variant for the optimiser: long evaluations (dynamics, FRF) hand control back to the page and honour Stop
+  const evG = function* (x, d, plain) {
+    const key = x.join() + "|" + d.join();
+    if (key === lastKey) return last;
+    const t0 = performance.now();
+    const r = yield* evaluateGen(snap, assignOf(x, d), keyList, { fx, shouldStop: plain ? null : () => S.stopReq });
+    tTot += performance.now() - t0;
+    if (r.aborted) return r.vals;
+    if (r.err) errMsg = r.err;
+    lastKey = key; last = r.vals;
+    return r.vals;
+  };
   const val = (x, d, k) => { const v = ev(x, d)[k]; return typeof v === "number" ? v : NaN; };
+  const valG = function* (x, d, k) { const v = (yield* evG(x, d))[k]; return typeof v === "number" ? v : NaN; };
   const constraints = p.consIn.map((r, i) => ({
     name: "c" + i, label: unitLabel(p.outs, r.out) + (r.op === "le" ? " ≤ " : " ≥ ") + n3(r.val) + " " + unitOf(p.outs, r.out),
     g: (x, d) => { const v = val(x, d, r.out); return r.op === "le" ? v - r.val : r.val - v; },
     scale: Math.abs(r.val) > 1e-12 ? Math.abs(r.val) : 1
   }));
   const opts = { vars: p.vars.map(v => ({ name: v.name, min: v.min, max: v.max, log: v.log, x0: v.x0 })), discrete: p.dKeys.map(k => ({ name: k, options: MATERIALS.map(m => m.id) })),
-    constraints, objective: (x, d) => val(x, d, S.obj), sense: S.sense, target: p.target, maxEval };
+    constraints, objective: (x, d) => valG(x, d, S.obj), sense: S.sense, target: p.target, maxEval };
+  S.stopReq = false;
   $("skRun").disabled = true; $("skStop").hidden = false; $("skProg").hidden = false; $("skProg").max = maxEval; $("skProg").value = 0;
   $("skPtxt").textContent = t("opt.s.busy");
   S.run = runAsync(opts, {
     progress: pr => { const b = $("skProg"); if (b) b.value = pr.evals; const pt = $("skPtxt"); if (pt) pt.textContent = t("opt.conv.evals", { n: pr.evals }) + (pr.best != null ? t("opt.s.prog.best", { b: n3(pr.best) }) : t("opt.s.prog.none")); },
     error: err => { console.error(err); finish(null, t("opt.s.err", { m: err.message })); },
-    done: res => finish({ res, p, snap, ev, val, opts, errMsg, tTot, keyList, fx }, "")
+    done: res => {
+      const R = { res, p, snap, ev, evG, val, opts, errMsg, tTot, keyList, fx };
+      $("skPtxt").textContent = t("opt.s.busy");
+      evalBeforeAfter(R, ba => { R.ba = ba; finish(R, ""); });
+    }
   });
 }
 const unitLabel = (outs, k) => (outs.filter(o => o.key === k)[0] || { label: k }).label;
@@ -167,10 +188,11 @@ function finish(R, msg) {
   showResult();
   if (R.errMsg && !R.res.feasible) { const m = $("skPtxt"); if (m) m.textContent = t("opt.s.lastmsg", { m: R.errMsg }); }
 }
-function buildP(R) {
-  const { res, p, snap, val, opts, fx } = R;
+// which outputs the result table shows, and the parameter sets for "before" (as drawn) and "after" (optimum)
+function showSet(R) {
+  const { res, p } = R;
   const x = res.x, d = res.d || [];
-  const outs = p.outs, objUnit = unitOf(outs, S.obj);
+  const outs = p.outs;
   const consKeys = p.consIn.map(r => r.out);
   const pick = outs.filter(o => o.key === S.obj || consKeys.indexOf(o.key) >= 0);
   const grp = (outs.filter(o => o.key === S.obj)[0] || {}).group;
@@ -182,7 +204,41 @@ function buildP(R) {
   const assignA = {}, assignB = {};
   p.vars.forEach((v, i) => { assignA[v.name] = x[i]; });
   p.dKeys.forEach((k, i) => { assignA[k] = d[i]; });
-  const before = evaluate(snap, assignB, keys, { fx }).vals, after = evaluate(snap, assignA, keys, { fx }).vals;
+  return { pick, show, keys, assignA, assignB };
+}
+// the two result evaluations can take a second each in dynamics: run them in slices so the page stays responsive
+function evalBeforeAfter(R, cb) {
+  const { keys, assignA, assignB } = showSet(R);
+  const gen = (function* () {
+    const before = (yield* evaluateGen(R.snap, assignB, keys, { fx: R.fx })).vals;
+    const after = (yield* evaluateGen(R.snap, assignA, keys, { fx: R.fx })).vals;
+    let sv = null;
+    if (R.p.vars.length && R.res.history.length) {
+      const track = [S.obj].concat(R.p.consIn.map(r => r.out).filter(k => k !== S.obj));
+      sv = yield* sensitivityGen(R.opts.vars, R.res.x, function* (xx) {
+        const vals = yield* R.evG(xx, R.res.d || [], true), o = {};
+        track.forEach(k => { const v = vals[k]; o[k] = typeof v === "number" ? v : NaN; });
+        return o;
+      }, 0.01);
+    }
+    return { before, after, sv };
+  })();
+  const tick = () => {
+    const t0 = performance.now();
+    let r;
+    try { do { r = gen.next(); } while (!r.done && performance.now() - t0 < 10); } catch (err) { console.error(err); r = { done: true, value: null }; }
+    if (r.done) cb(r.value); else setTimeout(tick, 0);
+  };
+  tick();
+}
+function buildP(R) {
+  const { res, p, snap, val, opts, fx } = R;
+  const x = res.x, d = res.d || [];
+  const outs = p.outs, objUnit = unitOf(outs, S.obj);
+  const { pick, show, keys, assignA, assignB } = showSet(R);
+  const consKeys = p.consIn.map(r => r.out);
+  if (!R.ba) R.ba = { before: evaluate(snap, assignB, keys, { fx }).vals, after: evaluate(snap, assignA, keys, { fx }).vals };
+  const before = R.ba.before, after = R.ba.after;
   const f = (v, sc) => (typeof v === "number" && isFinite(v) ? numStr(v, 3, false, sc) : "–");
   const eps = 1e-5;
   const vars = p.vars.map((v, i) => {
@@ -204,7 +260,7 @@ function buildP(R) {
   const track = [S.obj].concat(consKeys.filter(k => k !== S.obj));
   const sens = [];
   if (p.vars.length && res.history.length) {
-    const sv = sensitivity(opts.vars, x, xx => { const o = {}; track.forEach(k => { o[k] = val(xx, d, k); }); return o; }, 0.01);
+    const sv = R.ba.sv || sensitivity(opts.vars, x, xx => { const o = {}; track.forEach(k => { o[k] = val(xx, d, k); }); return o; }, 0.01);
     p.vars.forEach(v => {
       const items = track.map(k => { const q = sv[v.name][k]; return { label: unitLabel(outs, k), pct: q.pct, abs: q.abs, base: q.base, ref: before[k], unit: unitOf(outs, k) }; })
         .filter(it => isFinite(it.abs) && (Math.abs(it.pct) >= 0.05 || !isFinite(it.pct)) && it.abs !== 0);
@@ -261,7 +317,7 @@ export function initSketchOpt() {
   host.addEventListener("click", e => {
     const t = e.target;
     if (t.closest("#skRun")) { start(); return; }
-    if (t.closest("#skStop")) { if (S.run) S.run.stop(); return; }
+    if (t.closest("#skStop")) { if (S.run) { S.stopReq = true; S.run.stop(); } return; }
     if (t.closest("#skAth")) { athermal(); return; }
     if (t.closest("#skOptApply")) { apply(); return; }
     if (t.closest("#skOptUndo")) { undo(); S.applied = false; showResult(); return; }

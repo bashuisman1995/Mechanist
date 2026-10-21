@@ -41,23 +41,27 @@ onLang(() => { HOW_HTML = howHtml(); METHOD_TEXT = methodText(); });
  * cb: { progress({evals, best}), done(result), error(err) }. Geeft { stop() } terug.
  */
 export function runAsync(opts, cb) {
-  let stopFlag = false, raf = 0, dead = false;
+  let stopFlag = false, dead = false, queued = false;
   const prog = { evals: 0, best: null };
   const o = Object.assign({}, opts, { shouldStop: () => stopFlag, onEval: (n, best) => { prog.evals = n; prog.best = best; } });
   const gen = optimizeGen(o);
+  // slices of ~20 ms with a message-channel hop in between (no frame-rate cap, unlike requestAnimationFrame); evaluations
+  // that take longer (dynamics, FRF) are generators themselves and yield inside, so no slice becomes a long task
+  const mc = typeof MessageChannel === "function" ? new MessageChannel() : null;
+  const post = () => { if (queued) return; queued = true; if (mc) mc.port2.postMessage(0); else setTimeout(() => { queued = false; tick(); }, 0); };
+  if (mc) mc.port1.onmessage = () => { queued = false; tick(); };
   const tick = () => {
-    raf = 0;
     if (dead) return;
     const t0 = performance.now();
     let r;
-    try { do { r = gen.next(); } while (!r.done && performance.now() - t0 < 8); }
+    try { do { r = gen.next(); } while (!r.done && performance.now() - t0 < 20); }
     catch (err) { cb.error(err); return; }
     if (r.done) { cb.done(r.value); return; }
     cb.progress(prog);
-    raf = requestAnimationFrame(tick);
+    post();
   };
-  raf = requestAnimationFrame(tick);
-  return { stop() { stopFlag = true; }, cancel() { dead = true; if (raf) cancelAnimationFrame(raf); } };
+  post();
+  return { stop() { stopFlag = true; }, cancel() { dead = true; } };
 }
 
 /** Convergentieplotje: beste toelaatbare doel (of |f − doel|) per evaluatie. */

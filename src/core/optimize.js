@@ -86,14 +86,22 @@ export function* optimizeGen(opts) {
 
   let cache = new Map(), curCombo = 0, curD = [];
   // één evaluatie op t-vector; geeft {f, m, gs, viol, feas}
-  function evalAt(tv) {
+  function* evalAt(tv) {
     const t = tv.map(clamp01);
     const key = curCombo + "|" + t.map(v => v.toPrecision(13)).join(",");
     const hit = cache.get(key);
     if (hit) return hit;
     const x = t.map(toReal);
     let f = NaN, gs = [];
-    try { f = opts.objective(x, curD); } catch (_) { f = NaN; }
+    let wasGen = false;
+    try {
+      f = opts.objective(x, curD);
+      if (f && typeof f.next === "function") { wasGen = true; f = yield* f; }      // objective may be a generator: long evaluations yield and can be stopped
+    } catch (_) { f = NaN; }
+    if (wasGen && opts.shouldStop && opts.shouldStop()) {   // stopped in the middle of an evaluation: drop it
+      st.stop = true; st.reason = stoppedMsg;
+      return { t, x, f: NaN, m: BIG, gs: cons.map(() => 1e3), viol: Infinity, feas: false };
+    }
     gs = cons.map(c => { let g; try { g = c.g(x, curD) / (c.scale || 1); } catch (_) { g = NaN; } return isFinite(g) ? g : (g === -Infinity ? -BIG : 1e3); });
     let m = isFinite(f) ? merit(f) : BIG;
     if (!isFinite(f)) gs = gs.map(g => Math.max(g, 1e3));
@@ -110,6 +118,7 @@ export function* optimizeGen(opts) {
   }
   const phiOf = (rec, mu) => (rec.m >= BIG ? BIG : rec.m / scale) + mu * rec.gs.reduce((s, g) => { const v = Math.max(0, g + DELTA); return s + v * v; }, 0);
   const done = limit => st.stop || st.evals >= limit;
+  const stoppedMsg = t("opt.r.stopped");
   function checkStop() { if (opts.shouldStop && opts.shouldStop()) { st.stop = true; st.reason = t("opt.r.stopped"); } }
 
   // Nelder-Mead op phi(mu); geeft het beste t terug
@@ -120,7 +129,8 @@ export function* optimizeGen(opts) {
       p[i] = p[i] + step > 1 ? p[i] - step : p[i] + step;
       simplex.push(p.map(clamp01));
     }
-    const F = simplex.map(p => phiOf(evalAt(p), mu));
+    const F = [];
+    for (const p of simplex) F.push(phiOf(yield* evalAt(p), mu));
     yield;
     let iter = 0;
     while (!done(limit) && iter++ < 50 * limit) {
@@ -133,19 +143,19 @@ export function* optimizeGen(opts) {
       const c = new Array(n).fill(0);
       for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) c[j] += simplex[i][j] / n;
       const at = (a) => c.map((cj, j) => clamp01(cj + a * (simplex[n][j] - cj)));
-      const xr = at(-1), fr = phiOf(evalAt(xr), mu); yield; checkStop(); if (st.stop) break;
+      const xr = at(-1), fr = phiOf(yield* evalAt(xr), mu); yield; checkStop(); if (st.stop) break;
       if (fr < F[0]) {
-        const xe = at(-2), fe = phiOf(evalAt(xe), mu); yield; checkStop();
+        const xe = at(-2), fe = phiOf(yield* evalAt(xe), mu); yield; checkStop();
         if (fe < fr) { simplex[n] = xe; F[n] = fe; } else { simplex[n] = xr; F[n] = fr; }
       } else if (fr < F[n - 1]) { simplex[n] = xr; F[n] = fr; }
       else {
         const outside = fr < F[n];
-        const xc = at(outside ? -0.5 : 0.5), fc = phiOf(evalAt(xc), mu); yield; checkStop();
+        const xc = at(outside ? -0.5 : 0.5), fc = phiOf(yield* evalAt(xc), mu); yield; checkStop();
         if (fc < (outside ? fr : F[n])) { simplex[n] = xc; F[n] = fc; }
         else {
           for (let i = 1; i <= n && !done(limit); i++) {
             simplex[i] = simplex[i].map((v, j) => clamp01(simplex[0][j] + 0.5 * (v - simplex[0][j])));
-            F[i] = phiOf(evalAt(simplex[i]), mu); yield; checkStop();
+            F[i] = phiOf(yield* evalAt(simplex[i]), mu); yield; checkStop();
           }
         }
       }
@@ -163,16 +173,16 @@ export function* optimizeGen(opts) {
     ts.sort((a, b) => a - b);
     let bi = 0, bf = Infinity;
     for (let k = 0; k < ts.length && !done(limit); k++) {
-      const f = phiOf(evalAt([ts[k]]), mu); yield; checkStop(); if (st.stop) break;
+      const f = phiOf(yield* evalAt([ts[k]]), mu); yield; checkStop(); if (st.stop) break;
       if (f < bf) { bf = f; bi = k; }
     }
     let a = ts[Math.max(0, bi - 1)], b = ts[Math.min(ts.length - 1, bi + 1)];
     const gr = (Math.sqrt(5) - 1) / 2;
     let c = b - gr * (b - a), d = a + gr * (b - a);
-    let fc = phiOf(evalAt([c]), mu), fd = phiOf(evalAt([d]), mu); yield;
+    let fc = phiOf(yield* evalAt([c]), mu), fd = phiOf(yield* evalAt([d]), mu); yield;
     while (!done(limit) && b - a > 1e-11) {
-      if (fc < fd) { b = d; d = c; fd = fc; c = b - gr * (b - a); fc = phiOf(evalAt([c]), mu); }
-      else { a = c; c = d; fc = fd; d = a + gr * (b - a); fd = phiOf(evalAt([d]), mu); }
+      if (fc < fd) { b = d; d = c; fd = fc; c = b - gr * (b - a); fc = phiOf(yield* evalAt([c]), mu); }
+      else { a = c; c = d; fc = fd; d = a + gr * (b - a); fd = phiOf(yield* evalAt([d]), mu); }
       yield; checkStop(); if (st.stop) break;
     }
     return { t: [fc < fd ? c : d], phi: Math.min(fc, fd) };
@@ -185,7 +195,7 @@ export function* optimizeGen(opts) {
     const startEvals = st.evals;
     const limitC = startEvals + Math.max(10, Math.floor((maxEval - startEvals) / (combos.length - ci)));
     let bestT = null;
-    if (n === 0) { evalAt([]); yield; }
+    if (n === 0) { yield* evalAt([]); yield; }
     else if (n === 1) {
       const r = yield* oneD(MUS[3], limitC);
       bestT = r.t;
@@ -206,7 +216,7 @@ export function* optimizeGen(opts) {
       }
       // herstart op de laatste trap zolang het nog verbetert
       for (let rep = 0; rep < 4 && !st.stop && !done(limitC); rep++) {
-        const before = phiOf(evalAt(cur), MUS[3]);
+        const before = phiOf(yield* evalAt(cur), MUS[3]);
         const r = yield* nelderMead(cur, 0.005 / (rep + 1), MUS[3], limitC);
         cur = r.t;
         if (before - r.phi <= 1e-12 * (1 + Math.abs(before))) break;
@@ -248,19 +258,26 @@ export function optimize(opts) {
  * (omgerekend naar +rel, ook als de stap naar beneden moest) en de waarde op x.
  */
 export function sensitivity(vars, x, outs, rel) {
+  const gen = sensitivityGen(vars, x, outs, rel);
+  for (;;) { const r = gen.next(); if (r.done) return r.value; }
+}
+/** Zelfde als sensitivity, maar outs(x) mag een generator teruggeven (lange berekeningen geven dan de besturing terug). */
+export function* sensitivityGen(vars, x, outs, rel) {
   rel = rel || 0.01;
-  const base = outs(x), res = {};
-  vars.forEach((v, i) => {
+  const run = function* (xx) { const o = outs(xx); return o && typeof o.next === "function" ? yield* o : o; };
+  const base = yield* run(x), res = {};
+  for (let i = 0; i < vars.length; i++) {
+    const v = vars[i];
     let h = Math.abs(x[i]) * rel;
     if (!(h > 0)) h = (v.max - v.min) * rel;
     const sgn = x[i] + h > v.max ? -1 : 1;
     const xp = x.slice(); xp[i] = x[i] + sgn * h;
-    const o = outs(xp), r = {};
+    const o = yield* run(xp), r = {};
     for (const k in base) {
       const b = base[k], q = o[k], d = (q - b) * sgn;
       r[k] = { pct: isFinite(b) && isFinite(q) && b !== 0 ? d / Math.abs(b) * 100 : NaN, abs: isFinite(d) ? d : NaN, base: b };
     }
     res[v.name] = r;
-  });
+  }
   return res;
 }

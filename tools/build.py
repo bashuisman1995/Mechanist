@@ -2,8 +2,8 @@
 """Bouw index.html: de complete app in één bestand.
 
 De bron staat in src/ (index.html, style.css en de ES-modules vanaf main.js).
-Dit script bundelt de modules met esbuild (npm ci; build/app.js, leesbaar en
-zonder minify, doel es2019) en zet stijl en bundel erin, zodat het resultaat
+Dit script bundelt de modules met esbuild (npm ci; doel es2019, geminificeerd in index.html;
+build/app.js is dezelfde bundel leesbaar, voor debuggen) en zet stijl en bundel erin, zodat het resultaat
 overal werkt: dubbelklikken, uit een ZIP openen, of als enige bestand op een website zetten.
 
   python3 tools/build.py                 schrijft index.html
@@ -20,9 +20,15 @@ css = (src / "style.css").read_text(encoding="utf-8")
 esbuild = root / "node_modules" / ".bin" / "esbuild"
 if not esbuild.exists():
     sys.exit("esbuild ontbreekt: draai eerst npm ci")
-subprocess.run([str(esbuild), "src/main.js", "--bundle", "--format=iife", "--target=es2019",
-                "--outfile=build/app.js", "--log-level=warning"], cwd=root, check=True)
-js = (root / "build" / "app.js").read_text(encoding="utf-8")
+def bundle(outfile, *extra):
+    subprocess.run([str(esbuild), "src/main.js", "--bundle", "--format=iife", "--target=es2019",
+                    "--outfile=" + outfile, "--log-level=warning", *extra], cwd=root, check=True)
+bundle("build/app.js")                       # leesbaar, voor debuggen (staat niet in index.html)
+bundle("build/app.min.js", "--minify")       # dit gaat in index.html
+js = (root / "build" / "app.min.js").read_text(encoding="utf-8")
+# doel es2019: geen ??, ?. of ??= in de uitvoer (esbuild vertaalt ze; dit vangt een regressie van het doel)
+bad = re.search(r"\?\?|\?\.(?![0-9])", js)
+assert not bad, "?? of ?. in de bundel (doel es2019): ..." + js[max(0, bad.start() - 40):bad.end() + 40]
 assert "</script" not in js.lower() and "</style" not in css.lower()
 
 one = html.replace('<link rel="stylesheet" href="style.css">', "<style>\n" + css + "</style>")

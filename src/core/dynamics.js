@@ -17,6 +17,11 @@ import { model, sim } from "./state.js";
    dragen, dus deze modus draait óók met vrijheidsgraden over.
    ============================================================ */
 const BA = 20, BB = 20;   // Baumgarte, 1/s
+// Cooperative yielding is time based: a step costs anywhere from microseconds to a millisecond, so we hand control back
+// whenever ~YIELD_MS have passed (never a long task), checking the clock only every few steps.
+const YIELD_MS = 8;
+const clock = typeof performance !== "undefined" && performance.now ? () => performance.now() : () => Date.now();
+const zeros = n => { const a = new Array(n); for (let i = 0; i < n; i++) a[i] = 0; return a; };   // plain array: far cheaper to allocate than a typed array for these tiny rows
 
 export function* computeDyn() {
   const fr = model.nodes.filter(n => n.support !== "pin");
@@ -59,7 +64,7 @@ export function* computeDyn() {
       const P = pos(q, e.a), Q = pos(q, e.b);
       const vP = vel(v, e.a), vQ = vel(v, e.b);
       const dx = P.x - Q.x, dy = P.y - Q.y;
-      const row = new Float64Array(nq);
+      const row = zeros(nq);
       if (fi.has(e.a)) { const i = fi.get(e.a); row[2 * i] += 2 * dx; row[2 * i + 1] += 2 * dy; }
       if (fi.has(e.b)) { const i = fi.get(e.b); row[2 * i] -= 2 * dx; row[2 * i + 1] -= 2 * dy; }
       const dvx = vP.x - vQ.x, dvy = vP.y - vQ.y;
@@ -70,7 +75,7 @@ export function* computeDyn() {
     }
     for (const n of slis) {
       const th = n.dir * Math.PI / 180, nx = -Math.sin(th), ny = Math.cos(th);
-      const row = new Float64Array(nq), i = fi.get(n.id);
+      const row = zeros(nq), i = fi.get(n.id);
       row[2 * i] = nx; row[2 * i + 1] = ny;
       const p = pos(q, n.id);
       rows.push(row); phi.push((p.x - n.ax) * nx + (p.y - n.ay) * ny);
@@ -78,9 +83,9 @@ export function* computeDyn() {
     }
     for (const d of ds) {
       const c = crankAt(d, t), i = fi.get(d.b), B = pos(q, d.b);
-      let r = new Float64Array(nq); r[2 * i] = 1;
+      let r = zeros(nq); r[2 * i] = 1;
       rows.push(r); phi.push(B.x - c.x); gam.push(c.ax); phit.push(-c.vx); kind.push({ t: "drv", d, c });
-      r = new Float64Array(nq); r[2 * i + 1] = 1;
+      r = zeros(nq); r[2 * i + 1] = 1;
       rows.push(r); phi.push(B.y - c.y); gam.push(c.ay); phit.push(-c.vy); kind.push({ t: "drv", d, c });
     }
     return { rows, phi, gam, phit, kind };
@@ -95,14 +100,19 @@ export function* computeDyn() {
     cons.forEach((e, k) => { const s = pv(q, v, e.node), c = contactForce(e, s.p, s.v, z[k]); z[k] = c.z; });
   }
 
+  const sc = {};                                        // rk4 scratch vectors (rk4 is not re-entered)
+  const scratch = (name, len) => (sc[name] && sc[name].length === len ? sc[name] : (sc[name] = new Float64Array(len)));
+  const Fbuf = new Float64Array(nq);                   // F is only used inside one deriv call: reuse the buffer
+  const mG = fr.map(dm);                                // node masses [kg], fixed for the run
   function loads(q, v, zv) {
-    const F = new Float64Array(nq), EF = {}, CF = {}, dz = new Float64Array(cons.length);
+    const F = Fbuf, EF = {}, CF = {}, dz = new Float64Array(cons.length);
+    F.fill(0);
     cons.forEach((e, k) => {
       const s = pv(q, v, e.node), c = contactForce(e, s.p, s.v, zv[k]), i = fi.get(e.node);
       F[2 * i] += c.fx; F[2 * i + 1] += c.fy;
       EF[e.id] = c.Fn; CF[e.id] = c; dz[k] = c.dz;
     });
-    if (model.gravity) fr.forEach((n, i) => { F[2 * i + 1] -= dm(n) * G; });
+    if (model.gravity) fr.forEach((n, i) => { F[2 * i + 1] -= mG[i] * G; });
     const cv = model.cVisc || 0;
     if (cv) for (let i = 0; i < nq; i++) F[i] -= cv * v[i];   // demping op elk vrij punt
     for (const e of model.elems) {
@@ -136,10 +146,17 @@ export function* computeDyn() {
     return { F, EF, CF, dz };
   }
 
+  const kktPool = [];
   function kkt(J, F, v) {
     const m = J.rows.length, n = nq + m;
-    const A = [];
-    for (let i = 0; i < n; i++) A.push(new Float64Array(n + 1));
+    // matrix rows come from a pool (gauss swaps rows inside A, so A itself is a fresh array of the pooled rows)
+    while (kktPool.length < n) kktPool.push(null);
+    const A = new Array(n);
+    for (let i = 0; i < n; i++) {
+      let row = kktPool[i];
+      if (!row || row.length !== n + 1) row = kktPool[i] = new Float64Array(n + 1); else row.fill(0);
+      A[i] = row;
+    }
     for (let i = 0; i < nq; i++) { A[i][i] = mA[i]; A[i][n] = F[i]; }
     for (let j = 0; j < m; j++) {
       const r = J.rows[j];
@@ -310,11 +327,12 @@ export function* computeDyn() {
     const q0 = q.slice(), v0 = v.slice(), z0 = zCur.slice();
     const maxT = Math.max(0.2, model.maxT || 30);
     const VTOL = 0.5, ATOL = 50;       // mm/s en mm/s²
-    let t = 0, calm = 0, k = 0;
+    let t = 0, calm = 0, k = 0, tY = clock();
+    yield { phase: "equil", t, maxT };
     while (t < maxT) {
       if (!rk4(t, q, v, h0)) break;
       t += h0;
-      if ((k % 250) === 0) yield { phase: "equil", t, maxT };
+      if ((k & 3) === 0) { const now = clock(); if (now - tY >= YIELD_MS) { tY = now; yield { phase: "equil", t, maxT }; } }
       if ((++k % 10) === 0) {
         project(t, q, v);
         let mv = 0;
@@ -349,10 +367,10 @@ export function* computeDyn() {
   for (const e of cons) { S.C[e.id] = new Array(361); S.EF[e.id] = new Array(361); }
   for (const d of ds) S.T[d.id] = new Array(361).fill(NaN);
 
-  let Rmax = 0, Nmax = 0, bad = false;
+  let Rmax = 0, Nmax = 0, bad = false, tY = clock();
   for (let f = 0; f <= 360; f++) {
     const t = f * dtF;
-    yield { phase: "rec", f };
+    yield { phase: "rec", f }; tY = clock();
     const d0 = deriv(t, q, v);
     if (!d0) { bad = true; break; }
     record(f, t, q, v, d0);
@@ -360,6 +378,7 @@ export function* computeDyn() {
     if (f === 360) break;
     for (let s = 0; s < sub; s++) {
       if (!rk4(t + s * h, q, v, h)) { bad = true; break; }
+      if ((s & 3) === 3) { const now = clock(); if (now - tY >= YIELD_MS) { tY = now; yield { phase: "rec", f }; } }
     }
     if (bad) break;
     project(t + dtF, q, v);
@@ -373,13 +392,16 @@ export function* computeDyn() {
   return S.ok.some(Boolean) ? S : null;
 
   function rk4(t, q, v, h) {
-    const n = nq, z = zCur;
+    const n = nq, z = zCur, nz = z.length;
+    const q2 = scratch("q2", n), v2 = scratch("v2", n), z2 = scratch("z2", nz);
+    const q3 = scratch("q3", n), v3 = scratch("v3", n), z3 = scratch("z3", nz);
+    const q4 = scratch("q4", n), v4 = scratch("v4", n), z4 = scratch("z4", nz);
     const k1 = deriv(t, q, v, z); if (!k1) return false;
-    const q2 = add(q, v, h / 2), v2 = add(v, k1.a, h / 2), z2 = add(z, k1.dz, h / 2);
+    add(q2, q, v, h / 2); add(v2, v, k1.a, h / 2); add(z2, z, k1.dz, h / 2);
     const k2 = deriv(t + h / 2, q2, v2, z2); if (!k2) return false;
-    const q3 = add(q, v2, h / 2), v3 = add(v, k2.a, h / 2), z3 = add(z, k2.dz, h / 2);
+    add(q3, q, v2, h / 2); add(v3, v, k2.a, h / 2); add(z3, z, k2.dz, h / 2);
     const k3 = deriv(t + h / 2, q3, v3, z3); if (!k3) return false;
-    const q4 = add(q, v3, h), v4 = add(v, k3.a, h), z4 = add(z, k3.dz, h);
+    add(q4, q, v3, h); add(v4, v, k3.a, h); add(z4, z, k3.dz, h);
     const k4 = deriv(t + h, q4, v4, z4); if (!k4) return false;
     for (let i = 0; i < n; i++) {
       q[i] += h / 6 * (v[i] + 2 * v2[i] + 2 * v3[i] + v4[i]);
@@ -389,8 +411,7 @@ export function* computeDyn() {
     if (z.length) clampZ(q, v, z);
     return true;
   }
-  function add(a, b, s) {
-    const o = new Float64Array(a.length);
+  function add(o, a, b, s) {
     for (let i = 0; i < a.length; i++) o[i] = a[i] + b[i] * s;
     return o;
   }
