@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="nl">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -10,16 +10,19 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="style.css">
 <script>
-  // Vangnet: als het script niet laadt of vastloopt, zie je dat in plaats van een lege pagina.
+  // Safety net: if the script fails to load or crashes you see a message instead of a blank page.
   (function () {
-    var shown = false;
+    var shown = false, nl = false;
+    try { nl = localStorage.getItem("mechschets.lang") === "nl"; } catch (e) {}
+    var T = nl ? { fail: "Er ging iets mis bij het laden.", again: "Opnieuw beginnen", unk: "onbekende fout", nostart: "Het programma is niet gestart (verouderde browser?)." }
+               : { fail: "Something went wrong while loading.", again: "Start over", unk: "unknown error", nostart: "The program did not start (outdated browser?)." };
     function show(msg) {
       if (shown || !document.body) return; shown = true;
       var d = document.createElement("div");
       d.setAttribute("style", "position:fixed;left:12px;right:12px;bottom:12px;z-index:99;padding:10px 12px;" +
         "background:#fff3f0;color:#6b1a12;border:1px solid #d9534f;border-radius:8px;font:13px system-ui,sans-serif");
-      d.innerHTML = "<b>Er ging iets mis bij het laden.</b> " + String(msg).replace(/</g, "&lt;") +
-        ' <button style="margin-left:8px">Opnieuw beginnen</button>';
+      d.innerHTML = "<b>" + T.fail + "</b> " + String(msg).replace(/</g, "&lt;") +
+        ' <button style="margin-left:8px">' + T.again + '</button>';
       d.querySelector("button").onclick = function () {
         try { localStorage.removeItem("mechschets.r1"); } catch (e) {}
         location.hash = ""; location.reload();
@@ -27,11 +30,11 @@
       document.body.appendChild(d);
     }
     window.addEventListener("error", function (e) {
-      if (/ResizeObserver/.test(e.message || "")) return;      // onschuldige browsermelding
-      show(e.message || "onbekende fout");
+      if (/ResizeObserver/.test(e.message || "")) return;      // harmless browser notice
+      show(e.message || T.unk);
     });
     window.addEventListener("load", function () {
-      if (!document.querySelector("#rail .tool")) show("Het programma is niet gestart (verouderde browser?).");
+      if (!document.querySelector("#rail .tool")) show(T.nostart);
     });
   })();
 </script>
@@ -41,112 +44,120 @@
 <div class="app">
   <header class="topbar">
     <div class="brand">
-      <h1>Mechanismeschets</h1>
+      <h1 data-i18n="app.title">Mechanism Sketch</h1>
       <span class="ver">v0.8</span>
-      <span class="docname" id="docName" title="Naam van dit model (wordt de bestandsnaam bij opslaan)"></span>
+      <span class="docname" id="docName" data-i18n-title="top.docname" title="Name of this model (becomes the file name when saving)"></span>
     </div>
 
-    <div class="seg" id="workSeg" role="group" aria-label="Werkplek">
-      <button type="button" data-w="sketch" aria-pressed="true">Schets</button>
-      <button type="button" data-w="calc" aria-pressed="false">Calculators</button>
+    <div class="seg" id="workSeg" role="group" data-i18n-aria="top.workspace" aria-label="Workspace">
+      <button type="button" data-w="sketch" aria-pressed="true" data-i18n="top.sketch">Sketch</button>
+      <button type="button" data-w="calc" aria-pressed="false" data-i18n="top.calc">Calculators</button>
     </div>
 
     <div class="modewrap">
-      <span class="cap">Modus</span>
-      <div class="seg" id="modeSeg" role="group" aria-label="Rekenmodus">
-        <button type="button" data-v="kin" aria-pressed="true" title="Exacte oplossing per krukstand">Kinematisch</button>
-        <button type="button" data-v="dyn" aria-pressed="false" title="Tijdintegratie over een vaste duur: veren en dempers sturen de beweging">Dynamisch</button>
-        <button type="button" data-v="equil" aria-pressed="false" title="Dynamisch, tot het mechanisme tot rust komt: de duur volgt uit het evenwicht">Evenwicht</button>
-        <button type="button" data-v="frf" aria-pressed="false" title="Frequentieresponsie: hoe een trilling van een actuator, kruk of kracht doorwerkt, per frequentie">FRF</button>
-        <button type="button" data-v="stiff" aria-pressed="false" title="Lineaire statische stijfheid: balken met buiging (EA + EI), vervorming, spanning, stijfheid in een punt en eigenfrequenties">Stijfheid</button>
+      <span class="cap" data-i18n="top.mode">Mode</span>
+      <div class="seg" id="modeSeg" role="group" data-i18n-aria="top.calcmode" aria-label="Calculation mode">
+        <button type="button" data-v="kin" aria-pressed="true" data-i18n="mode.kin" data-i18n-title="mode.kin.tip" title="Exact solution per crank angle">Kinematics</button>
+        <button type="button" data-v="dyn" aria-pressed="false" data-i18n="mode.dyn" data-i18n-title="mode.dyn.tip" title="Time integration over a fixed duration: springs and dampers drive the motion">Dynamics</button>
+        <button type="button" data-v="equil" aria-pressed="false" data-i18n="mode.equil" data-i18n-title="mode.equil.tip" title="Dynamics until the mechanism comes to rest: the duration follows from the equilibrium">Equilibrium</button>
+        <button type="button" data-v="frf" aria-pressed="false" data-i18n="mode.frf" data-i18n-title="mode.frf.tip" title="Frequency response: how a vibration of an actuator, crank or force propagates, per frequency">FRF</button>
+        <button type="button" data-v="stiff" aria-pressed="false" data-i18n="mode.stiff" data-i18n-title="mode.stiff.tip" title="Linear static stiffness: beams with bending (EA + EI), deformation, stress, stiffness at a point and natural frequencies">Stiffness</button>
       </div>
     </div>
 
     <span class="grow"></span>
 
     <div class="topbar-group">
-      <button class="btn ghost ico" id="undoBtn" title="Ongedaan maken (Ctrl+Z)" aria-label="Ongedaan maken">&#8630;</button>
-      <button class="btn ghost ico" id="redoBtn" title="Opnieuw (Ctrl+Shift+Z)" aria-label="Opnieuw">&#8631;</button>
+      <button class="btn ghost ico" id="undoBtn" data-i18n-title="top.undo" title="Undo (Ctrl+Z)" data-i18n-aria="top.undo.aria" aria-label="Undo">&#8630;</button>
+      <button class="btn ghost ico" id="redoBtn" data-i18n-title="top.redo" title="Redo (Ctrl+Shift+Z)" data-i18n-aria="top.redo.aria" aria-label="Redo">&#8631;</button>
       <div class="sep"></div>
       <div class="menuwrap">
-        <button class="btn" id="menuBtn" aria-haspopup="true" aria-expanded="false">Bestand</button>
+        <button class="btn" id="menuBtn" aria-haspopup="true" aria-expanded="false" data-i18n="top.file">File</button>
         <div class="menu" id="menu" hidden role="menu">
-          <button role="menuitem" data-a="open">Openen&hellip; <span class="kbd">Ctrl+O</span></button>
-          <button role="menuitem" data-a="save">Opslaan als bestand&hellip; <span class="kbd">Ctrl+S</span></button>
-          <button role="menuitem" data-a="restore" hidden>Vorige sessie herstellen</button>
+          <button role="menuitem" data-a="open"><span data-i18n="menu.open">Open&hellip;</span> <span class="kbd">Ctrl+O</span></button>
+          <button role="menuitem" data-a="save"><span data-i18n="menu.save">Save as file&hellip;</span> <span class="kbd">Ctrl+S</span></button>
+          <button role="menuitem" data-a="restore" hidden data-i18n="menu.restore">Restore previous session</button>
           <div class="menu-sep"></div>
-          <button role="menuitem" data-a="copy">Kopieer als JSON</button>
-          <button role="menuitem" data-a="paste">Plak een model…</button>
-          <button role="menuitem" data-a="link">Kopieer deelbare link</button>
-          <button role="menuitem" data-a="report" title="Een schoon A4-rekenblad met tekening, model, uitkomsten en formules">Rekenblad (PDF/print)&hellip;</button>
+          <button role="menuitem" data-a="copy" data-i18n="menu.copy">Copy as JSON</button>
+          <button role="menuitem" data-a="paste" data-i18n="menu.paste">Paste a model&hellip;</button>
+          <button role="menuitem" data-a="link" data-i18n="menu.link">Copy shareable link</button>
+          <button role="menuitem" data-a="report" data-i18n="menu.report" data-i18n-title="menu.report.tip" title="A clean A4 calculation sheet with drawing, model, results and formulas">Calculation sheet (PDF/print)&hellip;</button>
           <div class="menu-sep"></div>
-          <button role="menuitem" data-a="tour">Rondleiding</button>
+          <button role="menuitem" data-a="tour" data-i18n="menu.tour">Tour</button>
+          <div class="menu-sep"></div>
+          <div class="menu-lang" role="group" data-i18n-aria="menu.language" aria-label="Language">
+            <span class="ml-cap" data-i18n="menu.language">Language</span>
+            <span class="seg" id="langSeg">
+              <button type="button" data-lang="en" aria-pressed="true" title="English">EN</button>
+              <button type="button" data-lang="nl" aria-pressed="false" title="Nederlands">NL</button>
+            </span>
+          </div>
         </div>
       </div>
-      <button class="btn" id="libBtn" aria-haspopup="dialog" aria-expanded="false" title="Voorbeelden en een leeg canvas">Bibliotheek</button>
-      <button class="btn ghost ico" id="fitBtn" title="Passend maken" aria-label="Passend maken">&#10530;</button>
-      <button class="btn ghost ico" id="themeBtn" title="Licht of donker" aria-label="Thema wisselen">&#9681;</button>
+      <button class="btn" id="libBtn" aria-haspopup="dialog" aria-expanded="false" data-i18n="top.library" data-i18n-title="top.library.tip" title="Examples and an empty canvas">Library</button>
+      <button class="btn ghost ico" id="fitBtn" data-i18n-title="top.fit" title="Fit to view" data-i18n-aria="top.fit" aria-label="Fit to view">&#10530;</button>
+      <button class="btn ghost ico" id="themeBtn" data-i18n-title="top.theme" title="Light or dark" data-i18n-aria="top.theme.aria" aria-label="Switch theme">&#9681;</button>
     </div>
   </header>
 
   <div class="main">
-    <nav class="rail" id="rail" aria-label="Gereedschap"></nav>
+    <nav class="rail" id="rail" data-i18n-aria="rail.aria" aria-label="Tools"></nav>
 
     <div class="centre">
       <div class="stage">
         <canvas id="cv"></canvas>
         <div class="zoomer">
-          <button id="zin" title="Inzoomen" aria-label="Inzoomen">+</button>
-          <button id="zout" title="Uitzoomen" aria-label="Uitzoomen">&minus;</button>
-          <button id="helpBtn" title="Uitleg en tips (?)" aria-label="Uitleg en tips tonen">?</button>
+          <button id="zin" data-i18n-title="view.zin" title="Zoom in" data-i18n-aria="view.zin" aria-label="Zoom in">+</button>
+          <button id="zout" data-i18n-title="view.zout" title="Zoom out" data-i18n-aria="view.zout" aria-label="Zoom out">&minus;</button>
+          <button id="helpBtn" data-i18n-title="view.help" title="Explanation and tips (?)" data-i18n-aria="view.help.aria" aria-label="Show explanation and tips">?</button>
         </div>
         <div class="hint" id="hint"></div>
       </div>
 
       <div class="dock">
         <div class="lockbar" id="lockBar" hidden>
-          <span>Alleen bekijken &mdash; bewerken kan op t&nbsp;=&nbsp;0</span>
-          <button class="btn primary" id="lockBtn" title="Terug naar t = 0 (Home)">&#9198; Naar t = 0</button>
+          <span data-i18n="dock.viewonly">View only &mdash; editing is possible at t&nbsp;=&nbsp;0</span>
+          <button class="btn primary" id="lockBtn" data-i18n-title="dock.tozero.tip" title="Back to t = 0 (Home)"><span aria-hidden="true">&#9198;</span> <span data-i18n="dock.tozero">To t = 0</span></button>
         </div>
       <div class="transport" id="transport">
-        <button class="play" id="rewBtn" title="Terug naar t = 0 om te bewerken (Home)" aria-label="Terug naar t = 0">
+        <button class="play" id="rewBtn" data-i18n-title="dock.rew.tip" title="Back to t = 0 to edit (Home)" data-i18n-aria="dock.rew.aria" aria-label="Back to t = 0">
           <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5h2v11H3zM12 1.5l-7 5.5 7 5.5z" fill="currentColor"/></svg>
         </button>
-        <button class="play" id="playBtn" title="Afspelen" aria-label="Afspelen">
+        <button class="play" id="playBtn" data-i18n-title="dock.play" title="Play" data-i18n-aria="dock.play" aria-label="Play">
           <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path id="playIco" d="M3 1.5l9 5.5-9 5.5z" fill="currentColor"/></svg>
         </button>
       <div class="stiffbar" id="stiffBar" hidden>
-        <span class="sb-mag" title="Vergroting van de vervorming"><label for="stiffSc">Vergroting</label> <b id="stiffMag" class="mag">&times;1</b></span>
-        <input type="range" id="stiffSc" min="0" max="7" step="0.01" value="0" aria-label="Vergroting van de vervorming">
-        <label class="chk"><input type="checkbox" id="stiffAuto" checked> Auto</label>
-        <span id="stiffChips" class="chips" role="group" aria-label="Statisch of eigenvorm"></span>
+        <span class="sb-mag" data-i18n-title="stiff.mag.tip" title="Magnification of the deformation"><label for="stiffSc" data-i18n="stiff.mag">Magnification</label> <b id="stiffMag" class="mag">&times;1</b></span>
+        <input type="range" id="stiffSc" min="0" max="7" step="0.01" value="0" data-i18n-aria="stiff.mag.tip" aria-label="Magnification of the deformation">
+        <label class="chk"><input type="checkbox" id="stiffAuto" checked> <span data-i18n="stiff.auto">Auto</span></label>
+        <span id="stiffChips" class="chips" role="group" data-i18n-aria="stiff.chips" aria-label="Static or mode shape"></span>
         <span id="stiffSum" class="sum"></span>
         <span id="stiffOut" class="out"></span>
-        <button type="button" class="btn ghost ico fold" id="stiffFold" aria-expanded="true" title="Balk in- of uitklappen" aria-label="Vergroting en modes in- of uitklappen">&#9662;</button>
+        <button type="button" class="btn ghost ico fold" id="stiffFold" aria-expanded="true" data-i18n-title="stiff.fold" title="Collapse or expand bar" data-i18n-aria="stiff.fold.aria" aria-label="Collapse or expand magnification and modes">&#9662;</button>
       </div>
-        <input type="range" id="scrub" min="0" max="360" step="1" value="0" aria-label="Positie in de cyclus">
+        <input type="range" id="scrub" min="0" max="360" step="1" value="0" data-i18n-aria="dock.scrub" aria-label="Position in the cycle">
         <span class="ang" id="angOut">0</span>
-        <select id="speedSel" aria-label="Snelheid">
-          <option value="0.01">0,01&times;</option>
-          <option value="0.02">0,02&times;</option>
-          <option value="0.05">0,05&times;</option>
-          <option value="0.1">0,1&times;</option>
-          <option value="0.25">0,25&times;</option>
-          <option value="0.5" selected>0,5&times;</option>
+        <select id="speedSel" data-i18n-aria="dock.speed" aria-label="Speed">
+          <option value="0.01">0.01&times;</option>
+          <option value="0.02">0.02&times;</option>
+          <option value="0.05">0.05&times;</option>
+          <option value="0.1">0.1&times;</option>
+          <option value="0.25">0.25&times;</option>
+          <option value="0.5" selected>0.5&times;</option>
           <option value="1">1&times;</option>
         </select>
         <span class="msg" id="tmsg" hidden></span>
         <progress id="tprog" max="1" hidden></progress>
-        <button class="btn" id="stopBtn" hidden title="Berekening afbreken">Stop</button>
-        <button class="btn primary" id="solveBtn" hidden title="Doorrekenen (F5)">Bereken</button>
+        <button class="btn" id="stopBtn" hidden data-i18n="dock.stop" data-i18n-title="dock.stop.tip" title="Cancel the calculation">Stop</button>
+        <button class="btn primary" id="solveBtn" hidden data-i18n="dock.solve" data-i18n-title="dock.solve.tip" title="Calculate (F5)">Calculate</button>
         <div class="meetbar" id="meetBar" hidden>
-        <label for="meetF" title="Meetfrequentie: de frequentie waarop tekening en metingen worden afgelezen">Meetfreq.</label>
-        <button class="btn ghost ico" id="meetDn" title="Vorige rasterfrequentie" aria-label="Lagere frequentie">&#9664;</button>
-        <input type="text" inputmode="decimal" autocomplete="off" id="meetF" value="" aria-label="Meetfrequentie in Hz">
+        <label for="meetF" data-i18n="meet.label" data-i18n-title="meet.tip" title="Measurement frequency: the frequency at which the drawing and measurements are read">Meas. freq.</label>
+        <button class="btn ghost ico" id="meetDn" data-i18n-title="meet.dn.tip" title="Previous grid frequency" data-i18n-aria="meet.dn" aria-label="Lower frequency">&#9664;</button>
+        <input type="text" inputmode="decimal" autocomplete="off" id="meetF" value="" data-i18n-aria="meet.aria" aria-label="Measurement frequency in Hz">
         <span class="unit">Hz</span>
-        <button class="btn ghost ico" id="meetUp" title="Volgende rasterfrequentie" aria-label="Hogere frequentie">&#9654;</button>
+        <button class="btn ghost ico" id="meetUp" data-i18n-title="meet.up.tip" title="Next grid frequency" data-i18n-aria="meet.up" aria-label="Higher frequency">&#9654;</button>
         <span id="meetChips" class="chips"></span>
-        <label class="chk"><input type="checkbox" id="meetEig"> Toon eigenmode</label>
+        <label class="chk"><input type="checkbox" id="meetEig"> <span data-i18n="meet.eig">Show mode shape</span></label>
         <span id="meetOut" class="out"></span>
       </div>
       </div>
@@ -154,21 +165,21 @@
 
       <section class="drawer" id="drawer">
         <div>
-          <div class="grip" id="grip" title="Sleep om de hoogte aan te passen, dubbelklik voor automatisch"></div>
+          <div class="grip" id="grip" data-i18n-title="drawer.grip" title="Drag to adjust the height, double-click for automatic"></div>
           <div class="drawer-head">
-            <button class="btn ghost ico" id="drawerBtn" title="In- of uitklappen" aria-label="Metingen in- of uitklappen">&#9662;</button>
-            <h2>Metingen</h2>
-            <span class="seg" id="stiffView" role="group" aria-label="Weergave in de lade" hidden>
-              <button type="button" data-v="tab" aria-pressed="true" title="Verplaatsingen, reacties en balken in tabellen">Tabellen</button>
-              <button type="button" data-v="pad" aria-pressed="false" title="Verplaatsing, draaiing, moment en spanning langs een pad van balken">Verloop langs pad</button>
+            <button class="btn ghost ico" id="drawerBtn" data-i18n-title="drawer.fold" title="Collapse or expand" data-i18n-aria="drawer.fold.aria" aria-label="Collapse or expand measurements">&#9662;</button>
+            <h2 data-i18n="drawer.title">Measurements</h2>
+            <span class="seg" id="stiffView" role="group" data-i18n-aria="drawer.view" aria-label="View in the drawer" hidden>
+              <button type="button" data-v="tab" aria-pressed="true" data-i18n="drawer.tables" data-i18n-title="drawer.tables.tip" title="Displacements, reactions and beams in tables">Tables</button>
+              <button type="button" data-v="pad" aria-pressed="false" data-i18n="drawer.path" data-i18n-title="drawer.path.tip" title="Displacement, rotation, moment and stress along a path of beams">Profile along path</button>
             </span>
-            <label for="xSel">x-as</label>
-            <select id="xSel" aria-label="Grootheid op de x-as"></select>
+            <label for="xSel" data-i18n="drawer.xaxis">x-axis</label>
+            <select id="xSel" data-i18n-aria="drawer.xaxis.aria" aria-label="Quantity on the x-axis"></select>
             <span class="grow"></span>
             <span class="empty" id="serieNote"></span>
-            <button class="btn" id="addSerie">Metingen&hellip;</button>
-            <button class="btn" id="addFx" title="Een formule van metingen plotten, bijv. C.x - C.y">&fnof; Formule</button>
-            <button class="btn" id="csvBtn" title="Alle metingen als CSV naar het klembord">CSV</button>
+            <button class="btn" id="addSerie" data-i18n="drawer.add">Measurements&hellip;</button>
+            <button class="btn" id="addFx" data-i18n-title="drawer.fx.tip" title="Plot a formula of measurements, e.g. C.x - C.y"><span aria-hidden="true">&fnof;</span> <span data-i18n="drawer.fx">Formula</span></button>
+            <button class="btn" id="csvBtn" data-i18n-title="drawer.csv.tip" title="All measurements as CSV to the clipboard">CSV</button>
           </div>
         </div>
         <div class="drawer-body">
@@ -180,14 +191,14 @@
     </div>
 
     <aside class="inspector">
-      <aside class="uitleg" id="uitleg" hidden aria-label="Uitleg bij dit voorbeeld">
+      <aside class="uitleg" id="uitleg" hidden data-i18n-aria="uit.aria" aria-label="Explanation of this example">
         <h3 id="uitTitle"></h3>
         <p id="uitText"></p>
-        <button class="btn" id="uitClose">Sluiten</button>
+        <button class="btn" id="uitClose" data-i18n="common.close">Close</button>
       </aside>
-      <section class="result" id="result" aria-label="Resultaat">
-        <h2>Resultaat</h2>
-        <button class="status" id="statusBtn" aria-expanded="false" title="Details tonen">
+      <section class="result" id="result" data-i18n-aria="res.title" aria-label="Result">
+        <h2 data-i18n="res.title">Result</h2>
+        <button class="status" id="statusBtn" aria-expanded="false" data-i18n-title="res.details" title="Show details">
           <span class="big" id="dofVal">&ndash;</span>
           <span class="of" id="dofOf"></span>
           <span class="chev" aria-hidden="true">&#9662;</span>
@@ -203,16 +214,16 @@
 
       <div class="inspector-body">
         <div class="tabs" id="tabs" role="tablist">
-          <button role="tab" data-t="props" aria-selected="true">Eigenschappen</button>
-          <button role="tab" data-t="how" aria-selected="false">Hoe rekent dit?</button>
-          <button role="tab" data-t="meas" aria-selected="false" hidden>Metingen</button>
-          <button role="tab" data-t="opt" aria-selected="false">Optimaliseer</button>
-          <button role="tab" data-t="set" aria-selected="false">Instellingen</button>
+          <button role="tab" data-t="props" aria-selected="true" data-i18n="tab.props">Properties</button>
+          <button role="tab" data-t="how" aria-selected="false" data-i18n="tab.how">How is this calculated?</button>
+          <button role="tab" data-t="meas" aria-selected="false" hidden data-i18n="tab.meas">Measurements</button>
+          <button role="tab" data-t="opt" aria-selected="false" data-i18n="tab.opt">Optimize</button>
+          <button role="tab" data-t="set" aria-selected="false" data-i18n="tab.set">Settings</button>
         </div>
         <div class="panes" id="panes">
           <div class="pane" data-p="props">
             <div class="sect">
-              <div id="props"><p class="empty">Selecteer een punt of element op het canvas.</p></div>
+              <div id="props"><p class="empty" data-i18n="props.empty">Select a point or element on the canvas.</p></div>
             </div>
           </div>
 
@@ -226,126 +237,126 @@
 
           <div class="pane" data-p="opt" hidden>
             <div class="sect">
-              <h2>Optimaliseer</h2>
+              <h2 data-i18n="tab.opt">Optimize</h2>
               <div id="skOpt" class="opt-sketch"></div>
             </div>
           </div>
 
           <div class="pane" data-p="set" hidden>
             <div class="sect">
-              <h2>Algemeen</h2>
+              <h2 data-i18n="set.general">General</h2>
               <div class="chk">
                 <input type="checkbox" id="gravChk">
-                <label for="gravChk">Zwaartekracht (9,81 m/s&sup2;)</label>
+                <label for="gravChk" data-i18n="set.gravity">Gravity (9.81 m/s&sup2;)</label>
               </div>
               <div class="chk">
                 <input type="checkbox" id="fChk" checked>
-                <label for="fChk">Krachten in de tekening</label>
+                <label for="fChk" data-i18n="set.forces">Forces in the drawing</label>
               </div>
             </div>
 
             <div class="sect" id="thermSect">
-              <h2>Temperatuur</h2>
-              <div class="row"><label for="dTInp">&Delta;T <span class="unit">K, alle staven</span></label>
-                <input type="number" id="dTInp" step="1" value="0"></div>
-              <p class="empty">Elke schakel rekt uit met &Delta;L = &alpha;&middot;L&middot;&Delta;T (materiaal bij Eigenschappen,
-                standaard staal). Een eigen &Delta;T per staaf stel je daar ook in. In Kinematisch verschijnt de thermische
-                verschuiving van een punt in het Resultaat; axiale staven geven in Evenwicht thermische spanning.</p>
+              <h2 data-i18n="set.temp">Temperature</h2>
+              <div class="row"><label for="dTInp">&Delta;T <span class="unit" data-i18n="set.dt.unit">K, all bars</span></label>
+                <input type="text" inputmode="decimal" autocomplete="off" id="dTInp" step="1" value="0"></div>
+              <p class="empty" data-i18n="set.temp.note">Every link expands by &Delta;L = &alpha;&middot;L&middot;&Delta;T (material under Properties,
+                steel by default). You can also set a separate &Delta;T per bar there. In Kinematics the thermal
+                displacement of a point appears in the Result; axial bars produce thermal stress in Equilibrium.</p>
             </div>
 
             <div class="sect" id="stiffSect" hidden>
-              <h2>Stijfheid</h2>
-              <p class="empty">Lineaire statica van het getekende raamwerk: de tekening is de onbelaste stand. Belasting: krachten
-                (en met Zwaartekracht ook gewicht van massa&rsquo;s en balken). Stel bij elke schakel de stijfheid in op
-                <b>Volledig (EA + EI)</b> voor een balk met buiging. In een punt kies je de verbinding:
-                <b>Star</b> (&#9632;, momentvast), <b>Scharnier</b> (&#9675;) of <b>Torsieveer</b> (spiraal). Een oplegging met
-                <b>Ingeklemd</b> houdt ook de draaiing vast. Een Oneindige schakel rekent als balk met EA en EI van
-                10<sup>5</sup>&times; de grootste elastische stijfheid van het model.</p>
+              <h2 data-i18n="tab.stiffsect">Stiffness</h2>
+              <p class="empty" data-i18n="set.stiff.note">Linear statics of the drawn frame: the drawing is the unloaded state. Loads: forces
+                (and, with Gravity, the weight of masses and beams). Set the stiffness of each link to
+                <b>Full (EA + EI)</b> for a beam with bending. At a point you choose the connection:
+                <b>Rigid</b> (&#9632;, moment-carrying), <b>Hinge</b> (&#9675;) or <b>Torsion spring</b> (spiral). A support set to
+                <b>Clamped</b> also holds the rotation. An Infinite link behaves as a beam with EA and EI of
+                10<sup>5</sup>&times; the largest elastic stiffness in the model.</p>
             </div>
 
             <div class="sect" id="frfSect" hidden>
-              <h2>Frequentieresponsie</h2>
-              <div class="row"><label for="frfIn">Ingang</label>
+              <h2 data-i18n="set.frf">Frequency response</h2>
+              <div class="row"><label for="frfIn" data-i18n="set.frf.in">Input</label>
                 <select id="frfIn"></select></div>
-              <div class="row"><label for="frfMinInp">Van <span class="unit">Hz, 0 = auto</span></label>
-                <input type="number" id="frfMinInp" min="0" step="0.1" value="0"></div>
-              <div class="row"><label for="frfMaxInp">Tot <span class="unit">Hz, 0 = auto</span></label>
-                <input type="number" id="frfMaxInp" min="0" step="1" value="0"></div>
+              <div class="row"><label for="frfMinInp"><span data-i18n="set.frf.from">From</span> <span class="unit" data-i18n="set.frf.unit">Hz, 0 = auto</span></label>
+                <input type="text" inputmode="decimal" autocomplete="off" id="frfMinInp" min="0" step="0.1" value="0"></div>
+              <div class="row"><label for="frfMaxInp"><span data-i18n="set.frf.to">To</span> <span class="unit" data-i18n="set.frf.unit">Hz, 0 = auto</span></label>
+                <input type="text" inputmode="decimal" autocomplete="off" id="frfMaxInp" min="0" step="1" value="0"></div>
               <p class="empty" id="frfNote"></p>
             </div>
 
             <div class="sect" id="dynSect" hidden>
-              <h2>Tijdvenster</h2>
-              <div class="row"><label for="durMode">Soort</label>
+              <h2 data-i18n="set.window">Time window</h2>
+              <div class="row"><label for="durMode" data-i18n="set.window.kind">Type</label>
                 <select id="durMode">
-                  <option value="fixed">vaste duur</option>
-                  <option value="equil">tot evenwicht</option>
+                  <option value="fixed" data-i18n="set.window.fixed">fixed duration</option>
+                  <option value="equil" data-i18n="set.window.equil">until equilibrium</option>
                 </select></div>
-              <div class="row" id="durRow"><label for="durInp">Duur <span class="unit">s</span></label>
-                <input type="number" id="durInp" min="0.05" max="60" step="0.5" value="2"></div>
+              <div class="row" id="durRow"><label for="durInp"><span data-i18n="set.window.dur">Duration</span> <span class="unit">s</span></label>
+                <input type="text" inputmode="decimal" autocomplete="off" id="durInp" min="0.05" max="60" step="0.5" value="2"></div>
               <p class="empty dynonly" id="dynNote"></p>
             </div>
 
             <div class="sect" id="dampSect" hidden>
-              <h2>Demping</h2>
+              <h2 data-i18n="set.damp">Damping</h2>
               <div class="chk">
                 <input type="checkbox" id="jdChk">
-                <label for="jdChk">Demping in scharnieren</label>
+                <label for="jdChk" data-i18n="set.damp.joints">Damping in hinges</label>
               </div>
-              <div class="row"><label for="cjInp">Per scharnier <span class="unit">N&middot;m&middot;s/rad</span></label>
-                <input type="number" id="cjInp" min="0" step="0.01" value="0.05"></div>
+              <div class="row"><label for="cjInp"><span data-i18n="set.damp.per">Per hinge</span> <span class="unit">N&middot;m&middot;s/rad</span></label>
+                <input type="text" inputmode="decimal" autocomplete="off" id="cjInp" min="0" step="0.01" value="0.05"></div>
             </div>
 
             <details class="adv" id="advSettings">
-              <summary>Geavanceerd</summary>
+              <summary data-i18n="set.adv">Advanced</summary>
               <div class="sect" id="advCalc" hidden>
-                <h2>Rekenen</h2>
+                <h2 data-i18n="set.calc">Calculation</h2>
                 <div class="chk">
                   <input type="checkbox" id="autoChk">
-                  <label for="autoChk">Na elke wijziging meteen herberekenen</label>
+                  <label for="autoChk" data-i18n="set.auto">Recalculate immediately after every change</label>
                 </div>
-                <p class="empty">Uit: pas je het model aan en druk je daarna op <b>Bereken</b> (F5).</p>
-                <div class="row" id="maxRow" hidden><label for="maxInp">Hoogstens <span class="unit">s</span></label>
-                  <input type="number" id="maxInp" min="0.2" max="300" step="5" value="30"></div>
+                <p class="empty" data-i18n="set.auto.note">Off: adjust the model, then press <b>Calculate</b> (F5).</p>
+                <div class="row" id="maxRow" hidden><label for="maxInp"><span data-i18n="set.max">At most</span> <span class="unit">s</span></label>
+                  <input type="text" inputmode="decimal" autocomplete="off" id="maxInp" min="0.2" max="300" step="5" value="30"></div>
               </div>
               <div class="sect" id="advAcc" hidden>
-                <h2>Nauwkeurigheid</h2>
-                <div class="row dynonly"><label for="dtInp">Tijdstap <span class="unit">ms</span></label>
-                  <input type="number" id="dtInp" min="0.001" max="20" step="0.05" value="0.2"></div>
-                <div class="row"><label for="mInp">Standaardmassa <span class="unit">kg</span></label>
-                  <input type="number" id="mInp" min="0.001" step="0.05" value="0.1"></div>
-                <div class="row"><label for="cvInp">Luchtweerstand, per punt <span class="unit">Ns/mm</span></label>
-                  <input type="number" id="cvInp" min="0" step="0.005" value="0"></div>
+                <h2 data-i18n="set.acc">Accuracy</h2>
+                <div class="row dynonly"><label for="dtInp"><span data-i18n="set.dt">Time step</span> <span class="unit">ms</span></label>
+                  <input type="text" inputmode="decimal" autocomplete="off" id="dtInp" min="0.001" max="20" step="0.05" value="0.2"></div>
+                <div class="row"><label for="mInp"><span data-i18n="set.mass">Default mass</span> <span class="unit">kg</span></label>
+                  <input type="text" inputmode="decimal" autocomplete="off" id="mInp" min="0.001" step="0.05" value="0.1"></div>
+                <div class="row"><label for="cvInp"><span data-i18n="set.drag">Air drag, per point</span> <span class="unit">Ns/mm</span></label>
+                  <input type="text" inputmode="decimal" autocomplete="off" id="cvInp" min="0" step="0.005" value="0"></div>
               </div>
               <div class="sect">
-                <h2>Wrijving</h2>
-                <div class="row"><label for="fvsInp">Stribeck-snelheid <span class="unit">mm/s</span></label>
-                  <input type="number" id="fvsInp" min="0.001" step="1" value="5"></div>
-                <div class="row"><label for="fveInp">Plakgrens v&epsilon; <span class="unit">mm/s</span></label>
-                  <input type="number" id="fveInp" min="0.001" step="0.5" value="2"></div>
-                <p class="empty">&mu; zet je per scharnier of glijder bij Eigenschappen.
-                  Onder de Stribeck-snelheid geldt &mu; statisch, erboven &mu; dynamisch. Een kleinere plakgrens plakt echter,
-                  maar vraagt een kleinere tijdstap.</p>
+                <h2 data-i18n="set.fric">Friction</h2>
+                <div class="row"><label for="fvsInp"><span data-i18n="set.fric.vs">Stribeck velocity</span> <span class="unit">mm/s</span></label>
+                  <input type="text" inputmode="decimal" autocomplete="off" id="fvsInp" min="0.001" step="1" value="5"></div>
+                <div class="row"><label for="fveInp"><span data-i18n="set.fric.ve">Stick limit</span> v&epsilon; <span class="unit">mm/s</span></label>
+                  <input type="text" inputmode="decimal" autocomplete="off" id="fveInp" min="0.001" step="0.5" value="2"></div>
+                <p class="empty" data-i18n="set.fric.note">Set &mu; per hinge or slider under Properties.
+                  Below the Stribeck velocity &mu; is static, above it &mu; is dynamic. A smaller stick limit sticks more
+                  accurately but needs a smaller time step.</p>
               </div>
               <div class="sect">
-                <h2>Slepen met de muis</h2>
+                <h2 data-i18n="set.drag.title">Dragging with the mouse</h2>
                 <div class="seg" id="dragSeg">
-                  <button type="button" data-v="sketch" aria-pressed="true">Schetsen</button>
-                  <button type="button" data-v="rigid" aria-pressed="false">Vormvast</button>
+                  <button type="button" data-v="sketch" aria-pressed="true" data-i18n="set.drag.sketch">Sketch</button>
+                  <button type="button" data-v="rigid" aria-pressed="false" data-i18n="set.drag.rigid">Rigid</button>
                 </div>
-                <p class="empty" id="dragNote">
-                  Schetsen: lengtes volgen de muis. Vormvast: lengtes blijven, het mechanisme scharniert.
+                <p class="empty" id="dragNote" data-i18n="set.drag.note">
+                  Sketch: lengths follow the mouse. Rigid: lengths stay fixed, the mechanism pivots.
                 </p>
               </div>
               <div class="sect">
-                <h2>Raster</h2>
+                <h2 data-i18n="set.grid">Grid</h2>
                 <div class="chk">
                   <input type="checkbox" id="snapChk" checked>
-                  <label for="snapChk">Vangen op raster</label>
+                  <label for="snapChk" data-i18n="set.snap">Snap to grid</label>
                 </div>
                 <div class="row">
-                  <label for="gridInp">Rastermaat <span class="unit">mm</span></label>
-                  <input type="number" id="gridInp" min="1" max="100" step="1" value="10">
+                  <label for="gridInp"><span data-i18n="set.gridsize">Grid size</span> <span class="unit">mm</span></label>
+                  <input type="text" inputmode="decimal" autocomplete="off" id="gridInp" min="1" max="100" step="1" value="10">
                 </div>
               </div>
             </details>
@@ -358,23 +369,23 @@
   <div class="modal" id="pick" hidden>
     <div class="card pickcard" role="dialog" aria-labelledby="pickTitle">
       <div class="pickhead">
-        <h3 id="pickTitle">Metingen kiezen</h3>
-        <div class="seg" id="pickMode" role="group" aria-label="Soort meting">
-          <button type="button" data-v="q" aria-pressed="true">Grootheid</button>
-          <button type="button" data-v="f" aria-pressed="false">&fnof; Formule</button>
+        <h3 id="pickTitle" data-i18n="pick.title">Choose measurements</h3>
+        <div class="seg" id="pickMode" role="group" data-i18n-aria="pick.kind" aria-label="Kind of measurement">
+          <button type="button" data-v="q" aria-pressed="true" data-i18n="pick.quantity">Quantity</button>
+          <button type="button" data-v="f" aria-pressed="false"><span aria-hidden="true">&fnof;</span> <span data-i18n="drawer.fx">Formula</span></button>
         </div>
       </div>
       <div id="pickFxBox" hidden>
-        <input type="text" id="pickFxInp" placeholder="bijv. C.x - C.y" autocomplete="off" spellcheck="false">
-        <p class="empty fxhelp">Klik hieronder op een grootheid om hem in de formule te zetten. Hoofdletters maken niet uit, <code>c_x</code> mag ook.
-          Rekenen: <code>+ - * / ^ ( )</code> &middot; functies: <code>sqrt abs sin cos atan2 hypot deg rad min max</code> &middot; <code>t</code> = tijd.</p>
+        <input type="text" id="pickFxInp" data-i18n-ph="pick.fx.ph" placeholder="e.g. C.x - C.y" autocomplete="off" spellcheck="false">
+        <p class="empty fxhelp" data-i18n="pick.fx.help">Click a quantity below to insert it in the formula. Case does not matter, <code>c_x</code> works too.
+          Operators: <code>+ - * / ^ ( )</code> &middot; functions: <code>sqrt abs sin cos atan2 hypot deg rad min max</code> &middot; <code>t</code> = time.</p>
       </div>
-      <input type="text" id="pickQ" placeholder="Filter, bijv. &ldquo;C&rdquo;, &ldquo;stang&rdquo; of &ldquo;v&rdquo;" autocomplete="off" spellcheck="false">
+      <input type="text" id="pickQ" data-i18n-ph="pick.filter.ph" placeholder="Filter, e.g. &ldquo;C&rdquo;, &ldquo;bar&rdquo; or &ldquo;v&rdquo;" autocomplete="off" spellcheck="false">
       <div class="picklist" id="pickList"></div>
       <div class="acts">
         <span class="empty" id="pickMsg" style="flex:1;text-align:left"></span>
-        <button class="btn" id="pickCancel">Sluiten</button>
-        <button class="btn primary" id="pickOk">Klaar</button>
+        <button class="btn" id="pickCancel" data-i18n="common.close">Close</button>
+        <button class="btn primary" id="pickOk" data-i18n="pick.ok">Done</button>
       </div>
     </div>
   </div>
@@ -382,10 +393,10 @@
   <div class="modal" id="lib" hidden>
     <div class="card libwrap" role="dialog" aria-modal="true" aria-labelledby="libTitle">
       <div class="libhead">
-        <h3 id="libTitle">Bibliotheek</h3>
-        <button class="btn ghost ico" id="libClose" aria-label="Sluiten" title="Sluiten (Esc)">&times;</button>
+        <h3 id="libTitle" data-i18n="top.library">Library</h3>
+        <button class="btn ghost ico" id="libClose" data-i18n-aria="common.close" aria-label="Close" data-i18n-title="common.close.esc" title="Close (Esc)">&times;</button>
       </div>
-      <div class="chips" id="libChips" role="group" aria-label="Filter"></div>
+      <div class="chips" id="libChips" role="group" data-i18n-aria="lib.filter" aria-label="Filter"></div>
       <div class="libgrid" id="libGrid"></div>
     </div>
   </div>
@@ -394,50 +405,50 @@
 
   <div class="modal" id="saveModal" hidden>
     <div class="card" role="dialog" aria-labelledby="saveTitle" style="width:min(420px,100%)">
-      <h3 id="saveTitle">Opslaan als bestand</h3>
-      <label for="saveName" class="empty" style="display:block;margin-bottom:6px">Naam</label>
-      <input type="text" id="saveName" placeholder="bijv. grijper versie 2" autocomplete="off" spellcheck="false">
-      <p class="empty" style="margin:8px 0 0">Wordt een <code>.mech.json</code>-bestand in je map Downloads. Openen kan met
-        Bestand &rarr; Openen, of door het bestand op dit venster te slepen.</p>
+      <h3 id="saveTitle" data-i18n="save.title">Save as file</h3>
+      <label for="saveName" class="empty" style="display:block;margin-bottom:6px" data-i18n="save.name">Name</label>
+      <input type="text" id="saveName" data-i18n-ph="save.ph" placeholder="e.g. gripper version 2" autocomplete="off" spellcheck="false">
+      <p class="empty" style="margin:8px 0 0" data-i18n="save.note">Becomes a <code>.mech.json</code> file in your Downloads folder. Open it with
+        File &rarr; Open, or by dragging the file onto this window.</p>
       <div class="acts">
-        <button class="btn" id="saveCancel">Annuleren</button>
-        <button class="btn primary" id="saveOk">Opslaan</button>
+        <button class="btn" id="saveCancel" data-i18n="common.cancel">Cancel</button>
+        <button class="btn primary" id="saveOk" data-i18n="common.save">Save</button>
       </div>
     </div>
   </div>
 
   <div class="modal" id="askModal" hidden>
     <div class="card" role="alertdialog" aria-labelledby="askTitle" style="width:min(440px,100%)">
-      <h3 id="askTitle">Wijzigingen opslaan?</h3>
-      <p class="empty" style="margin:0">Het huidige model heeft wijzigingen die nog niet als bestand zijn opgeslagen.</p>
+      <h3 id="askTitle" data-i18n="ask.title">Save changes?</h3>
+      <p class="empty" style="margin:0" data-i18n="ask.note">The current model has changes that have not been saved to a file yet.</p>
       <div class="acts">
-        <button class="btn" id="askCancel">Annuleren</button>
-        <button class="btn" id="askDrop">Niet opslaan</button>
-        <button class="btn primary" id="askSave">Opslaan&hellip;</button>
+        <button class="btn" id="askCancel" data-i18n="common.cancel">Cancel</button>
+        <button class="btn" id="askDrop" data-i18n="ask.drop">Don't save</button>
+        <button class="btn primary" id="askSave" data-i18n="ask.save">Save&hellip;</button>
       </div>
     </div>
   </div>
 
   <div class="modal" id="modal" hidden>
     <div class="card">
-      <h3>Model plakken</h3>
-      <textarea id="modalTa" spellcheck="false" placeholder="Plak hier de JSON of een deelbare link"></textarea>
+      <h3 data-i18n="paste.title">Paste model</h3>
+      <textarea id="modalTa" spellcheck="false" data-i18n-ph="paste.ph" placeholder="Paste the JSON or a shareable link here"></textarea>
       <div class="acts">
-        <button class="btn" id="modalCancel">Annuleren</button>
-        <button class="btn primary" id="modalOk">Laden</button>
+        <button class="btn" id="modalCancel" data-i18n="common.cancel">Cancel</button>
+        <button class="btn primary" id="modalOk" data-i18n="paste.ok">Load</button>
       </div>
     </div>
   </div>
 
-  <main class="calc" id="calcRoot" hidden aria-label="Calculators">
-    <nav class="calc-list" id="calcList" aria-label="Calculators"></nav>
+  <main class="calc" id="calcRoot" hidden aria-label="Calculators" data-i18n-aria="top.calc">
+    <nav class="calc-list" id="calcList" aria-label="Calculators" data-i18n-aria="top.calc"></nav>
     <section class="calc-detail" id="calcDetail"></section>
   </main>
 
   <footer class="statusbar">
-    <span><span class="k">gereedschap</span> <span id="stTool">&mdash;</span></span>
-    <span><span class="k">cursor</span> <span id="stPos">&mdash;</span></span>
-    <span><span class="k">selectie</span> <span id="stSel">geen</span></span>
+    <span><span class="k" data-i18n="sb.tool">tool</span> <span id="stTool">&mdash;</span></span>
+    <span><span class="k" data-i18n="sb.cursor">cursor</span> <span id="stPos">&mdash;</span></span>
+    <span><span class="k" data-i18n="sb.sel">selection</span> <span id="stSel" data-i18n="sb.none">none</span></span>
     <span class="grow"><span class="k">mm &middot; N &middot; N/mm &middot; kg</span></span>
   </footer>
 </div>

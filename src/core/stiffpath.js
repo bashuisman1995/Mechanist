@@ -3,15 +3,16 @@
 // Eenheden in het resultaat: mm, rad, N·m, MPa; de interface kiest de weergave-eenheid.
 import { N } from "./elements.js";
 import { NSEG } from "./stiffness.js";
+import { t } from "../ui/i18n.js";
 
 // grootheden die je kunt uitzetten; fam = eenheidsfamilie van de formatter (src/ui/format.js)
 export const PATH_Q = [
-  { k: "ux", q: "uₓ", name: "verplaatsing uₓ", fam: "len", get: p => p.ux },
-  { k: "uy", q: "u_y", name: "verplaatsing u_y", fam: "len", get: p => p.uy },
-  { k: "u", q: "|u|", name: "verplaatsing |u|", fam: "len", get: p => Math.hypot(p.ux, p.uy) },
-  { k: "th", q: "φ", name: "draaiing φ", fam: "angle", get: p => p.th },
-  { k: "M", q: "M", name: "buigend moment M", fam: "moment", get: p => p.M },
-  { k: "sig", q: "σ", name: "spanning σ", fam: "stress", get: p => p.sig },
+  { k: "ux", q: "uₓ", get name() { return t("path.q.ux"); }, fam: "len", get: p => p.ux },
+  { k: "uy", q: "u_y", get name() { return t("path.q.uy"); }, fam: "len", get: p => p.uy },
+  { k: "u", q: "|u|", get name() { return t("path.q.u"); }, fam: "len", get: p => Math.hypot(p.ux, p.uy) },
+  { k: "th", q: "φ", get name() { return t("path.q.th"); }, fam: "angle", get: p => p.th },
+  { k: "M", q: "M", get name() { return t("path.q.M"); }, fam: "moment", get: p => p.M },
+  { k: "sig", q: "σ", get name() { return t("path.q.sig"); }, fam: "stress", get: p => p.sig },
 ];
 
 export const eligibleBars = res => (res && res.ok ? res.members.filter(r => r.kind === "beam" || r.kind === "axial") : []);

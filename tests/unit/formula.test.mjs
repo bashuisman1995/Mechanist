@@ -48,9 +48,9 @@ test("compile: functies sqrt/atan2/deg", () => {
 
 test("compile: fouten", () => {
   resetModel();
-  assert.throws(() => compile("onbekend + 1"), /onbekende grootheid onbekend/);
-  assert.throws(() => compile("foo(1)"), /onbekende functie foo/);
-  assert.throws(() => compile("(1+2"), /sluithaakje/);
-  assert.throws(() => compile("1 2"), /onverwacht/);
-  assert.throws(() => compile("1 + "), /onbegrijpelijk/);
+  assert.throws(() => compile("onbekend + 1"), /unknown quantity onbekend/);
+  assert.throws(() => compile("foo(1)"), /unknown function foo/);
+  assert.throws(() => compile("(1+2"), /closing parenthesis/);
+  assert.throws(() => compile("1 2"), /unexpected/);
+  assert.throws(() => compile("1 + "), /not understood/);
 });

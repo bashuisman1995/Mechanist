@@ -7,6 +7,7 @@ import { model, sim, ui } from "../core/state.js";
 import { REL_FE, fmtAngle, fmtForce, fmtHz, fmtLen, fmtMoment } from "./format.js";
 import { pathIds } from "./stiffpath.js";
 import { ctx, toScr } from "./view.js";
+import { t } from "./i18n.js";
 
 // kleurverloop voor σ/σ_toel: blauw (0) – groen – geel – rood (≥ 1)
 const STOPS = [[0, [58, 110, 190]], [0.12, [38, 168, 160]], [0.32, [128, 198, 66]], [0.62, [240, 190, 40]], [1, [214, 56, 47]]];
@@ -46,7 +47,7 @@ export function drawStiff(label) {
       if (first || last) {
         const q = toScr(pts[(first ? it.rev : !it.rev) ? pts.length - 1 : 0]);
         ctx.fillStyle = ui.C.driver; ctx.beginPath(); ctx.arc(q.x, q.y, 5, 0, 6.2832); ctx.fill();
-        label(q.x + 9, q.y - 12, first ? "s = 0" : "eind", ui.C.driver, true, 0);
+        label(q.x + 9, q.y - 12, first ? "s = 0" : t("sd.end"), ui.C.driver, true, 0);
       }
     });
   }
@@ -93,7 +94,7 @@ export function drawStiff(label) {
   } else {
     const m = sh.mode;
     ctx.fillStyle = ui.C.ink2; ctx.font = '500 12px "IBM Plex Sans", system-ui, sans-serif'; ctx.textAlign = "left"; ctx.textBaseline = "top";
-    ctx.fillText("Mode " + (ui.stiffMode + 1) + " · " + fmtHz(m.f), 14, 12);
+    ctx.fillText(t("sd.mode") + " " + (ui.stiffMode + 1) + " · " + fmtHz(m.f), 14, 12);
   }
 }
 
@@ -122,8 +123,8 @@ function legend(res) {
   ctx.strokeStyle = ui.C.line; ctx.lineWidth = 1; ctx.strokeRect(x + .5, y + 14.5, w - 1, 7);
   ctx.fillStyle = ui.C.ink2; ctx.font = '500 11px "IBM Plex Mono", ui-monospace, monospace'; ctx.textBaseline = "top";
   ctx.textAlign = "left"; ctx.fillText("0", x, y + 25);
-  ctx.textAlign = "right"; ctx.fillText("σ toel.", x + w, y + 25);
-  ctx.textAlign = "left"; ctx.fillText("σ / σ_toel", x, y);
+  ctx.textAlign = "right"; ctx.fillText(t("sd.allow"), x + w, y + 25);
+  ctx.textAlign = "left"; ctx.fillText(t("sd.ratio"), x, y);
 }
 
 function drawMechanism(res, label) {
@@ -135,7 +136,7 @@ function drawMechanism(res, label) {
     const s = toScr(n);
     ctx.strokeStyle = ui.C.bad; ctx.lineWidth = 2.4; ctx.setLineDash([4, 3]);
     ctx.beginPath(); ctx.arc(s.x, s.y, 15, 0, 6.2832); ctx.stroke(); ctx.setLineDash([]);
-    label(s.x, s.y - 26, it.kind === "rot" ? "draait vrij" : "beweegt vrij", ui.C.bad, false, 0);
+    label(s.x, s.y - 26, it.kind === "rot" ? t("sd.rot") : t("sd.move"), ui.C.bad, false, 0);
   }
 }
 

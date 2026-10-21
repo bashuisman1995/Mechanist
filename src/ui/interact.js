@@ -13,6 +13,7 @@ import { cancelJob, changed, touched } from "./solver.js";
 import { cursorFor, flash } from "./tools.js";
 import { cv, toScr, toWld, zoomAt } from "./view.js";
 import { tickStr } from "./format.js";
+import { t } from "./i18n.js";
 
 /* ============================================================
    Picking
@@ -154,7 +155,7 @@ export function initInteract() {
 
       case "dsens": {
         // eerste punt, dan een tweede punt (tussen twee punten) of hetzelfde punt nog eens (ten opzichte van de grond)
-        if (!hitN) { flash("Klik een bestaand punt."); break; }
+        if (!hitN) { flash(t("int.existing")); break; }
         if (!ui.pending) { ui.pending = hitN.id; break; }
         const e = addDsens(ui.pending, ui.pending === hitN.id ? "" : hitN.id);
         ui.pending = null;
@@ -166,8 +167,8 @@ export function initInteract() {
         if (hitN) {
           const e = ui.tool === "encoder" ? addEncoder(hitN.id) : addAccel(hitN.id);
           if (e) { ui.sel = { kind: "elem", id: e.id }; edited = true; }
-          else flash("Een hoekencoder staat op een punt waar een schakel aan vastzit.");
-        } else flash("Klik een bestaand punt.");
+          else flash(t("int.enc"));
+        } else flash(t("int.existing"));
         break;
 
       case "pin": {
@@ -194,13 +195,13 @@ export function initInteract() {
           const t = ((wp.x - A.x) * vx + (wp.y - A.y) * vy) / ((vx * vx + vy * vy) || 1);
           const n = splitBeam(hitE.id, t);
           if (n) { ui.sel = { kind: "node", id: n.id }; edited = true; }
-        } else flash("Klik op een Volledige balk (Eigenschappen \u2192 Stijfheid \u2192 Volledig).");
+        } else flash(t("int.fullbeam"));
         break;
 
       case "driver":
         // setDriver rekent zelf door
         if (hitE && hitE.type === "link") { ui.sel = { kind: "elem", id: hitE.id }; setDriver(hitE.id); }
-        else flash("Klik op een schakel, niet op een punt.");
+        else flash(t("int.link"));
         break;
 
       case "force":

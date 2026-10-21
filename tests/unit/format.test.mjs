@@ -1,12 +1,14 @@
-// Getalnotatie van de UI: komma, dunne spatie, drie cijfers, nooit machtsnotatie, voorvoegsel wisselt, rommel wordt 0.
+// Getalnotatie van de UI (Engels: punt, Nederlands: komma), dunne spatie, dunne spatie, drie cijfers, nooit machtsnotatie, voorvoegsel wisselt, rommel wordt 0.
 import test from "node:test";
 import assert from "node:assert/strict";
+import { setLang, parseNum } from "../../src/ui/i18n.js";
 import { REL_FE, colUnit, fmt, fmtAngle, fmtForce, fmtHz, fmtLen, fmtQ, fmtStiff, fmtStress, fmtTime, numStr, powTick, sg, tickStr } from "../../src/ui/format.js";
 
+const nlTest = (name, fn) => test("NL: " + name, () => { setLang("nl", true); try { fn(); } finally { setLang("en", true); } });
 const NN = " ", MIN = "−";
 const hasE = s => /\d[eE][+-]?\d/.test(s);
 
-test("decimale komma, drie geldige cijfers, dunne spatie bij duizendtallen", () => {
+nlTest("decimale komma, drie geldige cijfers, dunne spatie bij duizendtallen", () => {
   assert.equal(sg(0.5), "0,5");
   assert.equal(sg(3.14159), "3,14");
   assert.equal(sg(123.456), "123");
@@ -21,7 +23,7 @@ test("decimale komma, drie geldige cijfers, dunne spatie bij duizendtallen", () 
   assert.equal(sg(Infinity), "∞");
 });
 
-test("nooit machtsnotatie, over 60 orden van grootte", () => {
+nlTest("nooit machtsnotatie, over 60 orden van grootte", () => {
   const bad = [];
   for (let ex = -30; ex <= 30; ex++) for (const m of [1, 1.234, 5.56, 9.99, -7.5]) {
     const v = m * Math.pow(10, ex);
@@ -32,7 +34,7 @@ test("nooit machtsnotatie, over 60 orden van grootte", () => {
   assert.deepEqual(bad, []);
 });
 
-test("het voorvoegsel wisselt in plaats van e-notatie", () => {
+nlTest("het voorvoegsel wisselt in plaats van e-notatie", () => {
   assert.equal(fmtQ(0.112, "stiff"), "0,112 N/mm");
   assert.equal(fmtQ(1.12e-4, "stiff"), "0,112 N/m");
   assert.equal(fmtQ(15900, "stiff"), "15,9 N/µm");
@@ -50,7 +52,7 @@ test("het voorvoegsel wisselt in plaats van e-notatie", () => {
   assert.equal(fmtTime(0.0123), "12,3 ms");
 });
 
-test("waarden onder 1e-9 x de probleemschaal zijn 0", () => {
+nlTest("waarden onder 1e-9 x de probleemschaal zijn 0", () => {
   assert.equal(sg(5.56e-7, 3, 0.2), "0,000000556");        // boven de drempel: leesbaar, nooit als 5,56e-7
   assert.equal(sg(5.56e-11, 3, 0.2), "0");
   assert.equal(fmtForce(5.56e-11, 3, 0.2), "0 N");
@@ -66,7 +68,7 @@ test("waarden onder 1e-9 x de probleemschaal zijn 0", () => {
   assert.equal(r.s(-0.2), MIN + "0,2");
 });
 
-test("tabelkolom kiest een gemeenschappelijke eenheid", () => {
+nlTest("tabelkolom kiest een gemeenschappelijke eenheid", () => {
   const u = colUnit([0.00952e-3, 1.68, -1.79], "len");
   assert.equal(u.u, "mm");
   const small = colUnit([2e-3, -3.4e-3], "len");
@@ -74,7 +76,7 @@ test("tabelkolom kiest een gemeenschappelijke eenheid", () => {
   assert.equal(small.s(2e-3), "2");
 });
 
-test("assen: decimalen volgen de stap, log-as met 10^n", () => {
+nlTest("assen: decimalen volgen de stap, log-as met 10^n", () => {
   assert.equal(tickStr(0.25, 0.05), "0,25");
   assert.equal(tickStr(1e-7, 1e-7), "0,0000001");
   assert.equal(tickStr(-1500, 500), MIN + "1" + NN + "500");
@@ -82,3 +84,50 @@ test("assen: decimalen volgen de stap, log-as met 10^n", () => {
   assert.equal(powTick(-4), "10⁻⁴");
   assert.equal(powTick(5), "10⁵");
 });
+
+/* ---------- Engels: decimaalpunt, dezelfde dunne spatie ---------- */
+test("EN: decimal point, thin space for thousands, same significant digits", () => {
+  setLang("en", true);
+  try {
+    assert.equal(sg(0.5), "0.5");
+    assert.equal(sg(3.14159), "3.14");
+    assert.equal(sg(1234.5), "1" + NN + "235");
+    assert.equal(sg(-0.0123), MIN + "0.0123");
+    assert.equal(fmt(50), "50.0");
+    assert.equal(fmt(2), "2.00");
+    assert.equal(fmtQ(0.112, "stiff"), "0.112 N/mm");
+    assert.equal(fmtQ(15900, "stiff"), "15.9 N/\u00b5m");
+    assert.equal(fmtLen(0.0025), "2.5 \u00b5m");
+    assert.equal(fmtHz(23763), "23.8 kHz");
+    assert.equal(tickStr(0.25, 0.05), "0.25");
+    assert.equal(tickStr(-1500, 500), MIN + "1" + NN + "500");
+    assert.equal(powTick(-1), "0.1");
+    assert.equal(powTick(-4), "10\u207b\u2074");
+    assert.equal(sg(1.5e18), "1.5\u00d710\u00b9\u2078");
+    assert.equal(colUnit([0.2, -0.2], "force").s(0.2), "0.2");
+  } finally { setLang("en", true); }
+});
+test("EN en NL: nooit machtsnotatie, in beide talen", () => {
+  for (const l of ["en", "nl"]) {
+    setLang(l, true);
+    const bad = [];
+    for (let ex = -30; ex <= 30; ex++) for (const m of [1, 1.234, 9.99, -7.5]) {
+      const v = m * Math.pow(10, ex);
+      [sg(v), fmt(v), fmtLen(v), fmtForce(v), fmtStiff(v), tickStr(v, Math.abs(v) / 10), powTick(ex)].forEach(x => { if (hasE(x)) bad.push(l + " " + v + " -> " + x); });
+    }
+    assert.deepEqual(bad, []);
+  }
+  setLang("en", true);
+});
+test("parseNum: komma of punt, spaties als duizendtalscheiding", () => {
+  assert.equal(parseNum("1,5"), 1.5);
+  assert.equal(parseNum("1.5"), 1.5);
+  assert.equal(parseNum("1" + NN + "234,5"), 1234.5);
+  assert.equal(parseNum("1,234.5"), 1234.5);
+  assert.equal(parseNum("1.234,5"), 1234.5);
+  assert.equal(parseNum(MIN + "2"), -2);
+  assert.equal(parseNum("1e-3"), 0.001);
+  assert.ok(isNaN(parseNum("abc")));
+  assert.ok(isNaN(parseNum("")));
+});
+setLang("en", true);

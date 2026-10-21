@@ -1,5 +1,6 @@
-// Tabblad "Hoe rekent dit?": formules, symbolen en "met jouw getallen" voor de huidige modus.
-// Alleen HTML-strings (sub/sup, CSS-breuken); herberekent alleen als de invoer veranderd is.
+// "How is this calculated?" tab: formulas, symbols and "with your numbers" for the current mode.
+// Only HTML strings (sub/sup, CSS fractions); recomputes only when the input has changed.
+// All text lives in lang/how.js (keys how.*); the formulas themselves stay language-neutral.
 import { frame as cFrame, hertz, liveContact, mat as material } from "../core/contact.js";
 import { alphaOf, axialA, axialE, axialK, dTOf, isAxial, isThermal, matOf, thermDL, thermLen } from "../core/axial.js";
 import { actLen, E, N, curLen, isBar } from "../core/elements.js";
@@ -10,31 +11,33 @@ import { thermalNode, thermalShift } from "../core/thermal.js";
 import { beamSect, isBeam } from "../core/axial.js";
 import { RIGID_FACTOR } from "../core/stiffness.js";
 import { model, sim, ui } from "../core/state.js";
-import { fmtHz, fmtLen, fmtStress, sg } from "./format.js";
+import { decimal, fmtHz, fmtLen, fmtStress, sg } from "./format.js";
+import { lang, onLang, t } from "./i18n.js";
 
-// Bronnen: literatuur, geen bestandsnamen
+const T = (k, p) => t("how." + k, p);
+
+// Sources: literature, not file names (edition notes are translated)
 const REF = {
   nik: "Nikravesh, <i>Computer-Aided Analysis of Mechanical Systems</i> (Prentice Hall, 1988)",
-  baum: "Baumgarte, <i>Stabilization of constraints and integrals of motion in dynamical systems</i>, Comput. Methods Appl. Mech. Eng. 1 (1972) 1\u201316",
-  ewins: "Ewins, <i>Modal Testing: Theory, Practice and Application</i> (2e druk, Research Studies Press, 2000)",
+  baum: "Baumgarte, <i>Stabilization of constraints and integrals of motion in dynamical systems</i>, Comput. Methods Appl. Mech. Eng. 1 (1972) 1–16",
+  get ewins() { return T("ref.ewins"); },
   john: "Johnson, <i>Contact Mechanics</i> (Cambridge University Press, 1985)",
   howell: "Howell, <i>Compliant Mechanisms</i> (Wiley, 2001)",
-  olsson: "Olsson, \u00c5str\u00f6m, Canudas de Wit, G\u00e4fvert, Lischinsky, <i>Friction models and friction compensation</i>, Eur. J. Control 4 (1998) 176\u2013195",
+  olsson: "Olsson, Åström, Canudas de Wit, Gäfvert, Lischinsky, <i>Friction models and friction compensation</i>, Eur. J. Control 4 (1998) 176–195",
   soem: "Soemers, <i>Design Principles for Precision Mechanisms</i> (T-Pointprint, 2010)",
   slocum: "Slocum, <i>Precision Machine Design</i> (Prentice Hall, 1992)",
-  hunt: "Hunt &amp; Crossley, <i>Coefficient of restitution interpreted as damping in vibroimpact</i>, J. Appl. Mech. 42 (1975) 440\u2013445",
+  hunt: "Hunt &amp; Crossley, <i>Coefficient of restitution interpreted as damping in vibroimpact</i>, J. Appl. Mech. 42 (1975) 440–445",
   prz: "Przemieniecki, <i>Theory of Matrix Structural Analysis</i> (McGraw-Hill, 1968; Dover, 1985)",
-  roark: "Young, Budynas &amp; Sadegh, <i>Roark&rsquo;s Formulas for Stress and Strain</i> (8e druk, McGraw-Hill, 2012), tabel 8.1",
-  paros: "Paros &amp; Weisbord, <i>How to design flexure hinges</i>, Machine Design 37 (1965) 151\u2013156"
+  get roark() { return T("ref.roark"); },
+  paros: "Paros &amp; Weisbord, <i>How to design flexure hinges</i>, Machine Design 37 (1965) 151–156"
 };
-const BA = 20, BB = 20;          // Baumgarte-constanten, gelijk aan dynamics.js (1/s)
-const VTOL = 0.5, ATOL = 50, CALM = 0.1;   // evenwichtscriteria uit dynamics.js (mm/s, mm/s², s)
+const BA = 20, BB = 20;          // Baumgarte constants, equal to dynamics.js (1/s)
+const VTOL = 0.5, ATOL = 50, CALM = 0.1;   // equilibrium criteria from dynamics.js (mm/s, mm/s², s)
 
-/* ---------- kleine hulpjes ---------- */
+/* ---------- small helpers ---------- */
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-const nl = x => String(x).replace(".", ",");
-const num = (v, d = 3) => (v === undefined || v === null || !isFinite(v)) ? "\u2013" : sg(v, d);
-const hz = f => f === undefined || !isFinite(f) ? "\u2013" : fmtHz(f);
+const num = (v, d = 3) => (v === undefined || v === null || !isFinite(v)) ? "–" : sg(v, d);
+const hz = f => f === undefined || !isFinite(f) ? "–" : fmtHz(f);
 const s_ = (b, i) => b + "<sub>" + i + "</sub>";
 const sup = (b, i) => b + "<sup>" + i + "</sup>";
 const fr = (n, d) => '<span class="fr"><span>' + n + "</span><span>" + d + "</span></span>";
@@ -42,44 +45,45 @@ const mat = rows => '<span class="mat">' + rows.map(r => "<span>" + r.map(c => "
 const c = s => "<code>" + s + "</code>";
 const dot = s => s + "̇", ddot = s => s + "̈";
 const name = id => { const n = N(id); return n ? n.name || id : "?"; };
+const onOff = b => T(b ? "on" : "off");
+const kv = (k, v) => "<span>" + k + "</span> <b>" + v + "</b>";
+const dampLive = () => [kv(T("v.visc"), num(model.cVisc || 0) + " Ns/mm"), kv(T("v.jd"), model.jointDamp ? num(model.cJoint) + " N·m·s" : onOff(false))];
 
-// platte tekst voor de kopieerknop: breuken, sub en sup omzetten, de rest strippen
+// plain text for the copy button: convert fractions, sub and sup, strip the rest
 function plain(h) {
   return h
     .replace(/<span class="fr"><span>(.*?)<\/span><span>(.*?)<\/span><\/span>/g, "($1)/($2)")
     .replace(/<sub>(.*?)<\/sub>/g, "_$1").replace(/<sup>(.*?)<\/sup>/g, "^$1")
-    .replace(/<span class="mat">(.*?)<\/span><\/span>/g, m => m)   // matrix: cellen met spaties
+    .replace(/<span class="mat">(.*?)<\/span><\/span>/g, m => m)   // matrix: cells with spaces
     .replace(/<\/i><i>/g, "  ").replace(/<\/span><span>/g, " ; ")
     .replace(/<[^>]+>/g, "")
     .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
 }
 
-let copies = [];                 // platte tekst per blok, voor de Kopieer-knoppen
+let copies = [];                 // plain text per block, for the Copy buttons
 function block(b) {
   const i = copies.length;
-  const sec = (t, items, cls) => items && items.length
-    ? '<div class="hw-h">' + t + "</div>" + (cls === "ul"
+  const sec = (head, items, cls) => items && items.length
+    ? '<div class="hw-h">' + head + "</div>" + (cls === "ul"
       ? "<ul>" + items.map(x => "<li>" + x + "</li>").join("") + "</ul>"
       : items.map(x => '<div class="hw-' + cls + '">' + x + "</div>").join(""))
     : "";
   const txt = [b.title, ""];
-  const add = (t, items, f) => { if (items && items.length) { txt.push(t + ":"); items.forEach(x => txt.push("  " + (f ? f(x) : plain(x)))); txt.push(""); } };
-  add("Vergelijkingen", b.eq); add("Betekenis", b.sym, x => plain(x[0]) + " = " + plain(x[1]));
-  add("Met jouw getallen", b.live); add("Aannames", b.ass);
-  if (b.src) txt.push("Bron: " + plain(b.src));
+  const add = (head, items, f) => { if (items && items.length) { txt.push(head + ":"); items.forEach(x => txt.push("  " + (f ? f(x) : plain(x)))); txt.push(""); } };
+  add(T("h.eq"), b.eq); add(T("h.sym"), b.sym, x => plain(x[0]) + " = " + plain(x[1]));
+  add(T("h.live"), b.live); add(T("h.ass"), b.ass);
+  if (b.src) txt.push(T("src") + plain(b.src));
   copies.push(txt.join("\n").replace(/\n{3,}/g, "\n\n").trim());
   return '<section class="hw-block"><div class="hw-top"><h3>' + b.title + "</h3>" +
-    '<button type="button" class="hw-copy" data-i="' + i + '">Kopieer</button></div>' +
-    sec("Vergelijkingen", b.eq, "eq") +
-    (b.sym && b.sym.length ? '<div class="hw-h">Betekenis</div><dl class="hw-sym">' +
+    '<button type="button" class="hw-copy" data-i="' + i + '">' + T("copy") + "</button></div>" +
+    sec(T("h.eq"), b.eq, "eq") +
+    (b.sym && b.sym.length ? '<div class="hw-h">' + T("h.sym") + '</div><dl class="hw-sym">' +
       b.sym.map(x => "<dt>" + x[0] + "</dt><dd>" + x[1] + "</dd>").join("") + "</dl>" : "") +
-    sec("Met jouw getallen", b.live, "live") + sec("Aannames", b.ass, "ul") +
-    (b.src ? '<div class="hw-src">Bron: ' + b.src + "</div>" : "") + "</section>";
+    sec(T("h.live"), b.live, "live") + sec(T("h.ass"), b.ass, "ul") +
+    (b.src ? '<div class="hw-src">' + T("src") + b.src + "</div>" : "") + "</section>";
 }
 
-/* ---------- inhoud per modus ---------- */
-const kv = (k, v) => "<span>" + k + "</span> <b>" + v + "</b>";
-
+/* ---------- content per mode ---------- */
 function kinBlock() {
   const m = mobility();
   const v = m.drive ? m.dofDriven : m.dof;
@@ -94,37 +98,37 @@ function kinBlock() {
     res = Math.max(res, Math.abs((n.x - n.ax) * -Math.sin(th) + (n.y - n.ay) * Math.cos(th)));
   }
   const live = [
-    kv("Punten", m.nNodes + " (" + m.nPinned + " vast, " + (m.nNodes - m.nPinned) + " vrij)"),
-    kv("Onbekenden", "2·" + (m.nNodes - m.nPinned) + " = " + m.unknowns),
-    kv("Vergelijkingen", (m.nLinks - m.nDead) + " stangen + " + m.nSliders + " glijders = " + m.cons),
-    kv("Vrijheidsgraden", m.unknowns + " − " + m.cons + " = " + m.dof),
+    kv(T("kin.l.points"), T("kin.l.pointsv", { n: m.nNodes, p: m.nPinned, f: m.nNodes - m.nPinned })),
+    kv(T("kin.l.unknowns"), "2·" + (m.nNodes - m.nPinned) + " = " + m.unknowns),
+    kv(T("kin.l.eqs"), T("kin.l.eqsv", { b: m.nLinks - m.nDead, s: m.nSliders, c: m.cons })),
+    kv(T("v.dof"), m.unknowns + " − " + m.cons + " = " + m.dof),
   ];
-  if (m.drive) live.push(kv("Aangedreven", m.driver + " kruk(ken), " + m.acts + " actuator(en) → " + m.dofDriven + " over"));
-  live.push(kv("Status", v === 0 ? "bepaald" : v > 0 ? "onderbepaald (" + v + " te veel vrij)" : "overbepaald (" + (-v) + " te veel)"));
-  live.push(kv("Restfout max |Φ|", num(res) + " mm" + (sim.solveOK === false ? " (niet samen te stellen)" : "")));
-  live.push(kv("Zwaartekracht", model.gravity ? "aan (g = 9,81 m/s²)" : "uit"));
+  if (m.drive) live.push(kv(T("kin.l.driven"), T("kin.l.drivenv", { d: m.driver, a: m.acts, r: m.dofDriven })));
+  live.push(kv(T("v.status"), v === 0 ? T("determinate") : v > 0 ? T("kin.l.under", { v }) : T("kin.l.over", { v: -v })));
+  live.push(kv(T("kin.l.res"), num(res) + " mm" + (sim.solveOK === false ? T("kin.l.nosolve") : "")));
+  live.push(kv(T("v.gravity"), model.gravity ? T("kin.l.gon", { g: decimal("9.81") }) : onOff(false)));
   return block({
-    title: "Kinematica: positie, snelheid, versnelling en krachten",
+    title: T("kin.title"),
     eq: [
-      "Stang: " + c("Φ<sub>i</sub> = |p − q|² − L<sub>i</sub>² = 0"),
-      "Glijder: " + c("n·(p − a) = 0") + ", " + c("n = (−sin θ, cos θ)"),
-      "Kruk: " + c("p = A + L·(cos θ, sin θ)") + ", " + c("θ = θ<sub>0</sub> + ωt"),
-      "Positie (Gauss-Newton, kleinste stap): " + c("J·Δq = −Φ") + ", " + c("Δq = Jᵀ(JJᵀ)⁻¹(−Φ)"),
-      "Snelheid: " + c("J·q̇ = −Φ<sub>t</sub>") + " met " + c("2(p−q)·(v<sub>p</sub>−v<sub>q</sub>) = 0"),
-      "Versnelling: " + c("J·q̈ = γ") + " met " + c("γ = −2|v<sub>p</sub>−v<sub>q</sub>|²"),
-      "Krachten (quasi-statisch): " + c("ΣF = m·a") + " in elk punt, onbekend: stangkrachten N, reacties, krukkracht",
-      "Grübler: " + c("DOF = 2·n<sub>vrij</sub> − (stangen + glijders)")
+      T("kin.eq.bar") + c("Φ<sub>i</sub> = |p − q|² − L<sub>i</sub>² = 0"),
+      T("kin.eq.slider") + c("n·(p − a) = 0") + ", " + c("n = (−sin θ, cos θ)"),
+      T("kin.eq.crank") + c("p = A + L·(cos θ, sin θ)") + ", " + c("θ = θ<sub>0</sub> + ωt"),
+      T("kin.eq.pos") + c("J·Δq = −Φ") + ", " + c("Δq = Jᵀ(JJᵀ)⁻¹(−Φ)"),
+      T("kin.eq.vel") + c("J·q̇ = −Φ<sub>t</sub>") + T("with") + c("2(p−q)·(v<sub>p</sub>−v<sub>q</sub>) = 0"),
+      T("kin.eq.acc") + c("J·q̈ = γ") + T("with") + c("γ = −2|v<sub>p</sub>−v<sub>q</sub>|²"),
+      T("kin.eq.force", { f: c("ΣF = m·a") }),
+      T("kin.eq.grub") + c("DOF = 2·n<sub>" + T("kin.f.free") + "</sub> − (" + T("kin.f.bars") + " + " + T("kin.f.sliders") + ")")
     ],
     sym: [
-      [c("q"), "coördinaten (x, y) van alle vrije punten, in mm"],
-      [c("Φ"), "afwijking van de randvoorwaarden; 0 als alles klopt"],
-      [c("J"), "Jacobiaan ∂Φ/∂q (rij per stang of glijder)"],
-      [c("L"), "stanglengte (bij een actuator: de lengte op dat moment)"],
-      [c("m, a"), "massa in kg en versnelling van het punt in mm/s² (×10<sup>−3</sup> geeft N)"]
+      [c("q"), T("kin.sym.q")],
+      [c("Φ"), T("kin.sym.phi")],
+      [c("J"), T("kin.sym.j")],
+      [c("L"), T("kin.sym.l")],
+      [c("m, a"), T("kin.sym.ma")]
     ],
     live,
-    ass: ["Stangen zijn stijf en massaloos; massa zit in de punten.", "Geen tijdstappen: elke stand volgt uit de vorige met de kleinste verplaatsing.", "Krachten alleen als het stelsel vierkant is (DOF = 0 met aandrijving)."],
-    src: REF.nik + " (randvoorwaarden, Jacobiaan, positie-, snelheids- en versnellingsanalyse, statica van mechanismen)"
+    ass: [T("kin.ass1"), T("kin.ass2"), T("kin.ass3")],
+    src: T("kin.src", { ref: REF.nik })
   });
 }
 
@@ -141,60 +145,58 @@ function dynBlocks() {
   let sub = null, h = null;
   if (dur) { sub = Math.min(2000, Math.max(1, Math.ceil(dur / 360 / h0))); h = dur / 360 / sub; }
   const live = [
-    kv("Onbekenden q", "2·" + free + " = " + nq),
-    kv("Randvoorwaarden Φ", bars + " stangen + " + sl + " glijders + 2·" + drv + " kruk = " + nm),
-    kv("Vrijheidsgraden", nq + " − " + nm + " = " + (nq - nm) + (nq - nm < 0 ? " (overbepaald, niet te rekenen)" : "")),
-    kv("Stap h<sub>0</sub> (instelling)", sg(h0 * 1000) + " ms"),
+    kv(T("dyn.l.unk"), "2·" + free + " = " + nq),
+    kv(T("dyn.l.cons"), T("dyn.l.consv", { b: bars, s: sl, d: drv, n: nm })),
+    kv(T("v.dof"), nq + " − " + nm + " = " + (nq - nm) + (nq - nm < 0 ? T("dyn.l.over") : "")),
+    kv(T("dyn.l.step"), sg(h0 * 1000) + " ms"),
     kv("Baumgarte α = β", BA + " 1/s"),
-    kv("Zwaartekracht", model.gravity ? "aan" : "uit"),
-    kv("Demping per punt c<sub>v</sub>", num(model.cVisc || 0) + " Ns/mm"),
-    kv("Scharnierdemping", model.jointDamp ? num(model.cJoint) + " N·m·s" : "uit")
-  ];
-  if (dur) live.push(kv("Looptijd", num(dur, 3) + " s" + (eq && !sw ? " (max)" : "") + " → 360 beelden, " + sub + " RK4-stap(pen) per beeld, h = " + num(h * 1000) + " ms"));
-  if (sim.job) live.push(kv("Status", "bezig met rekenen…"));
-  else if (ui.dynStale) live.push(kv("Status", "model gewijzigd, druk op Bereken"));
-  else if (!sw) live.push(kv("Status", "nog niet doorgerekend"));
+    kv(T("v.gravity"), onOff(model.gravity))
+  ].concat(dampLive());
+  if (dur) live.push(kv(T("dyn.l.dur"), T("dyn.l.durv", { d: num(dur, 3), m: eq && !sw ? T("max") : "", sub, h: num(h * 1000) })));
+  if (sim.job) live.push(kv(T("v.status"), T("running")));
+  else if (ui.dynStale) live.push(kv(T("v.status"), T("stale")));
+  else if (!sw) live.push(kv(T("v.status"), T("notyet")));
   else {
-    live.push(kv("Grootste reactie", num(sw.Rmax) + " N"));
-    live.push(kv("Grootste stangkracht", num(sw.Nmax) + " N"));
+    live.push(kv(T("dyn.l.rmax"), num(sw.Rmax) + " N"));
+    live.push(kv(T("dyn.l.nmax"), num(sw.Nmax) + " N"));
   }
   const out = [block({
-    title: eq ? "Evenwicht: bewegen tot het stil ligt" : "Dynamica: beweging in de tijd",
+    title: eq ? T("dyn.title.eq") : T("dyn.title"),
     eq: [
       mat([["M", "Φ<sub>q</sub>ᵀ"], ["Φ<sub>q</sub>", "0"]]) + mat([["q̈"], ["λ"]]) + " = " +
         mat([["Q"], ["γ − 2α·Φ̇ − β²·Φ"]]),
-      "Randvoorwaarden: " + c("Φ(q, t) = |p−q|² − L² = 0") + " (stang, glijder, kruk als in kinematica)",
-      "Stangkracht: " + c("N = 2L·λ"),
-      "Tijdstap RK4: " + c("y′ = (q̇, q̈)") + ", vier KKT-stelsels per stap",
-      "Projectie na elk beeld: " + c("Φ = 0") + " (positie) en " + c("Φ<sub>q</sub>·q̇ = −Φ<sub>t</sub>") + " (snelheid)"
+      T("dyn.eq.cons", { f: c("Φ(q, t) = |p−q|² − L² = 0") }),
+      T("dyn.eq.nforce") + c("N = 2L·λ"),
+      T("dyn.eq.rk4", { f: c("y′ = (q̇, q̈)") }),
+      T("dyn.eq.proj", { a: c("Φ = 0"), b: c("Φ<sub>q</sub>·q̇ = −Φ<sub>t</sub>") })
     ],
     sym: [
-      [c("M"), "massamatrix (diagonaal, kg·mm → N via 10<sup>−3</sup>)"],
-      [c("Q"), "uitwendige krachten: veer, axiale staaf (EA/L), demper, speling, kracht, zwaartekracht, wrijving, demping"],
-      [c("Φ<sub>q</sub>"), "Jacobiaan van de randvoorwaarden"],
-      [c("λ"), "Lagrange-multiplicatoren: de krachten die de verbindingen leveren"],
-      [c("γ"), "kwadratische snelheidsterm uit de tweede afgeleide van Φ"],
-      [c("α, β"), "Baumgarte: dempen van afwijkingen, " + BA + " en " + BB + " 1/s"]
+      [c("M"), T("dyn.sym.m")],
+      [c("Q"), T("dyn.sym.q")],
+      [c("Φ<sub>q</sub>"), T("dyn.sym.pq")],
+      [c("λ"), T("dyn.sym.lam")],
+      [c("γ"), T("dyn.sym.gam")],
+      [c("α, β"), T("dyn.sym.ab", { a: BA, b: BB })]
     ],
     live,
-    ass: ["Stangen zijn stijf; massa zit in de punten (standaardmassa als er geen is ingevuld).", "Wrijving: Stribeck-vorm met echt plakken onder de snelheidsdrempel.", "Draait ook met vrijheidsgraden over: veren en dempers sturen dan de beweging."],
-    src: REF.nik + " (bewegingsvergelijkingen met Lagrange-multiplicatoren, KKT-stelsel); " + REF.baum
+    ass: [T("dyn.ass1"), T("dyn.ass2"), T("dyn.ass3")],
+    src: T("dyn.src", { a: REF.nik, b: REF.baum })
   })];
   if (eq) {
     out.push(block({
-      title: "Evenwichtscriteria",
+      title: T("eqc.title"),
       eq: [
-        "Stil als: " + c("max|q̇| < " + nl(VTOL) + " mm/s") + " en " + c("max|q̈| < " + ATOL + " mm/s²"),
-        "...gedurende " + c("> " + nl(CALM) + " s") + " aaneen; gecontroleerd elke 10 stappen",
-        "Evenwicht zelf: " + c("q̇ = 0, q̈ = 0") + " → " + c("Φ<sub>q</sub>ᵀλ = Q, Φ = 0")
+        T("eqc.eq1", { a: c("max|q̇| < " + decimal(VTOL) + " mm/s"), b: c("max|q̈| < " + ATOL + " mm/s²") }),
+        T("eqc.eq2", { t: c("> " + decimal(CALM) + " s") }),
+        T("eqc.eq3", { a: c("q̇ = 0, q̈ = 0"), b: c("Φ<sub>q</sub>ᵀλ = Q, Φ = 0") })
       ],
-      sym: [[c("max|q̇|"), "grootste puntsnelheid"], [c("max|q̈|"), "grootste puntversnelling, uit het KKT-stelsel"]],
+      sym: [[c("max|q̇|"), T("eqc.sym1")], [c("max|q̈|"), T("eqc.sym2")]],
       live: [
-        kv("Maximale rekentijd", num(model.maxT || 30) + " s"),
-        kv("Resultaat", sw && sw.settled ? "tot rust na " + num(sw.settled, 3) + " s" : sw ? "niet tot rust binnen de maximale tijd" : "nog niet doorgerekend")
+        kv(T("eqc.l.maxt"), num(model.maxT || 30) + " s"),
+        kv(T("eqc.l.res"), sw && sw.settled ? T("eqc.l.settled", { t: num(sw.settled, 3) }) : sw ? T("eqc.l.nosettle") : T("notyet"))
       ],
-      ass: ["Daarna wordt de beweging vanaf het begin opnieuw opgeslagen tot die tijd.", "Dempers of wrijving zijn nodig om echt tot rust te komen."],
-      src: REF.nik + " (evenwicht: " + c("q̇ = 0, q̈ = 0") + ")"
+      ass: [T("eqc.ass1"), T("eqc.ass2")],
+      src: T("eqc.src", { ref: REF.nik, f: c("q̇ = 0, q̈ = 0") })
     }));
   }
   return out;
@@ -203,72 +205,70 @@ function dynBlocks() {
 function frfBlock() {
   const sw = sim.sweep && sim.sweep.frf ? sim.sweep : null;
   const live = [];
-  if (sim.job) live.push(kv("Status", "bezig met rekenen…"));
-  else if (ui.dynStale) live.push(kv("Status", "model gewijzigd, druk op Bereken"));
-  else if (!sw) live.push(kv("Status", sim.frfMsg ? esc(sim.frfMsg) : "nog niet doorgerekend"));
+  if (sim.job) live.push(kv(T("v.status"), T("running")));
+  else if (ui.dynStale) live.push(kv(T("v.status"), T("stale")));
+  else if (!sw) live.push(kv(T("v.status"), sim.frfMsg ? esc(sim.frfMsg) : T("notyet")));
   if (sw) {
-    live.push(kv("Ingang", esc(sw.inLab || "") + " (" + sw.inUnit + ")"));
-    live.push(kv("Vrijheidsgraden k (dim Z)", String(sw.k)));
-    live.push(kv("Evenwicht", sw.eqOK ? "gevonden (∇V = 0)" : "niet nauwkeurig gevonden"));
-    live.push(kv("Frequentiebereik", hz(sw.f[0]) + " – " + hz(sw.f[360]) + ", 361 punten log"));
+    live.push(kv(T("frf.l.input"), esc(sw.inLab || "") + " (" + sw.inUnit + ")"));
+    live.push(kv(T("frf.l.k"), String(sw.k)));
+    live.push(kv(T("frf.l.eq"), sw.eqOK ? T("frf.l.eqok") : T("frf.l.eqbad")));
+    live.push(kv(T("frf.l.range"), T("frf.l.rangev", { a: hz(sw.f[0]), b: hz(sw.f[360]) })));
     const ms = (sw.modes || []).filter(x => x.f > 1e-6 || x.unstable).slice(0, 3);
-    ms.forEach((x, i) => live.push(kv("Eigenfrequentie f<sub>" + (i + 1) + "</sub>",
-      x.unstable ? "onstabiel (K niet positief)" : hz(x.f) + ", ζ = " + (isFinite(x.zeta) ? num(x.zeta, 2) : "–"))));
-    if (!ms.length) live.push(kv("Eigenfrequenties", "geen (k = 0 of geen massa)"));
+    ms.forEach((x, i) => live.push(kv(T("frf.l.mode", { i: i + 1 }),
+      x.unstable ? T("frf.l.unstable") : hz(x.f) + ", ζ = " + (isFinite(x.zeta) ? num(x.zeta, 2) : "–"))));
+    if (!ms.length) live.push(kv(T("frf.l.modes"), T("frf.l.nomodes")));
   }
-  live.push(kv("Zwaartekracht", model.gravity ? "aan (geeft K een slingerstijfheid)" : "uit"));
-  live.push(kv("Demping per punt c<sub>v</sub>", num(model.cVisc || 0) + " Ns/mm"));
-  live.push(kv("Scharnierdemping", model.jointDamp ? num(model.cJoint) + " N·m·s" : "uit"));
+  live.push(kv(T("v.gravity"), model.gravity ? T("frf.l.gon") : onOff(false)));
+  dampLive().forEach(x => live.push(x));
   return block({
-    title: "FRF: frequentieresponsie rond het evenwicht",
+    title: T("frf.title"),
     eq: [
-      "Evenwicht: " + c("min V(q)") + " onder de randvoorwaarden, aandrijvingen vast",
-      "Kleine bewegingen: " + c("q = q<sub>0</sub> + Z·η + p·u"),
-      c("M = ZᵀMZ") + ", " + c("C = ZᵀCZ") + ", " + c("K = ∂²V/∂η²") + " (numeriek)",
-      "Per frequentie: " + c("(K − ω²M + iωC)·η = F") + " (kracht: F = Zᵀf; beweging: F = −(K<sub>u</sub> − ω²M<sub>u</sub> + iωC<sub>u</sub>)·u)",
-      "Eigenfrequentie: " + c("f = √λ(K,M) / 2π") + ", " + c("ζ = " + "yᵀCy" + " / 2ω") + " (y massa-genormeerd)"
+      T("frf.eq.eq", { f: c("min V(q)") }),
+      T("frf.eq.small") + c("q = q<sub>0</sub> + Z·η + p·u"),
+      c("M = ZᵀMZ") + ", " + c("C = ZᵀCZ") + ", " + c("K = ∂²V/∂η²") + T("frf.eq.num"),
+      T("frf.eq.freq", { f: c("(K − ω²M + iωC)·η = F"), a: "F = Zᵀf", b: "F = −(K<sub>u</sub> − ω²M<sub>u</sub> + iωC<sub>u</sub>)·u" }),
+      T("frf.eq.nat", { a: c("f = √λ(K,M) / 2π"), b: c("ζ = " + "yᵀCy" + " / 2ω") })
     ],
     sym: [
-      [c("Z"), "orthonormale basis van wat de randvoorwaarden toelaten (k kolommen)"],
-      [c("η"), "coördinaten in die basis (k vrijheidsgraden)"],
-      [c("p·u"), "vaste vorm bij de ingang u (actuatorlengte, krukhoek)"],
-      [c("V"), "potentiële energie: veren, aanslag, zwaartekracht, krachten"],
-      [c("M, C, K"), "gereduceerde massa-, dempings- en stijfheidsmatrix"],
-      [c("ω, ζ"), "hoekfrequentie (rad/s) en dempingsfactor per eigenvorm"]
+      [c("Z"), T("frf.sym.z")],
+      [c("η"), T("frf.sym.eta")],
+      [c("p·u"), T("frf.sym.pu")],
+      [c("V"), T("frf.sym.v")],
+      [c("M, C, K"), T("frf.sym.mck")],
+      [c("ω, ζ"), T("frf.sym.wz")]
     ],
     live,
-    ass: ["Lineair rond één evenwicht: alleen kleine uitslagen.", "Wrijving en gesloten speling-aanslagen tellen alleen als stijfheid/demping mee als de aanslag raakt.", "Demping: demper, aanslag, demping per punt en scharnierdemping."],
-    src: REF.ewins + " (modale analyse, frequentieresponsie, modale demping)"
+    ass: [T("frf.ass1"), T("frf.ass2"), T("frf.ass3")],
+    src: T("frf.src", { ref: REF.ewins })
   });
 }
 
-/* ---------- axiale staven en temperatuur ---------- */
+/* ---------- axial bars and temperature ---------- */
 function axialBlock(e, L) {
   const k = axialK(e), A = axialA(e), E_ = axialE(e), S = sim.sweep, i = Math.round(ui.frame);
   const F = S && !S.frf && S.EF && S.EF[e.id] ? S.EF[e.id][i] : NaN;
   const nm = esc(name(e.a) + name(e.b)), m = matOf(e);
   const dt = loadcellDt(e, model.defMass);
-  const live = [kv("Materiaal", esc(m.naam) + ", E = " + num(E_) + " MPa"), kv("A", num(A) + " mm²" + (e.sect === "bh" ? " (" + num(e.sb) + " × " + num(e.sh) + " mm)" : "")),
+  const live = [kv(T("v.material"), esc(m.naam) + ", E = " + num(E_) + " MPa"), kv("A", num(A) + " mm²" + (e.sect === "bh" ? " (" + num(e.sb) + " × " + num(e.sh) + " mm)" : "")),
     kv("L", num(e.len) + " mm"), kv("k = E·A/L", num(k) + " N/mm = " + num(k / 1000) + " N/µm"),
     kv("L<sub>0</sub>(ΔT)", num(thermLen(e)) + " mm (ΔT = " + num(dTOf(e)) + " K)"),
-    kv("L nu", num(L) + " mm"), kv("N", isFinite(F) ? num(F) + " N" : "–"),
+    kv(T("v.lnow"), num(L) + " mm"), kv("N", isFinite(F) ? num(F) + " N" : "–"),
     kv("ΔL = N/k", isFinite(F) ? num(F / k * 1000) + " µm" : "–"), kv("σ = N/A", isFinite(F) ? num(F / A) + " MPa" : "–"),
-    kv("Klem: N = −E·A·α·ΔT", num(-E_ * A * alphaOf(e) * dTOf(e)) + " N"),
-    kv("Max. tijdstap Dynamisch", isFinite(dt) ? num(dt * 1000) + " ms (nu " + num((model.dtStep || 0.2)) + " ms)" : "–")];
+    kv(T("ax.l.clamp"), num(-E_ * A * alphaOf(e) * dTOf(e)) + " N"),
+    kv(T("v.maxdt"), isFinite(dt) ? T("ax.l.maxdtv", { a: num(dt * 1000), b: num(model.dtStep || 0.2) }) : "–")];
+  const w = decimal("2.8") + "/ω";
   return block({
-    title: "Axiale stang " + nm + " (EA/L)",
-    eq: [c("k = E·A / L") + "  (veer langs de staaf)",
-         c("N = k·(L − L<sub>0</sub>(1 + α·ΔT))") + "  (trek positief)",
+    title: T("ax.title", { nm }),
+    eq: [c("k = E·A / L") + T("ax.eq.k"),
+         c("N = k·(L − L<sub>0</sub>(1 + α·ΔT))") + T("ax.eq.n"),
          c("ΔL = N/k") + ", " + c("σ = N/A"),
-         "Ingeklemd tussen twee vaste punten (L = L<sub>0</sub>): " + c("N = −E·A·α·ΔT") + " (druk bij verwarmen)",
-         "Stabiele tijdstap RK4: " + c("h ≲ 2,8/ω") + ", " + c("ω = √(k/m<sub>eff</sub>)")],
-    sym: [[c("E, A"), "elasticiteitsmodulus (MPa) en doorsnede (mm²; oppervlak of b × h)"], [c("L<sub>0</sub>"), "getekende lengte = lengte zonder kracht bij ΔT = 0"],
-          [c("α, ΔT"), "thermische uitzettingscoëfficiënt (1/K) en temperatuurverschil (K)"], [c("m<sub>eff</sub>"), "gereduceerde massa van de twee punten"]],
+         T("ax.eq.clamp", { f: c("N = −E·A·α·ΔT") }),
+         T("ax.eq.dt", { a: c("h ≲ " + w), b: c("ω = √(k/m<sub>eff</sub>)") })],
+    sym: [[c("E, A"), T("ax.sym.ea")], [c("L<sub>0</sub>"), T("ax.sym.l0")],
+          [c("α, ΔT"), T("ax.sym.at")], [c("m<sub>eff</sub>"), T("ax.sym.meff")]],
     live,
-    ass: ["Alleen axiale stijfheid: geen buiging, knik of eigen massa van de staaf (massa zit in de punten).",
-          "Dynamisch, Evenwicht en FRF: een veer met rustlengte L<sub>0</sub>(1 + α·ΔT). Kinematisch: stijve staaf; N, ΔL en σ komen uit de statica (alleen bepaalde constructies).",
-          "Een stijve staaf vraagt een kleine tijdstap; boven 2,8/ω wordt de integratie onstabiel (waarschuwing in de inspector en bij het EA-label)."],
-    src: REF.soem + "; " + REF.slocum + " (axiale stijfheid en thermische uitzetting)"
+    ass: [T("ax.ass1"), T("ax.ass2"), T("ax.ass3", { w })],
+    src: T("ax.src", { a: REF.soem, b: REF.slocum })
   });
 }
 function thermBlock(e, L) {
@@ -276,65 +276,65 @@ function thermBlock(e, L) {
   const m = matOf(e), dT = dTOf(e), nm = esc(name(e.a) + name(e.b));
   if (!dT && !isAxial(e) && typeof e.dT !== "number") return "";
   return block({
-    title: "Thermische rek van stang " + nm,
-    eq: [c("ΔL = α·L·ΔT"), c("L(ΔT) = L<sub>0</sub>·(1 + α·ΔT)") + "  : de randvoorwaarde " + c("|p − q| = L(ΔT)") + " gebruikt de nieuwe lengte"],
-    sym: [[c("α"), "lineaire uitzettingscoëfficiënt van het materiaal, µm/(m·K)"], [c("ΔT"), "temperatuurverschil in K (model, of eigen waarde van de staaf)"],
-          [c("L<sub>0</sub>"), "getekende lengte"]],
-    live: [kv("Materiaal", esc(m.naam)), kv("α", num(m.alpha) + " µm/(m·K)"), kv("ΔT", num(dT) + " K" + (typeof e.dT === "number" ? " (eigen)" : " (model)")),
+    title: T("th.title", { nm }),
+    eq: [c("ΔL = α·L·ΔT"), c("L(ΔT) = L<sub>0</sub>·(1 + α·ΔT)") + T("th.eq2", { f: c("|p − q| = L(ΔT)") })],
+    sym: [[c("α"), T("th.sym.a")], [c("ΔT"), T("th.sym.dt")],
+          [c("L<sub>0</sub>"), T("th.sym.l0")]],
+    live: [kv(T("v.material"), esc(m.naam)), kv("α", num(m.alpha) + " µm/(m·K)"), kv("ΔT", num(dT) + " K" + (typeof e.dT === "number" ? T("th.own") : T("th.model"))),
            kv("L<sub>0</sub>", num(e.len) + " mm"), kv("ΔL", num(thermDL(e) * 1000) + " µm"), kv("L(ΔT)", num(thermLen(e)) + " mm")],
-    ass: ["Uniforme temperatuur over de staaf; \u03b1 constant.", "Eén richting: temperatuur verandert de mechanica, de mechanica verwarmt niet terug.", "Krukken rekken niet mee."],
-    src: REF.soem + "; " + REF.slocum + " (thermische uitzetting, athermisch ontwerp)"
+    ass: [T("th.ass1"), T("th.ass2"), T("th.ass3")],
+    src: T("th.src", { a: REF.soem, b: REF.slocum })
   });
 }
 function stiffBlock() {
   const R = sim.stiff, live = [];
   const beams = model.elems.filter(e => isBeam(e) && N(e.a) && N(e.b));
-  live.push(kv("Balken (Volledig)", String(beams.length)));
+  live.push(kv(T("stiff.l.beams"), String(beams.length)));
   if (R && R.sys) {
-    live.push(kv("Vrijheidsgraden", R.sys.nd + " (" + R.nfree + " vrij na opleggingen)"));
-    live.push(kv("Zwaartekracht", model.gravity ? "aan (gewicht van massa\u2019s en balken)" : "uit"));
-    if (R.sys.mem.some(m => m.rigid)) live.push(kv("Stijve schakels", "EA, EI = " + "10\u2075" + " \u00d7 " + num(R.sys.kref) + " N/mm (penalty)"));
+    live.push(kv(T("v.dof"), T("stiff.l.dofv", { nd: R.sys.nd, nf: R.nfree })));
+    live.push(kv(T("v.gravity"), model.gravity ? T("stiff.l.gon") : onOff(false)));
+    if (R.sys.mem.some(m => m.rigid)) live.push(kv(T("stiff.l.rigid"), T("stiff.l.rigidv", { k: num(R.sys.kref) })));
     if (R.ok) {
-      live.push(kv("Rest \u2016K\u00b7u \u2212 F\u2016/\u2016F\u2016", R.resid < 1e-9 ? "< 10\u207b\u2079" : num(R.resid)));
-      live.push(kv("Evenwicht \u03a3R + \u03a3F", sg(R.eq, 3, R.reactions.reduce((m, r) => Math.max(m, Math.abs(r.Rx), Math.abs(r.Ry)), 0)) + " N"));
-      if (R.sigMax) live.push(kv("Max \u03c3", fmtStress(R.sigMax.val) + " (" + num(R.sigMax.ratio * 100) + " % van \u03c3<sub>toel</sub>)"));
-      live.push(kv("Grootste verplaatsing", fmtLen(R.maxDisp)));
-      if (R.modes && R.modes.length) live.push(kv("Eigenfrequenties", R.modes.map(m => hz(m.f)).join(", ")));
-      (R.analytic || []).forEach(a => a.rows.forEach(r => live.push(kv(esc(a.title), esc(r.k) + ": " + num(r.an * r.f, 4) + " " + r.unit + " (analytisch) tegen " + num(r.fe * r.f, 4) + " " + r.unit + " (FE)"))));
-    } else if (R.mech) live.push(kv("Status", esc(R.mech.text)));
+      live.push(kv(T("stiff.l.resid") + " ‖K·u − F‖/‖F‖", R.resid < 1e-9 ? "< 10⁻⁹" : num(R.resid)));
+      live.push(kv(T("stiff.l.eq") + " ΣR + ΣF", sg(R.eq, 3, R.reactions.reduce((m, r) => Math.max(m, Math.abs(r.Rx), Math.abs(r.Ry)), 0)) + " N"));
+      if (R.sigMax) live.push(kv("Max σ", T("stiff.l.sig", { s: fmtStress(R.sigMax.val), p: num(R.sigMax.ratio * 100) })));
+      live.push(kv(T("stiff.l.disp"), fmtLen(R.maxDisp)));
+      if (R.modes && R.modes.length) live.push(kv(T("stiff.l.modes"), R.modes.map(m => hz(m.f)).join(", ")));
+      (R.analytic || []).forEach(a => a.rows.forEach(r => live.push(kv(esc(a.title), T("stiff.l.an", { k: esc(r.k), an: num(r.an * r.f, 4), fe: num(r.fe * r.f, 4), u: r.unit })))));
+    } else if (R.mech) live.push(kv(T("v.status"), esc(R.mech.text)));
   }
   const b0 = beams[0];
   if (b0) {
     const s = beamSect(b0), m = matOf(b0), L = Math.hypot(N(b0.a).x - N(b0.b).x, N(b0.a).y - N(b0.b).y);
-    live.push(kv("Balk " + esc(name(b0.a) + name(b0.b)), "A = " + num(s.A) + " mm\u00b2, I = " + num(s.I) + " mm\u2074, E = " + num(m.E) + " MPa, L = " + num(L) + " mm; EA/L = " + num(m.E * s.A / L) + " N/mm, 12EI/L\u00b3 = " + num(12 * m.E * s.I / L ** 3) + " N/mm"));
+    live.push(kv(T("stiff.l.beam", { nm: esc(name(b0.a) + name(b0.b)) }), "A = " + num(s.A) + " mm², I = " + num(s.I) + " mm⁴, E = " + num(m.E) + " MPa, L = " + num(L) + " mm; EA/L = " + num(m.E * s.A / L) + " N/mm, 12EI/L³ = " + num(12 * m.E * s.I / L ** 3) + " N/mm"));
   }
   return block({
-    title: "Stijfheid: raamwerk met buigende balken",
+    title: T("stiff.title"),
     eq: [
-      "Balk (Euler\u2013Bernoulli), lokaal " + c("[u<sub>1</sub> v<sub>1</sub> \u03b8<sub>1</sub> u<sub>2</sub> v<sub>2</sub> \u03b8<sub>2</sub>]") + ": axiaal " + c("EA/L\u00b7[1 \u22121; \u22121 1]") + ", buiging " +
-        c("EI/L\u00b3\u00b7") + mat([["12", "6L", "\u221212", "6L"], ["6L", "4L\u00b2", "\u22126L", "2L\u00b2"], ["\u221212", "\u22126L", "12", "\u22126L"], ["6L", "2L\u00b2", "\u22126L", "4L\u00b2"]]),
-      "Samenstellen: " + c("K = \u03a3 T<sup>T</sup>\u00b7k<sub>e</sub>\u00b7T") + " met " + c("T") + " de draaiing over de hoek van de balk; drie vrijheidsgraden " + c("(u, v, \u03b8)") + " per punt",
-      "Oplossen: " + c("K\u00b7u = F") + " (Cholesky " + c("K = L\u00b7L<sup>T</sup>") + "); een singuliere pivot is een mechanisme",
-      "Gebogen lijn: " + c("v(\u03be) = N<sub>1</sub>v<sub>1</sub> + N<sub>2</sub>\u03b8<sub>1</sub> + N<sub>3</sub>v<sub>2</sub> + N<sub>4</sub>\u03b8<sub>2</sub>") + " met " + c("N<sub>1</sub> = 1 \u2212 3\u03be\u00b2 + 2\u03be\u00b3") + ", " + c("N<sub>2</sub> = L(\u03be \u2212 2\u03be\u00b2 + \u03be\u00b3)") + ", " + c("N<sub>3</sub> = 3\u03be\u00b2 \u2212 2\u03be\u00b3") + ", " + c("N<sub>4</sub> = L(\u2212\u03be\u00b2 + \u03be\u00b3)"),
-      "Spanning: " + c("\u03c3(x) = |N|/A + |M(x)|\u00b7c/I") + " met " + c("M(x) = \u2212f<sub>3</sub> + f<sub>2</sub>\u00b7x + q\u00b7x\u00b2/2") + "; kleur = " + c("\u03c3/\u03c3<sub>toel</sub>"),
-      "Stijfheid in een punt: eenheidslast " + c("d") + " op het punt, " + c("k = 1/(d<sup>T</sup>K<sup>\u22121</sup>d)") + " = F/\u03b4",
-      "Eigenfrequenties: " + c("(K \u2212 \u03c9\u00b2M)\u00b7\u03c6 = 0") + ", consistente massa " + c("\u03c1AL/420\u00b7[140 156 22L \u2026]") + ", Cholesky van M en Jacobi",
-      "Controles (Roark): uitkraging " + c("\u03b4 = FL\u00b3/(3EI)") + ", geleid " + c("\u03b4 = FL\u00b3/(12EI)") + ", vrij opgelegd " + c("\u03b4 = FL\u00b3/(48EI)") + ", uitkraging " + c("f<sub>1</sub> = 1,875\u00b2/(2\u03c0)\u00b7\u221a(EI/(\u03c1AL\u2074))")
+      T("stiff.eq.beam", {
+        d: c("[u<sub>1</sub> v<sub>1</sub> θ<sub>1</sub> u<sub>2</sub> v<sub>2</sub> θ<sub>2</sub>]"), a: c("EA/L·[1 −1; −1 1]"),
+        b: c("EI/L³·") + mat([["12", "6L", "−12", "6L"], ["6L", "4L²", "−6L", "2L²"], ["−12", "−6L", "12", "−6L"], ["6L", "2L²", "−6L", "4L²"]])
+      }),
+      T("stiff.eq.asm", { k: c("K = Σ T<sup>T</sup>·k<sub>e</sub>·T"), tt: c("T"), d: c("(u, v, θ)") }),
+      T("stiff.eq.solve", { a: c("K·u = F"), b: c("K = L·L<sup>T</sup>") }),
+      T("stiff.eq.curve", {
+        v: c("v(ξ) = N<sub>1</sub>v<sub>1</sub> + N<sub>2</sub>θ<sub>1</sub> + N<sub>3</sub>v<sub>2</sub> + N<sub>4</sub>θ<sub>2</sub>"),
+        n: [c("N<sub>1</sub> = 1 − 3ξ² + 2ξ³"), c("N<sub>2</sub> = L(ξ − 2ξ² + ξ³)"), c("N<sub>3</sub> = 3ξ² − 2ξ³"), c("N<sub>4</sub> = L(−ξ² + ξ³)")].join(", ")
+      }),
+      T("stiff.eq.stress", { s: c("σ(x) = |N|/A + |M(x)|·c/I"), m: c("M(x) = −f<sub>3</sub> + f<sub>2</sub>·x + q·x²/2"), r: c("σ/σ<sub>" + T("sub.allow") + "</sub>") }),
+      T("stiff.eq.pt", { d: c("d"), k: c("k = 1/(d<sup>T</sup>K<sup>−1</sup>d)") }),
+      T("stiff.eq.modes", { a: c("(K − ω²M)·φ = 0"), b: c("ρAL/420·[140 156 22L …]") }),
+      T("stiff.eq.chk", { a: c("δ = FL³/(3EI)"), b: c("δ = FL³/(12EI)"), c: c("δ = FL³/(48EI)"), d: c("f<sub>1</sub> = " + decimal("1.875") + "²/(2π)·√(EI/(ρAL⁴))") })
     ],
     sym: [
-      [c("E, A, I"), "elasticiteitsmodulus (MPa), oppervlak (mm\u00b2) en kwadratisch oppervlaktemoment (mm\u2074) van de doorsnede"],
-      [c("c"), "afstand van de neutrale lijn tot de uiterste vezel (mm)"],
-      [c("u, v, \u03b8"), "verplaatsing in x, y (mm) en draaiing (rad) van een punt"],
-      [c("f<sub>1..3</sub>"), "krachten en moment op het begin van de balk in zijn eigen assen"],
-      [c("\u03c1"), "dichtheid (kg/m\u00b3), massa per lengte " + c("\u03c1A")]
+      [c("E, A, I"), T("stiff.sym.eai")],
+      [c("c"), T("stiff.sym.c")],
+      [c("u, v, θ"), T("stiff.sym.uvt")],
+      [c("f<sub>1..3</sub>"), T("stiff.sym.f")],
+      [c("ρ"), T("stiff.sym.rho", { f: c("ρA") })]
     ],
     live,
-    ass: ["Lineair en klein: de tekening is de onbelaste stand; voorspanning geeft geen verplaatsing, spanningsverstijving is verwaarloosd.",
-          "Verbindingen: Star (momentvast), Scharnier (elk balkuiteinde draait vrij) of Torsieveer k<sub>\u03b8</sub>; Auto = Star in een vrij punt met een balk, Scharnier bij een oplegging.",
-          "Opleggingen: scharnier (x, y vast), glijder (alleen de normaal vast), Ingeklemd houdt ook de draaiing vast.",
-          "Oneindige schakels zijn een balk met EA en EI van 10<sup>5</sup>\u00d7 de grootste elastische stijfheid; flexures zijn een stijve schakel met draaiveer K; een actuator staat vast op zijn lengte.",
-          "Veren, krachtopnemers en axiale staven werken langs hun lijn; een contact als veer k<sub>n</sub> in de normaal (alleen bij indringing); dempers tellen niet mee.",
-          "Geen afschuifvervorming (Euler\u2013Bernoulli): nauwkeurig voor slanke balken (L/h \u2273 10)."],
+    ass: [T("stiff.ass1"), T("stiff.ass2"), T("stiff.ass3"), T("stiff.ass4"), T("stiff.ass5"), T("stiff.ass6")],
     src: REF.prz + "; " + REF.roark + "; " + REF.soem
   });
 }
@@ -343,26 +343,26 @@ function shiftBlock() {
   const nd = thermalNode();
   if (!nd || !model.elems.some(e => isThermal(e) && dTOf(e) !== 0)) return "";
   const r = thermalShift(nd.id);
-  const live = [kv("Punt", esc(nd.name)), kv("ΔT", num(model.dT || 0) + " K"), kv("Status", r.ok ? "bepaald" : "niet eenduidig")];
+  const live = [kv(T("sh.l.point"), esc(nd.name)), kv("ΔT", num(model.dT || 0) + " K"), kv(T("v.status"), r.ok ? T("determinate") : T("sh.l.notunique"))];
   if (r.ok) {
     live.push(kv("Δx, Δy", num(r.dx * 1000) + ", " + num(r.dy * 1000) + " µm"));
-    r.parts.forEach(p => live.push(kv("Staaf " + esc(name(p.e.a) + name(p.e.b)), "∂x/∂L = " + num(p.sx) + ", ∂y/∂L = " + num(p.sy) + "; bijdrage " + num(p.cx * 1000) + ", " + num(p.cy * 1000) + " µm")));
+    r.parts.forEach(p => live.push(kv(T("sh.l.bar", { nm: esc(name(p.e.a) + name(p.e.b)) }), T("sh.l.barv", { sx: num(p.sx), sy: num(p.sy), cx: num(p.cx * 1000), cy: num(p.cy * 1000) }))));
   }
   return block({
-    title: "Thermische verschuiving van punt " + esc(nd.name),
-    eq: [c("J·dq = −(∂Φ/∂L<sub>i</sub>)·dL<sub>i</sub> = dL<sub>i</sub>") + " per staaf i (met " + c("Φ<sub>i</sub> = |p − q| − L<sub>i</sub>") + ")",
-         c("s<sub>i</sub> = ∂q/∂L<sub>i</sub>") + " : oplossing van " + c("J·s<sub>i</sub> = e<sub>i</sub>"),
+    title: T("sh.title", { nm: esc(nd.name) }),
+    eq: [T("sh.eq1", { f: c("J·dq = −(∂Φ/∂L<sub>i</sub>)·dL<sub>i</sub> = dL<sub>i</sub>"), g: c("Φ<sub>i</sub> = |p − q| − L<sub>i</sub>") }),
+         T("sh.eq2", { f: c("s<sub>i</sub> = ∂q/∂L<sub>i</sub>"), g: c("J·s<sub>i</sub> = e<sub>i</sub>") }),
          c("Δq = Σ s<sub>i</sub>·α<sub>i</sub>·L<sub>i</sub>·ΔT<sub>i</sub>"),
-         "Overbepaald met axiale staven: " + c("N = EA·(ΔL<sub>geom</sub> − α·L·ΔT)/L") + " (Evenwicht)"],
-    sym: [[c("J"), "Jacobiaan ∂Φ/∂q van de randvoorwaarden"], [c("s<sub>i</sub>"), "gevoeligheid van de puntverplaatsing voor de lengte van staaf i (dimensieloos)"],
-          [c("e<sub>i</sub>"), "eenheidsvector op de rij van staaf i"]],
+         T("sh.eq4", { f: c("N = EA·(ΔL<sub>geom</sub> − α·L·ΔT)/L") })],
+    sym: [[c("J"), T("sh.sym.j")], [c("s<sub>i</sub>"), T("sh.sym.s")],
+          [c("e<sub>i</sub>"), T("sh.sym.e")]],
     live,
-    ass: ["Eerste orde: gelineariseerd rond de stand op het scherm.", "Krukken staan vast op hun hoek, actuatoren op hun huidige lengte.", "Alleen bepaalde mechanismen (vrijheidsgraden = 0): anders is de verschuiving niet eenduidig."],
-    src: REF.nik + " (gevoeligheid via de Jacobiaan); " + REF.soem + "; " + REF.slocum
+    ass: [T("sh.ass1"), T("sh.ass2"), T("sh.ass3")],
+    src: T("sh.src", { a: REF.nik, b: REF.soem, c: REF.slocum })
   });
 }
 
-/* ---------- wet van het geselecteerde element ---------- */
+/* ---------- law of the selected element ---------- */
 function selBlock() {
   const s = ui.sel;
   if (!s) return "";
@@ -372,40 +372,40 @@ function selBlock() {
     const nm = n.name || n.id, parts = [];
     const sm = sensorMass(n.id), dm = (n.m > 0 ? n.m : (model.defMass || 0.1)) + sm;
     parts.push(block({
-      title: "Massa in punt " + esc(nm),
-      eq: [c("ΣF = m·a") + " ; " + c("F<sub>zwaarte</sub> = −m·g") + " (alleen als zwaartekracht aan staat)"],
-      sym: [[c("m"), "massa van het punt in kg"], [c("g"), "9,81 m/s²"]],
-      live: [kv("m", num(dm) + " kg" + (n.m > 0 ? "" : " (standaard)") + (sm > 0 ? " incl. " + num(sm) + " kg sensor" : "")),
-             kv("m·g", num(dm * 9.81) + " N" + (model.gravity ? "" : " (zwaartekracht uit)")),
-             kv("Steun", n.support === "pin" ? "scharnier (vast)" : n.support === "slider" ? "glijder, hoek " + num(n.dir) + "°" : "vrij")],
-      src: REF.nik + " (Newton\u2013Euler, massa en zwaartekracht)"
+      title: T("mass.title", { nm: esc(nm) }),
+      eq: [T("mass.eq", { a: c("ΣF = m·a"), b: c("F<sub>" + T("mass.sub.grav") + "</sub> = −m·g") })],
+      sym: [[c("m"), T("mass.sym.m")], [c("g"), T("mass.sym.g", { g: decimal("9.81") })]],
+      live: [kv("m", num(dm) + " kg" + (n.m > 0 ? "" : T("mass.l.def")) + (sm > 0 ? T("mass.l.sens", { m: num(sm) }) : "")),
+             kv("m·g", num(dm * 9.81) + " N" + (model.gravity ? "" : T("mass.l.goff"))),
+             kv(T("mass.l.support"), n.support === "pin" ? T("mass.l.pin") : n.support === "slider" ? T("mass.l.slider", { a: num(n.dir) }) : T("mass.l.free"))],
+      src: T("mass.src", { ref: REF.nik })
     }));
     if (n.mus > 0 || n.muk > 0) {
       const vS = model.fricVs || 5, ve = model.fricVe || 2, r = n.rj > 0 ? n.rj : 5;
       parts.push(block({
-        title: "Wrijving in punt " + esc(nm),
+        title: T("fric.title", { nm: esc(nm) }),
         eq: [
           c("μ(v) = [μ<sub>k</sub> + (μ<sub>s</sub> − μ<sub>k</sub>)·e<sup>−(v/v<sub>S</sub>)²</sup>]·tanh(v/v<sub>ε</sub>)"),
-          n.support === "slider" ? "Glijder: " + c("F = −μ(v)·N") + " langs de rail" : "",
-          "Scharnier: " + c("τ = −μ(r·Δω)·r·N") + ", " + c("v = r·Δω"),
-          "Stilstand: als " + c("|v| < v<sub>ε</sub>") + " plakt het contact (extra voorwaarde " + c("c·a = −2α·c·v") + ") zolang de benodigde kracht " + c("≤ μ<sub>s</sub>·N") + "; anders schiet het los"
+          n.support === "slider" ? T("fric.eq.slider", { f: c("F = −μ(v)·N") }) : "",
+          T("fric.eq.pin", { a: c("τ = −μ(r·Δω)·r·N"), b: c("v = r·Δω") }),
+          T("fric.eq.stick", { a: c("|v| < v<sub>ε</sub>"), b: c("c·a = −2α·c·v"), c: c("≤ μ<sub>s</sub>·N") })
         ].filter(Boolean),
-        sym: [[c("μ<sub>s</sub>, μ<sub>k</sub>"), "wrijvingscoëfficiënt in rust en tijdens glijden"],
-              [c("v<sub>S</sub>"), "Stribeck-snelheid"], [c("v<sub>ε</sub>"), "afvlakking rond v = 0"],
-              [c("N"), "normaalkracht of lagerkracht uit de multiplicatoren"], [c("r"), "penstraal"]],
+        sym: [[c("μ<sub>s</sub>, μ<sub>k</sub>"), T("fric.sym.mu")],
+              [c("v<sub>S</sub>"), T("fric.sym.vs")], [c("v<sub>ε</sub>"), T("fric.sym.ve")],
+              [c("N"), T("fric.sym.n")], [c("r"), T("fric.sym.r")]],
         live: [kv("μ<sub>s</sub> / μ<sub>k</sub>", num(n.mus || 0) + " / " + num(n.muk || 0)),
                kv("v<sub>S</sub>, v<sub>ε</sub>", num(vS) + ", " + num(ve) + " mm/s"), kv("r", num(r) + " mm")],
-        ass: ["Een door de klok gedraaide kruk kan niet plakken.", "In de kinematische modus volgt de wrijving uit dezelfde formule."],
-        src: REF.olsson + " (Stribeck-wrijving, stilstand en plakken)"
+        ass: [T("fric.ass1"), T("fric.ass2")],
+        src: T("fric.src", { ref: REF.olsson })
       }));
     }
     if (model.jointDamp) {
       parts.push(block({
-        title: "Scharnierdemping" + (n.support !== "free" ? " (met de vaste wereld)" : ""),
-        eq: [c("τ = −c·Δω") + " tussen elk paar lichamen in het punt", "Moment τ op een stang wordt een krachtenkoppel op zijn uiteinden: " + c("F = τ/L²")],
-        sym: [[c("c"), "dempingsconstante in N·m·s"], [c("Δω"), "relatieve hoeksnelheid van de twee lichamen"]],
+        title: T("jd.title") + (n.support !== "free" ? T("jd.world") : ""),
+        eq: [T("jd.eq1", { f: c("τ = −c·Δω") }), T("jd.eq2", { f: c("F = τ/L²") })],
+        sym: [[c("c"), T("jd.sym.c")], [c("Δω"), T("jd.sym.dw")]],
         live: [kv("c", num(model.cJoint) + " N·m·s")],
-        src: REF.nik + " (krachtelementen in scharnieren)"
+        src: T("jd.src", { ref: REF.nik })
       }));
     }
     return parts.join("");
@@ -418,176 +418,172 @@ function selBlock() {
     case "loadcell": {
       const ks = springK(e), live = sensorLive(e), dt = loadcellDt(e, model.defMass), k10 = 10;
       return block({
-        title: "Krachtopnemer " + esc(e.name || "") + " " + nm,
-        eq: [c("F = k<sub>s</sub>·Δ") + "  en  " + c("Δ = F/k<sub>s</sub>"),
-             c("1/k<sub>tot</sub> = 1/k + 1/k<sub>s</sub>") + "  (opnemer in serie met stijfheid k)",
-             c("f = (1/2π)·√(k<sub>tot</sub>/m)") + "  : de eigenfrequentie daalt met " + c("√(k<sub>tot</sub>/k)"),
-             "Massa: " + c("m<sub>opn</sub>/2") + " op elk uiteinde"],
-        sym: [[c("k<sub>s</sub>"), "stijfheid van de opnemer (standaard 100 N/µm = 10<sup>5</sup> N/mm)"], [c("Δ"), "vervorming van de opnemer zelf, µm"],
-              [c("k<sub>tot</sub>"), "stijfheid van opnemer en omgeving samen"]],
-        live: [kv("k<sub>s</sub>", num(ks) + " N/mm = " + num(ks / 1000) + " N/µm"), kv("Eigen massa", num(e.m || 0) + " kg"),
-               kv("Bij k = 10 N/mm", "k<sub>tot</sub> = " + num(1 / (1 / k10 + 1 / ks)) + " N/mm (" + num((1 / (1 / k10 + 1 / ks) / k10 - 1) * 100) + " %)"),
+        title: T("lc.title", { name: esc(e.name || ""), nm }),
+        eq: [c("F = k<sub>s</sub>·Δ") + "  " + T("and").trim() + "  " + c("Δ = F/k<sub>s</sub>"),
+             c("1/k<sub>tot</sub> = 1/k + 1/k<sub>s</sub>") + T("lc.eq.series"),
+             c("f = (1/2π)·√(k<sub>tot</sub>/m)") + T("lc.eq.f", { f: c("√(k<sub>tot</sub>/k)") }),
+             T("lc.eq.mass", { f: c("m<sub>" + T("lc.sub.tr") + "</sub>/2") })],
+        sym: [[c("k<sub>s</sub>"), T("lc.sym.ks")], [c("Δ"), T("lc.sym.d")],
+              [c("k<sub>tot</sub>"), T("lc.sym.kt")]],
+        live: [kv("k<sub>s</sub>", num(ks) + " N/mm = " + num(ks / 1000) + " N/µm"), kv(T("lc.l.mass"), num(e.m || 0) + " kg"),
+               kv(T("lc.l.atk"), "k<sub>tot</sub> = " + num(1 / (1 / k10 + 1 / ks)) + " N/mm (" + num((1 / (1 / k10 + 1 / ks) / k10 - 1) * 100) + " %)"),
                kv("F", live ? num(live.F) + " N" : "–"), kv("Δ = F/k<sub>s</sub>", live ? num(live.d) + " µm" : "–"),
-               kv("Max. tijdstap Dynamisch", isFinite(dt) ? num(dt * 1000) + " ms" : "–")],
-        ass: ["Alleen axiale stijfheid; geen dwarsstijfheid, geen demping en geen niet-lineariteit.",
-              "Kinematisch: stijve schakel, de kracht komt uit de statica. Dynamisch, Evenwicht en FRF: veer met rustlengte = getekende lengte.",
-              "Een stijve opnemer (hoge k<sub>s</sub>) vraagt in Dynamisch een kleine tijdstap."],
-        src: REF.slocum + " (stijfheden in serie, krachtopnemers); " + REF.soem
+               kv(T("v.maxdt"), isFinite(dt) ? num(dt * 1000) + " ms" : "–")],
+        ass: [T("lc.ass1"), T("lc.ass2"), T("lc.ass3")],
+        src: T("lc.src", { a: REF.slocum, b: REF.soem })
       });
     }
     case "dsens": {
       const live = sensorLive(e), between = e.b && N(e.b);
       return block({
-        title: "Verplaatsingssensor " + esc(e.name || ""),
+        title: T("ds.title", { name: esc(e.name || "") }),
         eq: [between ? c("x = [(q<sub>b</sub> − q<sub>a</sub>) − (q<sub>b0</sub> − q<sub>a0</sub>)]·n") : c("x = (q<sub>a</sub> − q<sub>a0</sub>)·n"),
-             c("n = (cos α, sin α)"), c("x<sub>uit</sub> = round(x/res)·res") + ",  " + c("|x| > bereik") + " → buiten bereik"],
-        sym: [[c("q<sub>0</sub>"), "getekende stand"], [c("α"), "meetrichting vanaf de x-as"], [c("res, bereik"), "resolutie en meetbereik in µm"]],
-        live: [kv("Richting", num(e.ang || 0) + "°"), kv("Bereik", "±" + num(e.range) + " µm"), kv("Resolutie", num(e.res) + " µm"),
-               kv("x", live ? num(live.x) + " µm" : "–"), kv("Status", live ? (live.oor ? "buiten bereik" : "binnen bereik") : "–")],
-        ass: ["Geen stijfheid of massa: de sensor verandert het systeem niet.", "Relatief ten opzichte van de getekende stand (beeld 0)."],
-        src: REF.slocum + " (sensoren, resolutie en meetbereik)"
+             c("n = (cos α, sin α)"), T("ds.eq3", { a: c("x<sub>" + T("ds.sub.out") + "</sub> = round(x/res)·res"), b: c("|x| > " + T("rng")) })],
+        sym: [[c("q<sub>0</sub>"), T("ds.sym.q0")], [c("α"), T("ds.sym.a")], [c("res, " + T("rng")), T("ds.sym.res")]],
+        live: [kv(T("ds.l.dir"), num(e.ang || 0) + "°"), kv(T("ds.l.range"), "±" + num(e.range) + " µm"), kv(T("ds.l.res"), num(e.res) + " µm"),
+               kv("x", live ? num(live.x) + " µm" : "–"), kv(T("v.status"), live ? (live.oor ? T("ds.l.oor") : T("ds.l.inr")) : "–")],
+        ass: [T("ds.ass1"), T("ds.ass2")],
+        src: T("ds.src", { ref: REF.slocum })
       });
     }
     case "encoder": {
       const live = sensorLive(e), res = encRes(e);
       return block({
-        title: "Hoekencoder " + esc(e.name || ""),
-        eq: [c("θ = (θ<sub>1</sub> − θ<sub>2</sub>) − (θ<sub>1</sub> − θ<sub>2</sub>)<sub>0</sub>"), c("res = 2π / counts per omwenteling"),
-             c("θ<sub>geteld</sub> = round(θ/res)·res") + ", kwantisatiefout " + c("≤ res/2")],
-        sym: [[c("θ<sub>1</sub>, θ<sub>2</sub>"), "richting van de schakels vanuit het punt (θ<sub>2</sub> = 0 voor de grond)"], [c("res"), "hoek per count"]],
-        live: [kv("Counts/omwenteling", num(e.cpr)), kv("res", num(res * 180 / Math.PI) + "° = " + num(res * 1e6) + " µrad"),
-               kv("θ", live ? num(live.th) + "° = " + num(live.thu) + " µrad" : "–"), kv("θ geteld", live ? num(live.thq) + "°" : "–")],
-        ass: ["Geen massa of stijfheid; relatief ten opzichte van de getekende stand."],
-        src: REF.slocum + " (hoekencoders, kwantisatie)"
+        title: T("enc.title", { name: esc(e.name || "") }),
+        eq: [c("θ = (θ<sub>1</sub> − θ<sub>2</sub>) − (θ<sub>1</sub> − θ<sub>2</sub>)<sub>0</sub>"), c("res = 2π / " + T("cpr")),
+             T("enc.eq3", { a: c("θ<sub>" + T("sub.counted") + "</sub> = round(θ/res)·res"), b: c("≤ res/2") })],
+        sym: [[c("θ<sub>1</sub>, θ<sub>2</sub>"), T("enc.sym.th")], [c("res"), T("enc.sym.res")]],
+        live: [kv(T("enc.l.cpr"), num(e.cpr)), kv("res", num(res * 180 / Math.PI) + "° = " + num(res * 1e6) + " µrad"),
+               kv("θ", live ? num(live.th) + "° = " + num(live.thu) + " µrad" : "–"), kv(T("enc.l.counted"), live ? num(live.thq) + "°" : "–")],
+        ass: [T("enc.ass")],
+        src: T("enc.src", { ref: REF.slocum })
       });
     }
     case "accel": {
       const live = sensorLive(e), ms = e.m >= 0 ? e.m : 0.01, n = N(e.node);
       const m0 = n ? (n.m > 0 ? n.m : (model.defMass || 0.1)) + sensorMass(e.node) - ms : 0;
       return block({
-        title: "Versnellingsopnemer " + esc(e.name || "") + " op " + esc(name(e.node)),
-        eq: [c("a = a<sub>punt</sub>·n") + ", " + c("n = (cos α, sin α)") + ";  " + c("1 g = 9,80665 m/s²"),
-             c("m<sub>punt</sub> = m + m<sub>s</sub>"),
-             c("f<sub>met</sub> = f·√(m/(m + m<sub>s</sub>))") + "  : de opnemer maakt het punt zwaarder"],
-        sym: [[c("m<sub>s</sub>"), "massa van de opnemer (standaard 0,01 kg), erbij op het punt"], [c("m"), "massa van het punt zonder opnemer"]],
-        live: [kv("m<sub>s</sub>", num(ms) + " kg"), kv("m (zonder opnemer)", num(m0) + " kg"),
-               kv("f-factor", num(Math.sqrt(m0 / (m0 + ms)))), kv("a", live ? num(live.a) + " m/s² = " + num(live.g) + " g" : "–")],
-        ass: ["Puntmassa zonder eigen dynamica (geen resonantie van de opnemer zelf).", "Telt mee in Dynamisch, Evenwicht, FRF en de kinematische krachten."],
-        src: REF.ewins + " (massabelasting door de opnemer)"
+        title: T("acc.title", { name: esc(e.name || ""), node: esc(name(e.node)) }),
+        eq: [c("a = a<sub>" + T("sub.point") + "</sub>·n") + ", " + c("n = (cos α, sin α)") + ";  " + c("1 g = " + decimal("9.80665") + " m/s²"),
+             c("m<sub>" + T("sub.point") + "</sub> = m + m<sub>s</sub>"),
+             T("acc.eq3", { f: c("f<sub>" + T("sub.with") + "</sub> = f·√(m/(m + m<sub>s</sub>))") })],
+        sym: [[c("m<sub>s</sub>"), T("acc.sym.ms", { d: decimal("0.01") })], [c("m"), T("acc.sym.m")]],
+        live: [kv("m<sub>s</sub>", num(ms) + " kg"), kv(T("acc.l.m"), num(m0) + " kg"),
+               kv(T("acc.l.f"), num(Math.sqrt(m0 / (m0 + ms)))), kv("a", live ? num(live.a) + " m/s² = " + num(live.g) + " g" : "–")],
+        ass: [T("acc.ass1"), T("acc.ass2")],
+        src: T("acc.src", { ref: REF.ewins })
       });
     }
     case "spring":
       return block({
-        title: "Veer " + nm,
-        eq: [c("F = k·(L − L<sub>0</sub>)"), "Kracht werkt langs de veer: positief = trekt de punten naar elkaar"],
-        sym: [[c("k"), "stijfheid in N/mm"], [c("L"), "huidige lengte tussen de punten"], [c("L<sub>0</sub>"), "lengte zonder kracht"]],
-        live: [kv("k", num(e.k) + " N/mm"), kv("L<sub>0</sub>", num(e.L0) + " mm"), kv("L nu", num(L) + " mm"), kv("F nu", num(e.k * (L - e.L0)) + " N")],
-        ass: ["Lineaire veer, geen massa."], src: REF.nik + " (krachtelementen: veer, demper)"
+        title: T("spring.title", { nm }),
+        eq: [c("F = k·(L − L<sub>0</sub>)"), T("spring.eq2")],
+        sym: [[c("k"), T("spring.sym.k")], [c("L"), T("spring.sym.l")], [c("L<sub>0</sub>"), T("spring.sym.l0")]],
+        live: [kv("k", num(e.k) + " N/mm"), kv("L<sub>0</sub>", num(e.L0) + " mm"), kv(T("v.lnow"), num(L) + " mm"), kv(T("v.fnow"), num(e.k * (L - e.L0)) + " N")],
+        ass: [T("spring.ass")], src: T("fe.src", { ref: REF.nik })
       });
     case "damper":
       return block({
-        title: "Demper " + nm,
-        eq: [c("F = c·L̇"), c("L̇ = (v<sub>b</sub> − v<sub>a</sub>)·u") + ", u = eenheidsvector van a naar b"],
-        sym: [[c("c"), "dempingsconstante in Ns/mm"], [c("L̇"), "lengtesnelheid, mm/s"]],
-        live: [kv("c", num(e.c) + " Ns/mm"), kv("L nu", num(L) + " mm")],
-        ass: ["Werkt alleen met beweging; in rust is de kracht 0. In FRF gaat c in de matrix C."], src: REF.nik + " (krachtelementen: veer, demper)"
+        title: T("damper.title", { nm }),
+        eq: [c("F = c·L̇"), T("damper.eq2", { f: c("L̇ = (v<sub>b</sub> − v<sub>a</sub>)·u") })],
+        sym: [[c("c"), T("damper.sym.c")], [c("L̇"), T("damper.sym.ld")]],
+        live: [kv("c", num(e.c) + " Ns/mm"), kv(T("v.lnow"), num(L) + " mm")],
+        ass: [T("damper.ass")], src: T("fe.src", { ref: REF.nik })
       });
     case "gap": {
       const lo = Math.min(e.min, e.max), hi = Math.max(e.min, e.max);
       return block({
-        title: "Speling " + nm,
-        eq: [c("F = 0") + "  voor " + c("L<sub>min</sub> ≤ L ≤ L<sub>max</sub>"),
-             c("F = min(0, k<sub>c</sub>(L − L<sub>min</sub>) + c<sub>c</sub>L̇)") + "  als L < L<sub>min</sub>",
-             c("F = max(0, k<sub>c</sub>(L − L<sub>max</sub>) + c<sub>c</sub>L̇)") + "  als L > L<sub>max</sub>"],
-        sym: [[c("k<sub>c</sub>, c<sub>c</sub>"), "stijfheid en demping van de aanslag"], [c("L<sub>min</sub>, L<sub>max</sub>"), "vrije slag"]],
-        live: [kv("Vrije slag", num(lo) + " – " + num(hi) + " mm"), kv("L nu", num(L) + " mm"),
+        title: T("gap.title", { nm }),
+        eq: [T("gap.eq1", { a: c("F = 0"), b: c("L<sub>min</sub> ≤ L ≤ L<sub>max</sub>") }),
+             T("gap.eq2", { f: c("F = min(0, k<sub>c</sub>(L − L<sub>min</sub>) + c<sub>c</sub>L̇)") }),
+             T("gap.eq3", { f: c("F = max(0, k<sub>c</sub>(L − L<sub>max</sub>) + c<sub>c</sub>L̇)") })],
+        sym: [[c("k<sub>c</sub>, c<sub>c</sub>"), T("gap.sym.kc")], [c("L<sub>min</sub>, L<sub>max</sub>"), T("gap.sym.lm")]],
+        live: [kv(T("gap.l.stroke"), num(lo) + " – " + num(hi) + " mm"), kv(T("v.lnow"), num(L) + " mm"),
                kv("k<sub>c</sub>, c<sub>c</sub>", num(e.kc || 0) + " N/mm, " + num(e.cc || 0) + " Ns/mm")],
-        ass: ["De aanslag trekt nooit: de kracht duwt alleen terug."], src: REF.nik + " (krachtelementen); aanslag als veer met demping (penaltymethode)"
+        ass: [T("gap.ass")], src: T("gap.src", { ref: REF.nik })
       });
     }
     case "flexure": {
       const m = flexMat(e), K = flexK(e), I = flexI(e), phi = flexLivePhi(e, sim.sweep, Math.round(ui.frame)), st = flexStress(e, phi);
       const kind = e.kind, cant = kind === "cantilever", Kt = e.Kt || 1;
       const eq = cant
-        ? [c("pivot op (1−γ)·L van de inklemming, schakel γ·L"), c("K = γ·K<sub>Θ</sub>·E·I / L") + " met " + c("I = b·t³/12"),
-           c("M = −K·φ") + ", " + c("σ = M<sub>inkl</sub>·t/(2I) = K<sub>Θ</sub>·E·t·|φ| / (2L)")]
+        ? [c(T("flex.eq.cant")), c("K = γ·K<sub>Θ</sub>·E·I / L") + T("with") + c("I = b·t³/12"),
+           c("M = −K·φ") + ", " + c("σ = M<sub>" + T("flex.sub.clamp") + "</sub>·t/(2I) = K<sub>Θ</sub>·E·t·|φ| / (2L)")]
         : kind === "cross"
-        ? [c("K = 2·E·I / L") + " (twee bladen, elk E·I/L)", c("M = −K·φ") + ", " + c("σ = E·t·|φ| / (2L)")]
+        ? [T("flex.eq.cross", { f: c("K = 2·E·I / L") }), c("M = −K·φ") + ", " + c("σ = E·t·|φ| / (2L)")]
         : [c("K = 2·E·b·t<sup>5/2</sup> / (9π·√R)") + " (Paros–Weisbord)", c("M = −K·φ") + ", " + c("σ = K<sub>t</sub>·(4/(3π))·E·√(t/R)·|φ|")];
-      const sym = [[c("φ"), "hoek van de schakel ten opzichte van de referentie, min de getekende stand (+ voorspanning)"],
-                   [c("K"), "draaistijfheid in N·mm/rad"], [c("E, I"), "elasticiteitsmodulus en oppervlaktetraagheidsmoment"]]
-        .concat(cant ? [[c("γ, K<sub>Θ</sub>"), "0,85 en 2,65 (Howell, belasting aan de tip)"]] : [])
-        .concat(kind === "notch" ? [[c("K<sub>t</sub>"), "spanningsconcentratie bij de inkeping"]] : []);
-      const live = [kv("Type", esc(FLEX_KINDS[kind] || kind)), kv("Materiaal", esc(m.naam) + ", E = " + num(m.E) + " MPa"),
+      const sym = [[c("φ"), T("flex.sym.phi")],
+                   [c("K"), T("flex.sym.k")], [c("E, I"), T("flex.sym.ei")]]
+        .concat(cant ? [[c("γ, K<sub>Θ</sub>"), T("flex.sym.gk", { g: decimal("0.85"), k: decimal("2.65") })]] : [])
+        .concat(kind === "notch" ? [[c("K<sub>t</sub>"), T("flex.sym.kt")]] : []);
+      const allow = "σ<sub>" + T("sub.allow") + "</sub>";
+      const live = [kv(T("flex.l.type"), esc(FLEX_KINDS[kind] || kind)), kv(T("v.material"), esc(m.naam) + ", E = " + num(m.E) + " MPa"),
         kv("b · t · L", num(e.wd) + " · " + num(e.t) + " · " + num(e.L) + " mm"), kv("I", num(I) + " mm⁴"),
         kv("E·I", num(m.E * I) + " N·mm²"),
         kv("K", num(K) + " N·mm/rad = " + num(K / 1000) + " N·m/rad"),
-        kv("φ nu", num(phi * 180 / Math.PI) + "° (" + num(phi) + " rad)"), kv("M", num(-K * phi / 1000) + " N·m"),
-        kv("σ", num(st.sigma) + " MPa (σ<sub>toel</sub> = " + num(st.allow) + " MPa, " + num(st.ratio * 100) + " %)"),
+        kv(T("flex.l.phinow"), num(phi * 180 / Math.PI) + "° (" + num(phi) + " rad)"), kv("M", num(-K * phi / 1000) + " N·m"),
+        kv("σ", num(st.sigma) + " MPa (" + allow + " = " + num(st.allow) + " MPa, " + num(st.ratio * 100) + " %)"),
         kv("φ<sub>max</sub>", num(st.phiMax * 180 / Math.PI) + "°")];
       if (cant) live.splice(4, 0, kv("γ·K<sub>Θ</sub>/L", num(GAMMA * KTHETA / e.L) + " mm⁻¹"), kv("L<sub>eff</sub> = L/K<sub>Θ</sub>", num(st.Leff) + " mm"),
-        kv("Schakel γ·L", num(GAMMA * e.L) + " mm (getekend " + num(e.len) + " mm)"));
+        kv(T("flex.l.link"), T("flex.l.linkv", { a: num(GAMMA * e.L), b: num(e.len) })));
       return block({
-        title: "Flexure " + nm + " (" + esc(FLEX_KINDS[kind] || kind) + ")",
+        title: T("flex.title", { nm, kind: esc(FLEX_KINDS[kind] || kind) }),
         eq, sym, live,
-        ass: ["PRBM: het blad is een stijve schakel met een draaiveer; goed voor kleine tot matige doorbuiging, de afwijking van de tip-stijfheid is ongeveer 4 % (K<sub>Θ</sub>/(3γ) = 1,039 ten opzichte van 3EI/L³).",
-              "Kinematisch: puur scharnier, de stijfheid telt niet mee maar σ en φ wel. Dynamisch, Evenwicht en FRF: K zit in de potentiële energie ½·K·φ².",
-              "Geen axiale rek, geen dwarskrachtvervorming en geen lastafhankelijke verschuiving van het karakteristieke scharnier."],
-        src: REF.howell + " (PRBM, \u03b3 en K<sub>\u0398</sub>); " + REF.soem + "; " + REF.paros + " (scharnier met inkeping)"
+        ass: [T("flex.ass1", { r: decimal("1.039") }), T("flex.ass2"), T("flex.ass3")],
+        src: T("flex.src", { a: REF.howell, b: REF.soem, c: REF.paros })
       });
     }
     case "contact": {
       const P = N(e.node); if (!P) return "";
       const f = cFrame(e, P), h = hertz(e, f.delta), st = liveContact(e), mu = e.mu === undefined ? 0.15 : e.mu;
       const Fn = st ? st.Fn : h.Fn;
-      const live = [kv("R", num(e.R) + " mm"), kv("Materialen", esc(material(e.m1).nm) + " op " + esc(material(e.m2).nm)),
+      const live = [kv("R", num(e.R) + " mm"), kv(T("ct.l.mats"), T("ct.l.matsv", { a: esc(material(e.m1).nm), b: esc(material(e.m2).nm) })),
         kv("E*", num(h.Es) + " N/mm²"), kv("G*", num(h.Gs) + " N/mm²"),
         kv("δ", num(Math.max(0, f.delta) * 1000) + " µm"), kv("F<sub>n</sub>", num(Fn) + " N"),
         kv("a = √(R·δ)", num(h.a) + " mm"), kv("k<sub>n</sub> = 2E*·a", num(h.kn) + " N/mm"),
         kv("k<sub>t</sub> = 8G*·a", num(h.kt) + " N/mm"), kv("μ·F<sub>n</sub>", num(mu * Fn) + " N")];
-      if (st) live.push(kv("Toestand", st.open ? "los" : st.slip ? "slip" : "plakt"), kv("F<sub>t</sub>", num(st.Ft) + " N"), kv("z (borstel)", num(st.z) + " µm"));
+      if (st) live.push(kv(T("ct.l.state"), st.open ? T("ct.l.open") : st.slip ? T("ct.l.slip") : T("ct.l.stick")), kv("F<sub>t</sub>", num(st.Ft) + " N"), kv(T("ct.l.z"), num(st.z) + " µm"));
       return block({
-        title: "Contact bal – vlak " + esc(name(e.node)),
+        title: T("ct.title", { node: esc(name(e.node)) }),
         eq: [c("δ = R − (p − p<sub>0</sub>)·n") + ", " + c("n = (−sin α, cos α)"),
-             c("F<sub>n</sub> = 4/3·E*·√R·δ<sup>3/2</sup>·(1 − χ·v<sub>n</sub>)") + "  voor δ > 0, anders 0",
+             T("ct.eq.fn", { f: c("F<sub>n</sub> = 4/3·E*·√R·δ<sup>3/2</sup>·(1 − χ·v<sub>n</sub>)") }),
              c("1/E* = (1−ν<sub>1</sub>²)/E<sub>1</sub> + (1−ν<sub>2</sub>²)/E<sub>2</sub>"),
              c("a = √(R·δ)") + ", " + c("k<sub>n</sub> = dF<sub>n</sub>/dδ = 2E*·a"),
              c("1/G* = (2−ν<sub>1</sub>)/G<sub>1</sub> + (2−ν<sub>2</sub>)/G<sub>2</sub>") + ", " + c("k<sub>t</sub> = 8·G*·a"),
-             "Borstel: " + c("ż = v<sub>t</sub>") + " zolang " + c("|k<sub>t</sub>z| < μF<sub>n</sub>") + " (plakt), anders " + c("ż = 0") + " en " + c("z = ±μF<sub>n</sub>/k<sub>t</sub>") + " (slip)",
-             c("F<sub>t</sub> = −(k<sub>t</sub>z + χF<sub>n</sub>v<sub>t</sub>)") + ", begrensd op " + c("±μF<sub>n</sub>")],
-        sym: [[c("R"), "straal van de bal, mm"], [c("E*, G*"), "gecombineerde elasticiteits- en glijdingsmodulus, N/mm²"],
-              [c("δ, a"), "indringing en contactstraal, mm"], [c("z"), "tangentiële verplaatsing van het plakpunt (borstel)"],
-              [c("χ"), "kleine normale demping (Hunt-Crossley), s/mm"]],
+             T("ct.eq.brist", { a: c("ż = v<sub>t</sub>"), b: c("|k<sub>t</sub>z| < μF<sub>n</sub>"), c: c("ż = 0"), d: c("z = ±μF<sub>n</sub>/k<sub>t</sub>") }),
+             T("ct.eq.ft", { a: c("F<sub>t</sub> = −(k<sub>t</sub>z + χF<sub>n</sub>v<sub>t</sub>)"), b: c("±μF<sub>n</sub>") })],
+        sym: [[c("R"), T("ct.sym.r")], [c("E*, G*"), T("ct.sym.eg")],
+              [c("δ, a"), T("ct.sym.da")], [c("z"), T("ct.sym.z")],
+              [c("χ"), T("ct.sym.chi")]],
         live,
-        ass: ["Het vlak is star en vast; de bal duwt alleen (geen kracht bij loslaten).", "Hysterese ontstaat doordat z bij slip blijft staan: heen en terug geeft een verschuiving.",
-              "FRF: alleen Hertz-stijfheid (potentiële energie), geen tangentiële veer. Kinematisch: alleen F<sub>n</sub>."],
-        src: REF.john + " (Hertz, Mindlin); " + REF.hunt + "; " + REF.olsson + " (borstelmodel voor plakken en slippen)"
+        ass: [T("ct.ass1"), T("ct.ass2"), T("ct.ass3")],
+        src: T("ct.src", { a: REF.john, b: REF.hunt, c: REF.olsson })
       });
     }
     case "force": {
       const th = e.ang * Math.PI / 180;
       return block({
-        title: "Kracht op " + esc(name(e.node)),
+        title: T("force.title", { node: esc(name(e.node)) }),
         eq: [c("F = (F·cos α, F·sin α)")],
-        sym: [[c("F"), "grootte in N"], [c("α"), "hoek vanaf de x-as, tegen de klok in"]],
+        sym: [[c("F"), T("force.sym.f")], [c("α"), T("force.sym.a")]],
         live: [kv("F", num(e.mag) + " N"), kv("α", num(e.ang) + "°"), kv("F<sub>x</sub>, F<sub>y</sub>", num(e.mag * Math.cos(th)) + ", " + num(e.mag * Math.sin(th)) + " N")],
-        ass: ["Constant, onafhankelijk van tijd en stand."], src: REF.nik + " (uitwendige krachten)"
+        ass: [T("force.ass")], src: T("force.src", { ref: REF.nik })
       });
     }
     case "actuator": {
       const lo = Math.min(e.min, e.max), hi = Math.max(e.min, e.max), f = e.freq || 0;
       const a = actLen(e, sim.simT);
       return block({
-        title: "Actuator " + nm,
+        title: T("act.title", { nm }),
         eq: [c("L(t) = L<sub>m</sub> + L<sub>a</sub>·sin(φ<sub>0</sub> + 2πft)"),
              c("L<sub>m</sub> = (max+min)/2") + ", " + c("L<sub>a</sub> = (max−min)/2"),
-             c("φ<sub>0</sub> = asin((L<sub>0</sub> − L<sub>m</sub>)/L<sub>a</sub>)") + ": op t = 0 de getekende lengte",
-             "Randvoorwaarde: " + c("|p−q|² = L(t)²") + ", met " + c("L̇") + " en " + c("L̈") + " in γ"],
-        sym: [[c("min, max"), "kortste en langste lengte"], [c("f"), "frequentie in Hz"], [c("L<sub>0</sub>"), "getekende lengte"]],
+             T("act.eq3", { f: c("φ<sub>0</sub> = asin((L<sub>0</sub> − L<sub>m</sub>)/L<sub>a</sub>)") }),
+             T("act.eq4", { a: c("|p−q|² = L(t)²"), b: c("L̇"), c: c("L̈") })],
+        sym: [[c("min, max"), T("act.sym.mm")], [c("f"), T("act.sym.f")], [c("L<sub>0</sub>"), T("act.sym.l0")]],
         live: [kv("min – max", num(lo) + " – " + num(hi) + " mm"), kv("f", num(f) + " Hz"),
                kv("L<sub>m</sub>, L<sub>a</sub>", num((hi + lo) / 2) + ", " + num((hi - lo) / 2) + " mm"),
-               kv("L bij t = " + num(sim.simT, 2) + " s", num(a.L) + " mm")],
-        ass: ["Sinus; bij f = 0 of min = max staat hij stil op de getekende lengte."], src: REF.nik + " (aandrijfrandvoorwaarden)"
+               kv(T("act.l.at", { t: num(sim.simT, 2) }), num(a.L) + " mm")],
+        ass: [T("act.ass")], src: T("act.src", { ref: REF.nik })
       });
     }
     case "link":
@@ -595,47 +591,48 @@ function selBlock() {
       if (e.driver) {
         const om = (e.cw ? -1 : 1) * (e.rpm || 0) * Math.PI / 30;
         return block({
-          title: "Kruk " + nm,
+          title: T("crank.title", { nm }),
           eq: [c("θ = θ<sub>0</sub> + ωt"), c("p = A + L·(cos θ, sin θ)"), c("v = ω·(−r<sub>y</sub>, r<sub>x</sub>)") + ", " + c("a = −ω²r")],
-          sym: [[c("ω"), "hoeksnelheid = toerental·π/30, rad/s"], [c("r"), "vector van het draaipunt naar de tip"]],
-          live: [kv("L", num(e.len) + " mm"), kv("θ<sub>0</sub>", num(e.theta0 || 0) + "°"), kv("ω", num(om) + " rad/s (" + num(e.rpm || 0) + " rpm, " + (e.cw ? "rechtsom" : "linksom") + ")")],
-          ass: ["Constant toerental."], src: REF.nik + " (aandrijfrandvoorwaarden)"
+          sym: [[c("ω"), T("crank.sym.w")], [c("r"), T("crank.sym.r")]],
+          live: [kv("L", num(e.len) + " mm"), kv("θ<sub>0</sub>", num(e.theta0 || 0) + "°"), kv("ω", num(om) + " rad/s (" + num(e.rpm || 0) + " rpm, " + (e.cw ? T("crank.cw") : T("crank.ccw")) + ")")],
+          ass: [T("crank.ass")], src: T("act.src", { ref: REF.nik })
         });
       }
       return block({
-        title: "Stang " + nm,
-        eq: [c("|p − q|² = L²"), "Tweekrachtenstaaf: alleen axiale kracht N"],
-        sym: [[c("L"), "stanglengte"], [c("N"), "stangkracht (trek positief)"]],
-        live: [kv("L", num(e.len) + " mm"), kv("L nu", num(L) + " mm")],
-        src: REF.nik + " (starre-lichaamsrandvoorwaarden)"
+        title: T("bar.title", { nm }),
+        eq: [c("|p − q|² = L²"), T("bar.eq2")],
+        sym: [[c("L"), T("bar.sym.l")], [c("N"), T("bar.sym.n")]],
+        live: [kv("L", num(e.len) + " mm"), kv(T("v.lnow"), num(L) + " mm")],
+        src: T("bar.src", { ref: REF.nik })
       }) + thermBlock(e, L);
   }
   return "";
 }
 
-/* ---------- renderen ---------- */
-let lastKey = "", sweepIds = new WeakMap(), sweepN = 0, wired = false;
+/* ---------- rendering ---------- */
+let lastKey = "", sweepIds = new WeakMap(), sweepN = 0, wired = false, lastEl = null;
 const sweepId = s => { if (!s) return 0; let i = sweepIds.get(s); if (!i) sweepIds.set(s, i = ++sweepN); return i; };
 
 function keyOf() {
   const sel = ui.sel ? E(ui.sel.id) || N(ui.sel.id) : null;
-  return [model.mode, sim.stiffGen, model.stiffNode, model.stiffAng, model.stiffScale, ui.stiffMode, sim.stiff && sim.stiff.modes ? 1 : 0, model.durMode, ui.sel ? ui.sel.kind + ui.sel.id : "", sweepId(sim.sweep), !!sim.job, ui.dynStale, sim.solveOK,
+  return [lang(), model.mode, sim.stiffGen, model.stiffNode, model.stiffAng, model.stiffScale, ui.stiffMode, sim.stiff && sim.stiff.modes ? 1 : 0, model.durMode, ui.sel ? ui.sel.kind + ui.sel.id : "", sweepId(sim.sweep), !!sim.job, ui.dynStale, sim.solveOK,
     model.nodes.length, model.elems.length, model.gravity, model.dtStep, model.simDur, model.defMass, model.cVisc, model.maxT,
     model.jointDamp, model.cJoint, model.fricVs, model.fricVe, model.dT, model.thermNode, model.frfIn, model.mode === "kin" ? ui.frame : 0,
     sel ? JSON.stringify(sel) : "", sel && (sel.type === "contact" || sel.type === "flexure" || sel.type === "loadcell" || sel.type === "dsens" || sel.type === "encoder" || sel.type === "accel") ? ui.frame : 0, model.mode === "kin" ? model.nodes.map(n => n.x + "," + n.y).join(";") : ""].join("|");
 }
 
 export function renderHow(el) {
-  if (!el || el.offsetParent === null) return;         // tabblad niet zichtbaar
+  if (!el || el.offsetParent === null) return;         // tab not visible
+  lastEl = el;
   if (!wired) {
     wired = true;
     el.addEventListener("click", ev => {
       const b = ev.target.closest(".hw-copy");
       if (!b) return;
-      const t = copies[+b.dataset.i];
-      const done = ok => { b.textContent = ok ? "Gekopieerd" : "Mislukt"; setTimeout(() => { b.textContent = "Kopieer"; }, 1400); };
+      const text = copies[+b.dataset.i];
+      const done = ok => { b.textContent = ok ? T("copied") : T("copyfail"); setTimeout(() => { b.textContent = T("copy"); }, 1400); };
       try {
-        navigator.clipboard.writeText(t).then(() => done(true), () => done(false));
+        navigator.clipboard.writeText(text).then(() => done(true), () => done(false));
       } catch (_) { done(false); }
     });
   }
@@ -645,7 +642,10 @@ export function renderHow(el) {
   el.innerHTML = howHtml();
 }
 
-// de formules, aannamen en bronnen van de huidige modus (en het geselecteerde onderdeel) als HTML, ook voor het rekenblad
+// re-render the panel when the language changes (the key includes the language; numbers follow the decimal separator)
+onLang(() => { lastKey = ""; if (lastEl) renderHow(lastEl); });
+
+// the formulas, assumptions and sources of the current mode (and the selected component) as HTML, also for the worksheet
 export function howHtml() {
   const keep = copies;
   copies = [];
@@ -655,7 +655,7 @@ export function howHtml() {
   else if (model.mode === "dyn") h = dynBlocks();
   else h = [kinBlock(), shiftBlock()];
   const extra = selBlock();
-  const out = h.join("") + (extra ? '<div class="hw-sel">Geselecteerd onderdeel</div>' + extra : "");
+  const out = h.join("") + (extra ? '<div class="hw-sel">' + T("sel") + "</div>" + extra : "");
   copies = keep;
   return out;
 }

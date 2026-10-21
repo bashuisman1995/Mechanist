@@ -8,6 +8,7 @@ import { save } from "./persist.js";
 import { plotCv } from "./plot.js";
 import { SERIES_LIGHT, serieColor } from "./theme.js";
 import { flash } from "./tools.js";
+import { t } from "./i18n.js";
 
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 export const DEFAULT_Q = ["ux", "uy"];
@@ -76,7 +77,7 @@ export function paintPath(g, w, h, d, pal, col, hov) {
   if (d.msg) return msg(d.msg);
   const prof = d.prof, pts = prof.pts;
   const series = d.qs.map((q, i) => ({ q, i, v: pts.map(p => q.get(p)) })).filter(sr => sr.v.some(isFinite));
-  if (!series.length) return msg("Geen waarden voor deze grootheid op dit pad (axiale staven hebben geen draaiing, moment of buigspanning).");
+  if (!series.length) return msg(t("sp.noval"));
   const fams = []; series.forEach(sr => { if (fams.indexOf(sr.q.fam) < 0) fams.push(sr.q.fam); });
   const subs = fams.map(fam => {
     const set = series.filter(sr => sr.q.fam === fam);
@@ -174,11 +175,11 @@ export function paintPath(g, w, h, d, pal, col, hov) {
 
 function stateMessage() {
   const R = sim.stiff;
-  if (!R) return "Nog geen oplossing.";
-  if (R.empty) return "Teken balken (stijfheid Volledig) of axiale staven en een kracht om een verloop te zien.";
-  if (!R.ok) return "Het raamwerk is een mechanisme: er is geen verloop te berekenen.";
-  if (!eligibleBars(R).length) return "Er zijn geen balken (Volledig) of axiale staven om een pad van te maken.";
-  if (!pathIds().length) return "Kies balken voor het pad: klik ze in de tekening of op Alle balken.";
+  if (!R) return t("sf.nosol");
+  if (R.empty) return t("sp.m.empty");
+  if (!R.ok) return t("sp.m.mech");
+  if (!eligibleBars(R).length) return t("sp.m.nobars");
+  if (!pathIds().length) return t("sp.m.pick");
   return "";
 }
 function pathData() {
@@ -216,7 +217,7 @@ export function pathPlotImage(w) {
 export function pathSummaryHtml() {
   const d = pathData();
   if (d.msg) return "";
-  return "Pad " + d.prof.bars.map(b => esc(b.name)).join(" → ") + ", lengte " + sg(d.prof.len, 4) + " mm.";
+  return t("sp.summary", { p: d.prof.bars.map(b => esc(b.name)).join(" → "), len: sg(d.prof.len, 4) });
 }
 
 /* ---------- bediening in de rechterkolom van de lade ---------- */
@@ -227,15 +228,15 @@ export function renderPathCtl() {
   if (!on) return;
   const bars = eligibleBars(sim.stiff), ids = pathIds(), qs = pathQs().map(q => q.k);
   const nm = r => (N(r.a) ? N(r.a).name : "?") + (N(r.b) ? N(r.b).name : "?");
-  let h = '<h3>Pad <span class="pc-sub">klik balken in de tekening of hier</span></h3><div class="pc-chips" id="pcBars">' +
-    bars.map(r => { const k = ids.indexOf(r.e.id); return '<button type="button" class="chip" data-id="' + r.e.id + '" aria-pressed="' + (k >= 0) + '" title="' + (r.kind === "beam" ? "balk" : "axiale staaf") + ' ' + nm(r) + '">' + esc(nm(r)) + (k >= 0 ? "<sup>" + (k + 1) + "</sup>" : "") + "</button>"; }).join("") + "</div>" +
-    '<div class="pc-acts"><button type="button" class="btn" data-a="all">Alle balken</button><button type="button" class="btn" data-a="rev" title="Pad in tegengestelde richting doorlopen">Keer om</button><button type="button" class="btn ghost" data-a="clear">Wis</button><button type="button" class="btn ghost" data-a="csv" title="Het verloop als CSV naar het klembord">CSV</button></div>' +
-    '<h3>Grootheid</h3><div class="pc-chips" id="pcQ">' + PATH_Q.map(q => '<button type="button" class="chip" data-q="' + q.k + '" aria-pressed="' + (qs.indexOf(q.k) >= 0) + '" title="' + q.name + '">' + q.q + "</button>").join("") + "</div>";
+  let h = '<h3>' + t("sp.path") + ' <span class="pc-sub">' + t("sp.pathsub") + '</span></h3><div class="pc-chips" id="pcBars">' +
+    bars.map(r => { const k = ids.indexOf(r.e.id); return '<button type="button" class="chip" data-id="' + r.e.id + '" aria-pressed="' + (k >= 0) + '" title="' + t(r.kind === "beam" ? "sp.beam" : "sp.axial") + ' ' + nm(r) + '">' + esc(nm(r)) + (k >= 0 ? "<sup>" + (k + 1) + "</sup>" : "") + "</button>"; }).join("") + "</div>" +
+    '<div class="pc-acts"><button type="button" class="btn" data-a="all">' + t("sp.all") + '</button><button type="button" class="btn" data-a="rev" title="' + t("sp.rev.tip") + '">' + t("sp.rev") + '</button><button type="button" class="btn ghost" data-a="clear">' + t("sp.clear") + '</button><button type="button" class="btn ghost" data-a="csv" title="' + t("sp.csv.tip") + '">CSV</button></div>' +
+    '<h3>' + t("sp.quantity") + '</h3><div class="pc-chips" id="pcQ">' + PATH_Q.map(q => '<button type="button" class="chip" data-q="' + q.k + '" aria-pressed="' + (qs.indexOf(q.k) >= 0) + '" title="' + q.name + '">' + q.q + "</button>").join("") + "</div>";
   const prof = ids.length ? pathProfile(sim.stiff, ids) : null;
   if (prof) {
-    h += '<p class="pc-note">Lengte van het pad <b>' + sg(prof.len, 4) + " mm</b>.</p>";
+    h += '<p class="pc-note">' + t("sp.len") + " <b>" + sg(prof.len, 4) + " mm</b>.</p>";
     const gaps = prof.bars.filter(b => b.gap);
-    if (gaps.length) h += '<p class="pc-note warn">Niet aaneengesloten bij ' + gaps.map(b => esc(b.name)).join(", ") + ": de lijn is daar onderbroken.</p>";
+    if (gaps.length) h += '<p class="pc-note warn">' + t("sp.gap", { b: gaps.map(b => esc(b.name)).join(", ") }) + "</p>";
   }
   if (el.__h !== h) { el.__h = h; el.innerHTML = h; }
 }
@@ -268,9 +269,9 @@ export function initStiffPath() {
       const prof = pathProfile(sim.stiff, pathIds());
       setPath(prof.items.slice().reverse().map(it => it.rec.e.id));
     } else if (b.dataset.a === "csv") {
-      const t = csvText();
-      if (!t) { flash("Nog geen pad gekozen."); return; }
-      navigator.clipboard.writeText(t).then(() => flash("Verloop als CSV gekopieerd."), () => flash("Kopiëren geweigerd door de browser."));
+      const txt = csvText();
+      if (!txt) { flash(t("sp.nopath")); return; }
+      navigator.clipboard.writeText(txt).then(() => flash(t("sp.csvok")), () => flash(t("plot.copydenied")));
     }
   });
   plotCv.addEventListener("pointermove", ev => {

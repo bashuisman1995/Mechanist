@@ -16,7 +16,7 @@ export const model = {
   stiffPath: [], stiffQ: ["ux", "uy"],           // Stijfheid: balken van het pad (volgorde) en de uitgezette grootheden
   stiffNode: "", stiffAng: 90, stiffScale: 0,   // Stijfheid: punt en richting voor "stijfheid in punt", vergroting (0 = auto)
   dT: 0, thermNode: "",     // temperatuurverschil (K) voor alle staven en het punt waarvan we de thermische verschuiving tonen
-  name: "Naamloos"
+  name: "Untitled"
 };
 
 /* ---------- view ---------- */

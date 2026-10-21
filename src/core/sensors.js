@@ -12,13 +12,11 @@
 import { axialK, isAxial, thermLen } from "./axial.js";
 import { E, N } from "./elements.js";
 import { model, sim, ui } from "./state.js";
+import { t } from "../ui/i18n.js";
 
-export const SENSORS = {
-  loadcell: { nm: "Krachtopnemer", pre: "LC", short: "krachtopnemer" },
-  dsens:    { nm: "Verplaatsingssensor", pre: "DS", short: "verplaatsingssensor" },
-  encoder:  { nm: "Hoekencoder", pre: "HE", short: "hoekencoder" },
-  accel:    { nm: "Versnellingsopnemer", pre: "AC", short: "versnellingsopnemer" }
-};
+// nm (naam), pre (voorvoegsel van de standaardnaam) en short (kleine letters) volgen de gekozen taal
+const sensorDef = id => ({ get nm() { return t("sens." + id + ".nm"); }, get pre() { return t("sens." + id + ".pre"); }, get short() { return t("sens." + id + ".short"); } });
+export const SENSORS = { loadcell: sensorDef("loadcell"), dsens: sensorDef("dsens"), encoder: sensorDef("encoder"), accel: sensorDef("accel") };
 export const isSensor = e => !!SENSORS[e.type];
 export const KS_DEFAULT = 1e5;        // N/mm = 100 N/µm
 export const MS_DEFAULT = 0.01;       // kg, versnellingsopnemer
@@ -133,17 +131,17 @@ export function sensorChannels() {
   const out = [];
   for (const e of model.elems) {
     if (!isSensor(e) || !e.name) continue;
-    const nm = e.name, o = SENSORS[e.type].nm + " " + nm, base = { g: "Sensoren", o, obj: e.id };
+    const nm = e.name, o = SENSORS[e.type].nm + " " + nm, base = { g: t("sens.group"), o, obj: e.id };
     const add = (key, q, u, al, frf, lab) => out.push(Object.assign({ key, lab: lab || nm + " · " + q, q, u, al: nm + "." + al, frf }, base));
     if (e.type === "loadcell" && N(e.a) && N(e.b)) {
       add("s|" + e.id + "|F", "F", "N", "F", true);
-      add("m|" + e.id + "|d", "δ", "µm", "d", true, nm + " · vervorming opnemer δ");
+      add("m|" + e.id + "|d", "δ", "µm", "d", true, nm + " · " + t("sens.lc.def") + " δ");
     } else if (e.type === "dsens" && N(e.a)) {
       add("m|" + e.id + "|x", "x", "µm", "x", true);
     } else if (e.type === "encoder" && encBars(e)) {
       add("m|" + e.id + "|th", "θ", "°", "th", true);
       add("m|" + e.id + "|thu", "θ (µrad)", "µrad", "thu", true);
-      add("m|" + e.id + "|thq", "θ gekwantiseerd", "°", "thq", false);
+      add("m|" + e.id + "|thq", "θ " + t("sens.quant"), "°", "thq", false);
     } else if (e.type === "accel" && N(e.node)) {
       add("m|" + e.id + "|a", "a", "m/s²", "a", true);
       add("m|" + e.id + "|g", "a (g)", "g", "g", true);

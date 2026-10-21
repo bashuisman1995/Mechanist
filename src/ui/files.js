@@ -8,12 +8,28 @@ import { atT0, lockNudge, togglePlay } from "./playback.js";
 import { cancelJob, changed, solveNow } from "./solver.js";
 import { flash, toast } from "./tools.js";
 import { fit } from "./view.js";
+import { DICTS, onLang, t } from "./i18n.js";
 
 export function markClean() { ui.unsaved = false; }
+// "Naamloos" (Nederlands) en "Untitled" gelden allebei als de standaardnaam; nieuwe modellen krijgen de naam in de gekozen taal.
+export const isUntitled = nm => !nm || nm === "Untitled" || nm === "Naamloos";
 export function setName(nm) {
-  model.name = (nm || "").trim() || "Naamloos";
-  document.getElementById("docName").textContent = model.name;
-  document.title = model.name + " \u2014 Mechanismeschets";
+  nm = (nm || "").trim();
+  model.name = nm || t("doc.untitled");
+  showName();
+}
+// een voorbeeldnaam (Vierstangenmechanisme / Four-bar linkage) volgt de taalwissel; eigen namen blijven staan
+function retitle() {
+  for (const k in DICTS.en) {
+    if (!/^ex\.\w+\.title$/.test(k)) continue;
+    if (model.name === DICTS.en[k] || model.name === DICTS.nl[k]) { model.name = t(k); break; }
+  }
+  showName();
+  document.body.setAttribute("data-drop", t("file.drop"));
+}
+export function showName() {
+  document.getElementById("docName").textContent = isUntitled(model.name) ? t("doc.untitled") : model.name;
+  document.title = (isUntitled(model.name) ? t("doc.untitled") : model.name) + " \u2014 " + t("app.title");
 }
 // Vraag bij niet-opgeslagen werk wat er moet gebeuren; daarna pas verder.
 // (Een eigen venster: window.confirm wordt in ingesloten pagina's soms geblokkeerd.)
@@ -26,7 +42,7 @@ export function whenDiscarded(then) {
 }
 let afterSave = null;
 
-const fileNameOf = nm => (String(nm || "").replace(/[\\/:*?"<>|]+/g, "").trim() || "mechanisme") + ".mech.json";
+const fileNameOf = nm => (String(nm || "").replace(/[\\/:*?"<>|]+/g, "").trim() || t("file.default")) + ".mech.json";
 // Binnen de claude.ai-viewer mag een pagina zelf niets downloaden; daar loopt
 // opslaan via de downloads-functie van de viewer (die vraagt eerst toestemming).
 // Op een gewone website bestaat die niet en is het een normale download.
@@ -34,11 +50,11 @@ let dlCap = null;
 function downloadModel(nm) {
   const data = { app: "mechanismeschets", versie: 1, naam: nm, opgeslagen: new Date().toISOString(), model: doc() };
   const text = JSON.stringify(data, null, 1), fname = fileNameOf(nm);
-  const done = () => { markClean(); toast("Opgeslagen als " + fname + " (in je map Downloads)."); };
+  const done = () => { markClean(); toast(t("file.saved", { name: fname })); };
   if (dlCap) {
     dlCap.save({ filename: fname, data: text }).then(done, err => {
-      if (err && err.code === "declined") toast("Niet opgeslagen.");
-      else flash("Opslaan lukt hier niet" + (err && err.message ? ": " + err.message : "") + ".");
+      if (err && err.code === "declined") toast(t("file.declined"));
+      else flash(t("file.failed") + (err && err.message ? ": " + err.message : "") + ".");
     });
     return;
   }
@@ -50,11 +66,11 @@ function downloadModel(nm) {
 }
 const saveModal = document.getElementById("saveModal"), saveName = document.getElementById("saveName");
 export function openSave() {
-  saveName.value = model.name === "Naamloos" ? "" : model.name;
+  saveName.value = isUntitled(model.name) ? "" : model.name;
   saveModal.hidden = false; saveName.focus(); saveName.select();
 }
 function doSave() {
-  const nm = saveName.value.trim() || "mechanisme";
+  const nm = saveName.value.trim() || t("file.default");
   saveModal.hidden = true;
   setName(nm); save();
   downloadModel(nm);
@@ -71,16 +87,16 @@ function readModelFile(f) {
     try {
       const d = JSON.parse(String(rd.result));
       const m = d && d.model ? d.model : d;                  // ook een los gekopieerd model mag
-      if (!m || !Array.isArray(m.nodes)) throw new Error("dit is geen mechanismebestand");
+      if (!m || !Array.isArray(m.nodes)) throw new Error(t("file.notmech"));
       if (ui.playing) togglePlay();
       cancelJob(); sim.solved = null;
       loadDoc(m);
       setName(d.naam || m.name || f.name.replace(/(\.mech)?\.json$/i, ""));
       fit(); changed(); markClean();
-      toast("Geopend: " + model.name);
-    } catch (err) { flash("Kon " + f.name + " niet openen: " + err.message); }
+      toast(t("file.opened", { name: model.name }));
+    } catch (err) { flash(t("file.openfail", { file: f.name }) + ": " + err.message); }
   };
-  rd.onerror = () => flash("Kon " + f.name + " niet lezen.");
+  rd.onerror = () => flash(t("file.readfail", { file: f.name }));
   rd.readAsText(f);
 }
 
@@ -96,6 +112,8 @@ export function initFiles() {
   });
   document.getElementById("askCancel").addEventListener("click", () => { askModal.hidden = true; askThen = null; });
   // waarschuw voor het sluiten van het tabblad met werk dat nergens is opgeslagen
+  document.body.setAttribute("data-drop", t("file.drop"));
+  onLang(retitle);
   window.addEventListener("beforeunload", ev => { if (ui.unsaved) { ev.preventDefault(); ev.returnValue = ""; } });
   if (window.claude && typeof window.claude.use === "function")
     window.claude.use("downloads").then(d => { dlCap = d; }, () => {});
@@ -124,14 +142,14 @@ export function initFiles() {
   document.getElementById("modalCancel").addEventListener("click", () => { modal.hidden = true; });
   modal.addEventListener("click", ev => { if (ev.target === modal) modal.hidden = true; });
   document.getElementById("modalOk").addEventListener("click", () => {
-    const t = modalTa.value.trim();
+    const txt = modalTa.value.trim();
     try {
-      const d = t.charAt(0) === "{" ? JSON.parse(t) : b64.dec(t.replace(/^.*#m=/, ""));
+      const d = txt.charAt(0) === "{" ? JSON.parse(txt) : b64.dec(txt.replace(/^.*#m=/, ""));
       loadDoc(d && d.model ? d.model : d);
-      setName((d && (d.naam || d.name)) || "Geplakt model");
+      setName((d && (d.naam || d.name)) || t("file.pasted"));
       modal.hidden = true; fit(); changed();
-      toast("Model geladen.");
-    } catch (err) { flash("Kon dit niet lezen: " + err.message); }
+      toast(t("file.loaded"));
+    } catch (err) { flash(t("file.parsefail") + ": " + err.message); }
   });
 
   // arrow keys nudge the selected point by one grid step

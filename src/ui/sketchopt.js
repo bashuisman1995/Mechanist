@@ -6,6 +6,7 @@ import { thermalNode } from "../core/thermal.js";
 import { model } from "../core/state.js";
 import { MATERIALS } from "../calc/materials.js";
 import { numStr } from "./format.js";
+import { has, onLang, t } from "./i18n.js";
 import { HOW_HTML, esc, reportText, resultHtml, runAsync, sensLine } from "./optpanel.js";
 import { undo } from "./persist.js";
 import { buildInfo, dateText } from "./report.js";
@@ -15,6 +16,7 @@ const $ = id => document.getElementById(id);
 const n3 = (v, d) => numStr(v, d || 3);
 const plainNum = v => String(+Number(v).toPrecision(5));
 const parse = s => parseFloat(String(s).replace(",", "."));
+const modeName = m => (has("mode." + m) ? t("mode." + m) : m);
 const S = { obj: "", sense: "min", target: 0, fx: "", vars: {}, matOn: {}, cons: [], maxEval: 300, res: null, P: null, applied: false, run: null, msg: "", dirty: true };
 
 const visible = () => { const p = document.querySelector('.pane[data-p="opt"]'); return !!p && !p.hidden; };
@@ -41,38 +43,37 @@ function optionsHtml(outs, sel, noFx) {
 function formHtml() {
   const vs = listVars(), outs = outputs();
   syncState(vs, outs);
-  if (!outs.length) return '<p class="empty">Er is niets te optimaliseren: teken eerst een model.</p>';
+  if (!outs.length) return '<p class="empty">' + esc(t("opt.s.empty")) + "</p>";
   const thermal = model.mode === "kin" && outs.some(o => /^th:/.test(o.key));
-  let h = '<p class="empty">Zoek parameterwaarden die een uitkomst van de modus <b>' + esc({ kin: "Kinematisch", dyn: "Dynamisch", equil: "Evenwicht", frf: "FRF", stiff: "Stijfheid" }[model.mode] || model.mode) +
-    "</b> optimaal maken. Elke stap rekent op een kopie van het model met de bestaande oplossers; het model zelf verandert pas met Toepassen.</p>";
-  if (thermal) h += '<button type="button" class="btn primary opt-oneclick" id="skAth" title="Kies de thermische drift van het gekozen punt als doel (= 0), de coördinaten van dat punt als variabelen en rekent meteen door">Athermisch maken</button>';
-  h += '<div class="opt-sec"><div class="opt-h">Doel</div><label class="fld"><span class="sr-only">Doel</span><select id="skObj" aria-label="Doel">' + optionsHtml(outs, S.obj) + "</select></label>" +
-    '<label class="fld" id="skFxRow"' + (S.obj === "fx" ? "" : " hidden") + '><span>Formule (zoals bij Metingen, bijv. C.x - C.y)</span><input type="text" id="skFx" value="' + esc(S.fx) + '" autocomplete="off" spellcheck="false" style="width:100%"></label>' +
-    '<div class="opt-seg" id="skSense" role="group" aria-label="Richting">' + [["min", "Minimaliseer"], ["max", "Maximaliseer"], ["target", "= doel"]].map(a => '<button type="button" class="chip' + (S.sense === a[0] ? " on" : "") + '" data-sense="' + a[0] + '" aria-pressed="' + (S.sense === a[0]) + '">' + a[1] + "</button>").join("") + "</div>" +
-    '<label class="fld" id="skTgtRow"' + (S.sense === "target" ? "" : " hidden") + '><span>Doelwaarde</span><input type="number" step="any" id="skTarget" value="' + esc(String(S.target)) + '"></label></div>';
-  h += '<div class="opt-sec"><div class="opt-h">Variabelen <span class="opt-sub">vink aan wat mag veranderen</span></div>';
+  let h = '<p class="empty">' + t("opt.s.intro", { mode: "<b>" + esc(modeName(model.mode)) + "</b>" }) + "</p>";
+  if (thermal) h += '<button type="button" class="btn primary opt-oneclick" id="skAth" title="' + esc(t("opt.s.ath.t")) + '">' + esc(t("opt.s.ath")) + "</button>";
+  h += '<div class="opt-sec"><div class="opt-h">' + esc(t("opt.s.obj")) + '</div><label class="fld"><span class="sr-only">' + esc(t("opt.s.obj")) + '</span><select id="skObj" aria-label="' + esc(t("opt.s.obj")) + '">' + optionsHtml(outs, S.obj) + "</select></label>" +
+    '<label class="fld" id="skFxRow"' + (S.obj === "fx" ? "" : " hidden") + '><span>' + esc(t("opt.s.fx")) + '</span><input type="text" id="skFx" value="' + esc(S.fx) + '" autocomplete="off" spellcheck="false" style="width:100%"></label>' +
+    '<div class="opt-seg" id="skSense" role="group" aria-label="' + esc(t("opt.s.dir")) + '">' + [["min", t("opt.s.min")], ["max", t("opt.s.max")], ["target", t("opt.s.target")]].map(a => '<button type="button" class="chip' + (S.sense === a[0] ? " on" : "") + '" data-sense="' + a[0] + '" aria-pressed="' + (S.sense === a[0]) + '">' + a[1] + "</button>").join("") + "</div>" +
+    '<label class="fld" id="skTgtRow"' + (S.sense === "target" ? "" : " hidden") + '><span>' + esc(t("opt.s.tgt")) + '</span><input type="number" step="any" id="skTarget" value="' + esc(String(S.target)) + '"></label></div>';
+  h += '<div class="opt-sec"><div class="opt-h">' + esc(t("opt.s.vars")) + ' <span class="opt-sub">' + esc(t("opt.s.varsub")) + "</span></div>";
   let lastG = "";
   vs.forEach(v => {
     const s = S.vars[v.key];
     if (v.group !== lastG) { lastG = v.group; h += '<div class="opt-grp">' + esc(v.group) + "</div>"; }
     if (v.type === "mat") {
-      h += '<div class="opt-var"><label class="chk"><input type="checkbox" data-mat="' + esc(v.key) + '"' + (S.matOn[v.key] ? " checked" : "") + "> " + esc(v.label) + ": alle materialen proberen</label></div>";
+      h += '<div class="opt-var"><label class="chk"><input type="checkbox" data-mat="' + esc(v.key) + '"' + (S.matOn[v.key] ? " checked" : "") + "> " + esc(t("opt.s.allmat", { l: v.label })) + "</label></div>";
       return;
     }
-    h += '<div class="opt-var" data-ov="' + esc(v.key) + '"><label class="chk"><input type="checkbox" data-vf="on"' + (s.on ? " checked" : "") + "> " + esc(v.label) + ' <span class="opt-u">nu ' + esc(n3(v.value)) + " " + esc(v.unit) + "</span></label>" +
+    h += '<div class="opt-var" data-ov="' + esc(v.key) + '"><label class="chk"><input type="checkbox" data-vf="on"' + (s.on ? " checked" : "") + "> " + esc(v.label) + ' <span class="opt-u">' + esc(t("opt.s.now", { v: n3(v.value), u: v.unit })) + "</span></label>" +
       '<div class="opt-rng"><label>min <input type="number" step="any" data-vf="min" value="' + esc(s.min) + '"></label><label>max <input type="number" step="any" data-vf="max" value="' + esc(s.max) + '"></label>' +
-      '<label class="chk opt-log" title="Logaritmisch afbeelden"><input type="checkbox" data-vf="log"' + (s.log ? " checked" : "") + "> log</label></div></div>";
+      '<label class="chk opt-log" title="' + esc(t("opt.s.log.t")) + '"><input type="checkbox" data-vf="log"' + (s.log ? " checked" : "") + "> log</label></div></div>";
   });
   h += "</div>";
-  h += '<div class="opt-sec"><div class="opt-h">Randvoorwaarden</div>';
+  h += '<div class="opt-sec"><div class="opt-h">' + esc(t("opt.s.cons")) + "</div>";
   S.cons.forEach((r, k) => {
-    h += '<div class="opt-con" data-ci="' + k + '"><div class="opt-con-a"><label class="chk"><input type="checkbox" data-cf="on"' + (r.on ? " checked" : "") + ' aria-label="Randvoorwaarde aan"></label><select data-cf="out" aria-label="Uitkomst">' + optionsHtml(outs, r.out, true) + '</select></div>' +
-      '<div class="opt-con-b"><select data-cf="op" aria-label="Richting"><option value="le"' + (r.op === "le" ? " selected" : "") + '>≤</option><option value="ge"' + (r.op === "ge" ? " selected" : "") + '>≥</option></select>' +
-      '<input type="number" step="any" data-cf="val" value="' + esc(r.val) + '" aria-label="Grens"><button type="button" class="opt-x" data-cdel="' + k + '" aria-label="Verwijder randvoorwaarde" title="Verwijderen">×</button></div></div>';
+    h += '<div class="opt-con" data-ci="' + k + '"><div class="opt-con-a"><label class="chk"><input type="checkbox" data-cf="on"' + (r.on ? " checked" : "") + ' aria-label="' + esc(t("opt.s.con.on")) + '"></label><select data-cf="out" aria-label="' + esc(t("opt.s.con.out")) + '">' + optionsHtml(outs, r.out, true) + '</select></div>' +
+      '<div class="opt-con-b"><select data-cf="op" aria-label="' + esc(t("opt.s.dir")) + '"><option value="le"' + (r.op === "le" ? " selected" : "") + '>≤</option><option value="ge"' + (r.op === "ge" ? " selected" : "") + '>≥</option></select>' +
+      '<input type="number" step="any" data-cf="val" value="' + esc(r.val) + '" aria-label="' + esc(t("opt.s.con.lim")) + '"><button type="button" class="opt-x" data-cdel="' + k + '" aria-label="' + esc(t("opt.s.con.del")) + '" title="' + esc(t("opt.s.con.del.t")) + '">×</button></div></div>';
   });
-  h += '<div class="opt-conacts"><button type="button" class="calc-reset" id="skAddCon">+ Randvoorwaarde</button></div></div>';
-  h += '<div class="opt-sec"><label class="fld"><span>Maximaal aantal evaluaties</span><input type="number" step="1" min="20" id="skMax" value="' + S.maxEval + '"></label></div>';
-  h += '<div class="opt-run"><button type="button" class="btn primary" id="skRun">Optimaliseer</button><button type="button" class="btn" id="skStop" hidden>Stop</button>' +
+  h += '<div class="opt-conacts"><button type="button" class="calc-reset" id="skAddCon">' + esc(t("opt.s.addcon")) + "</button></div></div>";
+  h += '<div class="opt-sec"><label class="fld"><span>' + esc(t("opt.s.maxeval")) + '</span><input type="number" step="1" min="20" id="skMax" value="' + S.maxEval + '"></label></div>';
+  h += '<div class="opt-run"><button type="button" class="btn primary" id="skRun">' + esc(t("opt.s.run")) + '</button><button type="button" class="btn" id="skStop" hidden>' + esc(t("opt.s.stop")) + '</button>' +
     '<progress id="skProg" max="' + S.maxEval + '" value="0" hidden></progress><span class="opt-ptxt" id="skPtxt" role="status" aria-live="polite">' + esc(S.msg) + "</span></div>";
   return h;
 }
@@ -80,8 +81,8 @@ function formHtml() {
 function mount() {
   const host = $("skOpt"); if (!host) return;
   host.innerHTML = '<div id="skForm" class="opt-form"></div><div id="skRes" class="opt-res"></div>' +
-    '<details class="opt-more opt-how" id="skHow"><summary>Hoe rekent dit?</summary><div class="opt-howb">' + HOW_HTML +
-    "<p><b>In de schets.</b> Een evaluatie zet de waarden in een diepe kopie van het model (een punt verplaatsen werkt als slepen: de lengtes van de aangesloten schakels volgen de tekening) en roept de gewone oplosser van de modus aan: Kinematisch (t = 0 en de thermische verschuiving), Stijfheid (statica en eigenfrequentie), FRF (eigenfrequentie en piekamplitude) of Dynamisch/Evenwicht (eindstand). Er wordt niets getekend of opgeslagen.</p></div></details>";
+    '<details class="opt-more opt-how" id="skHow"><summary>' + esc(t("opt.how")) + '</summary><div class="opt-howb">' + HOW_HTML +
+    "<p><b>" + t("opt.s.how.h") + "</b> " + t("opt.s.how.p") + "</p></div></details>";
   render();
 }
 function render() {
@@ -102,19 +103,19 @@ function problem() {
   const vs = listVars(), outs = outputs();
   const picked = vs.filter(v => v.type === "num" && S.vars[v.key] && S.vars[v.key].on);
   const dKeys = vs.filter(v => v.type === "mat" && S.matOn[v.key]).map(v => v.key);
-  if (!picked.length && !dKeys.length) return { err: "Vink minstens één variabele aan." };
+  if (!picked.length && !dKeys.length) return { err: t("opt.s.e.none") };
   const vars = [];
   for (const v of picked) {
     const s = S.vars[v.key], lo = parse(s.min), hi = parse(s.max);
-    if (!(isFinite(lo) && isFinite(hi) && hi > lo)) return { err: v.label + ": max moet groter zijn dan min." };
+    if (!(isFinite(lo) && isFinite(hi) && hi > lo)) return { err: t("opt.s.e.range", { l: v.label }) };
     vars.push({ name: v.key, label: v.label, unit: v.unit, min: lo, max: hi, log: !!s.log && lo > 0, x0: Math.min(hi, Math.max(lo, v.value)), before: v.value });
   }
-  if (!outs.some(o => o.key === S.obj)) return { err: "Kies een doel." };
+  if (!outs.some(o => o.key === S.obj)) return { err: t("opt.s.e.obj") };
   const target = parse(S.target);
-  if (S.sense === "target" && !isFinite(target)) return { err: "Geef een doelwaarde." };
-  if (S.obj === "fx" && !String(S.fx).trim()) return { err: "Typ een formule." };
+  if (S.sense === "target" && !isFinite(target)) return { err: t("opt.s.e.tgt") };
+  if (S.obj === "fx" && !String(S.fx).trim()) return { err: t("opt.s.e.fx") };
   const consIn = [];
-  for (const r of S.cons) { if (!r.on) continue; const val = parse(r.val); if (!isFinite(val)) return { err: "Randvoorwaarde: geef een getal." }; consIn.push({ out: r.out, op: r.op, val }); }
+  for (const r of S.cons) { if (!r.on) continue; const val = parse(r.val); if (!isFinite(val)) return { err: t("opt.s.e.con") }; consIn.push({ out: r.out, op: r.op, val }); }
   return { vs, outs, vars, dKeys, consIn, target };
 }
 function start() {
@@ -149,10 +150,10 @@ function start() {
   const opts = { vars: p.vars.map(v => ({ name: v.name, min: v.min, max: v.max, log: v.log, x0: v.x0 })), discrete: p.dKeys.map(k => ({ name: k, options: MATERIALS.map(m => m.id) })),
     constraints, objective: (x, d) => val(x, d, S.obj), sense: S.sense, target: p.target, maxEval };
   $("skRun").disabled = true; $("skStop").hidden = false; $("skProg").hidden = false; $("skProg").max = maxEval; $("skProg").value = 0;
-  $("skPtxt").textContent = "bezig…";
+  $("skPtxt").textContent = t("opt.s.busy");
   S.run = runAsync(opts, {
-    progress: pr => { const b = $("skProg"); if (b) b.value = pr.evals; const t = $("skPtxt"); if (t) t.textContent = pr.evals + " evaluaties" + (pr.best != null ? " · beste " + n3(pr.best) : " · nog geen toelaatbaar punt"); },
-    error: err => { console.error(err); finish(null, "Fout: " + err.message); },
+    progress: pr => { const b = $("skProg"); if (b) b.value = pr.evals; const pt = $("skPtxt"); if (pt) pt.textContent = t("opt.conv.evals", { n: pr.evals }) + (pr.best != null ? t("opt.s.prog.best", { b: n3(pr.best) }) : t("opt.s.prog.none")); },
+    error: err => { console.error(err); finish(null, t("opt.s.err", { m: err.message })); },
     done: res => finish({ res, p, snap, ev, val, opts, errMsg, tTot, keyList, fx }, "")
   });
 }
@@ -164,7 +165,7 @@ function finish(R, msg) {
   S.res = R.res; S.last = R;
   S.P = buildP(R);
   showResult();
-  if (R.errMsg && !R.res.feasible) { const m = $("skPtxt"); if (m) m.textContent = "Laatste melding van de oplosser: " + R.errMsg; }
+  if (R.errMsg && !R.res.feasible) { const m = $("skPtxt"); if (m) m.textContent = t("opt.s.lastmsg", { m: R.errMsg }); }
 }
 function buildP(R) {
   const { res, p, snap, val, opts, fx } = R;
@@ -199,7 +200,7 @@ function buildP(R) {
   show.forEach(o => { const u = o.unit || ""; unitScale[u] = Math.max(unitScale[u] || 0, Math.abs(before[o.key]) || 0, Math.abs(after[o.key]) || 0); });
   const outRows = show.map(o => ({ label: o.label, unit: o.unit, before: f(before[o.key], unitScale[o.unit || ""]), after: f(after[o.key], unitScale[o.unit || ""]), afterRaw: after[o.key], role: o.key === S.obj ? "doel" : consKeys.indexOf(o.key) >= 0 ? "rand" : "" }));
   const cons = p.consIn.map((r, i) => ({ label: opts.constraints[i].label, active: res.active.some(a => a.name === "c" + i) }));
-  const bounds = res.activeBounds.map(b => { const v = vars.filter(q => q.id === b.name)[0]; return (v ? v.label : b.name) + " op " + b.bound; });
+  const bounds = res.activeBounds.map(b => { const v = vars.filter(q => q.id === b.name)[0]; return t("opt.atbound", { l: v ? v.label : b.name, b: b.bound }); });
   const track = [S.obj].concat(consKeys.filter(k => k !== S.obj));
   const sens = [];
   if (p.vars.length && res.history.length) {
@@ -212,12 +213,11 @@ function buildP(R) {
   }
   const combos = (res.combos || []).length > 1 ? res.combos.map(cb => ({ label: cb.d.map(id => (MATERIALS.filter(m => m.id === id)[0] || { naam: id }).naam).join(" + "), f: isFinite(cb.f) ? n3(cb.f) : "–", feasible: cb.feasible })) : [];
   const defCons = p.consIn.map((r, i) => opts.constraints[i].label);
-  return { id: "skOpt", title: "Schets · " + (model.name || "model"), res, canApply: true, applied: false, vars, outs: outRows, cons, bounds, sens, combos, discrete,
+  return { id: "skOpt", title: t("opt.s.title", { name: model.name && model.name !== "Naamloos" && model.name !== "Untitled" ? model.name : t("opt.s.model") }), res, canApply: true, applied: false, vars, outs: outRows, cons, bounds, sens, combos, discrete,
     defVars: p.vars.map(v => ({ label: v.label, unit: v.unit, min: v.min, max: v.max, log: v.log, x0: v.x0 })), defCons,
     obj: { label: unitLabel(outs, S.obj) + (S.obj === "fx" ? " = " + fx : ""), unit: objUnit, sense: S.sense, target: p.target, beforeTxt: f(before[S.obj]), afterTxt: f(after[S.obj], Math.abs(before[S.obj])) },
     xs: x, names: p.vars.map(v => v.name), dKeys: p.dKeys, aIds: d,
-    extra: ["Modus " + model.mode + "; elke evaluatie rekent op een diepe kopie van het model met de bestaande oplosser, gemiddeld " + n3(R.tTot / Math.max(1, res.evals)) + " ms.",
-      "Een punt verplaatsen werkt als slepen: de lengtes van aangesloten schakels volgen de tekening."] };
+    extra: [t("opt.s.extra1", { mode: modeName(model.mode), ms: n3(R.tTot / Math.max(1, res.evals)) }), t("opt.s.extra2")] };
 }
 
 /* ---------- toepassen, terug, kopieer ---------- */
@@ -230,13 +230,13 @@ function apply() {
   S.applied = true;
   changed();                                                      // één wijziging = één stap voor ongedaan maken
   showResult();
-  const m = $("skOptMsg"); if (m) m.textContent = "Waarden toegepast in het model (Ctrl+Z maakt het ongedaan).";
+  const m = $("skOptMsg"); if (m) m.textContent = t("opt.s.applied");
 }
 function copy() {
   if (!S.P) return;
   const b = buildInfo(), text = reportText(S.P, { date: dateText(), app: b.text });
   $("skOptCopy").dataset.report = text;
-  const done = ok => { const m = $("skOptMsg"); if (m) m.textContent = ok ? "Optimalisatierapport gekopieerd (" + text.split("\n").length + " regels)." : "Kopiëren geweigerd door de browser."; };
+  const done = ok => { const m = $("skOptMsg"); if (m) m.textContent = ok ? t("opt.s.copied", { n: text.split("\n").length }) : t("opt.s.copyfail"); };
   const fallback = () => { try { const ta = document.createElement("textarea"); ta.value = text; ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta); ta.select(); const ok = document.execCommand("copy"); ta.remove(); return ok; } catch (_) { return false; } };
   try { navigator.clipboard.writeText(text).then(() => done(true), () => done(fallback())); } catch (_) { done(fallback()); }
 }
@@ -247,7 +247,7 @@ function athermal() {
   if (!nd) return;
   const vs = listVars();
   const mine = vs.filter(v => v.key === "nx:" + nd.id || v.key === "ny:" + nd.id);
-  if (!mine.length) { S.msg = "Dat punt heeft geen vrije coördinaat."; $("skPtxt").textContent = S.msg; return; }
+  if (!mine.length) { S.msg = t("opt.s.nocoord"); $("skPtxt").textContent = S.msg; return; }
   S.obj = "th:" + nd.id + ":sum"; S.userObj = true; S.sense = "min"; S.cons = [];
   Object.keys(S.vars).forEach(k => { S.vars[k].on = false; });
   mine.forEach(v => { S.vars[v.key] = S.vars[v.key] || {}; Object.assign(S.vars[v.key], { on: true, min: plainNum(v.min), max: plainNum(v.max), log: false }); });
@@ -291,6 +291,12 @@ export function initSketchOpt() {
   };
   host.addEventListener("input", onField);
   host.addEventListener("change", onField);
+  onLang(() => {
+    if (S.run) return;
+    S.msg = "";
+    if (S.last) { try { S.P = buildP(S.last); } catch (err) { console.error(err); } }
+    mount();
+  });
   document.addEventListener("mech-tab", e => { if (e.detail === "opt" && S.dirty && !S.run) render(); });
   document.addEventListener("mech-changed", () => {
     if (S.run) return;

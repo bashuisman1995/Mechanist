@@ -52,7 +52,7 @@ test("krachtopnemer in serie verlaagt de eigenfrequentie (FRF) volgens de handbe
   close(x[0], 1 / seriesK(K, KS), { rtol: 0.01, label: "x = F / k_serie" });
   // kanaal bestaat en staat bovenaan onder "Sensoren"
   const ch = channels();
-  assert.equal(ch[0].g, "Sensoren"); assert.ok(ch.some(c => c.key === "m|LC|d"));
+  assert.equal(ch[0].g, "Sensors"); assert.ok(ch.some(c => c.key === "m|LC|d"));
 });
 
 test("versnellingsopnemer: extra massa verschuift f met sqrt(m/(m+m_s)) en meet a", () => {

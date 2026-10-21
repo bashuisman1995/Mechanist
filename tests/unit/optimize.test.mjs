@@ -85,7 +85,7 @@ test("onhaalbaar probleem wordt als onhaalbaar gemeld", () => {
     constraints: [{ name: "te groot", label: "x + y ≥ 5", g: x => 5 - x[0] - x[1] }], maxEval: 600
   });
   assert.equal(r.feasible, false);
-  assert.ok(/toelaatbare/.test(r.reason));
+  assert.ok(/feasible/.test(r.reason));
   assert.ok(r.history.every(h => !h.feasible));
 });
 
@@ -97,7 +97,7 @@ test("doel = waarde (target) en Stop", () => {
   let s; for (;;) { s = g.next(); if (s.done) break; }
   assert.equal(s.value.stopped, true);
   assert.ok(s.value.evals < 60);
-  assert.equal(s.value.reason, "gestopt");
+  assert.equal(s.value.reason, "stopped");
 });
 
 test("herhaalbaar (vaste zaadwaarde) en gevoeligheid", () => {

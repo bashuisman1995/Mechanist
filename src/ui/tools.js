@@ -1,5 +1,6 @@
 // Gereedschapsbalk, hints en sneltoetsen.
 import { ui } from "../core/state.js";
+import { onLang, t } from "./i18n.js";
 import { draw } from "./draw.js";
 import { removeSel } from "./edit.js";
 import { syncInspector } from "./inspector.js";
@@ -35,32 +36,32 @@ const ICON = {
 };
 
 const TOOLS = [
-  { g: "Geometrie" },
-  { id: "select", nm: "Selecteren", kb: "V", ic: "select", hint: "Sleep punten om het mechanisme te vervormen. Sleep het canvas om te pannen." },
-  { id: "node",   nm: "Punt",       kb: "N", ic: "node",   hint: "Klik om een <b>punt</b> te plaatsen." },
-  { id: "link",   nm: "Schakel",    kb: "L", ic: "link",   hint: "Klik het <b>eerste</b> punt, dan het tweede. Klik in het lege vlak om meteen een nieuw punt te maken." },
-  { id: "split", nm: "Knoop op balk", kb: "O", ic: "split", hint: "Klik op een <b>Volledige balk</b> (stijfheid Volledig, EA + EI) om hem daar in twee elementen te splitsen met een punt ertussen: voor een kracht, massa of sensor midden op de balk." },
-  { g: "Opleggingen" },
-  { id: "pin",    nm: "Scharnier",  kb: "P", ic: "pin",    hint: "Klik een punt om het <b>vast te zetten</b>, of klik in het lege vlak voor een nieuw scharnier." },
-  { id: "slider", nm: "Glijder",    kb: "S", ic: "slider", hint: "Klik een punt of het lege vlak voor een <b>glijder</b>. Richting instelbaar bij Eigenschappen." },
-  { id: "driver", nm: "Aandrijving", kb: "D", ic: "driver", hint: "Klik een schakel met één vast scharnier om er de <b>kruk</b> van te maken." },
-  { id: "actuator", nm: "Actuator", kb: "A", ic: "actuator", hint: "Klik twee punten voor een <b>lineaire actuator</b>: zijn lengte gaat heen en weer tussen een minimum en maximum." },
-  { g: "Krachtelementen" },
-  { id: "spring", nm: "Veer",       kb: "R", ic: "spring", hint: "Klik twee punten om er een <b>veer</b> tussen te zetten." },
-  { id: "damper", nm: "Demper",     kb: "C", ic: "damper", hint: "Klik twee punten om er een <b>demper</b> tussen te zetten." },
-  { id: "gap",    nm: "Speling",    kb: "G", ic: "gap",    hint: "Klik twee punten voor een <b>lineaire speling</b>: vrij tussen kortst en langst, daarbuiten een aanslag." },
-  { id: "flexure", nm: "Flexure",   kb: "B", ic: "flexure", hint: "Klik twee punten voor een <b>flexure</b> (bladveer, kruisveerscharnier of inkeping): een scharnier in het eerste punt met een draaiveer uit de geometrie en het materiaal. Type en maten stel je in bij Eigenschappen." },
-  { id: "contact", nm: "Contact",   kb: "K", ic: "contact", hint: "Klik een punt voor een <b>contact</b>: een bal (Hertz) op een vlak, met plakken en slippen. Het vlak ligt eerst recht onder de bal; hoek en plek stel je in bij Eigenschappen." },
-  { id: "force",  nm: "Kracht",     kb: "F", ic: "force",  hint: "Klik een punt om er een <b>kracht</b> op te zetten." },
-  { id: "mass",   nm: "Massa",      kb: "M", ic: "mass",   hint: "Klik een punt om er een <b>puntmassa</b> aan toe te kennen." },
-  { id: "trace", nm: "Spoor", kb: "T", ic: "trace", hint: "Klik een punt om zijn <b>baan</b> te tonen of te verbergen." },
-  { g: "Sensoren" },
-  { id: "loadcell", nm: "Krachtopnemer", kb: "Q", ic: "loadcell", hint: "Klik twee punten voor een <b>krachtopnemer</b> (loadcell): een stijve axiale veer k<sub>s</sub> in de krachtweg die de kracht meet. Hij maakt het systeem zachter: in serie met de rest. Stijfheid en massa stel je in bij Eigenschappen." },
-  { id: "dsens", nm: "Verplaatsing", kb: "W", ic: "dsens", hint: "Klik een punt, dan een tweede punt voor een <b>verplaatsingssensor</b> tussen die twee, of klik hetzelfde punt nog eens voor een sensor ten opzichte van de grond. Meet langs een richting in \u00b5m, met bereik en resolutie." },
-  { id: "encoder", nm: "Hoekencoder", kb: "H", ic: "encoder", hint: "Klik een punt waar schakels samenkomen voor een <b>hoekencoder</b>: de hoek tussen twee schakels (of schakel en grond), met een resolutie in counts per omwenteling." },
-  { id: "accel", nm: "Versnelling", kb: "J", ic: "accel", hint: "Klik een punt voor een <b>versnellingsopnemer</b>: hij meet de versnelling langs een richting en zijn massa (standaard 10 g) komt bij het punt erbij." },
-  { g: "Bewerken" },
-  { id: "del",    nm: "Verwijderen", kb: "X", ic: "del",   hint: "Klik een punt of element om het te <b>verwijderen</b>." }
+  { g: "tool.g.geometry" },
+  { id: "select", kb: "V", ic: "select", },
+  { id: "node",       kb: "N", ic: "node", },
+  { id: "link",    kb: "L", ic: "link", },
+  { id: "split", kb: "O", ic: "split", },
+  { g: "tool.g.supports" },
+  { id: "pin",  kb: "P", ic: "pin", },
+  { id: "slider",    kb: "S", ic: "slider", },
+  { id: "driver", kb: "D", ic: "driver", },
+  { id: "actuator", kb: "A", ic: "actuator", },
+  { g: "tool.g.force" },
+  { id: "spring",       kb: "R", ic: "spring", },
+  { id: "damper",     kb: "C", ic: "damper", },
+  { id: "gap",    kb: "G", ic: "gap", },
+  { id: "flexure",   kb: "B", ic: "flexure", },
+  { id: "contact",   kb: "K", ic: "contact", },
+  { id: "force",     kb: "F", ic: "force", },
+  { id: "mass",      kb: "M", ic: "mass", },
+  { id: "trace", kb: "T", ic: "trace", },
+  { g: "tool.g.sensors" },
+  { id: "loadcell", kb: "Q", ic: "loadcell", },
+  { id: "dsens", kb: "W", ic: "dsens", },
+  { id: "encoder", kb: "H", ic: "encoder", },
+  { id: "accel", kb: "J", ic: "accel", },
+  { g: "tool.g.edit" },
+  { id: "del", kb: "X", ic: "del", }
 ];
 
 export const rail = document.getElementById("rail");
@@ -76,8 +77,8 @@ function hintShow() {
 
 // "?" : de hint van het huidige gereedschap en de uitleg bij het voorbeeld weer tonen
 export function showHelp() {
-  const t = TOOLS.find(x => x.id === ui.tool);
-  document.getElementById("hint").innerHTML = t ? t.hint : "";
+  const tl = TOOLS.find(x => x.id === ui.tool);
+  document.getElementById("hint").innerHTML = tl ? t("tool." + tl.id + ".hint") : "";
   hintShow();
   const u = document.getElementById("uitleg");
   if (u && !u.hidden) { u.classList.remove("min"); }
@@ -86,9 +87,9 @@ export function setTool(id) {
   ui.tool = id; ui.pending = null;
   rail.querySelectorAll(".tool").forEach(b =>
     b.setAttribute("aria-pressed", String(b.dataset.tool === id)));
-  const t = TOOLS.find(x => x.id === id);
-  document.getElementById("hint").innerHTML = t ? t.hint : "";
-  document.getElementById("stTool").textContent = t ? t.nm : "—";
+  const tl = TOOLS.find(x => x.id === id);
+  document.getElementById("hint").innerHTML = tl ? t("tool." + tl.id + ".hint") : "";
+  document.getElementById("stTool").textContent = tl ? t("tool." + tl.id + ".nm") : "—";
   hintShow();
   cv.style.cursor = cursorFor(id);
   draw();
@@ -113,30 +114,42 @@ export function flash(m) {
   hintShow();
   setTimeout(() => { if (Date.now() - flashT >= 2600) setTool(ui.tool); }, 2700);
 }
-export function toast(t) { document.getElementById("hint").innerHTML = "<b>" + t + "</b>"; hintShow(); }
+export function toast(msg) { document.getElementById("hint").innerHTML = "<b>" + msg + "</b>"; hintShow(); }
+
+// De gereedschapsbalk wordt (opnieuw) opgebouwd bij het starten en bij een taalwissel.
+function buildRail() {
+  rail.innerHTML = "";
+  if (!railTop.firstChild) {
+    railTop.className = "railtop";
+    railTop.innerHTML = '<button class="btn ghost ico" id="railBtn">&#8676;</button>';
+  }
+  const rb = railTop.firstChild;
+  rb.title = t("rail.width"); rb.setAttribute("aria-label", t("rail.width"));
+  rail.appendChild(railTop);
+  TOOLS.forEach(tl => {
+    if (tl.g) {
+      const h = document.createElement("div");
+      h.className = "rail-label"; h.textContent = t(tl.g);
+      rail.appendChild(h); return;
+    }
+    const nm = t("tool." + tl.id + ".nm");
+    const b = document.createElement("button");
+    b.className = "tool"; b.type = "button"; b.dataset.tool = tl.id;
+    b.setAttribute("aria-pressed", String(tl.id === ui.tool));
+    b.title = nm + " (" + tl.kb + ")";
+    b.innerHTML = '<svg viewBox="0 0 20 20" aria-hidden="true">' + ICON[tl.ic] + '</svg>' +
+                  '<span class="nm">' + nm + '</span><span class="kb">' + tl.kb + '</span>';
+    b.addEventListener("click", () => setTool(tl.id));
+    rail.appendChild(b);
+  });
+}
 
 export function initTools() {
   // na de eerste handeling op de tekening verdwijnt de hint; "?" haalt hem terug
   cv.addEventListener("pointerdown", () => { clearTimeout(hintT); document.getElementById("hint").classList.add("dim"); }, true);
   document.getElementById("helpBtn").addEventListener("click", showHelp);
-  railTop.className = "railtop";
-  railTop.innerHTML = '<button class="btn ghost ico" id="railBtn" title="Gereedschapsbalk smal of breed" aria-label="Gereedschapsbalk smal of breed">&#8676;</button>';
-  rail.appendChild(railTop);
-  TOOLS.forEach(t => {
-    if (t.g) {
-      const h = document.createElement("div");
-      h.className = "rail-label"; h.textContent = t.g;
-      rail.appendChild(h); return;
-    }
-    const b = document.createElement("button");
-    b.className = "tool"; b.type = "button"; b.dataset.tool = t.id;
-    b.setAttribute("aria-pressed", String(t.id === ui.tool));
-    b.title = t.nm + " (" + t.kb + ")";
-    b.innerHTML = '<svg viewBox="0 0 20 20" aria-hidden="true">' + ICON[t.ic] + '</svg>' +
-                  '<span class="nm">' + t.nm + '</span><span class="kb">' + t.kb + '</span>';
-    b.addEventListener("click", () => setTool(t.id));
-    rail.appendChild(b);
-  });
+  buildRail();
+  onLang(() => { buildRail(); setTool(ui.tool); });
 
   document.addEventListener("keydown", e => {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;

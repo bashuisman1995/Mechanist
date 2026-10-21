@@ -13,6 +13,7 @@ import { serieColor } from "./theme.js";
 import { flash } from "./tools.js";
 import { powTick, sg, tickStr } from "./format.js";
 import { drawPathPlot } from "./stiffpath.js";
+import { t } from "./i18n.js";
 
 /* ============================================================
    Metingen & grafiek
@@ -30,9 +31,9 @@ export function refreshChannels() {
   sim.ALIAS = new Map(); sim.ALIASN = new Map();
   for (const c of sim.CH) if (c.al && !sim.ALIAS.has(c.al)) sim.ALIAS.set(c.al, c);
   for (const c of sim.CH) if (c.al && !sim.ALIASN.has(normAl(c.al))) sim.ALIASN.set(normAl(c.al), c);
-  const opts = [{ v: "time", lab: "tijd (s)" }];
+  const opts = [{ v: "time", lab: t("plot.time") }];
   for (const d of drivers())
-    opts.push({ v: "ang|" + d.id, lab: "krukhoek " + (N(d.a) ? N(d.a).name : "") + (N(d.b) ? N(d.b).name : "") + " (°)" });
+    opts.push({ v: "ang|" + d.id, lab: t("plot.crankangle", { p: (N(d.a) ? N(d.a).name : "") + (N(d.b) ? N(d.b).name : "") }) });
   for (const c of sim.CH) if (!c.hide) opts.push({ v: "ch|" + c.key, lab: c.lab + " (" + c.u + ")" });
   if (!opts.some(o => o.v === model.xAxis)) model.xAxis = "time";
   xSel.innerHTML = opts.map(o =>
@@ -94,8 +95,8 @@ function buildFrfData() {
   const ss = model.series.map((sr, si) => {
     const a = new Float64Array(361).fill(NaN), ph = new Float64Array(361).fill(NaN);
     let err = "";
-    if (sr.expr) err = "formules werken niet in FRF";
-    else if (!sim.CHM.get(sr.key)) err = "niet in FRF";
+    if (sr.expr) err = t("plot.nofx");
+    else if (!sim.CHM.get(sr.key)) err = t("plot.notfrf");
     let mn = Infinity, mx = -Infinity, pmn = Infinity, pmx = -Infinity, n = 0, peak = -Infinity, pk = 0, prev = null;
     if (!err) for (let i = 0; i <= 360; i++) {
       const z = sim.sweep.ok[i] ? frfVal(sim.sweep, sr.key, i) : null;
@@ -150,7 +151,7 @@ export function drawPlot() {
   // deelgrafieken: één per eenheid; bij een FRF komt daar één fasegrafiek bij
   const groups = units.map(u => ({ u, log: !!(ui.pdata && ui.pdata.frf), set: live.filter(s => s.u === u) }));
   if (ui.pdata && ui.pdata.frf && live.length)
-    groups.push({ u: "fase, °", phase: true, set: live.map(s => ({ si: s.si, a: s.ph, mn: s.pmn, mx: s.pmx })) });
+    groups.push({ u: t("plot.phaseunit"), phase: true, set: live.map(s => ({ si: s.si, a: s.ph, mn: s.pmn, mx: s.pmx })) });
   const nF = Math.max(1, groups.length);
 
   // standaardhoogte van de lade: ongeveer 35 % van het scherm, zodat de tekening de hoofdzaak blijft
@@ -187,8 +188,8 @@ export function drawPlot() {
   if (!live.length || w < 90) {
     pctx.textAlign = "center"; pctx.textBaseline = "middle";
     pctx.font = '400 12px "IBM Plex Sans", ui-sans-serif, sans-serif';
-    pctx.fillText(sim.job ? "rekenen…" : !sim.sweep ? (ui.dynStale ? "druk op Bereken om de grafieken te vullen" : "geen oplossing")
-      : "nog geen metingen \u2014 klik op Metingen\u2026", w / 2, Math.min(h, innerH) / 2);
+    pctx.fillText(sim.job ? t("plot.calc") : !sim.sweep ? (ui.dynStale ? t("plot.press") : t("plot.nosol"))
+      : t("plot.nomeas"), w / 2, Math.min(h, innerH) / 2);
     return;
   }
 
@@ -414,12 +415,12 @@ export function initPlot() {
   });
 
   document.getElementById("csvBtn").addEventListener("click", () => {
-    if (!sim.sweep || !model.series.length) { flash("Nog geen metingen om te exporteren."); return; }
+    if (!sim.sweep || !model.series.length) { flash(t("plot.noexport")); return; }
     if (!ui.pdata) buildPdata();
     const frf = !!ui.pdata.frf;
-    const xname = frf ? "frequentie (Hz)" : (xSel.options[xSel.selectedIndex] || {}).text || "x";
+    const xname = frf ? t("plot.freqhz") : (xSel.options[xSel.selectedIndex] || {}).text || "x";
     const head = [xname].concat(...ui.pdata.ss.map(d => frf
-      ? ["|" + serieLab(model.series[d.si]) + "| [" + d.u + "]", "fase " + serieLab(model.series[d.si]) + " [°]"]
+      ? ["|" + serieLab(model.series[d.si]) + "| [" + d.u + "]", t("plot.phase") + " " + serieLab(model.series[d.si]) + " [°]"]
       : [serieLab(model.series[d.si]) + " [" + d.u + "]"])).map(h => '"' + h.replace(/"/g, "'") + '"');
     const lines = [head.join(",")];
     for (let i = 0; i <= 360; i++) {
@@ -433,8 +434,8 @@ export function initPlot() {
     }
     const txt = lines.join("\n");
     navigator.clipboard.writeText(txt).then(
-      () => { document.getElementById("hint").innerHTML = "<b>CSV naar klembord</b> — " + (lines.length - 1) + " regels."; },
-      () => flash("Kopiëren geweigerd door de browser.")
+      () => { document.getElementById("hint").innerHTML = "<b>" + t("plot.csvcopied") + "</b> — " + t("plot.lines", { n: lines.length - 1 }); },
+      () => flash(t("plot.copydenied"))
     );
   });
 }

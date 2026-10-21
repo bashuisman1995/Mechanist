@@ -4,6 +4,7 @@ import { E, N } from "./elements.js";
 import { flexK, flexStress } from "./flexure.js";
 import { sensorChannels, sensorVal } from "./sensors.js";
 import { model, sim } from "./state.js";
+import { t } from "../ui/i18n.js";
 
 /* ---- measurable channels ---- */
 const QLAB = { x: "x", y: "y", vx: "vₓ", vy: "v_y", v: "|v|", ax: "aₓ", ay: "a_y", a: "|a|" };
@@ -15,77 +16,77 @@ export function channels() {
   const out = [];
   const pair = e => (N(e.a) ? N(e.a).name : "?") + (N(e.b) ? N(e.b).name : "?");
   for (const n of model.nodes) {
-    const o = (n.support === "pin" ? "Scharnier " : n.support === "slider" ? "Glijder " : "Punt ") + n.name;
+    const o = t(n.support === "pin" ? "ch.o.pin" : n.support === "slider" ? "ch.o.slider" : "ch.o.point", { n: n.name });
     // een scharnier beweegt niet: zijn x, v en a blijven bruikbaar in formules, maar niet in de lijst
     for (const k in QLAB) out.push({ key: "n|" + n.id + "|" + k, lab: n.name + " · " + QLAB[k], q: QLAB[k],
-                                     u: QU[k], al: n.name + "." + k, g: "Punten", o, obj: n.id, hide: n.support === "pin",
+                                     u: QU[k], al: n.name + "." + k, g: t("ch.g.points"), o, obj: n.id, hide: n.support === "pin",
                                      frf: k !== "v" && k !== "a" });
     if (n.support === "pin") [["Rx", "Rₓ"], ["Ry", "R_y"], ["R", "|R|"]].forEach(([k, q]) =>
-      out.push({ key: "r|" + n.id + "|" + k, lab: "reactie " + n.name + " · " + q, q, u: "N",
-                 al: k + "_" + n.name, g: "Punten", o, obj: n.id }));
+      out.push({ key: "r|" + n.id + "|" + k, lab: t("ch.lab.react", { n: n.name }) + " · " + q, q, u: "N",
+                 al: k + "_" + n.name, g: t("ch.g.points"), o, obj: n.id }));
     if (n.support === "slider")
-      out.push({ key: "r|" + n.id + "|Rn", lab: "reactie " + n.name + " · Rₙ", q: "Rₙ", u: "N",
-                 al: "Rn_" + n.name, g: "Punten", o, obj: n.id });
+      out.push({ key: "r|" + n.id + "|Rn", lab: t("ch.lab.react", { n: n.name }) + " · Rₙ", q: "Rₙ", u: "N",
+                 al: "Rn_" + n.name, g: t("ch.g.points"), o, obj: n.id });
   }
   for (const e of model.elems) {
     if (isAxial(e)) {           // axiale staaf: kracht N, rek ΔL en spanning σ (in alle modi; Kinematisch: stijf, kracht uit de statica)
-      const o = "Axiale stang " + pair(e), p = pair(e);
-      out.push({ key: "s|" + e.id + "|F", lab: "axiale stang " + p + " · N", q: "N", u: "N", al: "N_" + p, g: "Stangen", o, obj: e.id, frf: true });
-      out.push({ key: "w|" + e.id + "|dL", lab: "axiale stang " + p + " · ΔL", q: "ΔL", u: "µm", al: "dL_" + p, g: "Stangen", o, obj: e.id, frf: true });
-      out.push({ key: "w|" + e.id + "|sig", lab: "axiale stang " + p + " · σ", q: "σ", u: "MPa", al: "sigA_" + p, g: "Stangen", o, obj: e.id, frf: true });
+      const o = t("ch.o.axial", { p: pair(e) }), p = pair(e);
+      out.push({ key: "s|" + e.id + "|F", lab: t("ch.lab.axial", { p }) + " · N", q: "N", u: "N", al: "N_" + p, g: t("ch.g.links"), o, obj: e.id, frf: true });
+      out.push({ key: "w|" + e.id + "|dL", lab: t("ch.lab.axial", { p }) + " · ΔL", q: "ΔL", u: "µm", al: "dL_" + p, g: t("ch.g.links"), o, obj: e.id, frf: true });
+      out.push({ key: "w|" + e.id + "|sig", lab: t("ch.lab.axial", { p }) + " · σ", q: "σ", u: "MPa", al: "sigA_" + p, g: t("ch.g.links"), o, obj: e.id, frf: true });
     } else if (e.type === "link") {
-      const o = (e.driver ? "Kruk " : "Stang ") + pair(e);
-      out.push({ key: "l|" + e.id + "|N", lab: (e.driver ? "kruk " : "stang ") + pair(e) + " · N", q: "N", u: "N",
-                 al: "N_" + pair(e), g: "Stangen", o, obj: e.id });
-      if (e.driver) out.push({ key: "t|" + e.id + "|T", lab: "krukmoment " + pair(e) + " · T", q: "T", u: "N·m",
-                               al: "T_" + pair(e), g: "Stangen", o, obj: e.id });
+      const o = t(e.driver ? "ch.o.crank" : "ch.o.link", { p: pair(e) });
+      out.push({ key: "l|" + e.id + "|N", lab: t(e.driver ? "ch.lab.crank" : "ch.lab.link", { p: pair(e) }) + " · N", q: "N", u: "N",
+                 al: "N_" + pair(e), g: t("ch.g.links"), o, obj: e.id });
+      if (e.driver) out.push({ key: "t|" + e.id + "|T", lab: t("ch.lab.torque", { p: pair(e) }) + " · T", q: "T", u: "N·m",
+                               al: "T_" + pair(e), g: t("ch.g.links"), o, obj: e.id });
     }
     if (e.type === "actuator") {
-      const o = "Actuator " + pair(e);
-      out.push({ key: "l|" + e.id + "|N", lab: "actuator " + pair(e) + " · F", q: "F", u: "N",
-                 al: "F_" + pair(e), g: "Stangen", o, obj: e.id });
-      out.push({ key: "a|" + e.id + "|L", lab: "actuator " + pair(e) + " · L", q: "L", u: "mm",
-                 al: "L_" + pair(e), g: "Stangen", o, obj: e.id, frf: true });
+      const o = t("ch.o.act", { p: pair(e) });
+      out.push({ key: "l|" + e.id + "|N", lab: t("ch.lab.act", { p: pair(e) }) + " · F", q: "F", u: "N",
+                 al: "F_" + pair(e), g: t("ch.g.links"), o, obj: e.id });
+      out.push({ key: "a|" + e.id + "|L", lab: t("ch.lab.act", { p: pair(e) }) + " · L", q: "L", u: "mm",
+                 al: "L_" + pair(e), g: t("ch.g.links"), o, obj: e.id, frf: true });
     }
     if (e.type === "flexure") {
-      const o = "Flexure " + pair(e), p = pair(e);
-      out.push({ key: "f|" + e.id + "|phi", lab: "flexure " + p + " \u00b7 \u03c6", q: "\u03c6", u: "\u00b0", al: "phi_" + p, g: "Krachtelementen", o, obj: e.id, frf: true });
-      out.push({ key: "f|" + e.id + "|sig", lab: "flexure " + p + " \u00b7 \u03c3", q: "\u03c3", u: "MPa", al: "sig_" + p, g: "Krachtelementen", o, obj: e.id, frf: true });
-      out.push({ key: "f|" + e.id + "|M", lab: "flexure " + p + " \u00b7 M", q: "M", u: "N\u00b7m", al: "Mf_" + p, g: "Krachtelementen", o, obj: e.id, frf: true });
+      const o = t("ch.o.flex", { p: pair(e) }), p = pair(e);
+      out.push({ key: "f|" + e.id + "|phi", lab: t("ch.lab.flex", { p }) + " \u00b7 \u03c6", q: "\u03c6", u: "\u00b0", al: "phi_" + p, g: t("ch.g.force"), o, obj: e.id, frf: true });
+      out.push({ key: "f|" + e.id + "|sig", lab: t("ch.lab.flex", { p }) + " \u00b7 \u03c3", q: "\u03c3", u: "MPa", al: "sig_" + p, g: t("ch.g.force"), o, obj: e.id, frf: true });
+      out.push({ key: "f|" + e.id + "|M", lab: t("ch.lab.flex", { p }) + " \u00b7 M", q: "M", u: "N\u00b7m", al: "Mf_" + p, g: t("ch.g.force"), o, obj: e.id, frf: true });
     }
     if (e.type === "gap") {
-      const o = "Speling " + pair(e);
-      out.push({ key: "s|" + e.id + "|F", lab: "speling " + pair(e) + " · F", q: "F", u: "N",
-                 al: "Fs_" + pair(e), g: "Krachtelementen", o, obj: e.id, frf: true });
-      out.push({ key: "a|" + e.id + "|L", lab: "speling " + pair(e) + " · L", q: "L", u: "mm",
-                 al: "Ls_" + pair(e), g: "Krachtelementen", o, obj: e.id, frf: true });
+      const o = t("ch.o.gap", { p: pair(e) });
+      out.push({ key: "s|" + e.id + "|F", lab: t("ch.lab.gap", { p: pair(e) }) + " · F", q: "F", u: "N",
+                 al: "Fs_" + pair(e), g: t("ch.g.force"), o, obj: e.id, frf: true });
+      out.push({ key: "a|" + e.id + "|L", lab: t("ch.lab.gap", { p: pair(e) }) + " · L", q: "L", u: "mm",
+                 al: "Ls_" + pair(e), g: t("ch.g.force"), o, obj: e.id, frf: true });
     }
     if (e.type === "contact" && N(e.node)) {
-      const nm = N(e.node).name, o = "Contact " + nm;
-      out.push({ key: "s|" + e.id + "|F", lab: "contact " + nm + " · Fₙ", q: "Fₙ", u: "N", al: "Fn_" + nm, g: "Krachtelementen", o, obj: e.id });
-      out.push({ key: "c|" + e.id + "|Ft", lab: "contact " + nm + " · Fₜ", q: "Fₜ", u: "N", al: "Ft_" + nm, g: "Krachtelementen", o, obj: e.id });
-      out.push({ key: "c|" + e.id + "|d", lab: "contact " + nm + " · δ", q: "δ", u: "µm", al: "dc_" + nm, g: "Krachtelementen", o, obj: e.id });
-      out.push({ key: "c|" + e.id + "|z", lab: "contact " + nm + " · borstel z", q: "z", u: "µm", al: "zc_" + nm, g: "Krachtelementen", o, obj: e.id });
+      const nm = N(e.node).name, o = t("ch.o.contact", { n: nm });
+      out.push({ key: "s|" + e.id + "|F", lab: t("ch.lab.contact", { n: nm }) + " · Fₙ", q: "Fₙ", u: "N", al: "Fn_" + nm, g: t("ch.g.force"), o, obj: e.id });
+      out.push({ key: "c|" + e.id + "|Ft", lab: t("ch.lab.contact", { n: nm }) + " · Fₜ", q: "Fₜ", u: "N", al: "Ft_" + nm, g: t("ch.g.force"), o, obj: e.id });
+      out.push({ key: "c|" + e.id + "|d", lab: t("ch.lab.contact", { n: nm }) + " · δ", q: "δ", u: "µm", al: "dc_" + nm, g: t("ch.g.force"), o, obj: e.id });
+      out.push({ key: "c|" + e.id + "|z", lab: t("ch.lab.contact", { n: nm }) + " · " + t("ch.bristle") + " z", q: "z", u: "µm", al: "zc_" + nm, g: t("ch.g.force"), o, obj: e.id });
     }
-    if (e.type === "spring") out.push({ key: "s|" + e.id + "|F", lab: "veer " + pair(e) + " · F", q: "F", u: "N",
-                                        al: "F_" + pair(e), g: "Krachtelementen", o: "Veer " + pair(e), obj: e.id, frf: true });
-    if (e.type === "damper") out.push({ key: "s|" + e.id + "|F", lab: "demper " + pair(e) + " · F", q: "F", u: "N",
-                                        al: "Fd_" + pair(e), g: "Krachtelementen", o: "Demper " + pair(e), obj: e.id, frf: true });
+    if (e.type === "spring") out.push({ key: "s|" + e.id + "|F", lab: t("ch.lab.spring", { p: pair(e) }) + " · F", q: "F", u: "N",
+                                        al: "F_" + pair(e), g: t("ch.g.force"), o: t("ch.o.spring", { p: pair(e) }), obj: e.id, frf: true });
+    if (e.type === "damper") out.push({ key: "s|" + e.id + "|F", lab: t("ch.lab.damper", { p: pair(e) }) + " · F", q: "F", u: "N",
+                                        al: "Fd_" + pair(e), g: t("ch.g.force"), o: t("ch.o.damper", { p: pair(e) }), obj: e.id, frf: true });
   }
   if (model.mode === "stiff") for (const n of model.nodes) {          // statische verplaatsingen van de punten (modus Stijfheid)
-    const o = "Punt " + n.name;
+    const o = t("ch.o.point", { n: n.name });
     [["ux", "u\u2093", "\u00b5m", "ux"], ["uy", "u_y", "\u00b5m", "uy"], ["u", "|u|", "\u00b5m", "u"], ["th", "\u03c6", "\u00b5rad", "phi"]].forEach(([k, q, u, al]) =>
-      out.push({ key: "u|" + n.id + "|" + k, lab: n.name + " \u00b7 " + q + " (statisch)", q, u, al: al + "_" + n.name, g: "Verplaatsingen", o, obj: n.id, stiff: true }));
+      out.push({ key: "u|" + n.id + "|" + k, lab: n.name + " \u00b7 " + q + " (" + t("ch.static") + ")", q, u, al: al + "_" + n.name, g: t("ch.g.disp"), o, obj: n.id, stiff: true }));
   }
   if (model.mode === "stiff") for (const e of model.elems) {          // grootste waarden per balk of staaf (modus Stijfheid)
     if (!isBeam(e) && !isAxial(e)) continue;
-    const p = pair(e), o = (isBeam(e) ? "Balk " : "Axiale staaf ") + p;
-    out.push({ key: "k|" + e.id + "|sig", lab: o.toLowerCase() + " \u00b7 \u03c3max", q: "\u03c3max", u: "MPa", al: "smax_" + p, g: "Verplaatsingen", o, obj: e.id, stiff: true });
-    out.push({ key: "k|" + e.id + "|N", lab: o.toLowerCase() + " \u00b7 N", q: "N", u: "N", al: "Nbar_" + p, g: "Verplaatsingen", o, obj: e.id, stiff: true });
-    if (isBeam(e)) out.push({ key: "k|" + e.id + "|M", lab: o.toLowerCase() + " \u00b7 Mmax", q: "Mmax", u: "N\u00b7m", al: "Mmax_" + p, g: "Verplaatsingen", o, obj: e.id, stiff: true });
+    const p = pair(e), o = t(isBeam(e) ? "ch.o.beam" : "ch.o.axialbar", { p });
+    out.push({ key: "k|" + e.id + "|sig", lab: o.toLowerCase() + " \u00b7 \u03c3max", q: "\u03c3max", u: "MPa", al: "smax_" + p, g: t("ch.g.disp"), o, obj: e.id, stiff: true });
+    out.push({ key: "k|" + e.id + "|N", lab: o.toLowerCase() + " \u00b7 N", q: "N", u: "N", al: "Nbar_" + p, g: t("ch.g.disp"), o, obj: e.id, stiff: true });
+    if (isBeam(e)) out.push({ key: "k|" + e.id + "|M", lab: o.toLowerCase() + " \u00b7 Mmax", q: "Mmax", u: "N\u00b7m", al: "Mmax_" + p, g: t("ch.g.disp"), o, obj: e.id, stiff: true });
   }
-  if (model.mode === "dyn") out.push({ key: "e||E", lab: "totale energie E", q: "E", u: "J", al: "E",
-                                       g: "Systeem", o: "Systeem", obj: "" });
+  if (model.mode === "dyn") out.push({ key: "e||E", lab: t("ch.energy"), q: "E", u: "J", al: "E",
+                                       g: t("ch.g.system"), o: t("ch.g.system"), obj: "" });
   return sensorChannels().concat(out);        // sensoren staan bovenaan de keuzelijst
 }
 

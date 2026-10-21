@@ -7,6 +7,7 @@ import { togglePlay } from "./playback.js";
 import { cancelJob, changed } from "./solver.js";
 import { flash, toast } from "./tools.js";
 import { fit } from "./view.js";
+import { t } from "./i18n.js";
 
 /* ============================================================
    Persistence (per-viewer convenience only)
@@ -38,7 +39,7 @@ function load(key) {
     model.snap = d.snap !== false; model.grid = d.grid || 10;
     model.rigidDrag = !!d.rigidDrag;
     model.series = Array.isArray(d.series) ? d.series.filter(s => s && (s.key || s.expr)) : [];
-    model.name = d.name || "Vorige sessie";
+    model.name = d.name || t("persist.prev");
     model.gravity = !!d.gravity;
     model.showForces = d.showForces !== false;
     document.getElementById("gravChk").checked = model.gravity;
@@ -88,7 +89,7 @@ export function doc() {
   return o;
 }
 export function loadDoc(d) {
-  if (!d || !Array.isArray(d.nodes)) throw new Error("geen geldig model");
+  if (!d || !Array.isArray(d.nodes)) throw new Error(t("persist.invalid"));
   for (const k of DOC_KEYS) if (d[k] !== undefined) model[k] = d[k];
   if (!Array.isArray(d.stiffPath)) model.stiffPath = [];
   if (!Array.isArray(d.stiffQ) || !d.stiffQ.length) model.stiffQ = ["ux", "uy"];
@@ -141,7 +142,7 @@ function restore(snap) {
   cancelJob();
   restoring = true;
   try { loadDoc(JSON.parse(snap)); ui.lastSnap = snap; changed(); }
-  catch (_) { flash("Kon die stap niet herstellen."); }
+  catch (_) { flash(t("persist.undofail")); }
   restoring = false;
   syncHistoryBtns();
 }
@@ -163,17 +164,17 @@ export const b64 = {
 
 export function copyModel() {
   navigator.clipboard.writeText(JSON.stringify(doc(), null, 1)).then(
-    () => toast("Model naar klembord gekopieerd."), () => flash("Kopiëren geweigerd."));
+    () => toast(t("persist.copied")), () => flash(t("persist.copydenied")));
 }
 export function copyLink() {
   let url;
   try {
     url = location.origin + location.pathname + location.search + "#m=" + b64.enc(doc());
     location.hash = "m=" + b64.enc(doc());
-  } catch (_) { flash("Model te groot voor een link."); return; }
+  } catch (_) { flash(t("persist.toobig")); return; }
   navigator.clipboard.writeText(url).then(
-    () => toast("Deelbare link naar klembord (" + url.length + " tekens)."),
-    () => toast("Link staat in de adresbalk."));
+    () => toast(t("persist.linkcopied", { n: url.length })),
+    () => toast(t("persist.linkbar")));
 }
 
 // de vorige sessie blijft bewaard, maar de app begint altijd schoon
@@ -183,8 +184,8 @@ export function restoreSession() { whenDiscarded(doRestore); }
 function doRestore() {
   if (ui.playing) togglePlay();
   cancelJob(); sim.solved = null;
-  if (load(PREV)) { fit(); setName(model.name); changed(); markClean(); toast("Vorige sessie hersteld."); }
-  else flash("Er is geen vorige sessie gevonden.");
+  if (load(PREV)) { fit(); setName(model.name); changed(); markClean(); toast(t("persist.restored")); }
+  else flash(t("persist.noprev"));
 }
 
 export function initPersist() {

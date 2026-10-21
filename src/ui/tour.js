@@ -1,9 +1,10 @@
+import { onLang, t } from "./i18n.js";
 // Korte rondleiding bij het eerste bezoek (3 stappen). Opnieuw te starten via Bestand -> Rondleiding.
 const FLAG = "mechschets.tour1";
 const STEPS = [
-  { sel: "#rail", title: "Teken met deze gereedschappen", text: "Kies een gereedschap en klik op het canvas om punten, schakels en veren te plaatsen.", side: "right" },
-  { sel: "#modeSeg", title: "Kies hoe je rekent", text: "Kinematisch laat het mechanisme draaien. Dynamisch en Evenwicht gebruiken krachten, FRF kijkt naar trillingen.", side: "below" },
-  { sel: ".inspector", title: "Resultaat en uitleg", text: "Hier staat of je model klopt, wat je geselecteerd hebt en hoe er gerekend wordt.", side: "left" }
+  { sel: "#rail", k: "tour.1", side: "right" },
+  { sel: "#modeSeg", k: "tour.2", side: "below" },
+  { sel: ".inspector", k: "tour.3", side: "left" }
 ];
 let box = null, ring = null, idx = 0, prevFocus = null;
 
@@ -41,15 +42,18 @@ function place() {
 
 function render() {
   const st = STEPS[idx], last = idx === STEPS.length - 1;
-  box.querySelector(".tn").textContent = (idx + 1) + " van " + STEPS.length;
-  box.querySelector("h3").textContent = st.title;
-  box.querySelector("p").textContent = st.text;
-  box.querySelector(".tnext").textContent = last ? "Klaar" : "Volgende";
+  box.querySelector(".tn").textContent = t("tour.of", { n: idx + 1, total: STEPS.length });
+  box.querySelector("h3").textContent = t(st.k + ".title");
+  box.querySelector("p").textContent = t(st.k + ".text");
+  box.querySelector(".tnext").textContent = last ? t("tour.done") : t("tour.next");
+  box.querySelector(".tskip").textContent = t("tour.skip");
+  box.setAttribute("aria-label", t("tour.aria"));
   box.querySelector(".tskip").hidden = last;
   place();
   box.querySelector(".tnext").focus({ preventScroll: true });
 }
 
+onLang(() => { if (box) render(); });
 export function endTour() {
   if (!box) return;
   window.removeEventListener("resize", place);
@@ -71,9 +75,8 @@ export function startTour(force) {
   prevFocus = document.activeElement;
   ring = document.createElement("div"); ring.className = "tour-ring"; ring.setAttribute("aria-hidden", "true");
   box = document.createElement("div"); box.className = "tour-bubble"; box.setAttribute("role", "dialog");
-  box.setAttribute("aria-label", "Rondleiding");
-  box.innerHTML = '<div class="tn"></div><h3></h3><p></p><div class="tacts"><button type="button" class="btn tskip">Overslaan</button>' +
-    '<button type="button" class="btn primary tnext">Volgende</button></div>';
+    box.innerHTML = '<div class="tn"></div><h3></h3><p></p><div class="tacts"><button type="button" class="btn tskip"></button>' +
+    '<button type="button" class="btn primary tnext"></button></div>';
   document.body.appendChild(ring); document.body.appendChild(box);
   box.querySelector(".tskip").addEventListener("click", endTour);
   box.querySelector(".tnext").addEventListener("click", next);

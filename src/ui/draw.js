@@ -8,6 +8,7 @@ import { model, sim, ui, view } from "../core/state.js";
 import { fmt, fmtForce, fmtMoment, fmtStiff } from "./format.js";
 import { drawJoints, drawStiff } from "./stiffdraw.js";
 import { ctx, toScr, toWld } from "./view.js";
+import { t as tr } from "./i18n.js";
 
 /* ============================================================
    Drawing — engineering symbols
@@ -298,7 +299,7 @@ function drawFlexure(e) {
   const th = Math.atan2(dy, dx);
   ctx.arc(A.x, A.y, 11, th - 1.1, th + 1.1); ctx.stroke();
   label((A.x + B.x) / 2 + px * 14, (A.y + B.y) / 2 + py * 14,
-    (e.kind === "cross" ? "kruisveer" : e.kind === "notch" ? "inkeping" : "bladveer") + (warn ? " \u03c3 " + fmt(st.sigma) + " MPa" : ""), col, false, 2);
+    tr(e.kind === "cross" ? "draw.cross" : e.kind === "notch" ? "draw.notch" : "draw.leaf") + (warn ? " \u03c3 " + fmt(st.sigma) + " MPa" : ""), col, false, 2);
 }
 
 /* ---- sensoren: compacte symbolen met een label dat live meeloopt ---- */
@@ -338,7 +339,7 @@ function drawSensor(e) {
       ctx.lineWidth = 2; ctx.strokeStyle = ui.C.driver; ctx.beginPath(); ctx.moveTo(g.a.x, g.a.y);
       ctx.lineTo(g.a.x + (p.x - g.a.x) / L * (r - 2), g.a.y + (p.y - g.a.y) / L * (r - 2)); ctx.stroke();
     } else col = ui.C.ink3;
-    if (live) { txt += " " + nf(live.th) + "\u00b0"; sub = "\u00b5rad " + nf(live.thu) + " \u00b7 geteld " + nf(live.thq) + "\u00b0"; }
+    if (live) { txt += " " + nf(live.th) + "\u00b0"; sub = "\u00b5rad " + nf(live.thu) + " \u00b7 " + tr("draw.counted") + " " + nf(live.thq) + "\u00b0"; }
     label(g.a.x, g.a.y + r + 13, txt, col, false, 0);
     if (sub) label(g.a.x, g.a.y + r + 27, sub, ui.C.ink3, false, 2);
     return;
@@ -377,7 +378,7 @@ function drawSensor(e) {
     ctx.lineWidth = 1.5; ctx.strokeStyle = ui.C.driver; ctx.beginPath();                       // meetrichting
     ctx.moveTo(g.a.x + ax * 5, g.a.y + ay * 5); ctx.lineTo(tip[0], tip[1]);
     ctx.moveTo(tip[0] - ax * 5 - ay * 3, tip[1] - ay * 5 + ax * 3); ctx.lineTo(tip[0], tip[1]); ctx.lineTo(tip[0] - ax * 5 + ay * 3, tip[1] - ay * 5 - ax * 3); ctx.stroke();
-    if (live) { txt += live.oor ? " buiten bereik" : " " + nf(live.x) + " \u00b5m"; bad = live.oor; sub = "\u00b1" + nf(e.range) + " \u00b5m \u00b7 res " + nf(e.res) + " \u00b5m"; }
+    if (live) { txt += live.oor ? " " + tr("draw.oor") : " " + nf(live.x) + " \u00b5m"; bad = live.oor; sub = "\u00b1" + nf(e.range) + " \u00b5m \u00b7 res " + nf(e.res) + " \u00b5m"; }
     const q = at(m, 0);
     label(q[0] + px * 17, q[1] + py * 17, txt, bad ? ui.C.bad : col, false, 0);
     if (sub) label(q[0] + px * 31, q[1] + py * 31, sub, ui.C.ink3, false, 2);
@@ -390,7 +391,7 @@ function drawSensor(e) {
   ctx.strokeStyle = ui.C.driver; ctx.lineWidth = 1.6; ctx.beginPath();
   ctx.moveTo(...at(12 + 3, 0)); ctx.lineTo(...at(12 + 2 * h + 8, 0));
   ctx.moveTo(...at(12 + 2 * h + 3, 3.5)); ctx.lineTo(...at(12 + 2 * h + 8, 0)); ctx.lineTo(...at(12 + 2 * h + 3, -3.5)); ctx.stroke();
-  if (live) { txt += " " + nf(live.a) + " m/s\u00b2"; sub = nf(live.g) + " g \u00b7 +" + nf((e.m >= 0 ? e.m : 0.01) * 1000) + " g massa"; }
+  if (live) { txt += " " + nf(live.a) + " m/s\u00b2"; sub = nf(live.g) + " g \u00b7 +" + nf((e.m >= 0 ? e.m : 0.01) * 1000) + " g " + tr("draw.mass"); }
   const q = at(12 + h, 0);
   label(q[0] + px * 22, q[1] + py * 22, txt, col, false, 0);
   if (sub) label(q[0] + px * 36, q[1] + py * 36, sub, ui.C.ink3, false, 2);
@@ -541,7 +542,7 @@ function drawGap(e) {
   ctx.beginPath(); ctx.moveTo(h.x, h.y); ctx.lineTo(B.x, B.y); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(h.x + px * (w - 1.8), h.y + py * (w - 1.8)); ctx.lineTo(h.x - px * (w - 1.8), h.y - py * (w - 1.8)); ctx.stroke();
   label((A.x + B.x) / 2 + px * 17, (A.y + B.y) / 2 + py * 17,
-    "speling " + fmt(lo) + "\u2013" + fmt(hi) + " mm", col, false, 2);
+    tr("draw.gap") + " " + fmt(lo) + "\u2013" + fmt(hi) + " mm", col, false, 2);
 }
 
 // bal op een vlak: het vlak met arcering aan de vaste kant, de bal rond het punt; rood bij slip
@@ -569,7 +570,7 @@ function drawContact(e) {
   ctx.strokeStyle = col; ctx.lineWidth = 1.7;
   ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, 6.2832); ctx.stroke();
   label(foot.x - nx * 16 + ux * (half + 4), foot.y - ny * 16 + uy * (half + 4),
-    "contact" + (st && !st.open ? " " + fmtForce(st.Fn) + (slip ? " slip" : " plakt") : ""), col, false, 2);
+    "contact" + (st && !st.open ? " " + fmtForce(st.Fn) + (slip ? " " + tr("draw.slip") : " " + tr("draw.stick")) : ""), col, false, 2);
 }
 
 function drawForce(e) {

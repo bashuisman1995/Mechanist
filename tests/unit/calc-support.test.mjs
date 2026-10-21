@@ -94,7 +94,7 @@ test("materialen: alpha, rho, bron; brons/CuBe gesplitst", () => {
     if (!(m.alpha > 0 && m.rho > 1000 && m.E > 1e4 && m.sigma > 0 && m.bron)) throw new Error("onvolledig: " + m.id);
   }
   if (MATERIALS.some(m => /Brons \/ CuBe/.test(m.naam))) throw new Error("niet gesplitst");
-  if (!MATERIALS.some(m => /CuBe2/.test(m.naam)) || !MATERIALS.some(m => /Fosforbrons/.test(m.naam))) throw new Error("CuBe2/fosforbrons ontbreken");
+  if (!MATERIALS.some(m => /CuBe2/.test(m.naam)) || !MATERIALS.some(m => /Phosphor bronze/.test(m.naam))) throw new Error("CuBe2/fosforbrons ontbreken");
   close(material("cube").alpha, 17.0, { atol: 1 }); close(material("invar").alpha, 1.2, { atol: 0.3 });
   close(material("fbrons").E, 110000, { rtol: 0.1 });
 });

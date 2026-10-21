@@ -1,3 +1,24 @@
+# Mechanism Sketch (Mechanismeschets)
+
+A web app for sketching and calculating planar (2D) linkages, plus a set of precision-engineering calculators:
+four-bar linkages, slider-cranks, five-bars with several drives, with springs, dampers, forces and point masses,
+flexures, sensors, thermal drift, stiffness (beams with bending), FRF and an optimizer.
+Units: mm · N · N/mm · kg.
+
+**Language.** The interface is English by default, whatever the browser language. Switch to Dutch (Nederlands) and
+back with **File → Language → EN / NL**; the choice is remembered in the browser. Switching re-renders the interface
+without touching your model. Numbers follow the language: decimal point in English, decimal comma in Dutch, a thin
+space as thousands separator in both, never e-notation. Number fields accept both a point and a comma. Saved
+`.mech.json` files and share links are language-neutral and open in either language. Texts live in
+`src/ui/lang/*.js` (`key: [English, Dutch]`) and are looked up with `t(key, params)` from `src/ui/i18n.js`;
+static HTML uses `data-i18n` attributes.
+
+The app is a single file, `index.html`, without dependencies: double-click it or put it on a website. Build with
+`npm ci && npm run build`; tests with `npm test` (unit) and `node tests/e2e/run.mjs` (browser). The Dutch
+documentation follows below.
+
+---
+
 # Mechanismeschets
 
 Een webapp om vlakke (2D) stangenmechanismen te schetsen en door te rekenen:

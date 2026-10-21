@@ -1,6 +1,7 @@
 // Menu.
 import { openFile, openPaste, openSave } from "./files.js";
 import { startTour } from "./tour.js";
+import { setLang } from "./i18n.js";
 import { openSketchReport } from "./sketchreport.js";
 import { openCalcReport } from "./calc.js";
 import { copyLink, copyModel, hasPrevSession, restoreSession } from "./persist.js";
@@ -24,6 +25,7 @@ export function initMenu() {
     });
     m.menu.addEventListener("click", ev => {
       const b = ev.target.closest("button"); if (!b) return;
+      if (b.dataset.lang) { setLang(b.dataset.lang); return; }          // taalschakelaar: het menu blijft open
       closeMenus();
       if (b.dataset.a === "open") openFile();
       if (b.dataset.a === "save") openSave();

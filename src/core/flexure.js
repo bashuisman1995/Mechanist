@@ -12,9 +12,10 @@ import { crossPivot, notchHinge } from "../calc/flexures.js";
 import { material } from "../calc/materials.js";
 import { E, isBar, N } from "./elements.js";
 import { model } from "./state.js";
+import { t } from "../ui/i18n.js";
 
 export const GAMMA = 0.85, KTHETA = 2.65;
-export const FLEX_KINDS = { cantilever: "Bladveer (uitkraging)", cross: "Kruisveerscharnier", notch: "Scharnier met inkeping" };
+export const FLEX_KINDS = { get cantilever() { return t("flex.cantilever"); }, get cross() { return t("flex.cross"); }, get notch() { return t("flex.notch"); } };
 export const flexDefaults = (kind, len) => {
   const k = FLEX_KINDS[kind] ? kind : "cantilever";
   return { kind: k, L: k === "cantilever" ? Math.round(len / GAMMA * 100) / 100 : 20, wd: 10, t: 0.3, R: 3, Kt: 1.5,

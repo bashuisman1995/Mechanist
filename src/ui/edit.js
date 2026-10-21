@@ -7,6 +7,7 @@ import { barsAt, sensorDefaults, sensorName } from "../core/sensors.js";
 import { eid, model, nid, ui } from "../core/state.js";
 import { changed } from "./solver.js";
 import { flash } from "./tools.js";
+import { t } from "./i18n.js";
 
 /* ============================================================
    Model edits
@@ -142,12 +143,12 @@ export function setDriver(linkId) {
   const l = E(linkId);
   if (!l || l.type !== "link") return;
   const pinned = N(l.a).support === "pin" || N(l.b).support === "pin";
-  if (!pinned) { flash("De kruk moet één vast scharnier hebben. Zet eerst een scharnier op een van de uiteinden."); return; }
+  if (!pinned) { flash(t("edit.crankpin")); return; }
   const on = !l.driver;
   if (on) {
     if (N(l.a).support !== "pin") { const t = l.a; l.a = l.b; l.b = t; }
     if (drivers().some(d => d.id !== l.id && d.b === l.b)) {
-      flash("Dat punt wordt al door een andere kruk aangedreven."); return;
+      flash(t("edit.crankdup")); return;
     }
     l.theta0 = crankAngle(l);
     l.theta = l.theta0;

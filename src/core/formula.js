@@ -1,5 +1,6 @@
 // Formulecompiler voor eigen metingen (zonder DOM).
 import { sim } from "./state.js";
+import { t } from "../ui/i18n.js";
 
 export const normAl = s => s.toLowerCase().replace(/_/g, ".");
 export const alias = nm => sim.ALIAS.get(nm) || sim.ALIASN.get(normAl(nm));
@@ -49,11 +50,11 @@ export function compile(src) {
   }
   function atom() {
     ws();
-    if (eat("(")) { const e = expr(); if (!eat(")")) throw new Error("sluithaakje ontbreekt"); return e; }
+    if (eat("(")) { const e = expr(); if (!eat(")")) throw new Error(t("fx.paren")); return e; }
     const num = /^\d+(\.\d+)?([eE][+-]?\d+)?/.exec(src.slice(i));
     if (num) { i += num[0].length; const v = parseFloat(num[0]); return () => v; }
     const id = /^[A-Za-z_][A-Za-z0-9_.]*/.exec(src.slice(i));
-    if (!id) throw new Error("onbegrijpelijk bij teken " + (i + 1));
+    if (!id) throw new Error(t("fx.unintel", { n: i + 1 }));
     i += id[0].length;
     const nm = id[0];
     ws();
@@ -61,20 +62,20 @@ export function compile(src) {
       i++;
       const args = [];
       if (!eat(")")) {
-        for (;;) { args.push(expr()); if (eat(")")) break; if (!eat(",")) throw new Error("komma of ) verwacht"); }
+        for (;;) { args.push(expr()); if (eat(")")) break; if (!eat(",")) throw new Error(t("fx.comma")); }
       }
       const fn = FN[nm];
-      if (!fn) throw new Error("onbekende functie " + nm);
+      if (!fn) throw new Error(t("fx.func", { n: nm }));
       return g => fn.apply(null, args.map(a => a(g)));
     }
     if (nm === "pi") return () => Math.PI;
-    if (nm !== "t" && !alias(nm)) throw new Error("onbekende grootheid " + nm);
+    if (nm !== "t" && !alias(nm)) throw new Error(t("fx.quantity", { n: nm }));
     used.push(nm);
     return g => g(nm);
   }
   const f = expr();
   ws();
-  if (i < src.length) throw new Error("onverwacht teken bij " + (i + 1));
+  if (i < src.length) throw new Error(t("fx.unexp", { n: i + 1 }));
   return { f, used };
 }
 

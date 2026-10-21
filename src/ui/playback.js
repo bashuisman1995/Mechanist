@@ -12,6 +12,7 @@ import { stiffMessage } from "./stiff.js";
 import { drawPlot } from "./plot.js";
 import { cancelJob, solveNow } from "./solver.js";
 import { flash } from "./tools.js";
+import { onLang, t } from "./i18n.js";
 
 // k mag een gebroken beeldnummer zijn: de standen worden dan lineair
 // tussen twee opgeslagen beelden geïnterpoleerd, zodat afspelen vloeiend blijft.
@@ -52,8 +53,8 @@ export function toT0() {
   syncLock();
 }
 export function lockNudge() {
-  flash(sim.sweep && sim.sweep.frf ? "Pauzeer de trillingsanimatie om te bewerken."
-    : "Bewerken kan alleen op t = 0. Klik op \u23EE om terug te gaan.");
+  flash(sim.sweep && sim.sweep.frf ? t("pb.pausefrf")
+    : t("pb.lock"));
   const b = document.getElementById("lockBar");
   b.classList.remove("pulse"); void b.offsetWidth; b.classList.add("pulse");
 }
@@ -63,9 +64,9 @@ function syncLock() {
   if (locked === lockedShown) return;
   lockedShown = locked;
   const bar = document.getElementById("lockBar"), frf = !!(sim.sweep && sim.sweep.frf);
-  bar.querySelector("span").textContent = frf ? "Trillingsanimatie \u2014 pauzeer om te bewerken"
-    : "Alleen bekijken \u2014 bewerken kan op t = 0";
-  document.getElementById("lockBtn").textContent = frf ? "\u23F8 Pauzeren" : "\u23EE Naar t = 0";
+  bar.querySelector("span").textContent = frf ? t("pb.lockfrf")
+    : t("dock.viewonly.txt");
+  document.getElementById("lockBtn").textContent = frf ? "\u23F8 " + t("pb.pause") : "\u23EE " + t("dock.tozero");
   bar.hidden = !locked;
   document.getElementById("rewBtn").classList.toggle("hot", locked);
   syncInspector();
@@ -90,7 +91,7 @@ function toggleStiffPlay() {
   if (!ui.playing && !(R && R.ok)) return;
   ui.playing = !ui.playing;
   playIco.setAttribute("d", ui.playing ? "M3 1.5h3.4v11H3zM7.6 1.5H11v11H7.6z" : "M3 1.5l9 5.5-9 5.5z");
-  playBtn.title = ui.playing ? "Pauzeren (spatie)" : "Animeren (spatie)";
+  playBtn.title = ui.playing ? t("pb.pausetip") : t("pb.animtip");
   cancelAnimationFrame(ui.raf);
   if (ui.playing) { stiffT0 = performance.now(); ui.raf = requestAnimationFrame(stiffTick); }
   else { ui.stiffAmp = 1; draw(); }
@@ -107,7 +108,7 @@ export function togglePlay() {
   if (!sim.sweep && !ui.playing) return;
   ui.playing = !ui.playing;
   playIco.setAttribute("d", ui.playing ? "M3 1.5h3.4v11H3zM7.6 1.5H11v11H7.6z" : "M3 1.5l9 5.5-9 5.5z");
-  playBtn.title = ui.playing ? "Pauzeren (spatie)" : "Afspelen (spatie)";
+  playBtn.title = ui.playing ? t("pb.pausetip") : t("pb.playtip");
   if (ui.playing) {
     if (sim.sweep.frf) { odsKeep = model.nodes.map(n => [n, n.x, n.y]); odsPh = 0; }
     if (sim.sweep.dyn && ui.frame >= 360) ui.frame = 0;      // aan het eind: opnieuw vanaf het begin
@@ -166,7 +167,7 @@ function odsLabel() {
   const r = odsRate(), f = curF(sim.sweep);
   if (!ui.playing) return fmtHz(f);
   const k = r.factor;
-  return fmtHz(f) + " \u00b7 " + (k >= 0.995 ? "echte tijd" : k >= 0.1 ? sg(k, 2) + "\u00d7" : "1/" + Math.round(1 / k) + "\u00d7");
+  return fmtHz(f) + " \u00b7 " + (k >= 0.995 ? t("pb.realtime") : k >= 0.1 ? sg(k, 2) + "\u00d7" : "1/" + Math.round(1 / k) + "\u00d7");
 }
 function applyOds(ph) {
   const S = sim.sweep, o = shownOds(S), X = o.X;
@@ -196,7 +197,6 @@ ui.drawPost = () => { if (preKeep) { preKeep.forEach(([n, x, y]) => { n.x = x; n
 
 const meetBar = document.getElementById("meetBar"), meetFEl = document.getElementById("meetF");
 const meetChips = document.getElementById("meetChips"), meetOut = document.getElementById("meetOut");
-const nlc = x => String(x).replace(".", ",");
 let chipKey = "";
 function syncMeet() {
   const S = sim.sweep, on = !!(S && S.frf);
@@ -220,13 +220,13 @@ function syncMeet() {
   const ms = modesOf(S).slice(0, 3), key = ms.map(m => m.f).join();
   if (key !== chipKey) {
     chipKey = key;
-    meetChips.innerHTML = ms.map((m, i) => '<button class="chip" data-m="' + i + '" title="Zet de meetfrequentie op deze eigenfrequentie">Mode ' +
-      (i + 1) + " \u00b7 " + nlc(fmtHz(m.f)) + "</button>").join("");
+    meetChips.innerHTML = ms.map((m, i) => '<button class="chip" data-m="' + i + '" title="' + t("pb.chip.tip") + '">' + t("pb.mode") + ' ' +
+      (i + 1) + " \u00b7 " + fmtHz(m.f) + "</button>").join("");
   }
   meetChips.querySelectorAll(".chip").forEach((b, i) =>
     b.classList.toggle("on", !!ms[i] && Math.abs(f - ms[i].f) <= 1e-6 * ms[i].f));
-  meetOut.textContent = ui.meetEig && sh ? "eigenmode (ongedempt) \u00b7 " + nlc(fmtHz(sh.f))
-    : first || "Kies een meting onder Metingen voor amplitude en fase";
+  meetOut.textContent = ui.meetEig && sh ? t("pb.eigmode") + " \u00b7 " + fmtHz(sh.f)
+    : first || t("pb.pickmeas");
 }
 function showMeet(f) {
   const S = sim.sweep; if (!S || !S.frf || !(f > 0)) return;
@@ -316,7 +316,7 @@ export function syncTransport() {
   const sb = document.getElementById("solveBtn");
   sb.hidden = busy || !(ui.dynStale || (asyncMode() && !on && model.nodes.length));
   rewBtnEl.hidden = on && sim.sweep.frf;                      // in FRF bestaat geen t = 0
-  scrub.setAttribute("aria-label", on && sim.sweep.frf ? "Frequentie" : "Positie in de cyclus");
+  scrub.setAttribute("aria-label", on && sim.sweep.frf ? t("pb.freq") : t("dock.scrub"));
   document.getElementById("stopBtn").hidden = !busy;
   document.getElementById("tprog").hidden = !busy;
   if (!on && ui.playing) togglePlay();
@@ -334,38 +334,38 @@ export function syncTransport() {
 const rewBtnEl = document.getElementById("rewBtn");
 export function showProgress(p) {
   const msg = document.getElementById("tmsg"), bar = document.getElementById("tprog");
-  if (!p) { msg.textContent = "Rekenen…"; bar.removeAttribute("value"); return; }
-  if (p.phase === "frfeq") { msg.textContent = "Evenwicht zoeken… stap " + (p.it + 1); bar.value = Math.min(0.5, p.it / 20); return; }
-  if (p.phase === "frf") { msg.textContent = "Frequenties doorrekenen… " + Math.round(p.f / 3.6) + " %"; bar.value = 0.5 + 0.5 * p.f / 360; return; }
+  if (!p) { msg.textContent = t("pb.calc"); bar.removeAttribute("value"); return; }
+  if (p.phase === "frfeq") { msg.textContent = t("pb.eqstep", { n: p.it + 1 }); bar.value = Math.min(0.5, p.it / 20); return; }
+  if (p.phase === "frf") { msg.textContent = t("pb.freqs", { p: Math.round(p.f / 3.6) }); bar.value = 0.5 + 0.5 * p.f / 360; return; }
   if (p.phase === "equil") {
-    msg.textContent = "Evenwicht zoeken… t = " + fmtTime(p.t);
+    msg.textContent = t("pb.eqt", { t: fmtTime(p.t) });
     bar.value = model.durMode === "equil" ? 0.5 * p.t / p.maxT : p.t / p.maxT;
   } else {
-    msg.textContent = "Rekenen… " + Math.round(p.f / 3.6) + " %";
+    msg.textContent = t("pb.calcp", { p: Math.round(p.f / 3.6) });
     bar.value = model.durMode === "equil" ? 0.5 + 0.5 * p.f / 360 : p.f / 360;
   }
 }
 
 function sweepReason() {
   const m = mobility();
-  if (!model.nodes.length) return "Leeg canvas — plaats punten en verbind ze.";
-  if (ui.dynStale) return "Model gewijzigd — druk op Bereken (F5) als je klaar bent.";
-  if (model.mode === "frf") return sim.frfMsg || "FRF: kies een ingang in Instellingen en druk op Bereken.";
+  if (!model.nodes.length) return t("pb.r.empty");
+  if (ui.dynStale) return t("pb.r.stale");
+  if (model.mode === "frf") return sim.frfMsg || t("pb.r.frf");
   if (model.mode === "dyn") {
-    if (m.dof < 0) return "Overbepaald met " + (-m.dof) + " — haal een schakel of oplegging weg.";
-    return "Integratie liep vast — probeer een kleinere tijdstap.";
+    if (m.dof < 0) return t("pb.r.over1", { n: -m.dof });
+    return t("pb.r.stuck");
   }
   if (!drivers().length && !actuators().length)
-    return "Kinematisch: nog geen aandrijving. Maak een kruk (D) of zet een actuator (A) tussen twee punten.";
-  if (drivers().some(d => !N(d.a) || N(d.a).support !== "pin")) return "De kruk heeft geen vast scharnier.";
-  if (m.dofDriven > 0) return "Nog " + m.dofDriven + " vrijheidsgraad" + (m.dofDriven === 1 ? "" : "en") +
-    " over — voeg een schakel, oplegging of tweede kruk toe.";
-  if (m.dofDriven < 0) return "Overbepaald met " + (-m.dofDriven) + " — te veel schakels of opleggingen.";
-  return "In geen enkele stand samen te stellen — controleer de lengtes.";
+    return t("pb.r.nodrive");
+  if (drivers().some(d => !N(d.a) || N(d.a).support !== "pin")) return t("pb.r.nopin");
+  if (m.dofDriven > 0) return t(m.dofDriven === 1 ? "pb.r.under1" : "pb.r.undern", { n: m.dofDriven });
+  if (m.dofDriven < 0) return t("pb.r.over2", { n: -m.dofDriven });
+  return t("pb.r.noasm");
 }
 
 export function initPlayback() {
   initMeet();
+  onLang(() => { lockedShown = null; chipKey = ""; syncTransport(); });
 
   document.getElementById("rewBtn").addEventListener("click", toT0);
   document.getElementById("lockBtn").addEventListener("click", toT0);

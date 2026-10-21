@@ -1,6 +1,7 @@
 // Bibliotheek: overlay met voorbeelden, filter, kaarten en de Uitleg-kaart.
-import { CATEGORIES, EXAMPLE_META, EXAMPLES, MODE_NAMES } from "./examples.js";
+import { CATEGORIES, EXAMPLE_META, EXAMPLES } from "./examples.js";
 import { markClean, setName, whenDiscarded } from "./files.js";
+import { onLang, t } from "./i18n.js";
 
 /* ---------- miniatuurtjes: simpele schema's op 80 x 50 ---------- */
 const f1 = n => Math.round(n * 10) / 10;
@@ -106,28 +107,37 @@ export function closeLibrary() {
 /* ---------- Uitleg-kaart ---------- */
 export function showUitleg(id) {
   const m = EXAMPLE_META[id], el = $("uitleg"); if (!m) return;
-  $("uitTitle").textContent = m.title; $("uitText").textContent = m.text;
+  curUit = id;
+  $("uitTitle").textContent = t("ex." + id + ".title"); $("uitText").textContent = t("ex." + id + ".text");
   el.hidden = false; el.classList.remove("min");
   clearTimeout(minT); minT = setTimeout(() => uitlegMin(true), 20000);
   if (window.matchMedia("(max-width: 900px)").matches) uitlegMin(true);       // daarna een compact label: de tekening blijft vrij
 }
-let minT = 0;
+let minT = 0, curUit = "";
 export function uitlegMin(on) {
   const el = $("uitleg"); if (el.hidden) return;
   el.classList.toggle("min", on);
 }
 export function hideUitleg() {
-  const el = $("uitleg"); clearTimeout(minT); el.hidden = true;
+  const el = $("uitleg"); clearTimeout(minT); el.hidden = true; curUit = "";
+}
+
+// kaarten, filter en Uitleg-kaart opnieuw opbouwen (bij het starten en bij een taalwissel)
+function buildLibrary() {
+  $("libChips").innerHTML = CATEGORIES.map(c => `<button type="button" class="chip" data-c="${c.id}" aria-pressed="false">${esc(t("cat." + c.id))}</button>`).join("");
+  $("libGrid").innerHTML = Object.keys(EXAMPLE_META).map(id => {
+    const m = EXAMPLE_META[id];
+    const tags = m.modes.map(md => `<span class="tag tag-${md}">${t("mode." + md)}</span>`).join("");
+    return `<button type="button" class="libcard" data-ex="${id}">${thumb(id)}<span class="lc-body"><span class="lc-t">${esc(t("ex." + id + ".title"))}</span>` +
+      `<span class="lc-d">${esc(t("ex." + id + ".desc"))}</span><span class="lc-tags">${tags}</span></span></button>`;
+  }).join("");
+  applyFilter();
+  if (curUit && !$("uitleg").hidden) { $("uitTitle").textContent = t("ex." + curUit + ".title"); $("uitText").textContent = t("ex." + curUit + ".text"); }
 }
 
 export function initLibrary() {
-  $("libChips").innerHTML = CATEGORIES.map(c => `<button type="button" class="chip" data-c="${c.id}" aria-pressed="false">${esc(c.nm)}</button>`).join("");
-  $("libGrid").innerHTML = Object.keys(EXAMPLE_META).map(id => {
-    const m = EXAMPLE_META[id];
-    const tags = m.modes.map(t => `<span class="tag tag-${t}">${MODE_NAMES[t]}</span>`).join("");
-    return `<button type="button" class="libcard" data-ex="${id}">${thumb(id)}<span class="lc-body"><span class="lc-t">${esc(m.title)}</span>` +
-      `<span class="lc-d">${esc(m.desc)}</span><span class="lc-tags">${tags}</span></span></button>`;
-  }).join("");
+  buildLibrary();
+  onLang(buildLibrary);
   $("libBtn").addEventListener("click", ev => { ev.stopPropagation(); if ($("lib").hidden) openLibrary(); else closeLibrary(); });
   $("libClose").addEventListener("click", closeLibrary);
   $("lib").addEventListener("click", ev => { if (ev.target === $("lib")) closeLibrary(); });
@@ -141,7 +151,7 @@ export function initLibrary() {
     const id = b.dataset.ex, f = EXAMPLES[id];
     closeLibrary();
     if (f) whenDiscarded(() => {
-      f(); setName(id === "empty" ? "Naamloos" : EXAMPLE_META[id].title); markClean(); showUitleg(id);
+      f(); setName(id === "empty" ? "" : t("ex." + id + ".title")); markClean(); showUitleg(id);
     });
   });
   $("uitClose").addEventListener("click", hideUitleg);

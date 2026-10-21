@@ -7,6 +7,7 @@ import { bounds, G, MM, relax } from "./kinematics.js";
 import { sensorMass, springK, springL0, springLike, encBars, G_MM } from "./sensors.js";
 import { backSubT, cholesky, congruence, gauss, jacobiEig, lsq } from "./linalg.js";
 import { model, sim } from "./state.js";
+import { t } from "../ui/i18n.js";
 
 /* ============================================================
    FRF — frequentieresponsie rond het statische evenwicht
@@ -22,11 +23,11 @@ import { model, sim } from "./state.js";
 export function frfInputs() {
   const out = [];
   for (const e of actuators()) out.push({ id: e.id, kind: "act", e, u: "mm",
-    lab: "Actuator " + N(e.a).name + N(e.b).name + " (lengte)" });
+    lab: t("frf.in.act", { p: N(e.a).name + N(e.b).name }) });
   for (const d of drivers()) if (N(d.a) && N(d.b)) out.push({ id: d.id, kind: "crank", e: d, u: "rad",
-    lab: "Kruk " + N(d.a).name + N(d.b).name + " (hoek)" });
+    lab: t("frf.in.crank", { p: N(d.a).name + N(d.b).name }) });
   for (const e of model.elems) if (e.type === "force" && N(e.node)) out.push({ id: e.id, kind: "force", e, u: "N",
-    lab: "Kracht op " + N(e.node).name });
+    lab: t("frf.in.force", { n: N(e.node).name }) });
   return out;
 }
 
@@ -34,11 +35,11 @@ export function* computeFrf() {
   sim.frfMsg = "";
   const ins = frfInputs();
   const inp = ins.find(x => x.id === model.frfIn) || ins[0];
-  if (!inp) { sim.frfMsg = "Geen ingang: zet een actuator, kruk of kracht in het model."; return null; }
+  if (!inp) { sim.frfMsg = t("frf.m.noin"); return null; }
   const fr = model.nodes.filter(n => n.support !== "pin");
   const nq = fr.length * 2;
-  if (!nq) { sim.frfMsg = "Er zijn geen vrije punten."; return null; }
-  if (inp.kind === "force" && N(inp.e.node).support === "pin") { sim.frfMsg = "De ingangskracht grijpt aan op een vast scharnier."; return null; }
+  if (!nq) { sim.frfMsg = t("frf.m.nofree"); return null; }
+  if (inp.kind === "force" && N(inp.e.node).support === "pin") { sim.frfMsg = t("frf.m.pin"); return null; }
   const fi = new Map(fr.map((n, i) => [n.id, i]));
   const ds = drivers().filter(d => N(d.a) && N(d.b) && N(d.a).support === "pin" && fi.has(d.b));
   const bars = model.elems.filter(e => isBar(e) && !e.driver && N(e.a) && N(e.b) &&
@@ -166,7 +167,7 @@ export function* computeFrf() {
   const start = new Float64Array(nq);
   fr.forEach((n, i) => { start[2 * i] = n.x; start[2 * i + 1] = n.y; });
   let q0 = place(start, 0);
-  if (!q0) { sim.frfMsg = "Het model is op t = 0 niet samen te stellen."; return null; }
+  if (!q0) { sim.frfMsg = t("frf.m.assemble"); return null; }
   let eqOK = false, it = 0;
   for (; it < 40; it++) {
     yield { phase: "frfeq", it };
@@ -194,7 +195,7 @@ export function* computeFrf() {
   const J = jrows(q0), Z = nullBasis(J.rows), k = Z.length;
   const motion = inp.kind !== "force";
   const p = motion ? (J.rows.length ? lsq(J.rows, J.b, nq) : new Float64Array(nq)) : null;
-  if (motion && !p) { sim.frfMsg = "De ingang is niet te combineren met de randvoorwaarden."; return null; }
+  if (motion && !p) { sim.frfMsg = t("frf.m.bc"); return null; }
   const mA = new Float64Array(nq);
   fr.forEach((n, i) => { mA[2 * i] = mA[2 * i + 1] = dm(n) * MM; });
   // dempingsmatrix van alle snelheidsafhankelijke krachten

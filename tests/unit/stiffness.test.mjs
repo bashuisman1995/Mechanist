@@ -125,8 +125,8 @@ test("mechanisme: een balk op twee scharnieren met een knik, en een vrij draaien
   });
   let r = solveStiffness();
   assert.ok(!r.ok && r.mech, "mechanisme herkend");
-  assert.match(r.mech.text, /Mechanisme/);
-  assert.match(r.mech.text, /punt [AB] kan vrij/);
+  assert.match(r.mech.text, /Mechanism/);
+  assert.match(r.mech.text, /point [AB] can move freely|point [AB] can rotate freely/);
   // een scharnier met een torsieveer is geen mechanisme meer
   resetModel({
     nodes: [{ id: "A", x: 0, y: 0, support: "pin", joint: "spring", kth: 1000 }, { id: "B", x: 100, y: 0 }],
@@ -143,7 +143,7 @@ test("mechanisme: een balk op twee scharnieren met een knik, en een vrij draaien
     elems: [{ id: "s", type: "spring", a: "A", b: "B", k: 5 }]
   });
   r = solveStiffness();
-  assert.ok(!r.ok && /punt B kan vrij verschuiven in y-richting/.test(r.mech.text), r.mech && r.mech.text);
+  assert.ok(!r.ok && /point B can move freely in the y direction/.test(r.mech.text), r.mech && r.mech.text);
 });
 
 test("star tegenover scharnier: portaal met een scharnierende dwarsbalk is veel slapper", () => {
@@ -247,7 +247,7 @@ test("puntmassa op een uitkraging: f = sqrt(k/m)/(2π) met k = 3EI/L³; zonder m
   close(modes[0].f, Math.sqrt(3 * EI / L ** 3 / ((m + 33 / 140 * mb) * 1e-3)) / (2 * Math.PI), { rtol: 0.005, label: "f1" });
   resetModel({ nodes: [{ id: "A", x: 0, y: 0, support: "pin" }, { id: "B", x: 100, y: 0, support: "slider", dir: 0 }], elems: [{ id: "s", type: "spring", a: "A", b: "B", k: 2 }] });
   r = solveStiffness(); const res = computeModes(r, 3);
-  assert.equal(res.modes.length, 0); assert.match(res.msg, /massa/);
+  assert.equal(res.modes.length, 0); assert.match(res.msg, /mass/);
 });
 
 test("flexure: stijve schakel met draaiveer K, δ = F·L²/K; contact als veer k_n", () => {

@@ -19,6 +19,8 @@ import { backSubT, congruence, cholesky, jacobiEig } from "./linalg.js";
 import { bounds } from "./kinematics.js";
 import { sensorMass, springK } from "./sensors.js";
 import { model } from "./state.js";
+import { t } from "../ui/i18n.js";
+import { decimal } from "../ui/format.js";
 
 export const RIGID_FACTOR = 1e5;          // stijve schakel: EA en EI zijn 10^5 × de grootste elastische stijfheid in het model
 export const NSEG = 24;                    // segmenten waarmee een balk getekend en op spanning gekeurd wordt
@@ -330,10 +332,10 @@ function describeMech(sys, free, v) {
   return { node: id, name: n ? n.name : "?", kind };
 }
 function mechText(mech) {
-  const w = k => (k === "rot" ? "kan vrij draaien" : k === "x" ? "kan vrij verschuiven in x-richting" : "kan vrij verschuiven in y-richting");
+  const w = k => t(k === "rot" ? "st.mech.rot" : k === "x" ? "st.mech.x" : "st.mech.y");
   const seen = new Set(), parts = [];
-  for (const it of mech.items) { const k = it.name + it.kind; if (seen.has(k)) continue; seen.add(k); parts.push("punt " + it.name + " " + w(it.kind)); }
-  return "Mechanisme: " + parts.join("; ") + (mech.count > parts.length ? " (en nog meer)" : "") + ". Voeg een steun, balk of inklemming toe.";
+  for (const it of mech.items) { const k = it.name + it.kind; if (seen.has(k)) continue; seen.add(k); parts.push(t("st.mech.point", { n: it.name, w: w(it.kind) })); }
+  return t("st.mech.text", { parts: parts.join("; "), more: mech.count > parts.length ? t("st.mech.more") : "" });
 }
 
 /* ---------- uitkomsten per lid ---------- */
@@ -472,19 +474,19 @@ export function computeModes(res, nModes) {
   rotateSliders(sys, M, null);
   const free = res.free;
   let mx = 0; for (let i = 0; i < nd; i++) mx = Math.max(mx, Math.abs(M[i][i]));
-  if (!(mx > 0)) return { modes: [], msg: "Geen massa in het model: geef punten een puntmassa of gebruik Volledige balken." };
+  if (!(mx > 0)) return { modes: [], msg: t("st.m.nomass") };
   const hasM = free.map(d => { for (let j = 0; j < nd; j++) if (M[d][j] !== 0) return true; return false; });
   const mi = [], si = [];
   free.forEach((d, k) => (hasM[k] ? mi : si).push(k));
   const Kf = (a, b) => res.Kr[free[a]][free[b]];
   const nm = mi.length, ns = si.length;
-  if (nm > 700) return { modes: [], msg: "Te veel vrijheidsgraden voor eigenfrequenties (" + nm + ")." };
+  if (nm > 700) return { modes: [], msg: t("st.m.toomany", { n: nm }) };
   let Kred = mi.map(a => Float64Array.from(mi, b => Kf(a, b)));
   let X = null, facS = null;
   if (ns) {
     const Kss = si.map(a => Float64Array.from(si, b => Kf(a, b)));
     facS = chol(Kss, TOL);
-    if (!facS.L) return { modes: [], msg: "Massaloze vrijheidsgraden zijn niet vast te leggen." };
+    if (!facS.L) return { modes: [], msg: t("st.m.massless") };
     X = mi.map(a => {                                             // kolommen Kss⁻¹·K_s,m
       const col = Float64Array.from(si, b => Kf(b, a));
       return lsolve(facS.L, col, ns);
@@ -496,7 +498,7 @@ export function computeModes(res, nModes) {
   }
   const Mmm = mi.map(a => Float64Array.from(mi, b => M[free[a]][free[b]]));
   const Lm = cholesky(Mmm);
-  if (!Lm) return { modes: [], msg: "De massamatrix is niet positief: voeg massa toe aan de vrije punten." };
+  if (!Lm) return { modes: [], msg: t("st.m.notpos") };
   // kleine problemen: Cholesky-reductie en Jacobi op alles; grote: de laagste modes met deelruimte-iteratie (Jacobi op het kleine probleem)
   let eig;
   if (nm <= 80) eig = jacobiEig(congruence(Lm, Kred)).map(e => ({ val: e.val, vec: backSubT(Lm, e.vec) }));
@@ -598,31 +600,31 @@ export function analyticChecks(res, modes) {
     if (!sys.gravity && forces.length === 1) {
       const f = forces[0], Fp = perp(f);
       if (clampedP && free && f.node === Q.id && Math.abs(Fp) > 0) {
-        const rows = [{ k: "Tipuitzakking δ = F·L³/(3EI)", an: Fp * Ltot ** 3 / (3 * EI), fe: perpU(Q.id), unit: "µm", f: 1000, at: nameOf(Q.id) },
-          { k: "Tiphoek θ = F·L²/(2EI)", an: Fp * Ltot ** 2 / (2 * EI), fe: disp(Q.id).th, unit: "µrad", f: 1e6, at: nameOf(Q.id) }];
-        out.push({ id: "uitkraging", title: "Uitkragende balk (Roark)", rows });
+        const rows = [{ k: t("st.ref.tipdef") + " δ = F·L³/(3EI)", an: Fp * Ltot ** 3 / (3 * EI), fe: perpU(Q.id), unit: "µm", f: 1000, at: nameOf(Q.id) },
+          { k: t("st.ref.tipang") + " θ = F·L²/(2EI)", an: Fp * Ltot ** 2 / (2 * EI), fe: disp(Q.id).th, unit: "µrad", f: 1e6, at: nameOf(Q.id) }];
+        out.push({ id: "uitkraging", title: t("st.ref.cant") + " (Roark)", rows });
       } else if (clampedP && Q.support === "slider" && Q.clamp && jointNo(Q) && dirMod(Q.dir || 0, ang + 90) < 1e-6 && f.node === Q.id && Math.abs(Fp) > 0) {
-        out.push({ id: "geleid", title: "Geleide uitkraging (Roark)", rows: [
-          { k: "Uitzakking δ = F·L³/(12EI)", an: Fp * Ltot ** 3 / (12 * EI), fe: perpU(Q.id), unit: "µm", f: 1000, at: nameOf(Q.id) },
-          { k: "Stijfheid k = 12EI/L³", an: 12 * EI / Ltot ** 3, fe: Fp / perpU(Q.id), unit: "N/µm", f: 1e-3, at: nameOf(Q.id) }] });
+        out.push({ id: "geleid", title: t("st.ref.guided") + " (Roark)", rows: [
+          { k: t("st.ref.sag") + " δ = F·L³/(12EI)", an: Fp * Ltot ** 3 / (12 * EI), fe: perpU(Q.id), unit: "µm", f: 1000, at: nameOf(Q.id) },
+          { k: t("st.ref.stiff") + " k = 12EI/L³", an: 12 * EI / Ltot ** 3, fe: Fp / perpU(Q.id), unit: "N/µm", f: 1e-3, at: nameOf(Q.id) }] });
       } else {
         const pinnedP = P.support === "pin" && !P.clamp;
         const okQ = (Q.support === "pin" && !Q.clamp) || (Q.support === "slider" && !Q.clamp && dirMod(Q.dir || 0, ang) < 1e-6);
         const fn = N(f.node);
         const along = fn ? ((fn.x - P.x) * ex[0] + (fn.y - P.y) * ex[1]) / Ltot : -1;
         if (pinnedP && okQ && Math.abs(along - 0.5) < 1e-6 && ids.includes(f.node) && Math.abs(Fp) > 0)
-          out.push({ id: "ligger", title: "Vrij opgelegde balk (Roark)", rows: [
-            { k: "Uitbuiging midden δ = F·L³/(48EI)", an: Fp * Ltot ** 3 / (48 * EI), fe: perpU(f.node), unit: "µm", f: 1000, at: nameOf(f.node) }] });
+          out.push({ id: "ligger", title: t("st.ref.simple") + " (Roark)", rows: [
+            { k: t("st.ref.mid") + " δ = F·L³/(48EI)", an: Fp * Ltot ** 3 / (48 * EI), fe: perpU(f.node), unit: "µm", f: 1000, at: nameOf(f.node) }] });
       }
     }
     if (!nm && modes && modes.length) {
       if (clampedP && free) {
         const fa = 1.8751041 ** 2 / (2 * Math.PI) * Math.sqrt(EI / (mu * Ltot ** 4));
-        out.push({ id: "uitkraging-f", title: "Eerste buigfrequentie uitkraging", rows: [
-          { k: "f₁ = 1,875²/(2π)·√(EI/(ρAL⁴))", an: fa, fe: modes[0].f, unit: "Hz", f: 1 }] });
+        out.push({ id: "uitkraging-f", title: t("st.ref.f1cant"), rows: [
+          { k: "f₁ = " + decimal("1.875") + "²/(2π)·√(EI/(ρAL⁴))", an: fa, fe: modes[0].f, unit: "Hz", f: 1 }] });
       } else if (P.support === "pin" && !P.clamp && (Q.support === "pin" && !Q.clamp || (Q.support === "slider" && !Q.clamp && dirMod(Q.dir || 0, ang) < 1e-6))) {
         const fa = Math.PI / 2 * Math.sqrt(EI / (mu * Ltot ** 4));
-        out.push({ id: "ligger-f", title: "Eerste buigfrequentie vrij opgelegde balk", rows: [
+        out.push({ id: "ligger-f", title: t("st.ref.f1simple"), rows: [
           { k: "f₁ = π/2·√(EI/(ρAL⁴))", an: fa, fe: modes[0].f, unit: "Hz", f: 1 }] });
       }
     }

@@ -1,5 +1,6 @@
 // Hertz-contact en kinematische koppeling. Puur, zonder DOM. Eenheden: mm, N, MPa (= N/mm²).
 // Bron: Johnson, Contact Mechanics (Cambridge UP, 1985): Hertz (bol), Mindlin (tangentiële stijfheid).
+import { t } from "../ui/i18n.js";
 const PI = Math.PI, DEG = PI / 180;
 
 /** Effectieve modulus E*: 1/E* = (1−ν₁²)/E₁ + (1−ν₂²)/E₂ [MPa]. */
@@ -57,7 +58,7 @@ export function kelvinCoupling(p) {
     const h = hertzSphere({ F: N, R: p.R, Es }), kt = 8 * Gs * h.a;
     return Object.assign(h, { id, label, count, N, s, kt, kAx: count * h.kn * s * s, xStick: p.mu * N / kt });
   };
-  const contacts = [mk("cone", "tetraëder", 3, p.F / (9 * sk), sk), mk("groove", "V-groef", 2, p.F / (6 * sg), sg), mk("flat", "vlak", 1, p.F / 3, 1)];
+  const contacts = [mk("cone", t("calc.kelvin.cone"), 3, p.F / (9 * sk), sk), mk("groove", t("calc.kelvin.groove"), 2, p.F / (6 * sg), sg), mk("flat", t("calc.kelvin.flat"), 1, p.F / 3, 1)];
   let gov = contacts[0];
   contacts.forEach(c => { if (c.p0 > gov.p0) gov = c; });
   return { contacts, gov, Es, Gs, kAx: contacts.reduce((a, c) => a + c.kAx, 0),

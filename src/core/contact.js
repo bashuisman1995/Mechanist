@@ -1,15 +1,18 @@
 import { sim, ui } from "./state.js";
+import { t } from "../ui/i18n.js";
 // Contact: bal op vlak (Hertz) met Mindlin-achtige plak/slip-wrijving (zonder DOM).
 //   Normaal:   F_n = 4/3·E*·√R·δ^(3/2)  (+ kleine demping, Hunt-Crossley)
 //   Tangentiaal: borstel z met k_t = 8·G*·a, begrensd op μ·F_n (elasto-plastisch: plakken tot de grens, dan slip)
 // Eenheden: mm, N, MPa (= N/mm²), s.
 export const MATERIALS = {
-  staal:    { nm: "Staal",                  E: 210000, nu: 0.30 },
-  rvs:      { nm: "RVS",                    E: 193000, nu: 0.29 },
-  alu:      { nm: "Aluminium",              E: 70000,  nu: 0.33 },
-  keramiek: { nm: "Keramiek (Si₃N₄)", E: 310000, nu: 0.27 },
-  hardmetaal: { nm: "Hardmetaal",           E: 600000, nu: 0.22 }
+  staal:    { E: 210000, nu: 0.30 },
+  rvs:      { E: 193000, nu: 0.29 },
+  alu:      { E: 70000,  nu: 0.33 },
+  keramiek: { E: 310000, nu: 0.27 },
+  hardmetaal: { E: 600000, nu: 0.22 }
 };
+// weergavenaam volgt de gekozen taal (sleutels blijven zoals ze in opgeslagen modellen staan)
+Object.keys(MATERIALS).forEach(k => Object.defineProperty(MATERIALS[k], "nm", { get() { return t("cmat." + k); }, enumerable: false }));
 export const mat = k => MATERIALS[k] || MATERIALS.staal;
 export const eStar = (k1, k2) => { const a = mat(k1), b = mat(k2); return 1 / ((1 - a.nu * a.nu) / a.E + (1 - b.nu * b.nu) / b.E); };
 export const gStar = (k1, k2) => {

@@ -1,12 +1,17 @@
-// Eén getalnotatie voor alles wat de gebruiker ziet: decimale komma, dunne spatie als duizendtalscheiding,
-// standaard drie geldige cijfers en nooit machtsnotatie (1e-4): in plaats daarvan wisselt de eenheid
-// (N/mm ↔ N/µm, µm ↔ mm ↔ nm, µrad ↔ mrad). Waarden die ten opzichte van de probleemschaal verwaarloosbaar
-// zijn (< 1e-9 × schaal) worden als 0 getoond. Alleen voor weergave; invoervelden en CSV houden de punt.
+// Eén getalnotatie voor alles wat de gebruiker ziet, volgens de gekozen taal: decimaalpunt (Engels) of decimale komma
+// (Nederlands), in beide talen een dunne spatie als duizendtalscheiding, standaard drie geldige cijfers en nooit
+// machtsnotatie (1e-4): in plaats daarvan wisselt de eenheid (N/mm ↔ N/µm, µm ↔ mm ↔ nm, µrad ↔ mrad).
+// Waarden die ten opzichte van de probleemschaal verwaarloosbaar zijn (< 1e-9 × schaal) worden als 0 getoond.
+// Alleen voor weergave; CSV houdt de punt.
+import { isNl } from "./i18n.js";
 export const NNBSP = " ";            // dunne, niet-brekende spatie
 export const MINUS = "−";
 export const REL_ZERO = 1e-9;             // relatieve ondergrens t.o.v. de probleemschaal
 const SUP = { "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "-": "⁻" };
 const sup = n => String(n).replace(/./g, c => SUP[c] || c);
+// decimaalteken van de gekozen taal; decimal(x) zet een getal (of tekst met een punt) om
+export const decSep = () => isNl() ? "," : ".";
+export const decimal = x => String(x).replace(".", decSep());
 const group = ip => ip.length > 3 ? ip.replace(/\B(?=(\d{3})+(?!\d))/g, NNBSP) : ip;
 
 // Kern: getal als tekst. d = geldige cijfers, keep = nullen achter de komma houden (50,0), scale = probleemschaal.
@@ -20,12 +25,12 @@ export function numStr(v, d, keep, scale) {
   const neg = v < 0;
   if (a >= 1e15) {                                   // buiten elk leesbaar bereik: 1,23×10¹⁸ zonder 'e'
     const ex = Math.floor(Math.log10(a)), m = a / Math.pow(10, ex);
-    return (neg ? MINUS : "") + String(+m.toPrecision(d)).replace(".", ",") + "×10" + sup(ex);
+    return (neg ? MINUS : "") + decimal(+m.toPrecision(d)) + "×10" + sup(ex);
   }
   const dec = Math.max(0, Math.min(12, d - 1 - Math.floor(Math.log10(a))));
   let s = a.toFixed(dec);
   if (dec > 0 && !keep) s = s.replace(/0+$/, "").replace(/\.$/, "");
-  const p = s.split("."), body = p.length > 1 ? group(p[0]) + "," + p[1] : group(p[0]);
+  const p = s.split("."), body = p.length > 1 ? group(p[0]) + decSep() + p[1] : group(p[0]);
   return (neg && /[1-9]/.test(s) ? MINUS : "") + body;
 }
 export const sg = (v, d, scale) => numStr(v, d, false, scale);
@@ -56,7 +61,7 @@ export function unitFor(fam, maxAbs) {
   }
   return { u: F.u[i][0], f: F.u[i][1] };
 }
-// waarde (in de basiseenheid van de familie) met eenheid, bijv. fmtQ(0.00012, "stiff") -> "0,12 N/m"
+// waarde (in de basiseenheid van de familie) met eenheid, bijv. fmtQ(0.00012, "stiff") -> "0.12 N/m" (Engels) of "0,12 N/m" (Nederlands)
 export function fmtQ(v, fam, d, scale) {
   if (v === undefined || v === null || (typeof v === "number" && isNaN(v))) return "–";
   if (!isFinite(v)) return numStr(v);
@@ -92,7 +97,7 @@ export function tickStr(v, step) {
   if (!(step > 0) || Math.abs(v) >= 1e15) return numStr(v, 3, false);
   if (Math.abs(v) < step * 1e-6) return "0";
   const dec = Math.max(0, Math.min(9, Math.ceil(-Math.log10(step) - 1e-9)));
-  const a = Math.abs(v).toFixed(dec), p = a.split("."), body = p.length > 1 ? group(p[0]) + "," + p[1] : group(p[0]);
+  const a = Math.abs(v).toFixed(dec), p = a.split("."), body = p.length > 1 ? group(p[0]) + decSep() + p[1] : group(p[0]);
   return (v < 0 ? MINUS : "") + body;
 }
 // logaritmische as: 10^r als 10⁻³, daarbinnen leesbaar als getal

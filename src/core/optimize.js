@@ -1,3 +1,4 @@
+import { t } from "../ui/i18n.js";
 // Optimalisatie zonder afgeleiden (zonder DOM).
 //
 // Methode, zodat elke stap te volgen is:
@@ -67,8 +68,8 @@ export function* optimizeGen(opts) {
   let bestRaw = null, scale = 0, bestMerit = Infinity;     // bestMerit: beste toelaatbare verdienste tot nu toe
 
   vars.forEach(v => {
-    if (!(v.max > v.min)) throw new Error("variabele " + v.name + ": max moet groter zijn dan min");
-    if (v.log && !(v.min > 0)) throw new Error("variabele " + v.name + ": logaritmisch vraagt min > 0");
+    if (!(v.max > v.min)) throw new Error(t("opt.e.range", { n: v.name }));
+    if (v.log && !(v.min > 0)) throw new Error(t("opt.e.log", { n: v.name }));
   });
   const toReal = (t, i) => { const v = vars[i]; return v.log ? v.min * Math.pow(v.max / v.min, t) : v.min + t * (v.max - v.min); };
   const toUnit = (x, i) => { const v = vars[i]; const t = v.log ? Math.log(x / v.min) / Math.log(v.max / v.min) : (x - v.min) / (v.max - v.min); return clamp01(isFinite(t) ? t : 0.5); };
@@ -109,7 +110,7 @@ export function* optimizeGen(opts) {
   }
   const phiOf = (rec, mu) => (rec.m >= BIG ? BIG : rec.m / scale) + mu * rec.gs.reduce((s, g) => { const v = Math.max(0, g + DELTA); return s + v * v; }, 0);
   const done = limit => st.stop || st.evals >= limit;
-  function checkStop() { if (opts.shouldStop && opts.shouldStop()) { st.stop = true; st.reason = "gestopt"; } }
+  function checkStop() { if (opts.shouldStop && opts.shouldStop()) { st.stop = true; st.reason = t("opt.r.stopped"); } }
 
   // Nelder-Mead op phi(mu); geeft het beste t terug
   function* nelderMead(start, step, mu, limit) {
@@ -221,16 +222,16 @@ export function* optimizeGen(opts) {
     comboRes.push({ d: curD.slice(), f: pick ? pick.f : NaN, feasible: pick ? pick.feas : false, evals: st.evals - startEvals, rec: pick });
     if (pick && (!overall || (pick.feas !== overall.feas ? pick.feas : (pick.feas ? pick.m < overall.m : pick.viol < overall.viol))) ) overall = Object.assign({ ci, d: curD.slice() }, pick);
     if (bestT === null && n > 0) bestT = pick ? pick.t : null;
-    if (st.evals >= maxEval && !st.stop && !st.reason) st.reason = "maximum aantal evaluaties";
+    if (st.evals >= maxEval && !st.stop && !st.reason) st.reason = t("opt.r.max");
   }
-  if (!st.reason) st.reason = st.evals >= maxEval ? "maximum aantal evaluaties" : "tolerantie bereikt";
+  if (!st.reason) st.reason = st.evals >= maxEval ? t("opt.r.max") : t("opt.r.tol");
   if (!overall) return { x: vars.map(v => v.x0 != null ? v.x0 : (v.min + v.max) / 2), f: NaN, merit: NaN, feasible: false, g: [], active: [], activeBounds: [], history, evals: st.evals, reason: st.reason, stopped: st.stop, d: [], combos: comboRes, discrete: disc };
   const x = overall.x, g = overall.gs;
   const active = [];
   cons.forEach((c, i) => { if (g[i] > -1e-3) active.push({ name: c.name, label: c.label || c.name, g: g[i] }); });
   const activeBounds = [];
   overall.t.forEach((t, i) => { if (t < 1e-5) activeBounds.push({ name: vars[i].name, bound: "min" }); else if (t > 1 - 1e-5) activeBounds.push({ name: vars[i].name, bound: "max" }); });
-  const reason = overall.feas ? st.reason : "geen toelaatbare oplossing gevonden (" + st.reason + ")";
+  const reason = overall.feas ? st.reason : t("opt.r.infeasible", { r: st.reason });
   return { x, f: overall.f, merit: overall.m, feasible: overall.feas, g, active, activeBounds, history, evals: st.evals, reason, stopped: st.stop,
     d: overall.d, ci: overall.ci, combos: comboRes.map(c => ({ d: c.d, f: c.f, feasible: c.feasible, evals: c.evals })), discrete: disc };
 }

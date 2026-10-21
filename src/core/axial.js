@@ -6,6 +6,7 @@
 // met ΔT het model-brede verschil (model.dT, K) of de eigen waarde van de staaf (e.dT). Eenheden: mm, N, MPa (= N/mm²), K.
 import { MATERIALS, material } from "../calc/materials.js";
 import { model } from "./state.js";
+import { t } from "../ui/i18n.js";
 
 export { MATERIALS };
 export const A_DEFAULT = 20;                       // mm², doorsnede van een nieuwe axiale staaf (5 × 4 mm)
@@ -36,7 +37,7 @@ export function thermalActive() {
 /* ---- balkprofiel (modus Stijfheid) ----
    rect: b × h (h in het buigvlak), round: Ø d, tube: D × d, custom: A en I direct.
    c is de afstand van de neutrale lijn tot de uiterste vezel, zodat σ_buig = M·c/I. */
-export const PROFILES = { rect: "Rechthoek b \u00d7 h", round: "Rond \u00d8 d", tube: "Buis D \u00d7 d", custom: "Eigen A en I" };
+export const PROFILES = { get rect() { return t("prof.rect"); }, get round() { return t("prof.round"); }, get tube() { return t("prof.tube"); }, get custom() { return t("prof.custom"); } };
 const pos = (v, d) => (v > 0 ? v : d);
 export function beamSect(e) {
   const p = PROFILES[e.prof] ? e.prof : "rect";

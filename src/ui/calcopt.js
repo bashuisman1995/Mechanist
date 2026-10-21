@@ -4,11 +4,14 @@ import { sensitivity } from "../core/optimize.js";
 import { HOW_HTML, esc, reportText, resultHtml, runAsync, sensLine } from "./optpanel.js";
 import { buildInfo, dateText } from "./report.js";
 import { numStr } from "./format.js";
+import { t as tr, onLang, parseNum, DICTS } from "./i18n.js";
+import { NUM_ATTR } from "./numinput.js";
 
 const $ = id => document.getElementById(id);
 const n3 = (v, d) => numStr(v, d || 3);
 const plainNum = v => String(+Number(v).toPrecision(5));
-const parse = s => parseFloat(String(s).replace(",", "."));
+const parse = s => parseNum(s);
+const nlOf = k => DICTS.nl[k] || "";   // categorie van een uitkomst volgt uit de Nederlandse brontekst, zodat ze niet van de taal afhangt
 const MAXEVAL = 20000;         // rekenen is hier goedkoop; bij een materiaalkeuze geldt dit totaal verdeeld over alle combinaties
 
 let ctx = null;
@@ -31,57 +34,57 @@ function st(c) {
     const outs = outList(base);
     s.obj = outs.length ? outs[0].k : "";
     outs.forEach(o => {
-      if (/^Spanning/.test(o.k)) s.cons.push({ out: o.k, op: "le", val: plainNum(base.M.sigma), on: true, sig: true });
+      if (/^Spanning/.test(nlOf(o.k))) s.cons.push({ out: o.k, op: "le", val: plainNum(base.M.sigma), on: true, sig: true });
     });
     outs.forEach(o => {
-      if (/^Knikveiligheid/.test(o.k)) s.cons.push({ out: o.k, op: "ge", val: "2", on: true });
+      if (/^Knikveiligheid/.test(nlOf(o.k))) s.cons.push({ out: o.k, op: "ge", val: "2", on: true });
     });
-    const f = outs.filter(o => /^Eigenfrequentie/.test(o.k))[0];
+    const f = outs.filter(o => /^Eigenfrequentie/.test(nlOf(o.k)))[0];
     if (f) s.cons.push({ out: f.k, op: "ge", val: plainNum(f.raw), on: false });
   }
   return s;
 }
-// numerieke uitkomsten van een evaluatie: [{k, unit, raw}]
-function outList(ev) { return ev.o.out.filter(x => typeof x.raw === "number" && !isNaN(x.raw)).map(x => ({ k: x.k, unit: x.unit || "", raw: x.raw })); }
+// numerieke uitkomsten van een evaluatie: [{k (woordenboeksleutel, taalonafhankelijk), unit, raw}]
+function outList(ev) { return ev.o.out.filter(x => typeof x.raw === "number" && !isNaN(x.raw)).map(x => ({ k: x.id, unit: x.unit || "", raw: x.raw })); }
 const outMap = ev => { const m = {}; if (ev) outList(ev).forEach(o => { m[o.k] = o.raw; }); return m; };
 
 /* ---------- formulier ---------- */
 function formHtml(c) {
   const s = st(c), base = ctx.evalCalc(c, ctx.state.vals[c.id], null);
-  if (!base) return '<p class="empty">Controleer eerst de invoer: er is geen geldige uitkomst om te optimaliseren.</p>';
+  if (!base) return '<p class="empty">' + tr("calc.opt.noinput") + "</p>";
   const outs = outList(base);
-  const opt = sel => outs.map(o => '<option value="' + esc(o.k) + '"' + (o.k === sel ? " selected" : "") + ">" + esc(o.k + (o.unit ? " [" + o.unit + "]" : "")) + "</option>").join("");
-  let h = '<div class="opt-sec"><div class="opt-h">Doel</div><label class="fld"><span class="sr-only">Doel</span><select id="optObj" aria-label="Doel">' + opt(s.obj) + "</select></label>" +
-    '<div class="opt-seg" id="optSense" role="group" aria-label="Richting">' +
-    [["min", "Minimaliseer"], ["max", "Maximaliseer"], ["target", "= doel"]].map(a => '<button type="button" class="chip' + (s.sense === a[0] ? " on" : "") + '" data-sense="' + a[0] + '" aria-pressed="' + (s.sense === a[0]) + '">' + a[1] + "</button>").join("") + "</div>" +
-    '<label class="fld opt-tgt"' + (s.sense === "target" ? "" : " hidden") + '><span>Doelwaarde</span><input type="number" step="any" id="optTarget" value="' + esc(String(s.target)) + '"></label></div>';
-  h += '<div class="opt-sec"><div class="opt-h">Variabelen <span class="opt-sub">vink aan wat mag veranderen</span></div>';
+  const opt = sel => outs.map(o => '<option value="' + esc(o.k) + '"' + (o.k === sel ? " selected" : "") + ">" + esc(tr(o.k) + (o.unit ? " [" + o.unit + "]" : "")) + "</option>").join("");
+  let h = '<div class="opt-sec"><div class="opt-h">' + tr("calc.opt.goal") + '</div><label class="fld"><span class="sr-only">' + tr("calc.opt.goal") + '</span><select id="optObj" aria-label="' + tr("calc.opt.goal") + '">' + opt(s.obj) + "</select></label>" +
+    '<div class="opt-seg" id="optSense" role="group" aria-label="' + tr("calc.opt.dir") + '">' +
+    [["min", tr("calc.opt.min")], ["max", tr("calc.opt.max")], ["target", tr("calc.opt.target")]].map(a => '<button type="button" class="chip' + (s.sense === a[0] ? " on" : "") + '" data-sense="' + a[0] + '" aria-pressed="' + (s.sense === a[0]) + '">' + a[1] + "</button>").join("") + "</div>" +
+    '<label class="fld opt-tgt"' + (s.sense === "target" ? "" : " hidden") + '><span>' + tr("calc.opt.tgtval") + '</span><input ' + NUM_ATTR + ' step="any" id="optTarget" value="' + esc(String(s.target)) + '"></label></div>';
+  h += '<div class="opt-sec"><div class="opt-h">' + tr("calc.opt.vars") + ' <span class="opt-sub">' + tr("calc.opt.varshint") + '</span></div>';
   c.inputs.filter(isNum).forEach(i => {
     const v = s.vars[i.id];
     h += '<div class="opt-var" data-ov="' + i.id + '"><label class="chk"><input type="checkbox" data-vf="on"' + (v.on ? " checked" : "") + "> " + esc(i.label) + "</label>" +
-      '<div class="opt-rng"><label>min <input type="number" step="any" data-vf="min" value="' + esc(v.min) + '"></label><label>max <input type="number" step="any" data-vf="max" value="' + esc(v.max) + '"></label>' +
-      '<span class="opt-u">' + esc(i.unit) + '</span><label class="chk opt-log" title="Logaritmisch afbeelden: handig als de waarde meerdere decaden beslaat"><input type="checkbox" data-vf="log"' + (v.log ? " checked" : "") + "> log</label></div></div>";
+      '<div class="opt-rng"><label>min <input ' + NUM_ATTR + ' step="any" data-vf="min" value="' + esc(v.min) + '"></label><label>max <input ' + NUM_ATTR + ' step="any" data-vf="max" value="' + esc(v.max) + '"></label>' +
+      '<span class="opt-u">' + esc(i.unit) + '</span><label class="chk opt-log" title="' + tr("calc.opt.logtip") + '"><input type="checkbox" data-vf="log"' + (v.log ? " checked" : "") + "> log</label></div></div>";
   });
-  const mats = ctx.ownMat(c) ? ctx.matsOf(c).map(i => ({ key: i.id, label: i.label })) : [{ key: "_", label: "Materiaal" }];
-  h += '<div class="opt-matrow">' + mats.map(m => '<label class="chk"><input type="checkbox" data-mat="' + m.key + '"' + (s.matOn[m.key] ? " checked" : "") + "> " + esc(m.label) + ": alle materialen proberen</label>").join("") + "</div></div>";
-  h += '<div class="opt-sec"><div class="opt-h">Randvoorwaarden</div>';
+  const mats = ctx.ownMat(c) ? ctx.matsOf(c).map(i => ({ key: i.id, label: i.label })) : [{ key: "_", label: tr("calc.sec.Materiaal") }];
+  h += '<div class="opt-matrow">' + mats.map(m => '<label class="chk"><input type="checkbox" data-mat="' + m.key + '"' + (s.matOn[m.key] ? " checked" : "") + "> " + esc(m.label) + tr("calc.opt.allmats") + "</label>").join("") + "</div></div>";
+  h += '<div class="opt-sec"><div class="opt-h">' + tr("calc.opt.cons") + '</div>';
   s.cons.forEach((r, k) => {
-    h += '<div class="opt-con" data-ci="' + k + '"><div class="opt-con-a"><label class="chk"><input type="checkbox" data-cf="on"' + (r.on ? " checked" : "") + ' aria-label="Randvoorwaarde aan"></label>' +
-      '<select data-cf="out" aria-label="Uitkomst">' + opt(r.out) + '</select></div><div class="opt-con-b"><select data-cf="op" aria-label="Richting"><option value="le"' + (r.op === "le" ? " selected" : "") + '>\u2264</option><option value="ge"' + (r.op === "ge" ? " selected" : "") + '>\u2265</option></select>' +
-      '<input type="number" step="any" data-cf="val" value="' + esc(r.val) + '" aria-label="Grens"><button type="button" class="opt-x" data-cdel="' + k + '" aria-label="Verwijder randvoorwaarde" title="Verwijderen">\u00d7</button></div></div>';
+    h += '<div class="opt-con" data-ci="' + k + '"><div class="opt-con-a"><label class="chk"><input type="checkbox" data-cf="on"' + (r.on ? " checked" : "") + ' aria-label="' + tr("calc.opt.conon") + '"></label>' +
+      '<select data-cf="out" aria-label="' + tr("calc.opt.result") + '">' + opt(r.out) + '</select></div><div class="opt-con-b"><select data-cf="op" aria-label="' + tr("calc.opt.dir") + '"><option value="le"' + (r.op === "le" ? " selected" : "") + '>\u2264</option><option value="ge"' + (r.op === "ge" ? " selected" : "") + '>\u2265</option></select>' +
+      '<input ' + NUM_ATTR + ' step="any" data-cf="val" value="' + esc(r.val) + '" aria-label="' + tr("calc.opt.limit") + '"><button type="button" class="opt-x" data-cdel="' + k + '" aria-label="' + tr("calc.opt.condel") + '" title="' + tr("calc.opt.del") + '">\u00d7</button></div></div>';
   });
   const hasSig = s.cons.some(r => r.sig);
-  h += '<div class="opt-conacts"><button type="button" class="calc-reset" id="optAddCon">+ Randvoorwaarde</button>' +
-    (hasSig ? '<label class="fld opt-n"><span>veiligheidsfactor n (σ ≤ σ_toel/n)</span><input type="number" step="any" min="1" id="optN" value="' + esc(String(s.n)) + '"></label>' : "") + "</div></div>";
-  h += '<div class="opt-run"><button type="button" class="btn primary" id="optRun">Optimaliseer</button><button type="button" class="btn" id="optStop" hidden>Stop</button>' +
+  h += '<div class="opt-conacts"><button type="button" class="calc-reset" id="optAddCon">+ ' + tr("calc.opt.addcon") + '</button>' +
+    (hasSig ? '<label class="fld opt-n"><span>' + tr("calc.opt.nfac") + '</span><input ' + NUM_ATTR + ' step="any" min="1" id="optN" value="' + esc(String(s.n)) + '"></label>' : "") + "</div></div>";
+  h += '<div class="opt-run"><button type="button" class="btn primary" id="optRun">' + tr("calc.ui.opt") + '</button><button type="button" class="btn" id="optStop" hidden>' + tr("calc.opt.stop") + '</button>' +
     '<progress id="optProg" max="' + MAXEVAL + '" value="0" hidden></progress><span class="opt-ptxt" id="optPtxt" role="status" aria-live="polite">' + esc(s.msg) + "</span></div>";
   return h;
 }
 
 export function optSection(c) {
-  return '<details class="calc-sec calc-card" id="calcOptSec" data-sec="Optimaliseer"><summary>Optimaliseer</summary><div class="calc-sec-b opt-body">' +
+  return '<details class="calc-sec calc-card" id="calcOptSec" data-sec="Optimaliseer"><summary>' + tr("calc.ui.opt") + '</summary><div class="calc-sec-b opt-body">' +
     '<div id="optForm" class="opt-form"></div><div id="optRes" class="opt-res"></div>' +
-    '<details class="opt-more opt-how" id="optHow"><summary>Hoe rekent dit?</summary><div class="opt-howb">' + HOW_HTML + "</div></details></div></details>";
+    '<details class="opt-more opt-how" id="optHow"><summary>' + tr("calc.opt.how") + '</summary><div class="opt-howb">' + HOW_HTML + "</div></details></div></details>";
 }
 export function optMount() {
   const c = ctx.calcOf();
@@ -102,27 +105,27 @@ export function optOpen() {
 /* ---------- rekenen ---------- */
 function problem(c, s) {
   const vals = ctx.state.vals[c.id], base = ctx.evalCalc(c, vals, null);
-  if (!base) return { err: "Controleer eerst de invoer." };
+  if (!base) return { err: tr("calc.ui.checkfirst") };
   const ins = c.inputs.filter(i => isNum(i) && s.vars[i.id].on);
-  if (!ins.length) return { err: "Vink minstens één variabele aan." };
+  if (!ins.length) return { err: tr("calc.opt.needvar") };
   const vars = [];
   for (const i of ins) {
     const v = s.vars[i.id], lo = parse(v.min), hi = parse(v.max);
-    if (!(isFinite(lo) && isFinite(hi) && hi > lo)) return { err: i.label + ": max moet groter zijn dan min." };
+    if (!(isFinite(lo) && isFinite(hi) && hi > lo)) return { err: tr("calc.opt.maxmin", { l: i.label }) };
     let log = !!v.log;
     if (log && !(lo > 0)) log = false;
     const x = vals[i.id];
     vars.push({ name: i.id, label: i.label, unit: i.unit, min: lo, max: hi, log, x0: Math.min(hi, Math.max(lo, x)), input: i });
   }
   const bOut = outMap(base);
-  if (!(s.obj in bOut)) return { err: "Kies een doel." };
+  if (!(s.obj in bOut)) return { err: tr("calc.opt.pickgoal") };
   const target = parse(s.target);
-  if (s.sense === "target" && !isFinite(target)) return { err: "Geef een doelwaarde." };
+  if (s.sense === "target" && !isFinite(target)) return { err: tr("calc.opt.needtgt") };
   const consIn = [];
   for (const r of s.cons) {
     if (!r.on) continue;
     const val = parse(r.val);
-    if (!isFinite(val)) return { err: "Randvoorwaarde: geef een getal." };
+    if (!isFinite(val)) return { err: tr("calc.opt.neednum") };
     consIn.push({ out: r.out, op: r.op, val: r.sig && s.n > 0 ? val / s.n : val });
   }
   const dKeys = Object.keys(s.matOn).filter(k => s.matOn[k]);
@@ -151,17 +154,17 @@ function start() {
   };
   const val = (x, d, k) => { const e = ev(x, d); const m = e ? outMap(e) : null; return m && k in m ? m[k] : NaN; };
   const constraints = p.consIn.map((r, i) => ({
-    name: "c" + i, label: r.out + (r.op === "le" ? " ≤ " : " ≥ ") + n3(r.val),
+    name: "c" + i, label: tr(r.out) + (r.op === "le" ? " ≤ " : " ≥ ") + n3(r.val),
     g: (x, d) => { const v = val(x, d, r.out); return r.op === "le" ? v - r.val : r.val - v; },
     scale: Math.abs(r.val) > 1e-12 ? Math.abs(r.val) : 1
   }));
   const opts = { vars: p.vars.map(v => ({ name: v.name, min: v.min, max: v.max, log: v.log, x0: v.x0 })), discrete: p.discrete, constraints,
     objective: (x, d) => val(x, d, s.obj), sense: s.sense, target: p.target, maxEval: MAXEVAL };
   $("optRun").disabled = true; $("optStop").hidden = false; $("optProg").hidden = false; $("optProg").value = 0;
-  $("optPtxt").textContent = "bezig…";
+  $("optPtxt").textContent = tr("calc.opt.busy");
   s.run = runAsync(opts, {
-    progress: pr => { const b = $("optProg"); if (b) { b.value = pr.evals; } const t = $("optPtxt"); if (t) t.textContent = pr.evals + " evaluaties" + (pr.best != null ? " · beste " + n3(pr.best) : " · nog geen toelaatbaar punt"); },
-    error: err => { console.error(err); finish(c, s, null, "Fout: " + err.message); },
+    progress: pr => { const b = $("optProg"); if (b) { b.value = pr.evals; } const pt = $("optPtxt"); if (pt) pt.textContent = tr("calc.opt.evals", { n: pr.evals }) + (pr.best != null ? tr("calc.opt.best", { v: n3(pr.best) }) : tr("calc.opt.nofeas")); },
+    error: err => { console.error(err); finish(c, s, null, tr("calc.opt.error", { m: err.message })); },
     done: res => finish(c, s, { res, p, ev, val, opts }, "")
   });
 }
@@ -189,7 +192,7 @@ function buildP(c, s, R) {
   });
   const matLabel = (key, id) => ctx.MATERIALS.filter(m => m.id === id).map(m => m.naam)[0] || id;
   const discrete = p.dKeys.map((k, j) => {
-    const lab = k === "_" ? "Materiaal" : (c.inputs.filter(i => i.id === k)[0] || {}).label || k;
+    const lab = k === "_" ? tr("calc.sec.Materiaal") : (c.inputs.filter(i => i.id === k)[0] || {}).label || k;
     const before = k === "_" ? ctx.state.mats[c.id] : p.vals[k];
     return { key: k, label: lab, before: matLabel(k, before), after: matLabel(k, d[j]), afterId: d[j], options: ctx.MATERIALS.map(m => m.naam).join(", ") };
   });
@@ -198,16 +201,16 @@ function buildP(c, s, R) {
   const fmtv = (m, k) => (k in m ? (m[k] === Infinity ? "∞" : numStr(m[k], 3, false, isFinite(bMap[k]) ? Math.abs(bMap[k]) : 0)) : "–");
   const sel = list.filter(o => o.k === s.obj || consOut[o.k]);
   const rest = list.filter(o => !(o.k === s.obj || consOut[o.k])).slice(0, 6);
-  const outs = sel.concat(rest).map(o => ({ label: o.k, unit: o.unit, before: fmtv(bMap, o.k), after: fmtv(aMap, o.k), afterRaw: aMap[o.k], role: o.k === s.obj ? "doel" : consOut[o.k] ? "rand" : "" }));
+  const outs = sel.concat(rest).map(o => ({ label: tr(o.k), unit: o.unit, before: fmtv(bMap, o.k), after: fmtv(aMap, o.k), afterRaw: aMap[o.k], role: o.k === s.obj ? "doel" : consOut[o.k] ? "rand" : "" }));
   const cons = p.consIn.map((r, i) => ({ label: opts.constraints[i].label, active: res.active.some(a => a.name === "c" + i) }));
-  const bounds = res.activeBounds.map(b => { const v = vars.filter(q => q.id === b.name)[0]; return (v ? v.label : b.name) + " op " + b.bound; });
+  const bounds = res.activeBounds.map(b => { const v = vars.filter(q => q.id === b.name)[0]; return (v ? v.label : b.name) + tr("calc.opt.at") + b.bound; });
   // gevoeligheid: +1 % van elke variabele
   const track = [s.obj].concat(Object.keys(consOut).filter(k => k !== s.obj));
   const sens = [];
   if (res.feasible || res.history.length) {
     const sv = sensitivity(opts.vars, x, xx => { const o = {}; track.forEach(k => { o[k] = val(xx, d, k); }); return o; }, 0.01);
     p.vars.forEach(v => {
-      const items = track.map(k => { const q = sv[v.name][k]; return { label: k, pct: q.pct, abs: q.abs, base: q.base, ref: bMap[k], unit: outUnit(c, p.base, k) }; })
+      const items = track.map(k => { const q = sv[v.name][k]; return { label: tr(k), pct: q.pct, abs: q.abs, base: q.base, ref: bMap[k], unit: outUnit(c, p.base, k) }; })
         .filter(it => isFinite(it.abs) && (Math.abs(it.pct) >= 0.05 || !isFinite(it.pct)) && it.abs !== 0);
       if (items.length) sens.push({ line: sensLine(v.label, items) });
     });
@@ -217,7 +220,7 @@ function buildP(c, s, R) {
   const fm = (m) => (s.obj in m ? numStr(m[s.obj], 3, false, Math.abs(bMap[s.obj])) : "–");
   const senseTxt = s.sense;
   const defVars = p.vars.map(v => ({ label: v.label, unit: v.unit, min: v.min, max: v.max, log: v.log, x0: v.x0 }));
-  const defCons = p.consIn.map(r => r.out + (r.op === "le" ? " ≤ " : " ≥ ") + n3(r.val) + " " + outUnit(c, p.base, r.out));
+  const defCons = p.consIn.map(r => tr(r.out) + (r.op === "le" ? " ≤ " : " ≥ ") + n3(r.val) + " " + outUnit(c, p.base, r.out));
   return { id: "calcOpt", title: c.name, res, p: null, canApply: true, applied: !!s.undo, defVars, defCons, discrete, vars, outs, cons, bounds, sens, combos,
     obj: { label: s.obj, unit, sense: senseTxt, target: p.target, beforeTxt: fm(bMap), afterTxt: fm(aMap) }, aIds: d, xs: x, names: p.vars.map(v => v.name), dKeys: p.dKeys };
 }
@@ -243,7 +246,7 @@ function apply() {
   ctx.state.sigmas[c.id] = ctx.state.sigmas[c.id];
   ctx.renderDetail();
   optOpen();
-  const m = $("calcOptMsg"); if (m) m.textContent = "Waarden toegepast. Met Terug zet je ze terug.";
+  const m = $("calcOptMsg"); if (m) m.textContent = tr("calc.opt.applied");
 }
 function undo() {
   ctx.preview(null);
@@ -253,7 +256,7 @@ function undo() {
   s.undo = null;
   ctx.renderDetail();
   optOpen();
-  const m = $("calcOptMsg"); if (m) m.textContent = "Teruggezet naar de waarden van vóór het toepassen.";
+  const m = $("calcOptMsg"); if (m) m.textContent = tr("calc.opt.restored");
 }
 function copy() {
   const c = ctx.calcOf(), s = S[c.id];
@@ -261,7 +264,7 @@ function copy() {
   const b = buildInfo();
   const text = reportText(s.P, { date: dateText(), app: b.text });
   $("calcOptCopy").dataset.report = text;
-  ctx.toClipboard(text).then(ok => { const m = $("calcOptMsg"); if (m) m.textContent = ok ? "Optimalisatierapport gekopieerd (" + text.split("\n").length + " regels)." : "Kopiëren geweigerd door de browser."; });
+  ctx.toClipboard(text).then(ok => { const m = $("calcOptMsg"); if (m) m.textContent = ok ? tr("calc.opt.copied", { n: text.split("\n").length }) : tr("calc.ui.copyfail"); });
 }
 
 /* ---------- gebeurtenissen ---------- */
@@ -276,6 +279,7 @@ function previewOptimum() {
 }
 export function initCalcOpt(c) {
   ctx = c;
+  onLang(() => { Object.keys(S).forEach(k => { S[k].P = null; S[k].res = null; }); });   // resultaat bevat vertaalde labels: opnieuw laten rekenen
   const det = $("calcDetail");
   const naCell = t => t.closest && t.closest("#optRes .opt-tbl td.n:last-child, #optRes .opt-tbl th:last-child");
   det.addEventListener("mouseover", e => { if (naCell(e.target)) previewOptimum(); });

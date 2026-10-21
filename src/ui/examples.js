@@ -12,7 +12,7 @@ import { fit } from "./view.js";
    Examples
    ============================================================ */
 const G0 = 9.81;
-const BEAM = { beam: true, prof: "rect", mat: "staal" };          // Volledig (EA + EI), rechthoekig staal
+const BEAM = { beam: true, prof: "rect", mat: "staal" };          // (materiaal-id "staal" blijft zo in opgeslagen modellen) Volledig (EA + EI), rechthoekig staal
 function addContact(nodeId, ax, ay, ang, c0) {
   const e = { id: eid(), type: "contact", node: nodeId, ...c0, ax, ay, ang };
   model.elems.push(e);
@@ -359,163 +359,41 @@ function steam(s) {
 }
 
 /* ============================================================
-   Metadata voor de bibliotheek: titel, categorie, rekenmodus(sen),
-   korte beschrijving en de uitleg die na het laden verschijnt.
+   Metadata voor de bibliotheek: categorie en rekenmodus(sen).
    cat: mech | dyn | frf | fric | empty;  modes: kin | dyn | equil | frf
    ============================================================ */
 export const CATEGORIES = [
-  { id: "all", nm: "Alles" },
-  { id: "mech", nm: "Mechanismen" },
-  { id: "dyn", nm: "Dynamica" },
-  { id: "frf", nm: "Frequentie (FRF)" },
-  { id: "fric", nm: "Wrijving & speling" },
-  { id: "flex", nm: "Flexures" },
-  { id: "sens", nm: "Sensoren" },
-  { id: "therm", nm: "Thermisch" },
-  { id: "stiff", nm: "Stijfheid" },
-  { id: "opt", nm: "Optimalisatie" },
-  { id: "empty", nm: "Leeg" }
+  { id: "all" }, { id: "mech" }, { id: "dyn" }, { id: "frf" }, { id: "fric" }, { id: "flex" },
+  { id: "sens" }, { id: "therm" }, { id: "stiff" }, { id: "opt" }, { id: "empty" }
 ];
-export const MODE_NAMES = { kin: "Kinematisch", dyn: "Dynamisch", equil: "Evenwicht", frf: "FRF", stiff: "Stijfheid" };
+// Titel, beschrijving en uitleg staan in lang/examples.js onder ex.<id>.title / .desc / .text
 export const EXAMPLE_META = {
-  fourbar: {
-    title: "Vierstangenmechanisme", cat: "mech", modes: ["kin"],
-    desc: "Kruk, koppelstang en tuimelaar met een koppelpunt dat een kromme volgt.",
-    text: "Eén kruk drijft het hele mechanisme aan; het koppelpunt E beschrijft een gesloten kromme. Druk op Afspelen of sleep de schuif onderin. Sleep daarna punt E of een scharnier en kijk hoe de baan verandert."
-  },
-  slidercrank: {
-    title: "Slinger-krukmechanisme", cat: "mech", modes: ["kin"],
-    desc: "Draaiende kruk die een glijder heen en weer beweegt, zoals in een motor.",
-    text: "De draaiende kruk maakt van een cirkelbeweging een rechte heen-en-weerbeweging van de glijder. Kijk in Metingen naar de versnelling van de glijder: die is niet symmetrisch. Maak de drijfstang korter en zie hoe dat verschil groter wordt."
-  },
-  compressor: {
-    title: "Slinger-kruk met veer", cat: "mech", modes: ["kin"],
-    desc: "Slinger-krukmechanisme met een veer tegen de glijder, als in een compressor.",
-    text: "De glijder duwt tegen een veer, dus het koppel dat de kruk nodig heeft wisselt sterk per stand. Bekijk de grafiek van het krukkoppel en de veerkracht. Probeer een stijvere veer en kijk hoe de koppelpiek groeit."
-  },
-  fivebar: {
-    title: "Vijfstang, twee motoren", cat: "mech", modes: ["kin"],
-    desc: "Twee aangedreven krukken sturen één punt door het vlak.",
-    text: "Met twee motoren heeft dit mechanisme twee vrijheidsgraden, beide ingevuld door een kruk. Punt C volgt een baan die van beide hoeken afhangt. Pas het toerental van een kruk aan bij Eigenschappen en zie hoe de baan van vorm wisselt."
-  },
-  hoeken: {
-    title: "Hoeken-rechtgeleiding", cat: "mech", modes: ["kin"],
-    desc: "Koppelpunt dat een stuk bijna rechtlijnig beweegt.",
-    text: "Het koppelpunt E volgt een baan met een bijna rechte lijn, zonder dat er een glijder aan te pas komt. Kijk in Metingen naar de hoogte y en snelheid vx van E. Sleep een scharnier een beetje en zie hoe snel de rechte lijn verdwijnt."
-  },
-  jansen: {
-    title: "Jansen-poot (Strandbeest)", cat: "mech", modes: ["kin"],
-    desc: "Loopmechanisme van Theo Jansen met een voet die een platte baan volgt.",
-    text: "De voet H loopt onderlangs een bijna vlak stuk en zwaait daarna omhoog, als een stap. De grafiek toont de baan van de voet: y tegen x. Verander een staaflengte en kijk hoe de stap slechter of beter wordt."
-  },
-  liftarm: {
-    title: "Hefarm met actuator", cat: "mech", modes: ["kin"],
-    desc: "Arm met een last, opgetild door een lineaire actuator.",
-    text: "De actuator wordt langer en korter en tilt zo de arm met de last op. In Metingen zie je de actuatorkracht en de hoogte van de last. Verplaats het onderste scharnier van de actuator en kijk hoeveel kracht je daarmee bespaart."
-  },
-  springload: {
-    title: "Veerslinger", cat: "dyn", modes: ["dyn"],
-    desc: "Slinger met een veer en zwaartekracht die vanzelf gaat zwaaien.",
-    text: "Hier bepalen de veer en de zwaartekracht de beweging, niet een kruk. Speel de uitkomst af en bekijk de hoogte van punt B in Metingen. Maak de veer zwakker of stijver bij Eigenschappen en zie hoe de zwaaitijd verandert."
-  },
-  doublependulum: {
-    title: "Dubbele slinger", cat: "dyn", modes: ["dyn"],
-    desc: "Twee gekoppelde slingers waarvan de beweging chaotisch wordt.",
-    text: "Een kleine verandering in de beginstand geeft na enkele seconden een heel andere beweging. De spoorlijn van het onderste punt laat dat goed zien. Sleep het mechanisme op t = 0 een tikje anders en bereken opnieuw."
-  },
-  settle: {
-    title: "Arm die tot rust komt", cat: "dyn", modes: ["dyn", "equil"],
-    desc: "Arm met veer en demping, doorgerekend tot hij stilhangt.",
-    text: "Met demping in de scharnieren zwaait de arm uit tot hij in evenwicht hangt. De rekenduur volgt vanzelf uit het moment waarop hij tot rust komt. Zet de demping lager bij Instellingen en kijk hoeveel langer het duurt."
-  },
-  shaker: {
-    title: "Massa-veer met actuator", cat: "dyn", modes: ["dyn"],
-    desc: "Massa op een veer en demper, aangestoten door een actuator.",
-    text: "De actuator schudt het ene uiteinde en de massa volgt via veer en demper. Staat de frequentie dicht bij de eigenfrequentie van massa en veer, dan wordt de uitslag veel groter. Pas de frequentie van de actuator aan en vergelijk de uitslag van de massa."
-  },
-  steamL: {
-    title: "Stoommachine", cat: "dyn", modes: ["dyn"],
-    desc: "Actuator en veer sturen via een kruiskop een kruk met vliegwielmassa.",
-    text: "De actuator speelt de stoomdruk en de veer geeft die kracht door aan kruiskop en drijfstang. De kruk met zware massa werkt als vliegwiel. Kijk in Metingen naar de x-positie van de krukpen en probeer een andere massa."
-  },
-  frictionslide: {
-    title: "Blok op helling met wrijving", cat: "fric", modes: ["dyn"],
-    desc: "Blok op een schuine baan: blijft het plakken of glijdt het?",
-    text: "De wrijving heeft een statische en een dynamische waarde, dus het blok kan blijven plakken en daarna losschieten. Kijk naar de normaalkracht en de snelheid in Metingen. Zet de statische wrijving hoger of lager bij het punt en zie waar het omslaat."
-  },
-  gaplimit: {
-    title: "Slinger met speling en aanslag", cat: "fric", modes: ["dyn"],
-    desc: "Slinger die vrij beweegt tot hij tegen een aanslag klapt.",
-    text: "Binnen de speling is de slinger vrij; daarbuiten klapt hij tegen de aanslag en wordt de veerkracht groot. De grafiek van de aanslagkracht toont dat als scherpe pieken. Maak de speling groter of kleiner bij Eigenschappen en vergelijk het effect."
-  },
-  shakerfrf: {
-    title: "Massa-veer: overdracht", cat: "frf", modes: ["frf"],
-    desc: "Frequentieresponsie van actuator naar massa met een duidelijke resonantie.",
-    text: "In plaats van in de tijd zie je hier hoe sterk de massa reageert per frequentie. De piek ligt bij de eigenfrequentie, ongeveer 3,6 Hz. Maak de massa zwaarder of de veer zwakker en zie de piek naar links schuiven."
-  },
-  pendfrf: {
-    title: "Slinger aan een kracht", cat: "frf", modes: ["frf"],
-    desc: "Frequentieresponsie van een slinger met zwaartekracht als stijfheid.",
-    text: "Een horizontale kracht stoot de slinger aan; de zwaartekracht werkt als veer. De resonantie ligt bij de slingerfrequentie, die alleen van de lengte afhangt. Verleng de slinger en kijk hoe de piek omlaag in frequentie gaat."
-  },
-  virtualplay: {
-    title: "Virtuele speling", cat: "fric", modes: ["dyn"],
-    desc: "Stalen bal in een V-groef, heen en weer getrokken: plakken en slippen geeft een hysteresislus.",
-    text: "De bal ligt met zo'n 100 N per flank in de groef, dus er is geen echte speling. Toch wijkt de bal een paar micrometer op de heenweg anders af dan op de terugweg, doordat de contacten eerst plakken en dan slippen. Plot de x-positie tegen de trekkracht: de lus is de virtuele speling. Maak \u03bc of de voorspanning kleiner en zie hoe de lus verandert."
-  },
-  preload: {
-    title: "Voorspanning en stijfheid", cat: "fric", modes: ["dyn"],
-    desc: "Bal op een hard vlak, voorgespannen door een zachte veer en weggetrokken met een oplopende kracht.",
-    text: "Zolang de trekkracht kleiner is dan de voorspanning (50 N) beweegt de bal nauwelijks: het harde contact en de veer werken samen. Bij F = F\u209a komt de bal los en blijft alleen de zachte veer over, dus de grafiek van verplaatsing tegen kracht knikt. De voorspanning bepaalt dus het krachtbereik waarin de hoge stijfheid geldt. Pas de veerstijfheid of voorspanning aan en zie de knik schuiven."
-  },
-  parallelguide: {
-    title: "Parallelgeleiding met bladveren", cat: "flex", modes: ["frf", "dyn"],
-    desc: "Tafel op twee parallelle bladveren, aangestoten door een kracht; de FRF geeft de eerste eigenfrequentie.",
-    text: "Twee bladveren van 50 \u00d7 20 \u00d7 0,5 mm (staal) geleiden de tafel; elk blad is getekend als twee halve bladen met een draaiveer (Howell, PRBM). Analytisch is c\u2093 = 2\u00b712EI/L\u00b3 = 8,40 N/mm; het PRBM geeft 8,71 N/mm, ongeveer 4 % stijver (K\u0398/(3\u03b3) = 1,039 in de theorie). De FRF vindt de eerste eigenfrequentie op 46,8 Hz, tegen 46,1 Hz analytisch voor 0,1 kg. Verklein de dikte t en kijk hoe de spanning \u03c3 bij de flexure meegroeit."
-  },
-  loadcell: {
-    title: "Loadcell in de krachtweg", cat: "sens", modes: ["frf", "dyn"],
-    desc: "Massa op een veer, opgehangen aan een zachte krachtopnemer; de FRF laat zien dat de opnemer de eigenfrequentie verlaagt.",
-    text: "Een massa van 1 kg hangt via een veer van 10 N/mm aan een krachtopnemer van 0,05 N/\u00b5m (50 N/mm, bewust zacht). De opnemer staat in serie: 1/k\u209c\u2092\u209c = 1/10 + 1/50, dus k\u209c\u2092\u209c = 8,33 N/mm en f = \u221a(8333/1)/2\u03c0 = 14,5 Hz, tegen 15,9 Hz zonder opnemer; de FRF vindt 14,5 Hz. Er loopt 1 N door de opnemer en hij vervormt 20 \u00b5m (F/k\u209b). Met de standaard 100 N/\u00b5m (10\u2075 N/mm) was het verschil 0,005 %: zet k\u209b in de inspector hoger en zie de piek terugschuiven."
-  },
-  thermarm: {
-    title: "Thermische drift van een meetarm", cat: "therm", modes: ["kin"],
-    desc: "Tastarm op een aluminium en een stalen staaf; ΔT = 5 K laat de tip in µm wegdrijven.",
-    text: "De tip C hangt aan een aluminium staaf (\u03b1 = 23,6) en een stalen staaf (\u03b1 = 11,5) van elk 152 mm, op een frame. Bij \u0394T = 5 K rekt de aluminium staaf 18 \u00b5m en de stalen 8,7 \u00b5m; in het Resultaat staat de verschuiving van de tip: \u0394x = +13,5 \u00b5m en \u0394y = +28,0 \u00b5m. De grafiek toont per staaf zijn bijdrage \u2202x/\u2202L\u00b7\u03b1\u00b7L\u00b7\u0394T: de bijdragen aan y zijn groot en tegengesteld (+54,6 en \u221226,6 \u00b5m), de aluminium staaf wint. Zet bij Eigenschappen beide staven op staal: dan valt \u0394y weg (0 \u00b5m, symmetrisch) en blijft alleen \u0394x = +8,9 \u00b5m over. Het kan ook met twee verschillende materialen: kies de lengtes zo dat \u03b1\u00b7L gelijk is (de aluminium staaf dan 0,49 keer zo lang als de stalen), of zet de aluminium staaf op Invar. Zo maak je de tip athermisch in de meetrichting."
-  },
-  athermarm: {
-    title: "Athermische meetarm optimaliseren", cat: "opt", modes: ["kin"],
-    desc: "Gevouwen meetarm: stalen staaf heen, aluminium staaf terug naar de tip; de optimaliseerder maakt de tip athermisch.",
-    text: "Het klassieke gevouwen (re-entrant) ontwerp. Frame A (links) draagt een stalen staaf AB van 300 mm (\u03b1 = 11,5 \u00b5m/(m\u00b7K)) naar rechts; het draaipunt B glijdt langs de x-as. Daar vouwt een aluminium staaf BC (\u03b1 = 23,6) terug naar links, naar de tastip C die 15 mm hoger in een horizontale geleiding glijdt. De tip ligt op x = L_AB \u2212 x_BC van A, dus staal verschuift hem naar rechts en aluminium naar links. Bij \u0394T = 10 K drijft C \u221213 \u00b5m weg (Resultaat: thermische verschuiving; de aluminium staaf is te lang). Open het tabblad Optimaliseer en druk op \u201cAthermisch maken\u201d: de optimaliseerder zoekt de x van C waarbij de drift nul is. Analytisch moet gelden \u03b1_staal\u00b7L_AB = \u03b1_alu\u00b7L_BC, dus L_BC/L_AB = 11,5/23,6 = 0,487, ofwel L_BC \u2248 146 mm en C op x \u2248 155 mm. Omdat BC 15 mm uit de lijn staat, telt alleen de horizontale component mee; dat geeft een correctie van \u00bd\u00b7(15/146)\u00b2 = 0,5 %, de optimaliseerder vindt L_BC/L_AB = 0,485. Het convergentieplotje en de gevoeligheid (+1 % x \u2192 drift) laten zien hoe het gevonden is; Toepassen zet de waarde in het model, Ctrl+Z haalt hem weer weg."
-  },
-  thermclamp: {
-    title: "Thermische spanning in een ingeklemde staaf", cat: "therm", modes: ["dyn", "equil"],
-    desc: "Axiale stalen staaf tussen twee vaste punten: ΔT = 20 K geeft een drukkracht.",
-    text: "Twee axiale stalen staven (100 mm, 2 mm\u00b2, k = EA/L = 4,2 kN/mm) zitten in serie tussen twee vaste punten; het middelste punt B glijdt langs de staafrichting. Bij \u0394T = 20 K willen ze 2 \u00d7 23 \u00b5m langer worden, maar de inklemming laat dat niet toe. Evenwicht: N = \u2212E\u00b7A\u00b7\u03b1\u00b7\u0394T = \u221296,6 N (druk) en \u03c3 = \u2212E\u00b7\u03b1\u00b7\u0394T = \u221248,3 MPa, onafhankelijk van de lengte en de ligging van B. Zet \u0394T negatief en de staven staan op trek. Een stijvere staaf (grotere A) geeft een evenredig grotere kracht; een tijdstap boven 2,8/\u03c9 geeft de oranje waarschuwing."
-  },
-  stiffcant: {
-    title: "Uitkragende balk", cat: "stiff", modes: ["stiff"],
-    desc: "Staalbalk 20 \u00d7 3 mm, ingeklemd, 5 N aan de tip: vervorming, spanning en stijfheid, naast de formule van Roark.",
-    text: "Een balk van 200 mm met een tussenpunt M (gemaakt met Knoop op balk). Analytisch is de tipuitzakking \u03b4 = F\u00b7L\u00b3/(3EI) = 1,41 mm en de stijfheid 3EI/L\u00b3 = 3,54 N/mm; het Resultaat toont beide naast de FE-uitkomst, gelijk op vier cijfers. De kleur laat \u03c3/\u03c3_toel zien: het hoogst bij de inklemming (33 MPa). De eerste eigenfrequentie volgt uit 1,875\u00b2/(2\u03c0)\u00b7\u221a(EI/(\u03c1AL\u2074)) = 63 Hz. Druk op spatie om de eerste mode te animeren, of splits de balk verder en zie de uitkomst niet veranderen: de balkelementen zijn exact voor puntlasten."
-  },
-  stiffleaf: {
-    title: "Bladveer zelf getekend", cat: "stiff", modes: ["stiff"],
-    desc: "Een geleide bladveer als Volledige balk: de stijfheid in het eindpunt moet 12EI/L\u00b3 zijn.",
-    text: "Blad van 10 \u00d7 0,3 mm en 40 mm lang, links ingeklemd en rechts geleid (de draaiing is vast, het punt glijdt loodrecht). De stijfheid in punt B is k = 12EI/L\u00b3 = 0,886 N/mm (886 N/m). Het Resultaat vergelijkt de FE-waarde met de formule. Het blad buigt in een S-vorm met een moment dat van +FL/2 naar \u2212FL/2 loopt, dus de spanning is het hoogst aan beide uiteinden. Zet de dikte op 0,6 mm: de stijfheid wordt 8\u00d7 zo groot (t\u00b3)."
-  },
-  stiffportal: {
-    title: "Portaalframe", cat: "stiff", modes: ["stiff"],
-    desc: "Twee ingeklemde kolommen en een dwarsbalk met momentvaste hoeken; een zijdelingse kracht laat het portaal scheeftrekken.",
-    text: "In de hoeken B en C staat de verbinding op Star (\u25a0): de kolommen en de dwarsbalk delen er hun hoek. De zijdelingse stijfheid ligt tussen 6EI/h\u00b3 (scharnierende dwarsbalk) en 24EI/h\u00b3 (oneindig stijve dwarsbalk). Zet bij punt B en C de verbinding op Scharnier (\u25cb) en de stijfheid zakt naar 6EI/h\u00b3; haal ook de inklemming weg en het raamwerk wordt een mechanisme, dat in het Resultaat in gewone taal wordt benoemd."
-  },
-  stiffmixed: {
-    title: "Stijf + elastisch gemengd", cat: "stiff", modes: ["stiff"],
-    desc: "Een stijve arm, momentvast aan een elastische balk op een scharnier met torsieveer.",
-    text: "Punt A is een scharnier met een torsieveer (k\u03b8 = 500 N\u00b7mm/rad), de balk AB is elastisch (10 \u00d7 0,6 mm), de arm BC is een Oneindige schakel die in B momentvast (Star) aan de balk zit. De kracht op C geeft een moment op de balk; de arm draait mee met de balk en de veer, dus de uitwijking van C is de som van veer (M/k\u03b8) en buiging (ML/EI), vergroot met de armlengte. Een stijve schakel rekent als een balk met 10\u2075\u00d7 de grootste elastische stijfheid."
-  },
-  empty: {
-    title: "Leeg canvas", cat: "empty", modes: ["kin"],
-    desc: "Begin helemaal opnieuw met een leeg canvas.",
-    text: "Kies links een gereedschap en teken punten en schakels. Zet een punt vast met Scharnier en maak een schakel tot kruk met Aandrijving. Kies bovenin de modus waarmee je wilt rekenen."
-  }
+  fourbar: { cat: "mech", modes: ["kin"] },
+  slidercrank: { cat: "mech", modes: ["kin"] },
+  compressor: { cat: "mech", modes: ["kin"] },
+  fivebar: { cat: "mech", modes: ["kin"] },
+  hoeken: { cat: "mech", modes: ["kin"] },
+  jansen: { cat: "mech", modes: ["kin"] },
+  liftarm: { cat: "mech", modes: ["kin"] },
+  springload: { cat: "dyn", modes: ["dyn"] },
+  doublependulum: { cat: "dyn", modes: ["dyn"] },
+  settle: { cat: "dyn", modes: ["dyn", "equil"] },
+  shaker: { cat: "dyn", modes: ["dyn"] },
+  steamL: { cat: "dyn", modes: ["dyn"] },
+  frictionslide: { cat: "fric", modes: ["dyn"] },
+  gaplimit: { cat: "fric", modes: ["dyn"] },
+  shakerfrf: { cat: "frf", modes: ["frf"] },
+  pendfrf: { cat: "frf", modes: ["frf"] },
+  virtualplay: { cat: "fric", modes: ["dyn"] },
+  preload: { cat: "fric", modes: ["dyn"] },
+  parallelguide: { cat: "flex", modes: ["frf", "dyn"] },
+  loadcell: { cat: "sens", modes: ["frf", "dyn"] },
+  thermarm: { cat: "therm", modes: ["kin"] },
+  athermarm: { cat: "opt", modes: ["kin"] },
+  thermclamp: { cat: "therm", modes: ["dyn", "equil"] },
+  stiffcant: { cat: "stiff", modes: ["stiff"] },
+  stiffleaf: { cat: "stiff", modes: ["stiff"] },
+  stiffportal: { cat: "stiff", modes: ["stiff"] },
+  stiffmixed: { cat: "stiff", modes: ["stiff"] },
+  empty: { cat: "empty", modes: ["kin"] }
 };

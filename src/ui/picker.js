@@ -8,6 +8,7 @@ import { save } from "./persist.js";
 import { buildPdata, drawPlot, refreshChannels, serieLab, seriesBox } from "./plot.js";
 import { serieColor } from "./theme.js";
 import { cv, fitInto } from "./view.js";
+import { t } from "./i18n.js";
 
 /* ---------- meting kiezen ----------
    Eén regel per onderdeel met knopjes voor de grootheden. In de stand
@@ -43,15 +44,15 @@ function setPickMode(m) {
   document.querySelectorAll("#pickMode button").forEach(b =>
     b.setAttribute("aria-pressed", String(b.dataset.v === m)));
   document.getElementById("pickFxBox").hidden = m !== "f";
-  document.getElementById("pickTitle").textContent = pickFor >= 0 ? "Meting vervangen" : "Metingen kiezen";
-  pickOk.textContent = m === "f" ? "Formule toevoegen" : "Klaar";
+  document.getElementById("pickTitle").textContent = pickFor >= 0 ? t("pick.replace") : t("pick.title");
+  pickOk.textContent = m === "f" ? t("pick.addfx") : t("pick.ok");
   renderPick(); checkFx();
 }
 
 export function plotted(key) { return model.series.some(s => s.key === key); }
 export function chip(c, on) {
   return '<button type="button" class="chip" data-k="' + c.key + '" aria-pressed="' + !!on + '" title="' +
-    c.lab + " [" + c.u + "] \u2014 in formules: " + c.al + '">' + c.q + "</button>";
+    c.lab + " [" + c.u + "] \u2014 " + t("pick.informulas") + " " + c.al + '">' + c.q + "</button>";
 }
 export function renderPick() {
   const words = pickQ.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -65,13 +66,13 @@ export function renderPick() {
   }
   const sid = ui.sel ? ui.sel.id : null;
   const list = [...rows.values()];
-  if (!list.length) { pickList.innerHTML = '<div class="g">niets gevonden</div>'; return; }
+  if (!list.length) { pickList.innerHTML = '<div class="g">' + t("pick.none") + '</div>'; return; }
   let html = "", g = null;
   const mark = pickMode === "q" && pickFor < 0;
   const rowHtml = r => '<div class="prow' + (r.obj === sid ? " sel" : "") + '" data-o="' + r.obj + '"><span class="po">' + r.o +
     '</span><span class="pq">' + r.cs.map(c => chip(c, mark && plotted(c.key))).join("") + "</span></div>";
   const selRow = list.find(r => r.obj === sid);
-  if (selRow) html += '<div class="g">Selectie</div>' + rowHtml(selRow);
+  if (selRow) html += '<div class="g">' + t("pick.selection") + '</div>' + rowHtml(selRow);
   for (const r of list) {
     if (r === selRow) continue;
     if (r.g !== g) { g = r.g; html += '<div class="g">' + g + "</div>"; }
@@ -92,13 +93,13 @@ function insertFx(txt) {
   checkFx();
 }
 function checkFx() {
-  if (pickMode !== "f") { pickMsg.textContent = pickFor < 0 ? "Klik een grootheid om hem aan of uit te zetten." : ""; return true; }
+  if (pickMode !== "f") { pickMsg.textContent = pickFor < 0 ? t("pick.hint") : ""; return true; }
   const src = pickFxInp.value.trim();
-  if (!src) { pickMsg.textContent = "Typ een formule, of klik hieronder grootheden aan."; return false; }
+  if (!src) { pickMsg.textContent = t("pick.typefx"); return false; }
   try {
     const c = compile(src);
     const u = exprUnit(c.used, src);
-    pickMsg.innerHTML = '<span style="color:var(--spring)">\u2713 geldig</span>' + (u ? " \u00b7 eenheid " + u : "");
+    pickMsg.innerHTML = '<span style="color:var(--spring)">\u2713 ' + t("pick.valid") + '</span>' + (u ? " \u00b7 " + t("pick.unit") + " " + u : "");
     return true;
   } catch (e) {
     pickMsg.innerHTML = '<span style="color:var(--bad)">' + e.message + "</span>";
@@ -126,7 +127,7 @@ export function stiffSeriesRows() {
 }
 function stiffValue(sr) {
   try {
-    if (!(sim.stiff && sim.stiff.ok)) return { v: NaN, u: "", err: "geen oplossing" };
+    if (!(sim.stiff && sim.stiff.ok)) return { v: NaN, u: "", err: t("pick.nosol") };
     if (sr.expr) {
       const c = compile(sr.expr);
       return { v: c.f(nm => (nm === "t" ? 0 : chVal(null, alias(nm).key, 0))), u: exprUnit(c.used, sr.expr) };
@@ -142,22 +143,22 @@ export function renderSeries() {
   if (model.mode === "stiff") note.textContent = "";
   const shown = model.series.map((sr, i) => i).filter(i => showSerie(model.series[i]));
   if (!shown.length) {
-    if (model.mode === "stiff") { seriesBox.innerHTML = '<p class="empty">Kies <b>Metingen…</b> voor de verplaatsing van een punt of de grootste spanning van een balk, of <b>ƒ Formule</b> voor bijvoorbeeld <code>ux_C − ux_B</code>. De waarde staat hier.</p>'; return; }
+    if (model.mode === "stiff") { seriesBox.innerHTML = '<p class="empty">' + t("pick.stiffhint") + '</p>'; return; }
     seriesBox.innerHTML = "";
     note.textContent = sim.sweep
-      ? "Klik op Metingen\u2026, of selecteer een onderdeel en kies hoe je het meet."
-      : "Nog geen oplossing \u2014 zie de melding onder het canvas.";
+      ? t("pick.noseries")
+      : t("pick.nosolyet");
     return;
   }
   note.textContent = sim.sweep && !sim.sweep.stat && !sim.sweep.frf
-    ? "Krachten zijn niet bepaald: het stelsel is niet vierkant." : "";
+    ? t("pick.indet") : "";
   seriesBox.innerHTML = shown.map(i => [model.series[i], i]).map(([sr, i]) =>
     '<div class="serie">' +
       '<span class="sw" style="background:' + (model.mode === "stiff" ? "var(--ink-3)" : serieColor(i)) + '"></span>' +
       (sr.expr
         ? '<input class="fx" data-f="' + i + '" value="' + String(sr.expr).replace(/"/g, "&quot;") + '">'
         : '<button class="lab" data-i="' + i + '">' + serieLab(sr) + '</button>') +
-      '<button class="rm" data-r="' + i + '" title="Verwijderen" aria-label="Meting verwijderen">\u00d7</button>' +
+      '<button class="rm" data-r="' + i + '" title="' + t("pick.remove") + '" aria-label="' + t("pick.remove.aria") + '">\u00d7</button>' +
       '<span class="meta"><span data-v="' + i + '">\u2013</span><span data-s="' + i + '"></span></span>' +
     '</div>').join("");
   seriesBox.querySelectorAll(".lab").forEach(el =>
@@ -210,8 +211,8 @@ export function syncSeriesValues() {
   seriesBox.querySelectorAll("[data-s]").forEach(el => {
     const d = ui.pdata && ui.pdata.ss[+el.dataset.s];
     put(el, !(d && d.ok) ? ""
-      : frf ? "piek " + num(d.peak) + " bij " + fmtHz(sim.sweep.f[d.pk])
-      : "min " + num(d.mn) + " · max " + num(d.mx) + " · rms " + num(d.rms));
+      : frf ? t("pick.peak", { v: num(d.peak), f: fmtHz(sim.sweep.f[d.pk]) })
+      : t("pick.stats", { mn: num(d.mn), mx: num(d.mx), rms: num(d.rms) }));
   });
 }
 
