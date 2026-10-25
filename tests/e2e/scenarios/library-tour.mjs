@@ -15,7 +15,7 @@ export default async ({ browser, url, check }) => {
   check('klik buiten sluit bibliotheek', !(await open()));
   await p.click('#libBtn'); await p.click('[data-ex="slidercrank"]');
   await dismissAsk(p); await playReady(p);
-  check('kiezen sluit en toont uitleg', !(await open()) && await p.$eval('#uitleg', e => !e.hidden && /Slinger-krukmechanisme/.test(e.textContent)));
+  check('kiezen sluit en toont uitleg', !(await open()) && await p.$eval('#uitleg', e => !e.hidden && /Slider-crank mechanism/.test(e.textContent)));
   const ov = await p.evaluate(() => {
     const u = document.getElementById('uitleg').getBoundingClientRect(), t = document.getElementById('transport').getBoundingClientRect();
     return u.bottom <= t.top;
@@ -29,9 +29,9 @@ export default async ({ browser, url, check }) => {
   // rondleiding: eerste bezoek
   p = await newPage(browser, url, { tour: true });
   await p.waitForSelector('.tour-bubble');
-  check('rondleiding bij eerste bezoek', /1 van 3/.test(await p.textContent('.tour-bubble')));
+  check('rondleiding bij eerste bezoek', /1 of 3/.test(await p.textContent('.tour-bubble')));
   await p.click('.tnext'); await p.click('.tnext');
-  check('stap 3', /Resultaat en uitleg/.test(await p.textContent('.tour-bubble')));
+  check('stap 3', /Result and explanation/.test(await p.textContent('.tour-bubble')));
   await p.click('.tnext');
   check('rondleiding klaar', (await p.$('.tour-bubble')) === null);
   await p.reload(); await p.waitForTimeout(1200);

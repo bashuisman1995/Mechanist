@@ -9,10 +9,10 @@ export default async ({ browser, url, check }) => {
   check('calculators zichtbaar, schets verborgen', (await visible(p, '#calcRoot')) && !(await visible(p, '.main')));
   check('lijst bevat 13 calculators', (await p.$$('#calcList .calc-item')).length === 13);
   const r0 = await res();
-  check('Bladveer: c_x = 2,1 N/mm', /^2,1\s*N\/mm/.test(r0), r0);
+  check('Bladveer: c_x = 2.1 N/mm', /^2.1\s*N\/mm/.test(r0), r0);
   await p.fill('[data-in="t"]', '0.1');
   const r1 = await res();
-  check('resultaat past zich aan (t=0,1: 0,263 N/mm)', /^0,26/.test(r1), r1);
+  check('resultaat past zich aan (t=0.1: 0.263 N/mm)', /^0.26/.test(r1), r1);
   await p.fill('[data-in="u"]', '5');
   check('waarschuwing bij te grote spanning', (await p.$$('.calc-warn')).length === 1);
   await p.selectOption('#calcMat', 'alu');
@@ -40,7 +40,7 @@ export default async ({ browser, url, check }) => {
   await p.click('[data-c="par"]'); await p.click('[data-c="leaf"]');
   check('waarden onthouden bij wisselen', (await p.$eval('[data-in="b"]', e => e.value)) === '23');
   await p.click('#calcReset');
-  check('reset zet beginwaarden terug', (await p.$eval('[data-in="b"]', e => e.value)) === '10' && (await res()).startsWith('2,1'));
+  check('reset zet beginwaarden terug', (await p.$eval('[data-in="b"]', e => e.value)) === '10' && (await res()).startsWith('2.1'));
   await p.fill('[data-in="t"]', '0.2'); await p.fill('[data-in="u"]', '0.5'); await p.selectOption('#calcMat', 'staal');
 
   for (const id of ['par', 'cross', 'notch', 'wire']) {
@@ -52,32 +52,32 @@ export default async ({ browser, url, check }) => {
     check(`${id}: tekening past zich aan`, d0 !== await p.$eval('#calcSvg', e => e.innerHTML));
   }
   await p.click('[data-c="leaf"]');
-  await p.click('summary:has-text("Formules")'); await frame();
-  check('formules uitklapbaar met eigen getallen', (await p.$$('#calcFormulas .fm')).length >= 4 && /met jouw getallen/.test(await p.$eval('#calcFormulas', e => e.textContent)));
+  await p.click('[data-sec="Formules"] summary'); await frame();
+  check('formules uitklapbaar met eigen getallen', (await p.$$('#calcFormulas .fm')).length >= 4 && /with your numbers/.test(await p.$eval('#calcFormulas', e => e.textContent)));
   // aandrijving: stijf <-> zacht verandert c_z
   const cz = () => p.$eval('[data-res="Steunstijfheid c_z bij u"]', e => e.textContent);
   const czStiff = await cz();
   await p.selectOption('[data-in="drive"]', 'soft');
   const czSoft = await cz();
-  check('aandrijving zacht: c_z verandert (kleiner)', czStiff !== czSoft && /zacht/.test(czSoft) && /stijf/.test(czStiff), czStiff + ' -> ' + czSoft);
+  check('aandrijving zacht: c_z verandert (kleiner)', czStiff !== czSoft && /soft/.test(czSoft) && /stiff/.test(czStiff), czStiff + ' -> ' + czSoft);
   const val = t => parseFloat(t.replace(/ /g, '').replace(',', '.'));
-  check('c_z stijf ~19,0 kN/mm, zacht ~2,08 kN/mm', Math.abs(val(czStiff) - 18.97) < 0.1 && Math.abs(val(czSoft) - 2.08) < 0.1, czStiff + ' / ' + czSoft);
+  check('c_z stijf ~19.0 kN/mm, zacht ~2.08 kN/mm', Math.abs(val(czStiff) - 18.97) < 0.1 && Math.abs(val(czSoft) - 2.08) < 0.1, czStiff + ' / ' + czSoft);
   // geen punt als duizendtalscheiding: notch geeft 4 228 N·mm/rad
   await p.click('[data-c="notch"]');
   const cphi = await p.$eval('[data-res="Draaistijfheid c_φ"]', e => e.textContent);
   check('getalnotatie: dunne spatie, geen punt (4 228)', /^4 228\s/.test(cphi) && !/\d\.\d{3}/.test(cphi), JSON.stringify(cphi));
-  check('draaistijfheid ook in N·m/rad', /4,23\s*N·m\/rad/.test(await p.$eval('[data-res="Draaistijfheid c_φ (SI)"]', e => e.textContent)));
+  check('draaistijfheid ook in N·m/rad', /4.23\s*N·m\/rad/.test(await p.$eval('[data-res="Draaistijfheid c_φ (SI)"]', e => e.textContent)));
   check('veiligheidsfactor n aanwezig', /^\d/.test(await p.$eval('[data-res="Veiligheidsfactor n = σ_toel/σ"]', e => e.textContent)));
   await p.click('[data-c="cross"]');
-  check('kruisveer: belastingafhankelijke stijfheid als notitie', /niet meegenomen/.test(await p.$eval('[data-res="Stijfheid onder belasting"]', e => e.parentElement.textContent)));
+  check('kruisveer: belastingafhankelijke stijfheid als notitie', /not included/.test(await p.$eval('[data-res="Stijfheid onder belasting"]', e => e.parentElement.textContent)));
   await p.click('[data-c="leaf"]');
-  check('stijfheid in N/µm', /^0,0021\s*N\/µm/.test(await p.$eval('[data-res="Stijfheid c_x in N/µm"]', e => e.textContent)));
+  check('stijfheid in N/µm', /^0.0021\s*N\/µm/.test(await p.$eval('[data-res="Stijfheid c_x in N/µm"]', e => e.textContent)));
   // materiaal: α, ρ, bron; σ_toel aanpasbaar
   const mi = await p.$eval('#calcMatInfo', e => e.textContent), ms = await p.$eval('#calcMatSrc', e => e.textContent);
-  check('materiaalregel met α, ρ en σ_toel-uitleg', /α =/.test(mi) && /ρ =/.test(mi) && /vermoeiingssterkte/.test(mi));
-  check('Bron materiaalgegevens', /^Bron materiaalgegevens:/.test(ms) && /MatWeb/.test(ms));
+  check('materiaalregel met α, ρ en σ_toel-uitleg', /α =/.test(mi) && /ρ =/.test(mi) && /fatigue strength/.test(mi));
+  check('Bron materiaalgegevens', /^Material data source:/.test(ms) && /MatWeb/.test(ms));
   const opts = await p.$$eval('#calcMat option', o => o.map(x => x.textContent));
-  check('CuBe2 en fosforbrons apart', opts.some(x => /CuBe2/.test(x)) && opts.some(x => /Fosforbrons/.test(x)) && !opts.some(x => /Brons \/ CuBe/.test(x)), opts.join('|'));
+  check('CuBe2 en fosforbrons apart', opts.some(x => /CuBe2/.test(x)) && opts.some(x => /Phosphor bronze/.test(x)) && !opts.some(x => /Brons \/ CuBe/.test(x)), opts.join('|'));
   const nOf = () => p.$eval('[data-res="Veiligheidsfactor n = σ_toel/σ"]', e => e.textContent);
   const n0 = await nOf();
   await p.fill('#calcSigma', '600');
@@ -85,12 +85,12 @@ export default async ({ browser, url, check }) => {
   await p.fill('#calcSigma', '300');
   // waarschuwingen
   await p.fill('[data-in="u"]', '3');
-  check('waarschuwing u/L > 0,1', /u\/L/.test(await p.$eval('#calcWarn', e => e.textContent)));
+  check('waarschuwing u/L > 0.1', /u\/L/.test(await p.$eval('#calcWarn', e => e.textContent)));
   await p.fill('[data-in="u"]', '0.5'); await p.fill('[data-in="L"]', '3');
   check('waarschuwing L/t < 20', /L\/t/.test(await p.$eval('#calcWarn', e => e.textContent)));
   await p.fill('[data-in="L"]', '20');
   await p.fill('[data-in="F"]', '10');
-  check('c_x(F) = 2,1 - 1,2*10/20 = 1,5 N/mm', /^1,5\s*N\/mm/.test(await p.$eval('[data-res="Dwarsstijfheid onder F: c_x(F)"]', e => e.textContent)));
+  check('c_x(F) = 2.1 - 1.2*10/20 = 1.5 N/mm', /^1.5\s*N\/mm/.test(await p.$eval('[data-res="Dwarsstijfheid onder F: c_x(F)"]', e => e.textContent)));
   await p.fill('[data-in="F"]', '0');
   // Formules: bronnen zijn literatuur
   await frame();
@@ -102,8 +102,8 @@ export default async ({ browser, url, check }) => {
   await p.selectOption('[data-in="drive"]', 'stiff');
   await p.click('#calcCopy');
   const sheet = await p.$eval('#calcCopy', e => e.dataset.sheet || '');
-  check('Kopieer: rekenblad met invoer, uitkomsten, formules, bronnen, versie', /INVOER/.test(sheet) && /UITKOMSTEN/.test(sheet) && /FORMULES/.test(sheet) && /BRONNEN/.test(sheet) && /Soemers/.test(sheet) && /L = 20 mm/.test(sheet) && /Stijfheid c_x = 2,1 N\/mm/.test(sheet) && /v0\.\d/.test(sheet) && /20\d\d-\d\d-\d\d/.test(sheet) && !/<[a-z]+>/.test(sheet), sheet.slice(0, 200));
-  check('Kopieer: melding getoond', /gekopieerd|geweigerd/i.test(await p.$eval('#calcActMsg', e => e.textContent)));
+  check('Kopieer: rekenblad met invoer, uitkomsten, formules, bronnen, versie', /INPUT/.test(sheet) && /RESULTS/.test(sheet) && /FORMULAS/.test(sheet) && /SOURCES/.test(sheet) && /Soemers/.test(sheet) && /L = 20 mm/.test(sheet) && /Stiffness c_x = 2.1 N\/mm/.test(sheet) && /v0\.\d/.test(sheet) && /20\d\d-\d\d-\d\d/.test(sheet) && !/<[a-z]+>/.test(sheet), sheet.slice(0, 200));
+  check('Kopieer: melding getoond', /copied|denied/i.test(await p.$eval('#calcActMsg', e => e.textContent)));
 
   // Link: invoer in hash, nieuwe pagina herstelt waarden
   await p.fill('[data-in="L"]', '33'); await p.fill('[data-in="t"]', '0.15'); await p.selectOption('[data-in="drive"]', 'soft');

@@ -7,14 +7,14 @@ export default async ({ browser, url, check }) => {
   const dialogs = [];
   p.removeAllListeners('dialog');
   p.on('dialog', d => { dialogs.push(d.type()); d.accept(); });
-  check('verse start: Vierstangenmechanisme', /Vierstangenmechanisme/.test(await p.$eval('#docName', e => e.textContent)));
+  check('verse start: Four-bar linkage', /Four-bar linkage/.test(await p.$eval('#docName', e => e.textContent)));
   const n0 = (await store(p)).nodes.length;
   await p.keyboard.press('n'); await p.mouse.click(300, 130); await p.waitForTimeout(200);
   const nEdited = (await store(p)).nodes.length;
   check('bewerking voegt knoop toe', nEdited === n0 + 1, `${n0}->${nEdited}`);
   await p.reload(); await p.waitForTimeout(700);
   check('beforeunload-dialoog bij onopgeslagen wijzigingen', dialogs.includes('beforeunload'), dialogs.join(','));
-  check('na herladen: verse vierstang', /Vierstangenmechanisme/.test(await p.$eval('#docName', e => e.textContent)) && (await store(p)).nodes.length === n0);
+  check('na herladen: verse vierstang', /Four-bar linkage/.test(await p.$eval('#docName', e => e.textContent)) && (await store(p)).nodes.length === n0);
   await p.click('#menuBtn');
   check('"Vorige sessie herstellen" zichtbaar', await p.$eval('[data-a="restore"]', e => !e.hidden));
   await p.click('[data-a="restore"]'); await p.waitForTimeout(300);

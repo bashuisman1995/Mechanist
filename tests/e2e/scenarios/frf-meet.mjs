@@ -4,7 +4,7 @@ export default async ({ browser, url, check }) => {
   await loadExample(p, 'shakerfrf');
   await p.click('[data-t="set"]');
   const stat = await p.$$eval('#series [data-s]', x => x.map(e => e.textContent));
-  const peak = num(stat[0].replace(/^piek/, ''));
+  const peak = num(stat[0].replace(/^peak/, ''));
   check('meetbalk zichtbaar in FRF', await p.$eval('#meetBar', e => !e.hidden));
   const snap = () => p.$eval('#cv', c => c.toDataURL()).catch(() => null);
   const before = await snap();
@@ -20,14 +20,14 @@ export default async ({ browser, url, check }) => {
   const after = await snap();
   check('knoop beweegt op canvas', before !== after);
   const chip = await p.$eval('.chip[data-m="0"]', e => e.textContent);
-  check('chip Mode 1', /Mode 1 · 3,56 Hz/.test(chip), chip);
+  check('chip Mode 1', /Mode 1 · 3.56 Hz/.test(chip), chip);
   await p.fill('#meetF', '1');
   await p.click('.chip[data-m="0"]');
   const inp = await p.$eval('#meetF', e => e.value);
-  check('chip zet meetfrequentie', Math.abs(num(inp) - 3.559) < 0.01 && /,/.test(inp), String(inp));
+  check('chip zet meetfrequentie', Math.abs(num(inp) - 3.559) < 0.01 && /\./.test(inp), String(inp));
   await p.check('#meetEig');
   const eo = await p.$eval('#meetOut', e => e.textContent);
-  check('eigenmode-weergave', /eigenmode/.test(eo), eo);
+  check('eigenmode-weergave', /mode shape/.test(eo), eo);
   await p.uncheck('#meetEig');
   await p.click('#meetUp');
   const up = num(await p.$eval('#meetF', e => e.value));

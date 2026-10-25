@@ -695,6 +695,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
 .topbar #workSeg { background: rgba(233,235,234,.08); border-color: rgba(233,235,234,.14); }
 .topbar #workSeg button { color: var(--brand-ink); background: transparent; }
 .topbar #workSeg button[aria-pressed="true"] { background: rgba(233,235,234,.18); color: var(--brand-ink); }
+.langtop { display: none; }
+.app.calc-on .langtop { display: inline-flex; }
+.topbar .langtop button { color: var(--brand-ink-2); }
+.topbar .langtop button[aria-pressed="true"] { background: #FFFFFF; color: var(--brand); }
 .app.calc-on .main, .app.calc-on .statusbar, .app.calc-on .modewrap, .app.calc-on .topbar-group { display: none; }
 .calc { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 0; min-width: 0; overflow: hidden; background: var(--ground); }
 .calc[hidden] { display: none; }

@@ -49,15 +49,15 @@ export default async ({ browser, url, check }) => {
   check('meting toont een waarde in µm', /µm|mm|nm/.test(vtxt) && isFinite(num(vtxt)), vtxt);
   await p.click('#addFx'); await p.waitForTimeout(150);
   const al = await p.$eval('#pickList .chip', c => c.title);
-  await p.fill('#pickFxInp', 'hypot(' + (await p.$$eval('#pickList .chip', c => c.filter(x => /uₓ/.test(x.textContent))[0].title)).split('in formules: ')[1] + ', 1)');
+  await p.fill('#pickFxInp', 'hypot(' + (await p.$$eval('#pickList .chip', c => c.filter(x => /uₓ/.test(x.textContent))[0].title)).split('in formulas: ')[1] + ', 1)');
   await p.click('#pickOk'); await p.waitForTimeout(200);
   const vals = await p.$$eval('#series [data-v]', e => e.map(x => x.textContent));
-  check('formule werkt op statische waarden', vals.length === 2 && /\d/.test(vals[1]) && !/onbekend/.test(vals[1]), vals.join(' | '));
+  check('formule werkt op statische waarden', vals.length === 2 && /\d/.test(vals[1]) && !/unknown/.test(vals[1]), vals.join(' | '));
   await p.screenshot({ path: SHOT + 'open_path_series.png' });
   // rekenblad: pad als afbeelding en de losse metingen
   await p.click('#menuBtn'); await p.click('#menu [data-a="report"]'); await p.waitForTimeout(300);
-  const rep = await p.$eval('#report', e => ({ t: e.innerText, imgs: e.querySelectorAll('img[alt="Verloop langs het gekozen pad"]').length }));
-  check('rekenblad bevat het verloop langs het pad en de meting', rep.imgs === 1 && /Verloop langs een pad/.test(rep.t) && /Metingen/.test(rep.t), rep.t.slice(0, 80));
+  const rep = await p.$eval('#report', e => ({ t: e.innerText, imgs: e.querySelectorAll('img[alt="Variation along the chosen path"]').length }));
+  check('rekenblad bevat het verloop langs het pad en de meting', rep.imgs === 1 && /Variation along a path/.test(rep.t) && /Measurements/.test(rep.t), rep.t.slice(0, 80));
   await p.screenshot({ path: SHOT + 'open_path_report.png' });
   await p.keyboard.press('Escape'); await p.waitForTimeout(150);
   // terug naar tabellen en naar Kinematisch: geen paginafouten, Kinematisch ziet de stijfheidsmetingen niet

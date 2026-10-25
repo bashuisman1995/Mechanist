@@ -70,17 +70,17 @@ export default async ({ browser, url, check }) => {
     for (let i = 0; i < n; i++) {
       await (await c.$$('#calcList .calc-item'))[i].click(); await c.waitForTimeout(150);
       let t = await scan(c, '#calcRoot');
-      if (EXP.test(t)) bad.push(i + ': ' + t.match(new RegExp('.{0,30}' + EXP.source + '.{0,20}'))[0]);
+      if (EXP.test(t)) bad.push(i + ': ' + t.match(new RegExp('.{0.30}' + EXP.source + '.{0.20}'))[0]);
       await c.click('#calcPrint'); await c.waitForTimeout(80);
       t = await scan(c, '#report');
-      if (EXP.test(t)) bad.push(i + ' rekenblad: ' + t.match(new RegExp('.{0,30}' + EXP.source + '.{0,20}'))[0]);
+      if (EXP.test(t)) bad.push(i + ' rekenblad: ' + t.match(new RegExp('.{0.30}' + EXP.source + '.{0.20}'))[0]);
       await c.keyboard.press('Escape');
     }
     check(`calculators (${n}): geen e-notatie op het scherm of in het rekenblad`, n >= 12 && bad.length === 0, bad.join(' | '));
     await c.click('#calcPrint'); await c.waitForTimeout(100);
     const rep = await c.$eval('#report', e => ({ vis: !e.hidden, txt: e.innerText, tbl: e.querySelectorAll('.rep-tbl').length, svg: !!e.querySelector('.rep-svg svg') }));
-    check('calculator-rekenblad: invoer, uitkomsten, formules, bronnen, schets, voettekst', rep.vis && rep.tbl >= 3 && rep.svg && /INVOER/i.test(rep.txt) && /UITKOMSTEN/i.test(rep.txt) && /FORMULES/i.test(rep.txt) && /BRONNEN/i.test(rep.txt) &&
-      /Thalomex Precision Toolbox — controleer kritische waarden altijd onafhankelijk/.test(rep.txt), rep.txt.slice(0, 200));
+    check('calculator-rekenblad: invoer, uitkomsten, formules, bronnen, schets, voettekst', rep.vis && rep.tbl >= 3 && rep.svg && /INPUT/i.test(rep.txt) && /RESULTS/i.test(rep.txt) && /FORMULAS/i.test(rep.txt) && /SOURCES/i.test(rep.txt) &&
+      /Thalomex Precision Toolbox — always verify critical values independently/.test(rep.txt), rep.txt.slice(0, 200));
     check('rekenblad sluit met Esc', await c.keyboard.press('Escape').then(() => c.$eval('#report', e => e.hidden)));
     check('calculators: geen page errors', c.errs.length === 0, c.errs.join('|'));
     await c.context().close();
@@ -92,7 +92,7 @@ export default async ({ browser, url, check }) => {
   await openExample(s, 'stiffmixed');
   await s.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
   await s.click('#menuBtn');
-  check('menu: Rekenblad (PDF/print)', /Rekenblad \(PDF\/print\)/.test(await s.$eval('#menu [data-a="report"]', e => e.textContent)));
+  check('menu: Rekenblad (PDF/print)', /Calculation sheet \(PDF\/print\)/.test(await s.$eval('#menu [data-a="report"]', e => e.textContent)));
   await s.click('#menu [data-a="report"]'); await s.waitForTimeout(300);
   const R = await s.evaluate(() => {
     const r = document.getElementById('report'), pg = document.getElementById('repPage');
@@ -103,17 +103,17 @@ export default async ({ browser, url, check }) => {
       nodeRows: [...pg.querySelectorAll('.rep-tbl')].map(t => t.innerText).join('\n'), copyBtn: [...pg.querySelectorAll('.hw-copy')].length };
   });
   check('rekenblad opent over de app', R.vis);
-  check('rekenblad: kop met titel, datum, versie en modus', R.title.length > 0 && /\d{4}-\d\d-\d\d \d\d:\d\d/.test(R.txt) && R.txt.indexOf(R.ver) >= 0 && /Modus\s*Stijfheid/.test(R.txt), R.txt.slice(0, 160));
+  check('rekenblad: kop met titel, datum, versie en modus', R.title.length > 0 && /\d{4}-\d\d-\d\d \d\d:\d\d/.test(R.txt) && R.txt.indexOf(R.ver) >= 0 && /Mode\s*Stiffness/.test(R.txt), R.txt.slice(0, 160));
   check('rekenblad: git-hash uit de bouw staat in de kop (indien bekend)', !R.hash || R.txt.indexOf(R.hash) >= 0, R.hash);
   check('rekenblad: momentopname van het canvas (PNG)', R.img === 'data:image/png;base64,' && R.imgW > 200, R.img + ' ' + R.imgW);
-  check('rekenblad: secties Tekening, Model, Belastingen, Uitkomsten, Formules', ['Tekening', 'Model', 'Belastingen'].every(h => R.h2.includes(h)) && R.h2.some(h => /^Uitkomsten/.test(h)) && R.h2.some(h => /^Formules/.test(h)), R.h2.join(','));
-  check('rekenblad: modeltabel met punten, elementen, materialen en bronnotitie', /Punten/.test(R.txt) && /\bA\b.*\bB\b.*\bC\b/s.test(R.nodeRows) && /Elementen/.test(R.txt) && /EA·EI|Balk/.test(R.nodeRows) && /Materialen/.test(R.txt) && /MatWeb/.test(R.txt) && /N\/mm/.test(R.txt) && /mm\u00b2|mm⁴/.test(R.txt), R.nodeRows.slice(0, 300));
-  check('rekenblad: belasting (kracht) en uitkomsten (verplaatsingen, reacties, spanning)', /Kracht op/.test(R.txt) && /Verplaatsingen/.test(R.txt) && /Reacties/.test(R.txt) && /Maximale spanning/.test(R.txt) && /Eigenfrequenties/.test(R.txt), R.txt.slice(-400));
-  check('rekenblad: formules, aannamen en bronnen uit Hoe rekent dit?', /Euler/.test(R.txt) && /Aannamen/i.test(R.txt) && /Bronnen|Przemieniecki|Roark/.test(R.txt), R.txt.slice(-200));
-  check('rekenblad: voettekst', /Thalomex Precision Toolbox — controleer kritische waarden altijd onafhankelijk/.test(R.txt));
+  check('rekenblad: secties Tekening, Model, Belastingen, Uitkomsten, Formules', ['Drawing', 'Model', 'Loads'].every(h => R.h2.includes(h)) && R.h2.some(h => /^Results/.test(h)) && R.h2.some(h => /^Formulas/.test(h)), R.h2.join(','));
+  check('rekenblad: modeltabel met punten, elementen, materialen en bronnotitie', /Points/.test(R.txt) && /\bA\b.*\bB\b.*\bC\b/s.test(R.nodeRows) && /Elements/.test(R.txt) && /EA·EI|Beam/.test(R.nodeRows) && /Materials/.test(R.txt) && /MatWeb/.test(R.txt) && /N\/mm/.test(R.txt) && /mm\u00b2|mm⁴/.test(R.txt), R.nodeRows.slice(0, 300));
+  check('rekenblad: belasting (kracht) en uitkomsten (verplaatsingen, reacties, spanning)', /Force on/.test(R.txt) && /Displacements/.test(R.txt) && /Reactions/.test(R.txt) && /Maximum stress/.test(R.txt) && /Natural frequencies/.test(R.txt), R.txt.slice(-400));
+  check('rekenblad: formules, aannamen en bronnen uit Hoe rekent dit?', /Euler/.test(R.txt) && /Assumptions/i.test(R.txt) && /Sources|Przemieniecki|Roark/.test(R.txt), R.txt.slice(-200));
+  check('rekenblad: voettekst', /Thalomex Precision Toolbox — always verify critical values independently/.test(R.txt));
   check('rekenblad: geen Kopieer-knoppen van Hoe rekent dit?', R.copyBtn === 0);
   check('rekenblad: thema na de momentopname hersteld (donker)', R.theme === 'dark', R.theme);
-  check('rekenblad: komma als decimaalteken, geen "1.23"-getallen in tabellen', !/\b\d+\.\d+\b/.test(R.nodeRows), (R.nodeRows.match(/.{0,20}\b\d+\.\d+\b.{0,10}/) || [''])[0]);
+  check('rekenblad: decimal point in tables', /\b\d+\.\d+\b/.test(R.nodeRows) && !/\b\d+,\d+\b/.test(R.nodeRows), R.nodeRows.slice(0,200));
   // Afdrukken en Kopieer als tekst
   await s.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
   await s.click('#repPrint');
@@ -121,7 +121,7 @@ export default async ({ browser, url, check }) => {
   await s.click('#repCopy'); await s.waitForTimeout(200);
   const clip = await s.evaluate(() => navigator.clipboard.readText().catch(() => '')).catch(() => '');
   const cmsg = await s.$eval('#repMsg', e => e.textContent);
-  check('Kopieer als tekst: melding en inhoud op het klembord', /Gekopieerd/.test(cmsg) && /PUNTEN|Punten/.test(clip) && /Thalomex Precision Toolbox/.test(clip) && clip.split('\n').length > 40, cmsg + ' | ' + clip.slice(0, 120));
+  check('Kopieer als tekst: melding en inhoud op het klembord', /Copied/.test(cmsg) && /POINTS|Points/.test(clip) && /Thalomex Precision Toolbox/.test(clip) && clip.split('\n').length > 40, cmsg + ' | ' + clip.slice(0, 120));
   // printmedia: alleen het rekenblad, A4
   await s.emulateMedia({ media: 'print' });
   const pr = await s.evaluate(() => ({ app: getComputedStyle(document.querySelector('.app')).display, bar: getComputedStyle(document.querySelector('.rep-bar')).display, rep: getComputedStyle(document.getElementById('report')).position }));

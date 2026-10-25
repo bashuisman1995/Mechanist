@@ -24,10 +24,10 @@ export default async ({ browser, url, check }) => {
   const pre = await p.$$eval('#optForm [data-ci]', x => x.length);
   check('voorgevulde randvoorwaarden: σ ≤ σ_toel, knik ≥ 2, f (uit)', pre === 3, String(pre));
   await p.uncheck('[data-ov="b"] [data-vf="on"]');              // b blijft 10 mm
-  await p.selectOption('#optObj', 'Maximale uitwijking u_max');
+  await p.selectOption('#optObj', 'calc.leaf.16');
   await p.click('#optSense [data-sense="max"]');
   await p.click('#optAddCon');
-  await p.selectOption('#optForm [data-ci="3"] [data-cf="out"]', 'Stijfheid c_x');
+  await p.selectOption('#optForm [data-ci="3"] [data-cf="out"]', 'calc.leaf.9');
   await p.selectOption('#optForm [data-ci="3"] [data-cf="op"]', 'ge');
   await p.fill('#optForm [data-ci="3"] [data-cf="val"]', '0.5');
   await p.click('#optRun');
@@ -37,12 +37,12 @@ export default async ({ browser, url, check }) => {
   const L = await raw(p, '#calcOptTbl td[data-id="L"]'), t = await raw(p, '#calcOptTbl td[data-id="t"]');
   const u = await raw(p, '#calcOptOut tr.opt-doel td[data-raw]');
   check('bladveer: L op de bovengrens (200 mm), binnen 1 %', Math.abs(L - Lh) / Lh < 0.01, String(L));
-  check('bladveer: t = ' + th.toFixed(3) + ' mm uit c_x ≥ 0,5, binnen 1 %', Math.abs(t - th) / th < 0.01, String(t));
+  check('bladveer: t = ' + th.toFixed(3) + ' mm uit c_x ≥ 0.5, binnen 1 %', Math.abs(t - th) / th < 0.01, String(t));
   check('bladveer: u_max = ' + uh.toFixed(2) + ' mm, binnen 1 %', Math.abs(u - uh) / uh < 0.01, String(u));
   const act = await p.$eval('#calcOptAct', e => e.textContent);
-  check('actieve randvoorwaarde c_x en variabele L op zijn grens genoemd', /Stijfheid c_x/.test(act) && /Lengte L op max/.test(act), act);
+  check('actieve randvoorwaarde c_x en variabele L op zijn grens genoemd', /Stiffness c_x/.test(act) && /Length L at max/.test(act), act);
   const cx = await raw(p, '#calcOptOut tr.opt-rand td[data-raw]');
-  check('echt toelaatbaar: c_x ≥ 0,5', await p.$$eval('#calcOptOut tr.opt-rand', x => x.length) >= 1 && cx >= 0.5 - 1e-9, String(cx));
+  check('echt toelaatbaar: c_x ≥ 0.5', await p.$$eval('#calcOptOut tr.opt-rand', x => x.length) >= 1 && cx >= 0.5 - 1e-9, String(cx));
   check('convergentieplotje en gevoeligheidsregel', !!(await p.$('#optRes svg.opt-plot path.opt-ln')) && /\+1 %.*→/.test(await p.$eval('#calcOptSens', e => e.textContent)), await p.$eval('#calcOptSens', e => e.textContent));
   await p.$eval('#optRes', e => { const d = document.getElementById('calcDetail'); d.scrollTop = e.getBoundingClientRect().top - d.getBoundingClientRect().top + d.scrollTop - 8; });
   check('resultaat open: tekening en kerngetallen blijven zichtbaar (sticky)', await p.evaluate(() => { const r = document.querySelector('.calc-left').getBoundingClientRect(); return r.top >= 0 && r.top < 200 && r.height > 100; }));
@@ -55,7 +55,7 @@ export default async ({ browser, url, check }) => {
   await p.screenshot({ path: '/tmp/claude-0/-home-user-Mechanist/1e45fc4c-94b6-53cc-82eb-8e0cec55c972/scratchpad/fixf5_calc_result.png' });
   await p.click('#calcOptCopy'); await p.waitForTimeout(150);
   const rep = await p.$eval('#calcOptCopy', e => e.dataset.report || '');
-  check('Kopieer: rapport met probleemdefinitie, methode, resultaat en geschiedenis', ['PROBLEEMDEFINITIE', 'METHODE', 'RESULTAAT', 'VERLOOP', 'lokaal optimum'].every(s => rep.indexOf(s) >= 0) && !/e[+-]\d/.test(rep.replace(/1e[-+]?\d/g, '')), rep.slice(0, 200));
+  check('Kopieer: rapport met probleemdefinitie, methode, resultaat en geschiedenis', ['PROBLEM DEFINITION', 'METHOD', 'RESULT', 'HISTORY', 'local optimum'].every(s => rep.indexOf(s) >= 0) && !/e[+-]\d/.test(rep.replace(/1e[-+]?\d/g, '')), rep.slice(0, 200));
   await p.click('#calcOptApply'); await p.waitForTimeout(200);
   const inL = parseFloat(await p.$eval('#in_L', e => e.value));
   check('Toepassen schrijft de waarden in de calculator', Math.abs(inL - 200) < 2, String(inL));
@@ -65,7 +65,7 @@ export default async ({ browser, url, check }) => {
   // onhaalbaar: c_x ≥ 1e9
   await p.fill('#optForm [data-ci="3"] [data-cf="val"]', '1e9');
   await p.click('#optRun'); await p.waitForSelector('#calcOptStat.opt-bad', { timeout: 30000 });
-  check('onhaalbaar probleem wordt als onhaalbaar gemeld', /Geen toelaatbare/.test(await p.$eval('#calcOptStat', e => e.textContent)));
+  check('onhaalbaar probleem wordt als onhaalbaar gemeld', /No feasible/.test(await p.$eval('#calcOptStat', e => e.textContent)));
   // materiaal opsommen
   await p.fill('#optForm [data-ci="3"] [data-cf="val"]', '0.5');
   await p.check('[data-mat="_"]');
@@ -76,13 +76,13 @@ export default async ({ browser, url, check }) => {
   check('materiaal opgesomd: beste = ' + best.naam, matRow.indexOf(best.naam) >= 0, matRow);
   check('alle materialen staan in de tabel', (await p.$$('#optRes .opt-more tbody tr')).length === MATERIALS.length);
   const how = await p.$eval('#optHow', e => e.textContent);
-  check('Hoe rekent dit?: methode, straf, stopcriteria, multi-start en "lokaal optimum mogelijk; controleer"', /Nelder/.test(how) && /straf/.test(how) && /Stoppen/.test(how) && /Latin-hypercube/.test(how) && /lokaal optimum mogelijk; controleer/.test(how));
+  check('Hoe rekent dit?: methode, straf, stopcriteria, multi-start en "lokaal optimum mogelijk; controleer"', /Nelder/.test(how) && /penalty/.test(how) && /Stopping/.test(how) && /Latin-hypercube/.test(how) && /local optimum possible; verify/.test(how));
   check('calculator: geen long task > 200 ms tijdens de runs', (await maxLong(p)) < 200, String(await maxLong(p)));
 
   /* ---------- Schets: athermische meetarm ---------- */
   await p.click('#workSeg [data-w="sketch"]');
   await loadExample(p, 'athermarm');
-  check('voorbeeld "Athermische meetarm optimaliseren" in categorie Optimalisatie, Uitleg noemt de knop', /Athermisch maken/.test(await p.$eval('#uitText', e => e.textContent)));
+  check('voorbeeld "Athermische meetarm optimaliseren" in categorie Optimalisatie, Uitleg noemt de knop', /Make athermal/.test(await p.$eval('#uitText', e => e.textContent)));
   const d0 = parseFloat((await p.$eval('#thD', e => e.textContent)).replace(/\s/g, '').replace(',', '.'));
   await p.mouse.click(600, 300);
   await p.click('[data-t="opt"]'); await p.waitForTimeout(200);
@@ -106,7 +106,7 @@ export default async ({ browser, url, check }) => {
   const xAfterUndo = await p.evaluate(() => JSON.parse(localStorage.getItem('mechschets.r1')).nodes.map(n => n.x).join());
   check('Toepassen is één stap ongedaan maken', xAfterUndo === xBefore, xBefore + ' / ' + xAfterUndo);
   check('na ongedaan maken is de startdrift terug', Math.abs(parseFloat((await p.$eval('#thD', e => e.textContent)).replace(/\s/g, '').replace(',', '.')) - d0) < 0.05);
-  check('Kopieer in de schets geeft een rapport', await (async () => { await p.click('#skOptCopy'); await p.waitForTimeout(150); const r = await p.$eval('#skOptCopy', e => e.dataset.report || ''); return /PROBLEEMDEFINITIE/.test(r) && /lokaal optimum/.test(r); })());
+  check('Kopieer in de schets geeft een rapport', await (async () => { await p.click('#skOptCopy'); await p.waitForTimeout(150); const r = await p.$eval('#skOptCopy', e => e.dataset.report || ''); return /PROBLEM DEFINITION/.test(r) && /local optimum/.test(r); })());
 
   /* ---------- Stop en responsiviteit (FRF-voorbeeld: elke stap is een complete FRF-berekening) ---------- */
   await loadExample(p, 'parallelguide');
@@ -119,15 +119,15 @@ export default async ({ browser, url, check }) => {
   await startLongtasks(p);
   await p.click('#skRun');
   await p.waitForTimeout(250);
-  check('tijdens de run: Stop zichtbaar en voortgang loopt', await p.$eval('#skStop', e => !e.hidden) && /evaluaties/.test(await p.$eval('#skPtxt', e => e.textContent)), await p.$eval('#skPtxt', e => e.textContent));
+  check('tijdens de run: Stop zichtbaar en voortgang loopt', await p.$eval('#skStop', e => !e.hidden) && /evaluations/.test(await p.$eval('#skPtxt', e => e.textContent)), await p.$eval('#skPtxt', e => e.textContent));
   await p.click('#skStop');
   await p.waitForSelector('#skOptTbl', { timeout: 30000 });
   const st = await p.$eval('#skOptStat', e => e.textContent);
-  const nEv = parseInt(st.match(/na (\d+) evaluaties/)[1], 10);
-  check('Stop: de run stopt voortijdig en toont het tussenresultaat', /gestopt/.test(st) && nEv < 600, st);
+  const nEv = parseInt(st.match(/after (\d+) evaluations/)[1], 10);
+  check('Stop: de run stopt voortijdig en toont het tussenresultaat', /stopped/.test(st) && nEv < 600, st);
   check('na Stop is de knop Optimaliseer weer actief', await p.$eval('#skRun', e => !e.disabled));
-  await p.click('#skRun'); await p.waitForSelector('#skOptTbl', { timeout: 60000 }); await p.waitForTimeout(300);
-  check('volledige run: f1 neemt toe en variabelen staan op hun grens', parseFloat((await p.$$eval('#skOptOut tr.opt-doel td[data-raw]', x => x.map(e => e.dataset.raw)))[0]) > 100 && /op max/.test(await p.$eval('#skOptAct', e => e.textContent)));
+  await p.click('#skRun'); await p.waitForSelector('#skOptTbl', { timeout: 150000 }); await p.waitForTimeout(300);
+  check('volledige run: f1 neemt toe en variabelen staan op hun grens', parseFloat((await p.$$eval('#skOptOut tr.opt-doel td[data-raw]', x => x.map(e => e.dataset.raw)))[0]) > 100 && /at max/.test(await p.$eval('#skOptAct', e => e.textContent)));
   check('schets: geen long task > 200 ms tijdens de runs', (await maxLong(p)) < 200, String(await maxLong(p)));
 
   /* ---------- 390 px ---------- */

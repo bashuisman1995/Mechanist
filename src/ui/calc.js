@@ -297,7 +297,7 @@ const MAT_DEF = [matIn("mat1", t("calc.mat_def.2"), "staal"), matIn("mat2", t("c
 
 CALCS.push({
   id: "hertz", group: "Contact", name: t("calc.hertz.3"), short: t("calc.hertz.4"),
-  inputs: [selIn("geom", "Geometrie", "flat", GEOM_OPT, "Geometrie"), f("R1", t("calc.hertz.7"), "mm", 5, 0.01, [0.5, 50, 1], "Geometrie"),
+  inputs: [selIn("geom", t("calc.sec.Geometrie"), "flat", GEOM_OPT, "Geometrie"), f("R1", t("calc.hertz.7"), "mm", 5, 0.01, [0.5, 50, 1], "Geometrie"),
     f("R2", t("calc.hertz.8"), "mm", 10, 0.01, [0.5, 100, 1], "Geometrie"),
     f("F", t("calc.hertz.9"), "N", 10, 0.001, [0.1, 5000, 1], "Belasting"),
     selIn("n", t("calc.hertz.11"), "1", [["1", "1"], ["2", t("calc.hertz.12")], ["3", "3"], ["4", "4"], ["6", "6"]], "Belasting"),

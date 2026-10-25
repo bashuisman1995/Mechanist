@@ -22,12 +22,12 @@ export default async ({ browser, url, check }) => {
   check('lade ongeveer 35 % van het scherm', g.drFrac > 0.28 && g.drFrac < 0.42, JSON.stringify(g));
   check('uitleg staat in het rechterpaneel, niet over de tekening', g.uitInInspector && !g.uitOverStage, JSON.stringify(g));
   const mf = await p.$eval('#meetF', e => e.value);
-  check('meetfrequentie met komma en 3-4 cijfers', /^\d,\d{3,4}$/.test(mf), mf);
+  check('measurement frequency with decimal point and 3-4 digits', /^\d\.\d{3,4}$/.test(mf), mf);
   await p.fill('#meetF', '3,559'); await p.waitForTimeout(100);
   const o = await p.$eval('#meetOut', e => e.textContent);
-  check('komma wordt als invoer geaccepteerd', /°/.test(o), o);
+  check('comma is accepted as input', /°/.test(o), o);
   const res = await p.evaluate(() => ({ big: document.getElementById('dofVal').textContent, of: document.getElementById('dofOf').textContent, st: document.getElementById('resState').textContent }));
-  check('Resultaat in FRF: eigenfrequentie en demping, ingang/uitgang', /Hz/.test(res.big) && /ζ/.test(res.of) && /ingang/.test(res.st) && !/aandrijving/.test(res.of), JSON.stringify(res));
+  check('Resultaat in FRF: eigenfrequentie en demping, ingang/uitgang', /Hz/.test(res.big) && /ζ/.test(res.of) && /input/.test(res.st) && !/drive/.test(res.of), JSON.stringify(res));
   // lade slepen en onthouden
   const grip = await p.$eval('#grip', e => { const b = e.getBoundingClientRect(); return { x: b.left + 200, y: b.top + 3 }; });
   await p.mouse.move(grip.x, grip.y); await p.mouse.down(); await p.mouse.move(grip.x, grip.y - 60, { steps: 4 }); await p.mouse.up();

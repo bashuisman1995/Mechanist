@@ -11,31 +11,31 @@ export default async ({ browser, url, check }) => {
 
   await p.click('[data-c="hertz"]');
   await p.fill('[data-in="theta"]', '100'); await frame();
-  check('Hertz: θ = 100° begrensd tot 89° met melding', /θ begrensd tot 89 °/.test(await warn()) && val(await res('Normaalkracht per contact F_n')) > 0, await warn());
+  check('Hertz: θ = 100° begrensd tot 89° met melding', /θ capped at 89 °/.test(await warn()) && val(await res('Normaalkracht per contact F_n')) > 0, await warn());
   check('Hertz: oranje melding gebruikt calc-warn', (await p.$$('#calcWarn .calc-clamp')).length === 1);
   check('Hertz: SVG zonder NaN', !(await svgBad()));
   await p.fill('[data-in="theta"]', '45'); await frame();
-  check('Hertz: θ = 45° geen begrenzing', !/begrensd/.test(await warn()));
+  check('Hertz: θ = 45° geen begrenzing', !/capped/.test(await warn()));
 
   await p.click('[data-c="kc"]');
   await p.fill('[data-in="gamma"]', '360'); await frame();
-  check('KC: γ = 360° begrensd tot 179°', /γ begrensd tot 179 °/.test(await warn()) && val(await res('Normaalkracht per contact N')) > 0, await warn());
+  check('KC: γ = 360° begrensd tot 179°', /γ capped at 179 °/.test(await warn()) && val(await res('Normaalkracht per contact N')) > 0, await warn());
   await p.fill('[data-in="gamma"]', '90');
   await p.fill('[data-in="mu"]', '10'); await frame();
-  check('KC: μ = 10 begrensd tot 2', /μ begrensd tot 2/.test(await warn()), await warn());
+  check('KC: μ = 10 begrensd tot 2', /μ capped at 2/.test(await warn()), await warn());
   await p.fill('[data-in="mu"]', '0.15');
 
   await p.click('[data-c="msd"]');
   await p.fill('[data-in="dval"]', '5'); await frame();
   check('MSD: ζ < 1 gebruikt 4/(ζ·ω_n)', /4\/\(ζ·ω_n\)/.test(await p.$eval('[data-key="2"]', e => e.textContent)));
   await p.fill('[data-in="dval"]', '200'); await frame();
-  check('MSD: ζ = 2 gebruikt numerieke methode', /numeriek/.test(await p.$eval('[data-key="2"]', e => e.textContent)));
+  check('MSD: ζ = 2 gebruikt numerieke methode', /numeric/.test(await p.$eval('[data-key="2"]', e => e.textContent)));
   await p.click('[data-sec="Formules"] summary'); await frame();
-  check('MSD: formulerij noemt het criterium', /±2 %-band/.test(await p.$eval('#calcFormulas', e => e.textContent)));
+  check('MSD: formulerij noemt het criterium', /±2 % band/.test(await p.$eval('#calcFormulas', e => e.textContent)));
   await p.fill('[data-in="dval"]', '1e300'); await frame();
-  check('MSD: extreme demping geeft "buiten bereik" en geldige SVG', /buiten bereik/.test(await p.$eval('#calcOut', e => e.textContent)) && /buiten bereik/.test(await warn()) && !(await svgBad()));
+  check('MSD: extreme demping geeft "buiten bereik" en geldige SVG', /out of range/.test(await p.$eval('#calcOut', e => e.textContent)) && /out of range/.test(await warn()) && !(await svgBad()));
   await p.fill('[data-in="dval"]', '5'); await frame();
-  check('MSD: terug in bereik zonder "buiten bereik"', !/buiten bereik/.test(await p.$eval('#calcOut', e => e.textContent)));
+  check('MSD: terug in bereik zonder "buiten bereik"', !/out of range/.test(await p.$eval('#calcOut', e => e.textContent)));
 
   await p.click('[data-c="exp"]');
   const drift = await res('Netto drift per kelvin');

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mechanismeschets</title>
-<meta name="mech-build" content="6d8a345">
+<meta name="mech-build" content="13c297f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -706,6 +706,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
 .topbar #workSeg { background: rgba(233,235,234,.08); border-color: rgba(233,235,234,.14); }
 .topbar #workSeg button { color: var(--brand-ink); background: transparent; }
 .topbar #workSeg button[aria-pressed="true"] { background: rgba(233,235,234,.18); color: var(--brand-ink); }
+.langtop { display: none; }
+.app.calc-on .langtop { display: inline-flex; }
+.topbar .langtop button { color: var(--brand-ink-2); }
+.topbar .langtop button[aria-pressed="true"] { background: #FFFFFF; color: var(--brand); }
 .app.calc-on .main, .app.calc-on .statusbar, .app.calc-on .modewrap, .app.calc-on .topbar-group { display: none; }
 .calc { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 0; min-width: 0; overflow: hidden; background: var(--ground); }
 .calc[hidden] { display: none; }
@@ -1131,6 +1135,11 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     </div>
 
     <span class="grow"></span>
+
+    <span class="seg langtop" id="langSegTop" role="group" aria-label="Language">
+      <button type="button" data-lang="en" aria-pressed="true" title="English">EN</button>
+      <button type="button" data-lang="nl" aria-pressed="false" title="Nederlands">NL</button>
+    </span>
 
     <div class="topbar-group">
       <button class="btn ghost ico" id="undoBtn" data-i18n-title="top.undo" title="Undo (Ctrl+Z)" data-i18n-aria="top.undo.aria" aria-label="Undo">&#8630;</button>
@@ -4149,7 +4158,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     });
     if (!root2) {
       document.documentElement.lang = cur;
-      document.querySelectorAll("#langSeg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === cur)));
+      document.querySelectorAll("button[data-lang]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === cur)));
     }
   }
   function setLang(l, silent) {
@@ -16701,7 +16710,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
       name: t("calc.hertz.3"),
       short: t("calc.hertz.4"),
       inputs: [
-        selIn("geom", "Geometrie", "flat", GEOM_OPT, "Geometrie"),
+        selIn("geom", t("calc.sec.Geometrie"), "flat", GEOM_OPT, "Geometrie"),
         f("R1", t("calc.hertz.7"), "mm", 5, 0.01, [0.5, 50, 1], "Geometrie"),
         f("R2", t("calc.hertz.8"), "mm", 10, 0.01, [0.5, 100, 1], "Geometrie"),
         f("F", t("calc.hertz.9"), "N", 10, 1e-3, [0.1, 5e3, 1], "Belasting"),
@@ -19809,6 +19818,10 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     });
   }
   function initMenu() {
+    document.getElementById("langSegTop").addEventListener("click", (ev) => {
+      const b = ev.target.closest("button");
+      if (b && b.dataset.lang) setLang(b.dataset.lang);
+    });
     menus.forEach((m) => {
       m.btn.addEventListener("click", (ev) => {
         ev.stopPropagation();
@@ -20236,7 +20249,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
     const thermal = model.mode === "kin" && outs.some((o) => /^th:/.test(o.key));
     let h = '<p class="empty">' + t("opt.s.intro", { mode: "<b>" + esc6(modeName2(model.mode)) + "</b>" }) + "</p>";
     if (thermal) h += '<button type="button" class="btn primary opt-oneclick" id="skAth" title="' + esc6(t("opt.s.ath.t")) + '">' + esc6(t("opt.s.ath")) + "</button>";
-    h += '<div class="opt-sec"><div class="opt-h">' + esc6(t("opt.s.obj")) + '</div><label class="fld"><span class="sr-only">' + esc6(t("opt.s.obj")) + '</span><select id="skObj" aria-label="' + esc6(t("opt.s.obj")) + '">' + optionsHtml(outs, S2.obj) + '</select></label><label class="fld" id="skFxRow"' + (S2.obj === "fx" ? "" : " hidden") + "><span>" + esc6(t("opt.s.fx")) + '</span><input type="text" id="skFx" value="' + esc6(S2.fx) + '" autocomplete="off" spellcheck="false" style="width:100%"></label><div class="opt-seg" id="skSense" role="group" aria-label="' + esc6(t("opt.s.dir")) + '">' + [["min", t("opt.s.min")], ["max", t("opt.s.max")], ["target", t("opt.s.target")]].map((a) => '<button type="button" class="chip' + (S2.sense === a[0] ? " on" : "") + '" data-sense="' + a[0] + '" aria-pressed="' + (S2.sense === a[0]) + '">' + a[1] + "</button>").join("") + '</div><label class="fld" id="skTgtRow"' + (S2.sense === "target" ? "" : " hidden") + "><span>" + esc6(t("opt.s.tgt")) + '</span><input type="number" step="any" id="skTarget" value="' + esc6(String(S2.target)) + '"></label></div>';
+    h += '<div class="opt-sec"><div class="opt-h">' + esc6(t("opt.s.obj")) + '</div><label class="fld"><span class="sr-only">' + esc6(t("opt.s.obj")) + '</span><select id="skObj" aria-label="' + esc6(t("opt.s.obj")) + '">' + optionsHtml(outs, S2.obj) + '</select></label><label class="fld" id="skFxRow"' + (S2.obj === "fx" ? "" : " hidden") + "><span>" + esc6(t("opt.s.fx")) + '</span><input type="text" id="skFx" value="' + esc6(S2.fx) + '" autocomplete="off" spellcheck="false" style="width:100%"></label><div class="opt-seg" id="skSense" role="group" aria-label="' + esc6(t("opt.s.dir")) + '">' + [["min", t("opt.s.min")], ["max", t("opt.s.max")], ["target", t("opt.s.target")]].map((a) => '<button type="button" class="chip' + (S2.sense === a[0] ? " on" : "") + '" data-sense="' + a[0] + '" aria-pressed="' + (S2.sense === a[0]) + '">' + a[1] + "</button>").join("") + '</div><label class="fld" id="skTgtRow"' + (S2.sense === "target" ? "" : " hidden") + "><span>" + esc6(t("opt.s.tgt")) + '</span><input type="text" inputmode="decimal" autocomplete="off" step="any" id="skTarget" value="' + esc6(String(S2.target)) + '"></label></div>';
     h += '<div class="opt-sec"><div class="opt-h">' + esc6(t("opt.s.vars")) + ' <span class="opt-sub">' + esc6(t("opt.s.varsub")) + "</span></div>";
     let lastG = "";
     vs.forEach((v) => {
@@ -20249,15 +20262,15 @@ input[type="checkbox"] { accent-color: var(--accent); width: auto; }
         h += '<div class="opt-var"><label class="chk"><input type="checkbox" data-mat="' + esc6(v.key) + '"' + (S2.matOn[v.key] ? " checked" : "") + "> " + esc6(t("opt.s.allmat", { l: v.label })) + "</label></div>";
         return;
       }
-      h += '<div class="opt-var" data-ov="' + esc6(v.key) + '"><label class="chk"><input type="checkbox" data-vf="on"' + (s.on ? " checked" : "") + "> " + esc6(v.label) + ' <span class="opt-u">' + esc6(t("opt.s.now", { v: n33(v.value), u: v.unit })) + '</span></label><div class="opt-rng"><label>min <input type="number" step="any" data-vf="min" value="' + esc6(s.min) + '"></label><label>max <input type="number" step="any" data-vf="max" value="' + esc6(s.max) + '"></label><label class="chk opt-log" title="' + esc6(t("opt.s.log.t")) + '"><input type="checkbox" data-vf="log"' + (s.log ? " checked" : "") + "> log</label></div></div>";
+      h += '<div class="opt-var" data-ov="' + esc6(v.key) + '"><label class="chk"><input type="checkbox" data-vf="on"' + (s.on ? " checked" : "") + "> " + esc6(v.label) + ' <span class="opt-u">' + esc6(t("opt.s.now", { v: n33(v.value), u: v.unit })) + '</span></label><div class="opt-rng"><label>min <input type="text" inputmode="decimal" autocomplete="off" step="any" data-vf="min" value="' + esc6(s.min) + '"></label><label>max <input type="text" inputmode="decimal" autocomplete="off" step="any" data-vf="max" value="' + esc6(s.max) + '"></label><label class="chk opt-log" title="' + esc6(t("opt.s.log.t")) + '"><input type="checkbox" data-vf="log"' + (s.log ? " checked" : "") + "> log</label></div></div>";
     });
     h += "</div>";
     h += '<div class="opt-sec"><div class="opt-h">' + esc6(t("opt.s.cons")) + "</div>";
     S2.cons.forEach((r, k) => {
-      h += '<div class="opt-con" data-ci="' + k + '"><div class="opt-con-a"><label class="chk"><input type="checkbox" data-cf="on"' + (r.on ? " checked" : "") + ' aria-label="' + esc6(t("opt.s.con.on")) + '"></label><select data-cf="out" aria-label="' + esc6(t("opt.s.con.out")) + '">' + optionsHtml(outs, r.out, true) + '</select></div><div class="opt-con-b"><select data-cf="op" aria-label="' + esc6(t("opt.s.dir")) + '"><option value="le"' + (r.op === "le" ? " selected" : "") + '>\u2264</option><option value="ge"' + (r.op === "ge" ? " selected" : "") + '>\u2265</option></select><input type="number" step="any" data-cf="val" value="' + esc6(r.val) + '" aria-label="' + esc6(t("opt.s.con.lim")) + '"><button type="button" class="opt-x" data-cdel="' + k + '" aria-label="' + esc6(t("opt.s.con.del")) + '" title="' + esc6(t("opt.s.con.del.t")) + '">\xD7</button></div></div>';
+      h += '<div class="opt-con" data-ci="' + k + '"><div class="opt-con-a"><label class="chk"><input type="checkbox" data-cf="on"' + (r.on ? " checked" : "") + ' aria-label="' + esc6(t("opt.s.con.on")) + '"></label><select data-cf="out" aria-label="' + esc6(t("opt.s.con.out")) + '">' + optionsHtml(outs, r.out, true) + '</select></div><div class="opt-con-b"><select data-cf="op" aria-label="' + esc6(t("opt.s.dir")) + '"><option value="le"' + (r.op === "le" ? " selected" : "") + '>\u2264</option><option value="ge"' + (r.op === "ge" ? " selected" : "") + '>\u2265</option></select><input type="text" inputmode="decimal" autocomplete="off" step="any" data-cf="val" value="' + esc6(r.val) + '" aria-label="' + esc6(t("opt.s.con.lim")) + '"><button type="button" class="opt-x" data-cdel="' + k + '" aria-label="' + esc6(t("opt.s.con.del")) + '" title="' + esc6(t("opt.s.con.del.t")) + '">\xD7</button></div></div>';
     });
     h += '<div class="opt-conacts"><button type="button" class="calc-reset" id="skAddCon">' + esc6(t("opt.s.addcon")) + "</button></div></div>";
-    h += '<div class="opt-sec"><label class="fld"><span>' + esc6(t("opt.s.maxeval")) + '</span><input type="number" step="1" min="20" id="skMax" value="' + S2.maxEval + '"></label></div>';
+    h += '<div class="opt-sec"><label class="fld"><span>' + esc6(t("opt.s.maxeval")) + '</span><input type="text" inputmode="decimal" autocomplete="off" step="1" min="20" id="skMax" value="' + S2.maxEval + '"></label></div>';
     h += '<div class="opt-run"><button type="button" class="btn primary" id="skRun">' + esc6(t("opt.s.run")) + '</button><button type="button" class="btn" id="skStop" hidden>' + esc6(t("opt.s.stop")) + '</button><progress id="skProg" max="' + S2.maxEval + '" value="0" hidden></progress><span class="opt-ptxt" id="skPtxt" role="status" aria-live="polite">' + esc6(S2.msg) + "</span></div>";
     return h;
   }

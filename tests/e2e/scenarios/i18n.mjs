@@ -12,18 +12,21 @@ const KEY_RE = new RegExp('(?<![\\w.])(?:' + KEYS.map(esc).join('|') + ')(?![\\w
 const GROUPS = [...new Set(KEYS.map(k => k.split('.')[0]))].filter(g => g.length > 2);
 const UNKNOWN_RE = new RegExp('(?<![\\w.])(?:' + GROUPS.map(esc).join('|') + ')\\.[a-z][\\w]*(?:\\.[\\w]+)*(?![\\w(])');
 // veelvoorkomende Nederlandse woorden; hoofdletterongevoelig, hele woorden
-const NL_RE = /\b(het|een|van|niet|stijfheid|veer|veren|klik|selecteer|kies|instellingen|schakel|schakels|staaf|staven|punt|punten|waarde|kracht|lengte|uitkomst|uitkomsten|opslaan|sluiten|annuleren|bereken|doorgerekend|hoek|toelaatbare|geen|voor|met|bij|naar|zonder|alleen|meer|onder|boven|tussen|eigenschappen|metingen|gereedschap|bibliotheek|rekenblad|aandrijving|massa|snelheid|frequentie|demper|speling|glijder|scharnier|kruk)\b/i;
+const NL_RE = /\b(het|een|van|niet|stijfheid|veer|veren|klik|selecteer|kies|instellingen|schakel|schakels|staaf|staven|punt|punten|waarde|kracht|lengte|uitkomst|uitkomsten|opslaan|sluiten|annuleren|bereken|doorgerekend|hoek|toelaatbare|geen|voor|met|bij|naar|zonder|alleen|meer|onder|boven|tussen|geometrie|belasting|eigenschappen|metingen|gereedschap|bibliotheek|rekenblad|aandrijving|massa|snelheid|frequentie|demper|speling|glijder|scharnier|kruk)\b/i;
 const grid = [];
 for (let i = 0; i < 9; i++) for (let j = 0; j < 6; j++) grid.push([0.1 + i * 0.1, 0.12 + j * 0.15]);
 
 export default async ({ browser, url, check }) => {
   const p = await newPage(browser, url);
+  const origClick = p.click.bind(p);
+  p.click = async (sel, o) => { try { return await origClick(sel, o); } catch (e) { throw new Error('click ' + sel + ' after ' + (globalThis.__i18nCur || '') + ': ' + e.message.split('\n')[0]); } };
   const txt = () => p.evaluate(() => document.body.innerText + '\n' + [...document.querySelectorAll('[title],[aria-label],[placeholder]')].map(e => (e.title || '') + ' ' + (e.getAttribute('aria-label') || '') + ' ' + (e.getAttribute('placeholder') || '')).join('\n') + '\n' + [...document.querySelectorAll('canvas')].map(() => '').join(''));
   const svgTxt = () => p.evaluate(() => [...document.querySelectorAll('svg text, #report, #calcDetail')].map(e => e.textContent).join('\n'));
   const bad = { key: [], unk: [], nl: [] };
   let n = 0;
+  let cur = '';
   const scan = async (where, lang) => {
-    n++;
+    n++; cur = where; globalThis.__i18nCur = where;
     const t = (await txt()) + '\n' + (await svgTxt());
     const k = t.match(KEY_RE), u = t.match(UNKNOWN_RE);
     if (k) bad.key.push(where + ': ' + k[0]);
@@ -34,7 +37,7 @@ export default async ({ browser, url, check }) => {
   const sketchPass = async lang => {
     const exs = await p.evaluate(() => { document.getElementById('libBtn').click(); const a = [...document.querySelectorAll('[data-ex]')].map(e => e.dataset.ex); document.getElementById('libBtn').click(); return a; });
     for (const ex of exs) {
-      await loadExample(p, ex);
+      if (ex === 'empty') { await p.click('#libBtn'); await p.click('[data-ex="empty"]'); await dismissAsk(p); await p.waitForTimeout(300); } else await loadExample(p, ex);
       await scan(lang + ' ' + ex, lang);
       const box = await p.$eval('#cv', e => { const r = e.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; });
       const seen = new Set();
@@ -66,7 +69,7 @@ export default async ({ browser, url, check }) => {
       await p.$$eval('#calcDetail details', d => d.forEach(x => { x.open = true; }));
       const name = (await p.$eval(`#calcList button >> nth=${i}`, e => e.textContent)).trim().slice(0, 30);
       await scan(`${lang} calc ${i} ${name}`, lang);
-      await p.click('#menuBtn'); await p.click('[data-a="report"]'); await p.waitForTimeout(250); await scan(`${lang} calc ${i} sheet`, lang);
+      await p.click('#calcPrint'); await p.waitForTimeout(250); await scan(`${lang} calc ${i} sheet`, lang);
       await p.keyboard.press('Escape');
       if (await p.$('#repClose')) { try { await p.click('#repClose'); } catch (e) { /* al gesloten */ } }
     }

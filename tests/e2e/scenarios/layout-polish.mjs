@@ -22,7 +22,7 @@ export default async ({ browser, url, check }) => {
     // inklappen
     await p.click('#stiffFold'); await p.waitForTimeout(100);
     const f = await p.evaluate(() => ({ chips: getComputedStyle(document.getElementById('stiffChips')).display, sum: document.getElementById('stiffSum').textContent, exp: document.getElementById('stiffFold').getAttribute('aria-expanded') }));
-    check(`${tag}: balk klapt in (samenvatting zichtbaar)`, f.chips === 'none' && /Statisch/.test(f.sum) && f.exp === 'false', JSON.stringify(f));
+    check(`${tag}: balk klapt in (samenvatting zichtbaar)`, f.chips === 'none' && /Static/.test(f.sum) && f.exp === 'false', JSON.stringify(f));
     await p.click('#stiffFold'); await p.waitForTimeout(100);
     check(`${tag}: balk klapt weer uit`, await p.$eval('#stiffChips', e => getComputedStyle(e).display !== 'none'));
     // hint: weg na de eerste handeling op de tekening, terug met ?

@@ -50,7 +50,7 @@ function formHtml() {
   h += '<div class="opt-sec"><div class="opt-h">' + esc(t("opt.s.obj")) + '</div><label class="fld"><span class="sr-only">' + esc(t("opt.s.obj")) + '</span><select id="skObj" aria-label="' + esc(t("opt.s.obj")) + '">' + optionsHtml(outs, S.obj) + "</select></label>" +
     '<label class="fld" id="skFxRow"' + (S.obj === "fx" ? "" : " hidden") + '><span>' + esc(t("opt.s.fx")) + '</span><input type="text" id="skFx" value="' + esc(S.fx) + '" autocomplete="off" spellcheck="false" style="width:100%"></label>' +
     '<div class="opt-seg" id="skSense" role="group" aria-label="' + esc(t("opt.s.dir")) + '">' + [["min", t("opt.s.min")], ["max", t("opt.s.max")], ["target", t("opt.s.target")]].map(a => '<button type="button" class="chip' + (S.sense === a[0] ? " on" : "") + '" data-sense="' + a[0] + '" aria-pressed="' + (S.sense === a[0]) + '">' + a[1] + "</button>").join("") + "</div>" +
-    '<label class="fld" id="skTgtRow"' + (S.sense === "target" ? "" : " hidden") + '><span>' + esc(t("opt.s.tgt")) + '</span><input type="number" step="any" id="skTarget" value="' + esc(String(S.target)) + '"></label></div>';
+    '<label class="fld" id="skTgtRow"' + (S.sense === "target" ? "" : " hidden") + '><span>' + esc(t("opt.s.tgt")) + '</span><input type="text" inputmode="decimal" autocomplete="off" step="any" id="skTarget" value="' + esc(String(S.target)) + '"></label></div>';
   h += '<div class="opt-sec"><div class="opt-h">' + esc(t("opt.s.vars")) + ' <span class="opt-sub">' + esc(t("opt.s.varsub")) + "</span></div>";
   let lastG = "";
   vs.forEach(v => {
@@ -61,7 +61,7 @@ function formHtml() {
       return;
     }
     h += '<div class="opt-var" data-ov="' + esc(v.key) + '"><label class="chk"><input type="checkbox" data-vf="on"' + (s.on ? " checked" : "") + "> " + esc(v.label) + ' <span class="opt-u">' + esc(t("opt.s.now", { v: n3(v.value), u: v.unit })) + "</span></label>" +
-      '<div class="opt-rng"><label>min <input type="number" step="any" data-vf="min" value="' + esc(s.min) + '"></label><label>max <input type="number" step="any" data-vf="max" value="' + esc(s.max) + '"></label>' +
+      '<div class="opt-rng"><label>min <input type="text" inputmode="decimal" autocomplete="off" step="any" data-vf="min" value="' + esc(s.min) + '"></label><label>max <input type="text" inputmode="decimal" autocomplete="off" step="any" data-vf="max" value="' + esc(s.max) + '"></label>' +
       '<label class="chk opt-log" title="' + esc(t("opt.s.log.t")) + '"><input type="checkbox" data-vf="log"' + (s.log ? " checked" : "") + "> log</label></div></div>";
   });
   h += "</div>";
@@ -69,10 +69,10 @@ function formHtml() {
   S.cons.forEach((r, k) => {
     h += '<div class="opt-con" data-ci="' + k + '"><div class="opt-con-a"><label class="chk"><input type="checkbox" data-cf="on"' + (r.on ? " checked" : "") + ' aria-label="' + esc(t("opt.s.con.on")) + '"></label><select data-cf="out" aria-label="' + esc(t("opt.s.con.out")) + '">' + optionsHtml(outs, r.out, true) + '</select></div>' +
       '<div class="opt-con-b"><select data-cf="op" aria-label="' + esc(t("opt.s.dir")) + '"><option value="le"' + (r.op === "le" ? " selected" : "") + '>≤</option><option value="ge"' + (r.op === "ge" ? " selected" : "") + '>≥</option></select>' +
-      '<input type="number" step="any" data-cf="val" value="' + esc(r.val) + '" aria-label="' + esc(t("opt.s.con.lim")) + '"><button type="button" class="opt-x" data-cdel="' + k + '" aria-label="' + esc(t("opt.s.con.del")) + '" title="' + esc(t("opt.s.con.del.t")) + '">×</button></div></div>';
+      '<input type="text" inputmode="decimal" autocomplete="off" step="any" data-cf="val" value="' + esc(r.val) + '" aria-label="' + esc(t("opt.s.con.lim")) + '"><button type="button" class="opt-x" data-cdel="' + k + '" aria-label="' + esc(t("opt.s.con.del")) + '" title="' + esc(t("opt.s.con.del.t")) + '">×</button></div></div>';
   });
   h += '<div class="opt-conacts"><button type="button" class="calc-reset" id="skAddCon">' + esc(t("opt.s.addcon")) + "</button></div></div>";
-  h += '<div class="opt-sec"><label class="fld"><span>' + esc(t("opt.s.maxeval")) + '</span><input type="number" step="1" min="20" id="skMax" value="' + S.maxEval + '"></label></div>';
+  h += '<div class="opt-sec"><label class="fld"><span>' + esc(t("opt.s.maxeval")) + '</span><input type="text" inputmode="decimal" autocomplete="off" step="1" min="20" id="skMax" value="' + S.maxEval + '"></label></div>';
   h += '<div class="opt-run"><button type="button" class="btn primary" id="skRun">' + esc(t("opt.s.run")) + '</button><button type="button" class="btn" id="skStop" hidden>' + esc(t("opt.s.stop")) + '</button>' +
     '<progress id="skProg" max="' + S.maxEval + '" value="0" hidden></progress><span class="opt-ptxt" id="skPtxt" role="status" aria-live="polite">' + esc(S.msg) + "</span></div>";
   return h;

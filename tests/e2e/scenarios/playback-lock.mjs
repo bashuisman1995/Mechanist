@@ -14,7 +14,7 @@ export default async ({ browser, url, check }) => {
   await p.keyboard.press('n'); await p.mouse.click(300, 150); await p.waitForTimeout(200);
   check('punt-tool bij t≠0 voegt geen knoop toe', (await store(p)).nodes.length === n0);
   const hint = await p.$eval('#hint', e => e.textContent);
-  check('vergrendel-hint getoond', /Bewerken kan alleen op t = 0/.test(hint), hint);
+  check('vergrendel-hint getoond', /Editing is only possible at t = 0/.test(hint), hint);
   await p.click('#lockBtn'); await p.waitForTimeout(200);
   check('lockBtn zet scrub terug op 0', +(await p.$eval('#scrub', e => e.value)) === 0);
   check('lockBar verborgen na terugspoelen', !(await visible(p, '#lockBar')));

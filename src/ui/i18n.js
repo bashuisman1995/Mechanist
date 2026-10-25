@@ -47,7 +47,7 @@ export function applyStatic(root) {
   r.querySelectorAll("[data-i18n-ph]").forEach(e => { e.setAttribute("placeholder", t(e.getAttribute("data-i18n-ph"))); });
   if (!root) {
     document.documentElement.lang = cur;
-    document.querySelectorAll("#langSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === cur)));
+    document.querySelectorAll("button[data-lang]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === cur)));
   }
 }
 

@@ -19,15 +19,15 @@ export default async ({ browser, url, check }) => {
   scan: for (let y = box.y + 20; y < box.y + box.h - 20; y += 8)
     for (let x = box.x + 20; x < box.x + box.w - 20; x += 8) {
       await p.mouse.click(x, y);
-      if (/Contact bal/.test(await p.$eval('#props', e => e.textContent))) { found = true; break scan; }
+      if (/Contact ball/.test(await p.$eval('#props', e => e.textContent))) { found = true; break scan; }
     }
   check('contact verschijnt in de inspector', found);
   if (found) {
     const t = await p.$eval('#props', e => e.textContent);
-    check('inspector toont R, μ en F_n live', /Straal bal R/.test(t) && /Wrijving/.test(t) && /Fₙ/.test(t) && /Toestand/.test(t), t.slice(0, 200));
+    check('inspector toont R, μ en F_n live', /Ball radius R/.test(t) && /Friction/.test(t) && /Fₙ/.test(t) && /State/.test(t), t.slice(0, 200));
     await p.click('[data-t="how"]'); await p.waitForTimeout(200);
     const h = await p.$eval('#howPanel', e => e.textContent);
-    check('Hoe rekent dit: Hertz-formule', /Contact bal/.test(h) && /δ3\/2/.test(h.replace(/\s/g, '')) || /δ.*3\/2/.test(h), h.slice(-300));
+    check('Hoe rekent dit: Hertz-formule', /Contact ball/.test(h) && /δ3\/2/.test(h.replace(/\s/g, '')) || /δ.*3\/2/.test(h), h.slice(-300));
   }
   check('geen page errors', p.errs.length === 0, p.errs.join('|'));
   await p.context().close();

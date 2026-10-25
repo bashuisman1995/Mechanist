@@ -15,6 +15,7 @@ function closeMenus(except) {
 }
 
 export function initMenu() {
+  document.getElementById("langSegTop").addEventListener("click", ev => { const b = ev.target.closest("button"); if (b && b.dataset.lang) setLang(b.dataset.lang); });
   menus.forEach(m => {
     m.btn.addEventListener("click", ev => {
       ev.stopPropagation();

@@ -11,12 +11,12 @@ export default async ({ browser, url, check }) => {
   await p.mouse.click(box.x + box.w / 2 + 80, box.y + box.h / 2);
   await p.click('[data-t="props"]');
   const t = await p.$eval('#props', e => e.textContent);
-  check('inspector toont de flexure (type, maten, K, σ)', /Flexure \(PRBM\)/.test(t) && /Bladveer \(uitkraging\)/.test(t) && /Dikte t/.test(t) && /K\s*\d/.test(t) && /σ/.test(t), t.slice(0, 300));
+  check('inspector toont de flexure (type, maten, K, σ)', /Flexure \(PRBM\)/.test(t) && /Leaf spring \(cantilever\)/.test(t) && /Thickness t/.test(t) && /K\s*\d/.test(t) && /σ/.test(t), t.slice(0, 300));
   await p.selectOption('#fk', 'notch');
   const t2 = await p.$eval('#props', e => e.textContent);
-  check('type Scharnier met inkeping toont R en K_t', /Inkepingsstraal R/.test(t2), t2.slice(0, 200));
+  check('type Scharnier met inkeping toont R en K_t', /Notch radius R/.test(t2), t2.slice(0, 200));
   await p.selectOption('#fk', 'cross');
-  check('type Kruisveerscharnier', /Kruisveerscharnier/.test(await p.$eval('#props', e => e.textContent)));
+  check('type Kruisveerscharnier', /Cross-spring pivot/.test(await p.$eval('#props', e => e.textContent)));
   await p.click('[data-t="how"]'); await p.waitForTimeout(250);
   const h = await p.$eval('#howPanel', e => e.textContent);
   check('Hoe rekent dit: PRBM-formules en bron', /Flexure/.test(h) && /Howell/.test(h) && /Soemers/.test(h), h.slice(-300));
@@ -27,8 +27,8 @@ export default async ({ browser, url, check }) => {
   await p.waitForSelector('#frfNote', { state: 'attached' });
   const note = await p.$eval('#frfNote', e => e.textContent);
   const f1 = parseFloat((note.match(/(\d+(?:[.,]\d+)?)\s*Hz/) || [])[1]);
-  check('parallelguide: FRF eigenfrequentie ~ 46,8 Hz', f1 > 44 && f1 < 49, note);
-  check('Uitleg-kaart zichtbaar met 24EI/L³-vergelijking', /8,40 N\/mm/.test(await p.$eval('#uitText', e => e.textContent)));
+  check('parallelguide: FRF eigenfrequentie ~ 46.8 Hz', f1 > 44 && f1 < 49, note);
+  check('Uitleg-kaart zichtbaar met 24EI/L³-vergelijking', /8.40 N\/mm/.test(await p.$eval('#uitText', e => e.textContent)));
   check('geen page errors', p.errs.length === before && p.errs.length === 0, p.errs.join('|'));
   await p.context().close();
 };

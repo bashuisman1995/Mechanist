@@ -24,7 +24,7 @@ export default async ({ browser, url, check }) => {
   await p.click('[data-t="set"]');
   await p.click('#gravChk'); await p.waitForTimeout(200);
   check('zwaartekracht uit -> Bereken zichtbaar', await visible(p, '#solveBtn'));
-  check('stale-melding in tmsg', /Model gewijzigd/.test(await p.$eval('#tmsg', e => e.textContent)));
+  check('stale-melding in tmsg', /Model changed/.test(await p.$eval('#tmsg', e => e.textContent)));
   await p.click('#gravChk'); await p.waitForTimeout(200);
   check('zwaartekracht terug -> oplossing weer geldig', !(await p.$eval('#playBtn', e => e.disabled)));
   // evenwicht met gewrichtsdemping
@@ -34,7 +34,7 @@ export default async ({ browser, url, check }) => {
   await p.click('#solveBtn');
   await playReady(p);
   const note = await p.$eval('#dynNote', e => e.textContent);
-  check('"Evenwicht na 1.26 s"', /Evenwicht na 1,26 s/.test(note), note);
+  check('"Equilibrium after 1.26 s"', /Equilibrium after 1.26 s/.test(note), note);
   check('geen page errors', p.errs.length === 0, p.errs.join('|'));
   await p.context().close();
 };
