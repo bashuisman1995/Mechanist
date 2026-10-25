@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mechanismeschets</title>
+<title>Thalomex Precision Toolbox</title>
 <meta name="mech-build" content="">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="style.css">
 <script>
   // Safety net: if the script fails to load or crashes you see a message instead of a blank page.
@@ -43,36 +43,35 @@
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand">
-      <h1 data-i18n="app.title">Mechanism Sketch</h1>
-      <span class="ver">v0.8</span>
-      <span class="docname" id="docName" data-i18n-title="top.docname" title="Name of this model (becomes the file name when saving)"></span>
-    </div>
+    <button type="button" class="brand" id="brand" title="Back to start" data-i18n-title="look.brand.back"><span class="bname">Thalomex</span><small>Precision Toolbox</small><span class="ver" hidden>v0.8</span></button>
+    <h1 class="sr-only">Thalomex Precision Toolbox</h1>
 
-    <div class="seg" id="workSeg" role="group" data-i18n-aria="top.workspace" aria-label="Workspace">
-      <button type="button" data-w="sketch" aria-pressed="true" data-i18n="top.sketch">Sketch</button>
-      <button type="button" data-w="calc" aria-pressed="false" data-i18n="top.calc">Calculators</button>
+    <div class="grp" id="workSeg" role="group" data-i18n-aria="top.workspace" aria-label="Workspace">
+      <button type="button" class="tb" data-w="sketch" aria-pressed="false" data-i18n="top.sketch">Sketch</button>
+      <button type="button" class="tb" data-w="calc" aria-pressed="false" data-i18n="top.calc">Calculators</button>
     </div>
 
     <div class="modewrap">
       <span class="cap" data-i18n="top.mode">Mode</span>
-      <div class="seg" id="modeSeg" role="group" data-i18n-aria="top.calcmode" aria-label="Calculation mode">
-        <button type="button" data-v="kin" aria-pressed="true" data-i18n="mode.kin" data-i18n-title="mode.kin.tip" title="Exact solution per crank angle">Kinematics</button>
-        <button type="button" data-v="dyn" aria-pressed="false" data-i18n="mode.dyn" data-i18n-title="mode.dyn.tip" title="Time integration over a fixed duration: springs and dampers drive the motion">Dynamics</button>
-        <button type="button" data-v="equil" aria-pressed="false" data-i18n="mode.equil" data-i18n-title="mode.equil.tip" title="Dynamics until the mechanism comes to rest: the duration follows from the equilibrium">Equilibrium</button>
-        <button type="button" data-v="frf" aria-pressed="false" data-i18n="mode.frf" data-i18n-title="mode.frf.tip" title="Frequency response: how a vibration of an actuator, crank or force propagates, per frequency">FRF</button>
-        <button type="button" data-v="stiff" aria-pressed="false" data-i18n="mode.stiff" data-i18n-title="mode.stiff.tip" title="Linear static stiffness: beams with bending (EA + EI), deformation, stress, stiffness at a point and natural frequencies">Stiffness</button>
+      <div class="grp" id="modeSeg" role="group" data-i18n-aria="top.calcmode" aria-label="Calculation mode">
+        <button type="button" class="tb" data-v="kin" aria-pressed="true" data-i18n="mode.kin" data-i18n-title="mode.kin.tip" title="Exact solution per crank angle">Kinematics</button>
+        <button type="button" class="tb" data-v="dyn" aria-pressed="false" data-i18n="mode.dyn" data-i18n-title="mode.dyn.tip" title="Time integration over a fixed duration: springs and dampers drive the motion">Dynamics</button>
+        <button type="button" class="tb" data-v="equil" aria-pressed="false" data-i18n="mode.equil" data-i18n-title="mode.equil.tip" title="Dynamics until the mechanism comes to rest: the duration follows from the equilibrium">Equilibrium</button>
+        <button type="button" class="tb" data-v="frf" aria-pressed="false" data-i18n="mode.frf" data-i18n-title="mode.frf.tip" title="Frequency response: how a vibration of an actuator, crank or force propagates, per frequency">FRF</button>
+        <button type="button" class="tb" data-v="stiff" aria-pressed="false" data-i18n="mode.stiff" data-i18n-title="mode.stiff.tip" title="Linear static stiffness: beams with bending (EA + EI), deformation, stress, stiffness at a point and natural frequencies">Stiffness</button>
       </div>
     </div>
 
+    <span class="docname" id="docName" data-i18n-title="top.docname" title="Name of this model (becomes the file name when saving)"></span>
     <span class="grow"></span>
 
     <div class="topbar-group">
-      <button class="btn ghost ico" id="undoBtn" data-i18n-title="top.undo" title="Undo (Ctrl+Z)" data-i18n-aria="top.undo.aria" aria-label="Undo">&#8630;</button>
-      <button class="btn ghost ico" id="redoBtn" data-i18n-title="top.redo" title="Redo (Ctrl+Shift+Z)" data-i18n-aria="top.redo.aria" aria-label="Redo">&#8631;</button>
+      <button class="tb ico" id="undoBtn" data-i18n-title="top.undo" title="Undo (Ctrl+Z)" data-i18n-aria="top.undo.aria" aria-label="Undo"><i data-ic="undo" data-ic-size="18"></i></button>
+      <button class="tb ico" id="redoBtn" data-i18n-title="top.redo" title="Redo (Ctrl+Shift+Z)" data-i18n-aria="top.redo.aria" aria-label="Redo"><i data-ic="redo" data-ic-size="18"></i></button>
       <div class="sep"></div>
+      <button class="tb" id="libBtn" aria-haspopup="dialog" aria-expanded="false" data-i18n="top.library" data-i18n-title="top.library.tip" title="Examples and an empty canvas">Library</button>
       <div class="menuwrap">
-        <button class="btn" id="menuBtn" aria-haspopup="true" aria-expanded="false" data-i18n="top.file">File</button>
+        <button class="tb" id="menuBtn" aria-haspopup="true" aria-expanded="false" data-i18n="top.file">File</button>
         <div class="menu" id="menu" hidden role="menu">
           <button role="menuitem" data-a="open"><span data-i18n="menu.open">Open&hellip;</span> <span class="kbd">Ctrl+O</span></button>
           <button role="menuitem" data-a="save"><span data-i18n="menu.save">Save as file&hellip;</span> <span class="kbd">Ctrl+S</span></button>
@@ -94,9 +93,7 @@
           </div>
         </div>
       </div>
-      <button class="btn" id="libBtn" aria-haspopup="dialog" aria-expanded="false" data-i18n="top.library" data-i18n-title="top.library.tip" title="Examples and an empty canvas">Library</button>
-      <button class="btn ghost ico" id="fitBtn" data-i18n-title="top.fit" title="Fit to view" data-i18n-aria="top.fit" aria-label="Fit to view">&#10530;</button>
-      <button class="btn ghost ico" id="themeBtn" data-i18n-title="top.theme" title="Light or dark" data-i18n-aria="top.theme.aria" aria-label="Switch theme">&#9681;</button>
+      <button class="tb ico" id="themeBtn" data-i18n-title="top.theme" title="Light or dark" data-i18n-aria="top.theme.aria" aria-label="Switch theme"><i data-ic="theme" data-ic-size="18"></i></button>
     </div>
   </header>
 
@@ -107,11 +104,12 @@
       <div class="stage">
         <canvas id="cv"></canvas>
         <div class="zoomer">
-          <button id="zin" data-i18n-title="view.zin" title="Zoom in" data-i18n-aria="view.zin" aria-label="Zoom in">+</button>
-          <button id="zout" data-i18n-title="view.zout" title="Zoom out" data-i18n-aria="view.zout" aria-label="Zoom out">&minus;</button>
-          <button id="helpBtn" data-i18n-title="view.help" title="Explanation and tips (?)" data-i18n-aria="view.help.aria" aria-label="Show explanation and tips">?</button>
+          <button id="zin" data-i18n-title="view.zin" title="Zoom in" data-i18n-aria="view.zin" aria-label="Zoom in"><i data-ic="plus" data-ic-size="18"></i></button>
+          <button id="zout" data-i18n-title="view.zout" title="Zoom out" data-i18n-aria="view.zout" aria-label="Zoom out"><i data-ic="minus" data-ic-size="18"></i></button>
+          <button id="fitBtn" data-i18n-title="top.fit" title="Fit to view" data-i18n-aria="top.fit" aria-label="Fit to view"><i data-ic="fit" data-ic-size="18"></i></button>
+          <button id="helpBtn" data-i18n-title="view.help" title="Explanation and tips (?)" data-i18n-aria="view.help.aria" aria-label="Show explanation and tips"><i data-ic="help" data-ic-size="18"></i></button>
         </div>
-        <div class="hint" id="hint"></div>
+        <div class="hint" id="hint" aria-live="polite"></div>
       </div>
 
       <div class="dock">
@@ -121,10 +119,10 @@
         </div>
       <div class="transport" id="transport">
         <button class="play" id="rewBtn" data-i18n-title="dock.rew.tip" title="Back to t = 0 to edit (Home)" data-i18n-aria="dock.rew.aria" aria-label="Back to t = 0">
-          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5h2v11H3zM12 1.5l-7 5.5 7 5.5z" fill="currentColor"/></svg>
+          <svg width="16" height="16" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5h2v11H3zM12 1.5l-7 5.5 7 5.5z" fill="currentColor"/></svg>
         </button>
         <button class="play" id="playBtn" data-i18n-title="dock.play" title="Play" data-i18n-aria="dock.play" aria-label="Play">
-          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path id="playIco" d="M3 1.5l9 5.5-9 5.5z" fill="currentColor"/></svg>
+          <svg width="16" height="16" viewBox="0 0 14 14" aria-hidden="true"><path id="playIco" d="M3 1.5l9 5.5-9 5.5z" fill="currentColor"/></svg>
         </button>
       <div class="stiffbar" id="stiffBar" hidden>
         <span class="sb-mag" data-i18n-title="stiff.mag.tip" title="Magnification of the deformation"><label for="stiffSc" data-i18n="stiff.mag">Magnification</label> <b id="stiffMag" class="mag">&times;1</b></span>
@@ -146,7 +144,7 @@
           <option value="0.5" selected>0.5&times;</option>
           <option value="1">1&times;</option>
         </select>
-        <span class="msg" id="tmsg" hidden></span>
+        <span class="msg" id="tmsg" role="status" hidden></span>
         <progress id="tprog" max="1" hidden></progress>
         <button class="btn" id="stopBtn" hidden data-i18n="dock.stop" data-i18n-title="dock.stop.tip" title="Cancel the calculation">Stop</button>
         <button class="btn primary" id="solveBtn" hidden data-i18n="dock.solve" data-i18n-title="dock.solve.tip" title="Calculate (F5)">Calculate</button>
@@ -199,11 +197,11 @@
       <section class="result" id="result" data-i18n-aria="res.title" aria-label="Result">
         <h2 data-i18n="res.title">Result</h2>
         <button class="status" id="statusBtn" aria-expanded="false" data-i18n-title="res.details" title="Show details">
-          <span class="big" id="dofVal">&ndash;</span>
+          <span class="big" id="dofVal" aria-live="polite">&ndash;</span>
           <span class="of" id="dofOf"></span>
-          <span class="chev" aria-hidden="true">&#9662;</span>
+          <span class="chev" aria-hidden="true"><i data-ic="down" data-ic-size="14"></i></span>
         </button>
-        <div class="state" id="resState"></div>
+        <div class="state" id="resState" role="status" aria-live="polite"></div>
         <div id="thermBox" class="thermbox" hidden></div>
         <div id="stiffBox" class="thermbox stiffbox" hidden></div>
         <div id="statusDetail" hidden>
@@ -394,7 +392,7 @@
     <div class="card libwrap" role="dialog" aria-modal="true" aria-labelledby="libTitle">
       <div class="libhead">
         <h3 id="libTitle" data-i18n="top.library">Library</h3>
-        <button class="btn ghost ico" id="libClose" data-i18n-aria="common.close" aria-label="Close" data-i18n-title="common.close.esc" title="Close (Esc)">&times;</button>
+        <button class="btn ghost ico" id="libClose" data-i18n-aria="common.close" aria-label="Close" data-i18n-title="common.close.esc" title="Close (Esc)"><i data-ic="close" data-ic-size="18"></i></button>
       </div>
       <div class="chips" id="libChips" role="group" data-i18n-aria="lib.filter" aria-label="Filter"></div>
       <div class="libgrid" id="libGrid"></div>

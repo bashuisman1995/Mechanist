@@ -49,7 +49,7 @@ for (const f of files) {
     const mod = await import(pathToFileURL(path.join(here, 'scenarios', f)).href);
     await mod.default({ browser, url, check });
   } catch (e) {
-    check('scenario zonder uitzondering', false, e.message.split('\n')[0]);
+    check('scenario zonder uitzondering', false, process.env.VERBOSE ? e.message : e.message.split('\n')[0]);
   }
   console.log(`      (${current}: ${((Date.now() - ts) / 1000).toFixed(1)} s)`);
 }

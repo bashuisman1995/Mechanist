@@ -6,7 +6,7 @@ export default async ({ browser, url, check }) => {
     const ctx = await browser.newContext({ viewport: { width: w, height: h } });
     await ctx.addInitScript(() => { try { localStorage.setItem('mechschets.tour1', '1'); } catch (e) {} });
     const p = await ctx.newPage(); p.errs = []; p.on('pageerror', e => p.errs.push(e.message));
-    await p.goto(url); await p.waitForSelector('#menuBtn'); await p.waitForTimeout(500);
+    await p.goto(url); await p.waitForSelector('#menuBtn'); await p.click('#workSeg [data-w="sketch"]'); await p.waitForTimeout(500);
     await loadExample(p, 'stiffmixed');
     const geo = await p.evaluate(() => {
       const r = id => document.getElementById(id).getBoundingClientRect();

@@ -1,4 +1,4 @@
-import { newPage, visible } from '../lib.mjs';
+import { newPage, pickCalc, visible } from '../lib.mjs';
 const SHOT = '/tmp/claude-0/-home-user-Mechanist/1e45fc4c-94b6-53cc-82eb-8e0cec55c972/scratchpad/';
 export default async ({ browser, url, check }) => {
   const p = await newPage(browser, url);
@@ -132,11 +132,11 @@ export default async ({ browser, url, check }) => {
   await p.setViewportSize({ width: 390, height: 800 });
   await p.waitForTimeout(200);
   for (const id of ['leaf', 'par', 'cross', 'notch', 'wire']) {
-    await p.click(`[data-c="${id}"]`);
+    await pickCalc(p, id);
     const w = await p.evaluate(() => [document.documentElement.scrollWidth, document.body.scrollWidth, document.querySelector('.calc-detail').scrollWidth, innerWidth]);
     check(`390 px: geen horizontale scroll (${id})`, w[0] <= w[3] && w[1] <= w[3] && w[2] <= w[3], w.join(','));
   }
-  await p.click('[data-c="leaf"]');
+  await pickCalc(p, 'leaf');
   const order = await p.evaluate(() => { const f = document.querySelector('.calc-fig').getBoundingClientRect().top, k = document.querySelector('.calc-keys').getBoundingClientRect().top, i = document.querySelector('.calc-inputs').getBoundingClientRect().top; return [f, k, i]; });
   check('390 px: tekening eerst, dan kerngetallen, dan invoer', order[0] < order[1] && order[1] < order[2], order.join(','));
   await p.screenshot({ path: SHOT + 'calc2_390.png' });

@@ -8,11 +8,12 @@ import DICT_CALC from "./lang/calc.js";
 import DICT_CORE from "./lang/core.js";
 import DICT_EXAMPLES from "./lang/examples.js";
 import DICT_REPORT from "./lang/report.js";
+import DICT_LOOK from "./lang/look.js";
 
 export const LANGS = ["en", "nl"];
 export const LANG_KEY = "mechschets.lang";
 export const DICTS = { en: {}, nl: {} };
-[DICT_UI, DICT_INSPECTOR, DICT_HOW, DICT_CALC, DICT_CORE, DICT_EXAMPLES, DICT_REPORT].forEach(d => {
+[DICT_UI, DICT_INSPECTOR, DICT_HOW, DICT_CALC, DICT_CORE, DICT_EXAMPLES, DICT_REPORT, DICT_LOOK].forEach(d => {
   Object.keys(d).forEach(k => {
     if (DICTS.en[k] !== undefined) throw new Error("dubbele vertaalsleutel: " + k);
     DICTS.en[k] = d[k][0]; DICTS.nl[k] = d[k][1];
