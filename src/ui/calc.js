@@ -1542,6 +1542,7 @@ export function setWork(w) {
   document.querySelectorAll("#workSeg [data-w]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.w === w)));
   if (!calc) window.dispatchEvent(new Event("resize"));
   else if (!REF) renderDetail();
+  document.dispatchEvent(new CustomEvent("mech-work", { detail: w }));
 }
 
 // Optimaliseer: één evaluatie van een calculator met andere invoer en/of materiaal, zonder het scherm te raken

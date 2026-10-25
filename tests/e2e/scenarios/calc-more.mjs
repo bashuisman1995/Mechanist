@@ -1,5 +1,5 @@
 // Calculators Contact, Dynamica, Thermisch: waarden uit handberekeningen, sliders, tekening, Kopieer/Link en 390 px.
-import { newPage } from '../lib.mjs';
+import { newPage, pickCalc } from '../lib.mjs';
 const SHOT = '/tmp/claude-0/-home-user-Mechanist/1e45fc4c-94b6-53cc-82eb-8e0cec55c972/scratchpad/';
 export default async ({ browser, url, check }) => {
   const p = await newPage(browser, url);
@@ -91,7 +91,7 @@ export default async ({ browser, url, check }) => {
   // alle nieuwe: structuur, formules, tekening past zich aan, Kopieer, Link
   const sl = { hertz: 'R1', kc: 'F', msd: 'm', iso: 'fd', servo: 'fn', exp: 'L2', tau: 't' };
   for (const id of Object.keys(sl)) {
-    await p.click(`[data-c="${id}"]`);
+    await pickCalc(p, id);
     check(`${id}: resultaten en drie kerngetallen`, (await p.$$('#calcOut > div')).length >= 9 && (await p.$$('.calc-key')).length === 3);
     const s0 = await p.$eval('#calcSvg', e => e.innerHTML);
     await slide(sl[id], 850); await frame();
@@ -128,7 +128,7 @@ export default async ({ browser, url, check }) => {
   await p.setViewportSize({ width: 390, height: 800 });
   await p.waitForTimeout(200);
   for (const id of Object.keys(sl)) {
-    await p.click(`[data-c="${id}"]`);
+    await pickCalc(p, id);
     const w = await p.evaluate(() => [document.documentElement.scrollWidth, document.body.scrollWidth, document.querySelector('.calc-detail').scrollWidth, innerWidth]);
     check(`390 px: geen horizontale scroll (${id})`, w[0] <= w[3] && w[1] <= w[3] && w[2] <= w[3], w.join(','));
     await p.evaluate(() => { document.querySelector('.calc-detail').scrollTop = 0; });

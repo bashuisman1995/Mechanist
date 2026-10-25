@@ -172,10 +172,43 @@ export function listOutputs() {
  * Geeft { vals: {sleutel: getal}, err } terug; een uitkomst die niet te berekenen is, is NaN.
  */
 export function evaluate(snap, assign, keys, opts) {
+  const gen = evaluateGen(snap, assign, keys, Object.assign({}, opts, { shouldStop: null }));
+  for (;;) { const r = gen.next(); if (r.done) return r.value; }
+}
+
+/**
+ * Zelfde als evaluate, maar als generator: tijdens een lange berekening (dynamica, volledige FRF) geeft hij regelmatig
+ * de besturing terug, en zet dan het echte model weer terug, zodat de pagina bedienbaar blijft. Geeft opts.shouldStop() true
+ * terwijl hij wacht, dan stopt hij en geeft { vals: NaN, err: "", aborted: true } terug. De generator mag ook met .return() worden gestopt.
+ */
+export function* evaluateGen(snap, assign, keys, opts) {
   opts = opts || {};
   const live = { nodes: model.nodes, elems: model.elems }, props = {}, simKeep = { sweep: sim.sweep, ok: sim.solveOK, t: sim.simT, len: sim.lenOv, msg: sim.frfMsg };
   PROPS.forEach(k => { props[k] = model[k]; });
-  model.nodes = clone(snap.nodes); model.elems = clone(snap.elems); Object.assign(model, snap.props);
+  const mine = { nodes: clone(snap.nodes), elems: clone(snap.elems), props: {}, sim: null };
+  let inside = false;
+  const enter = () => {
+    inside = true;
+    model.nodes = mine.nodes; model.elems = mine.elems; Object.assign(model, snap.props, mine.props);
+    if (mine.sim) { sim.sweep = mine.sim.sweep; sim.solveOK = mine.sim.ok; sim.simT = mine.sim.t; sim.lenOv = mine.sim.len; sim.frfMsg = mine.sim.msg; }
+  };
+  const leave = () => {
+    inside = false;
+    mine.nodes = model.nodes; mine.elems = model.elems;
+    PROPS.forEach(k => { mine.props[k] = model[k]; });
+    mine.sim = { sweep: sim.sweep, ok: sim.solveOK, t: sim.simT, len: sim.lenOv, msg: sim.frfMsg };
+    model.nodes = live.nodes; model.elems = live.elems; Object.assign(model, props);
+    sim.sweep = simKeep.sweep; sim.solveOK = simKeep.ok; sim.simT = simKeep.t; sim.lenOv = simKeep.len; sim.frfMsg = simKeep.msg;
+  };
+  const ABORT = {};
+  // een stuk van een lange berekening is klaar: geef de besturing terug (echt model terug), en ga daarna verder (of stop)
+  function* pause() {
+    leave();
+    try { yield; } finally { /* bij .return() blijft het echte model staan */ }
+    if (opts.shouldStop && opts.shouldStop()) throw ABORT;
+    enter();
+  }
+  enter();
   const vals = {};
   let err = "";
   try {
@@ -189,14 +222,14 @@ export function evaluate(snap, assign, keys, opts) {
       if (cache.st === undefined) { const r = solveStiffness(); cache.st = r.ok ? r : null; if (!cache.st) err = r.empty ? t("os.e.empty") : r.mech ? r.mech.text : t("os.e.nosol"); }
       return cache.st;
     };
-    const frfRun = full => {
+    const frfRun = function* (full) {
       const key = full ? "ff" : "fm";
       if (cache[key] === undefined) {
         const gen = computeFrf();
         let r = gen.next();
         if (!full) { while (!r.done && !(r.value && r.value.modes)) r = gen.next(); }
         if (!full) { cache[key] = r.done ? null : r.value; try { gen.return(); } catch (_) { /* klaar */ } }
-        else { while (!r.done) r = gen.next(); cache[key] = r.value; }
+        else { while (!r.done) { yield* pause(); r = gen.next(); } cache[key] = r.value; }
         if (!cache[key]) err = sim.frfMsg || t("os.e.frf");
       }
       return cache[key];
@@ -236,18 +269,18 @@ export function evaluate(snap, assign, keys, opts) {
         v = g;
       } else if (tk === "f1" || tk === "f2") {
         if (model.mode === "frf") {
-          const S = frfRun(false), ms = S ? S.modes.filter(q => q.f > 1e-6) : [];
+          const S = yield* frfRun(false), ms = S ? S.modes.filter(q => q.f > 1e-6) : [];
           v = ms[tk === "f1" ? 0 : 1] ? ms[tk === "f1" ? 0 : 1].f : NaN;
         } else {
           const R = stiff();
           if (R) { if (cache.md === undefined) { try { cache.md = computeModes(R, 1).modes; } catch (_) { cache.md = []; } } v = cache.md[0] ? cache.md[0].f : NaN; }
         }
       } else if (tk === "pk") {
-        const S = frfRun(true);
+        const S = yield* frfRun(true);
         if (S) { let mx = 0; for (let i = 0; i <= 360; i++) { const z = S.ok[i] ? frfVal(S, key.slice(3), i) : null; if (z) mx = Math.max(mx, Math.hypot(z[0], z[1])); } v = mx; }
       } else if (tk === "e") {
         if (cache.dy === undefined) {
-          const gen = computeDyn(); let r = gen.next(); while (!r.done) r = gen.next();
+          const gen = computeDyn(); let r = gen.next(); while (!r.done) { yield* pause(); r = gen.next(); }
           cache.dy = r.value || null; if (!cache.dy) err = t("os.e.dyn");
         }
         const S = cache.dy;
@@ -255,10 +288,12 @@ export function evaluate(snap, assign, keys, opts) {
       }
       vals[key] = typeof v === "number" ? v : NaN;
     }
-  } catch (ex) { err = ex.message; keys.forEach(k => { if (!(k in vals)) vals[k] = NaN; }); }
+  } catch (ex) {
+    if (ex === ABORT) { keys.forEach(k => { vals[k] = NaN; }); return { vals, err: "", aborted: true }; }
+    err = ex.message; keys.forEach(k => { if (!(k in vals)) vals[k] = NaN; });
+  }
   finally {
-    model.nodes = live.nodes; model.elems = live.elems; Object.assign(model, props);
-    sim.sweep = simKeep.sweep; sim.solveOK = simKeep.ok; sim.simT = simKeep.t; sim.lenOv = simKeep.len; sim.frfMsg = simKeep.msg;
+    if (inside) leave();
   }
   return { vals, err };
 }

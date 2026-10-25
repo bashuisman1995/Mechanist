@@ -9,6 +9,8 @@ export async function newPage(browser, url, opts = {}) {
   p.on('dialog', d => d.accept()); // o.a. beforeunload bij onopgeslagen wijzigingen
   await p.goto(url);
   await p.waitForSelector('#menuBtn');
+  // de app opent op het startscherm; de meeste scenario's werken in de schets (opts.start = true blijft op het startscherm)
+  if (!opts.start) await p.click('#workSeg [data-w="sketch"]');
   await p.waitForTimeout(600);
   return p;
 }
@@ -41,3 +43,9 @@ export const kNmm = t => { const m = String(t).match(/N\/(m|mm|\u00b5m)\b/); ret
 export const store = p => p.evaluate(() => JSON.parse(localStorage.getItem('mechschets.r1')));
 export const visible = (p, sel) => p.$eval(sel, e => !e.hidden && getComputedStyle(e).display !== 'none');
 export const near = (a, b, tol) => Math.abs(a - b) <= tol;
+
+// Calculator kiezen: op smalle schermen is de lijst een keuzelijst (#calcSel), anders de knop in de lijst
+export async function pickCalc(p, id) {
+  if (await p.$eval('#calcSel', e => getComputedStyle(e).display !== 'none').catch(() => false)) await p.selectOption('#calcSel', id);
+  else await p.click(`[data-c="${id}"]`);
+}

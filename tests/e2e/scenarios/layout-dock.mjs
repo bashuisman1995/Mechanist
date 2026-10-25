@@ -6,7 +6,7 @@ export default async ({ browser, url, check }) => {
   const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 } });
   await ctx.addInitScript(() => { try { localStorage.setItem('mechschets.tour1', '1'); } catch (e) {} });
   const p = await ctx.newPage(); p.errs = []; p.on('pageerror', e => p.errs.push(e.message));
-  await p.goto(url); await p.waitForSelector('#menuBtn'); await p.waitForTimeout(500);
+  await p.goto(url); await p.waitForSelector('#menuBtn'); await p.click('#workSeg [data-w="sketch"]'); await p.waitForTimeout(500);
   await loadExample(p, 'shakerfrf');
   await p.waitForTimeout(500);
   const g = await p.evaluate(() => {

@@ -6,6 +6,7 @@ import { removeSel } from "./edit.js";
 import { syncInspector } from "./inspector.js";
 import { atT0, lockNudge, togglePlay, toT0 } from "./playback.js";
 import { cancelJob } from "./solver.js";
+import { showToast } from "./components.js";
 import { cv } from "./view.js";
 
 /* ============================================================
@@ -114,7 +115,7 @@ export function flash(m) {
   hintShow();
   setTimeout(() => { if (Date.now() - flashT >= 2600) setTool(ui.tool); }, 2700);
 }
-export function toast(msg) { document.getElementById("hint").innerHTML = "<b>" + msg + "</b>"; hintShow(); }
+export function toast(msg) { showToast(msg); }
 
 // De gereedschapsbalk wordt (opnieuw) opgebouwd bij het starten en bij een taalwissel.
 function buildRail() {
@@ -144,12 +145,25 @@ function buildRail() {
   });
 }
 
+// Bij een taalwissel blijft de opgebouwde balk (met groepen en iconen van components.js) staan; alleen de teksten verspringen.
+function relabelRail() {
+  const rb = document.getElementById("railBtn");
+  if (rb) { rb.title = t("rail.width"); rb.setAttribute("aria-label", t("rail.width")); }
+  TOOLS.forEach(tl => {
+    if (tl.g) return;
+    const b = rail.querySelector('.tool[data-tool="' + tl.id + '"]'); if (!b) return;
+    const nm = t("tool." + tl.id + ".nm");
+    b.title = nm + " (" + tl.kb + ")";
+    const n = b.querySelector(".nm"); if (n) n.textContent = nm;
+  });
+}
+
 export function initTools() {
   // na de eerste handeling op de tekening verdwijnt de hint; "?" haalt hem terug
   cv.addEventListener("pointerdown", () => { clearTimeout(hintT); document.getElementById("hint").classList.add("dim"); }, true);
   document.getElementById("helpBtn").addEventListener("click", showHelp);
   buildRail();
-  onLang(() => { buildRail(); setTool(ui.tool); });
+  onLang(() => { relabelRail(); setTool(ui.tool); });
 
   document.addEventListener("keydown", e => {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
