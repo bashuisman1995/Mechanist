@@ -2,13 +2,15 @@
 import { MATERIALS, materialSource, material } from "../calc/materials.js";
 import { crossPivot, leafSpring, notchHinge, parallelLeaf, wireFlexure } from "../calc/flexures.js";
 import { effModulus, effRadius, hertzSphere, kelvinCoupling, kinCoupling } from "../calc/contact.js";
-import { dynAmp, fnForT, isolator, msd, overshoot, peakAmp, servo, settleInfo, settleTime, step as stepResp, transmissibility } from "../calc/dynamics.js";
+import { dynAmp, fnForT, harmonic, isolator, mindlinLoop, msd, overshoot, peakAmp, servo, servoStep, settleInfo, settleTime, step as stepResp, transmissibility } from "../calc/dynamics.js";
 import { athermal, dLength, lumped, thermalCentre } from "../calc/thermal.js";
 import { numStr } from "./format.js";
 import { t, onLang, parseNum, DICTS } from "./i18n.js";
 import { NUM_ATTR } from "./numinput.js";
 import { showReport } from "./report.js";
 import { initCalcOpt, optCancel, optMount, optOpen, optSection } from "./calcopt.js";
+import { createTransport, transportHtml } from "./calcanim.js";
+import { SKETCHABLE, openInSketch } from "./calc2sketch.js";
 
 const $ = id => document.getElementById(id);
 const DEG = Math.PI / 180;
@@ -767,12 +769,26 @@ function setInset(R, p, wire) {
   return bh / real;
 }
 
+// kleurverloop langs een lijn: stops = [[offset 0..1, σ/σ_toel], ...]
+let gradN = 0;
+function mkGrad(svg, id) {
+  const g = mk("linearGradient", { id: id || "calcG" + (gradN++), gradientUnits: "userSpaceOnUse" }, svg);
+  g.id = g.getAttribute("id"); g.st = [];
+  for (let i = 0; i < 3; i++) g.st.push(mk("stop", {}, g));
+  return g;
+}
+function setGrad(g, x1, y1, x2, y2, stops) {
+  set(g, { x1, y1, x2, y2 });
+  g.st.forEach((st, i) => { const q = stops[Math.min(i, stops.length - 1)]; set(st, { offset: q[0], "stop-color": stressCol(q[1]) }); });
+}
+
 function beamFig(kind) {
   const wire = kind === "wire", n = kind === "par" ? 2 : 1;
   return {
     build(svg) {
       const R = { leaf: [] };
       R.ghost = mk("path", { class: "s-ghost" }, svg); R.ext = mk("path", { class: "s-ghost" }, svg);
+      R.grad = mkGrad(svg, "calcGrad" + kind);
       for (let k = 0; k < n; k++) R.leaf.push(mk("path", { class: "s-leaf" }, svg));
       R.base = mkBlock(svg); R.table = mkBlock(svg);
       R.tip = mk("circle", { class: "s-fix", r: 4 }, svg);
@@ -780,18 +796,25 @@ function beamFig(kind) {
       mkInset(svg, R, wire); mkFoot(svg, R);
       return R;
     },
-    draw(R, p, r, M) {
+    draw(R, p, r, M, A) {
+      const pf = A ? A.pf : p;
       const guided = !wire || p.bc === "guided", Lp = 150, s = Lp / p.L, yb = 200, yt = yb - Lp;
       const th = wire ? p.d : p.t, tp = Math.max(th * s, wire ? 1.8 : 3), tFac = tp / (th * s);
-      let up = p.u * s, uFac = 1;
-      if (up > 0 && up < 8) { uFac = 8 / up; up = 8; }
-      up = Math.min(up, 70);
+      // vergroting uit de volledige uitwijking: tijdens de animatie blijft de factor constant
+      const upF = pf.u * s;
+      let uFac = 1;
+      if (upF > 0 && upF < 8) uFac = 8 / upF;
+      uFac *= Math.min(1, 70 / Math.max(upF * uFac, 1e-9));
+      const up = p.u * s * uFac;
       const xs = n === 1 ? [150] : [125, 185], hw = 45, x0 = xs[0] - hw, x1 = xs[n - 1] + hw;
       const col = stressCol(r.sigma / M.sigma);
+      // spanning langs het blad: buiging is lineair in de lengte (S-vorm: nul in het midden, uitkraging: nul aan de tip) plus de axiale spanning
+      const sg = (r.sb + r.sa) / M.sigma, sm = (guided ? r.sa : r.sa) / M.sigma;
+      setGrad(R.grad, 0, yb, 0, yt, guided ? [[0, sg], [0.5, sm], [1, sg]] : [[0, sg], [1, sm]]);
       set(R.ghost, { d: xs.map(x => "M" + x + " " + yb + "V" + yt).join("") });
       xs.forEach((xi, k) => {
         set(R.leaf[k], { d: "M" + xi + " " + yb + "C" + xi + " " + f1(yb - Lp / 3) + " " + f1(xi + (guided ? up : up / 2)) + " " + f1(yb - 2 * Lp / 3) + " " + f1(xi + up) + " " + yt, "stroke-width": f1(tp) });
-        R.leaf[k].style.stroke = col;
+        R.leaf[k].style.stroke = "url(#" + R.grad.id + ")";
       });
       setBlock(R.base, x0, yb, x1 - x0, 12, true);
       setBlock(R.table, x0 + up, yt - 12, x1 - x0, 12, false, guided);
@@ -821,12 +844,14 @@ function crossFig() {
       mkInset(svg, R, false); mkFoot(svg, R);
       return R;
     },
-    draw(R, p, r, M) {
+    draw(R, p, r, M, A) {
       const C = { x: 150, y: 120 }, Ls = 140, al = 35 * DEG, h = Ls / 2 * Math.sin(al), v = Ls / 2 * Math.cos(al);
       const s = Ls / p.L, tp = Math.max(p.t * s, 3), tFac = tp / (p.t * s);
-      let pd = p.phi, pf = 1;
-      if (pd > 0 && pd < 7) { pf = 7 / pd; pd = 7; }
-      pd = Math.min(pd, 25);
+      const phF = A ? A.pf.phi : p.phi;                      // vergroting uit de volledige draaiing, constant tijdens de animatie
+      let kf = 1, pf = 1;
+      if (phF > 0 && phF < 7) { pf = kf = 7 / phF; }
+      if (phF * kf > 25) kf = 25 / phF;
+      const pd = p.phi * kf;
       const a = pd * DEG, co = Math.cos(a), si = Math.sin(a);
       const rot = (x, y) => [C.x + (x - C.x) * co - (y - C.y) * si, C.y + (x - C.x) * si + (y - C.y) * co];
       const col = stressCol(r.sigma / M.sigma), sa = Math.sin(al), ca = Math.cos(al);
@@ -865,12 +890,14 @@ function notchFig() {
       R.bT = txt(svg, "s-val"); mkFoot(svg, R);
       return R;
     },
-    draw(R, p, r, M) {
+    draw(R, p, r, M, A) {
       const cx = 150, cy = 112, s = 80 / (p.t + 2 * p.R);
       const Rp = p.R * s, tp = Math.max(p.t * s, 3), tFac = tp / (p.t * s), H = tp + 2 * Rp, Lb = 50;
-      let pd = p.phi, pf = 1;
-      if (pd > 0 && pd < 6) { pf = 6 / pd; pd = 6; }
-      pd = Math.min(pd, 25);
+      const phF = A ? A.pf.phi : p.phi;
+      let kf = 1, pf = 1;
+      if (phF > 0 && phF < 6) { pf = kf = 6 / phF; }
+      if (phF * kf > 25) kf = 25 / phF;
+      const pd = p.phi * kf;
       const yT = cy - H / 2, yB = cy + H / 2, xl = cx - Rp - Lb, xr = cx + Rp + Lb, g = f1(Rp) + " " + f1(Rp) + " 0 0 ";
       set(R.left, { d: "M" + f1(xl) + " " + f1(yT) + "H" + f1(cx - Rp) + "A" + g + "0 " + cx + " " + f1(cy - tp / 2) + "V" + f1(cy + tp / 2) + "A" + g + "0 " + f1(cx - Rp) + " " + f1(yB) + "H" + f1(xl) + "Z" });
       set(R.lh, { x: f1(xl - 7), y: f1(yT), width: 7, height: f1(H) });
@@ -937,20 +964,25 @@ function hertzFig() {
       footLines(svg, R, 214);
       return R;
     },
-    draw(R, p, r, M) {
+    draw(R, p, r, M, A) {
       const C = { x: 160, y: 150 }, conc = p.geom === "concave", conv = p.geom === "convex", n = +p.n;
       const R1 = clamp(24 + 14 * lg(Math.max(p.R1, 0.5) / 0.5) / 2, 24, 52), s = R1 / p.R1;         // px per mm
       const ok = r.Re > 0 && isFinite(r.a);
-      const ap0 = ok ? r.a * s : 1, ap = clamp(ap0, 11, 54), ex = ap / ap0;
+      const rf = A ? A.rf : r, okF = rf.Re > 0 && isFinite(rf.a);
+      const apF0 = okF ? rf.a * s : 1, apF = clamp(apF0, 11, 54), ex = apF / apF0;               // vergroting van de contactvlek (volledige F)
+      const ap0 = ok ? r.a * s : 1, ap = A ? ap0 * ex : clamp(ap0, 11, 54);
+      // indringing: δ ∝ F^(2/3); getekend met een vaste vergroting zodat hij zichtbaar is
+      const dF = okF ? rf.delta * s : 0, dPx = clamp(dF, 5, 9), exD = dF > 0 ? dPx / dF : 1;
+      const ind = ok && A ? r.delta * s * exD : 0;
+      const hp = A && ok && okF ? 17 * clamp(r.p0 / rf.p0, 0, 1) : 17;
       const th = clamp(p.theta, 0, 75), tr = th * DEG;
       set(R.g, { transform: "rotate(" + f1(th) + " " + C.x + " " + C.y + ")" });
       showEl(R.body, p.geom === "flat");
       const R2 = clamp(R1 * p.R2 / p.R1, conc ? R1 * 1.25 : 14, conc ? R1 * 3.2 : 90);
       showEl(R.b2, conv || conc);
       set(R.b2, conc ? { cx: C.x, cy: C.y - R2, r: f1(R2) } : { cx: C.x, cy: C.y + R2, r: f1(R2) });
-      set(R.b1, { cx: C.x, cy: f1(C.y - R1), r: f1(R1) });
-      const col = stressCol(ok ? 1 / r.margin : 0);
-      const hp = 17;
+      set(R.b1, { cx: C.x, cy: f1(C.y - R1 + ind), r: f1(R1) });
+      const col = stressCol(ok && r.margin > 0 ? 1 / r.margin : 0);
       set(R.press, { d: "M" + f1(C.x - ap) + " " + C.y + "A" + f1(ap) + " " + hp + " 0 0 0 " + f1(C.x + ap) + " " + C.y + "Z" }); R.press.style.fill = col;
       set(R.patch, { d: "M" + f1(C.x - ap) + " " + C.y + "H" + f1(C.x + ap), "stroke-width": 3 });
       set(R.nrm, { d: "M" + C.x + " " + f1(C.y + 22) + "V" + f1(C.y - 2 * R1 - 6) });
@@ -962,13 +994,15 @@ function hertzFig() {
       const rt = (x, y) => [C.x + (x - C.x) * Math.cos(tr) - (y - C.y) * Math.sin(tr), C.y + (x - C.x) * Math.sin(tr) + (y - C.y) * Math.cos(tr)];
       showEl(R.fn, th > 0.5 || n > 1); showEl(R.fnT, th > 0.5 || n > 1);
       set(R.fn, { d: arrowPath(C.x, C.y - 2 * R1 - 22, C.x, C.y - 2 * R1 - 2) });
-      const tp = rt(C.x, C.y - 2 * R1 - 24); set(R.fnT, { x: f1(tp[0] + 6), y: f1(tp[1] + 2) }); R.fnT.textContent = "F_n = " + num(r.Fn) + " N";
+      const tp = rt(C.x, C.y - 2 * R1 - 24); set(R.fnT, tp[0] > 200 ? { x: f1(tp[0] - 6), y: f1(tp[1] + 2), "text-anchor": "end" } : { x: f1(tp[0] + 6), y: f1(tp[1] + 2), "text-anchor": "start" }); R.fnT.textContent = "F_n = " + num(r.Fn) + " N";
       const zp = rt(C.x + 6, C.y + 0.48 * ap + 12); set(R.zT, { x: f1(zp[0] + 4), y: f1(zp[1]) }); R.zT.textContent = t("calc.hertzfig.5");
       const rp = rt(C.x - R1 * 0.866, C.y - R1 - R1 * 0.5);
       set(R.rl, { d: "M" + C.x + " " + f1(C.y - R1) + "L" + f1(C.x - R1 * 0.866) + " " + f1(C.y - R1 - R1 * 0.5) });
       set(R.rT, { x: f1(rp[0] - 4), y: f1(rp[1] + 1) }); R.rT.textContent = "R₁ = " + num(p.R1) + " mm";
       R.note.textContent = ok ? "2a = " + num(2 * r.a * 1000) + " µm" + (ex > 1.15 ? t("calc.hertzfig.6") + num(ex, 2) + t("calc.hertzfig.7") : "") + " · δ = " + num(r.delta * 1000) + " µm" : "";
+      if (A) A.lab = "F = " + num(p.F) + " / " + num(A.pf.F) + " N" + (exD > 1.15 ? t("calc.anim.exind", { k: num(exD, 2) }) : "");
       R.leg.textContent = ok ? "p₀ = " + num(r.p0) + " MPa · " + Math.round(100 / r.margin) + t("calc.hertzfig.8") : t("calc.hertzfig.9"); R.leg.style.fill = col;
+      set(R.td, { cx: C.x, cy: f1(C.y + 0.48 * ap) });
     },
   };
 }
@@ -989,10 +1023,15 @@ function kcFig() {
       R.c1 = mk("path", { class: "s-patch" }, svg); R.c2 = mk("path", { class: "s-patch" }, svg);
       R.n1 = mkArrow(svg); R.n2 = mkArrow(svg); R.fa = mkArrow(svg);
       R.nT = txt(svg, "s-val", "middle"); R.gT = txt(svg, "s-small", "middle"); R.arc = mk("path", { class: "s-dim s-thin" }, svg);
+      // micro-slip: tangentiële lus Q(δ) van één contact (Mindlin) en de contactvlek van boven (plak- en slipzone)
+      R.hT = txt(svg, "s-small s-bold", "start"); set(R.hT, { x: 10, y: 181 });
+      R.hax = mk("path", { class: "s-axis" }, svg); R.hcv = mk("path", { class: "s-curve" }, svg); R.hdot = mk("circle", { class: "s-pivot", r: 3 }, svg);
+      R.pcO = mk("circle", { class: "s-slipz", cx: 124, cy: 199 }, svg); R.pcI = mk("circle", { class: "s-stickz", cx: 124, cy: 199 }, svg);
+      R.pcT = txt(svg, "s-small", "middle"); set(R.pcT, { x: 124, y: 181, "text-anchor": "middle" });
       footLines(svg, R, 226);
       return R;
     },
-    draw(R, p, r, M) {
+    draw(R, p, r, M, A) {
       const c0 = { x: 82, y: 108 }, rr = 52, ang = [-90, 30, 150];
       const pts = ang.map(a => [c0.x + rr * Math.cos(a * DEG), c0.y + rr * Math.sin(a * DEG)]);
       set(R.tri, { d: "M" + pts.map(q => f1(q[0]) + " " + f1(q[1])).join("L") + "Z" });
@@ -1028,7 +1067,8 @@ function kcFig() {
       const nL = [cg, -sg], nR = [-cg, -sg];                                                  // naar de bol toe (links- en rechtsflank)
       const cpL = [bc.x - nL[0] * Rp, bc.y - nL[1] * Rp], cpR = [bc.x - nR[0] * Rp, bc.y - nR[1] * Rp];
       const gN = r.kelvin ? r.groove.N : r.N, gA = r.kelvin ? r.groove.a : r.a;
-      const ap = clamp(gA * Rp / p.R, 2.5, 12), tl = [sg, cg];
+      const apRaw = gA * Rp / p.R, rfK = A ? A.rf : r, gAf = rfK.kelvin ? rfK.groove.a : rfK.a, apF0 = gAf * Rp / (A ? A.pf.R : p.R), apF = clamp(apF0, 2.5, 12);
+      const ap = A ? apRaw * (apF / apF0) : clamp(apRaw, 2.5, 12), tl = [sg, cg];
       set(R.c1, { d: "M" + f1(cpL[0] - tl[0] * ap) + " " + f1(cpL[1] + tl[1] * ap) + "L" + f1(cpL[0] + tl[0] * ap) + " " + f1(cpL[1] - tl[1] * ap), "stroke-width": 3 });
       set(R.c2, { d: "M" + f1(cpR[0] + tl[0] * ap) + " " + f1(cpR[1] + tl[1] * ap) + "L" + f1(cpR[0] - tl[0] * ap) + " " + f1(cpR[1] - tl[1] * ap), "stroke-width": 3 });
       set(R.n1, { d: arrowPath(cpL[0] - nL[0] * 26, cpL[1] - nL[1] * 26, cpL[0] - nL[0] * 2, cpL[1] - nL[1] * 2) });
@@ -1039,6 +1079,19 @@ function kcFig() {
       const ra = 22;
       set(R.arc, { d: "M" + f1(ax - ra * sg) + " " + f1(ay - ra * cg) + "A" + ra + " " + ra + " 0 0 0 " + f1(ax + ra * sg) + " " + f1(ay - ra * cg) });
       const col = stressCol(1 / r.margin);
+      // lus Q(δ) en contactvlek van boven; in de animatie volgt de punt de Mindlin-lus, anders staat hij op de oorsprong
+      const mp = { N: rfK.kelvin ? rfK.N : rfK.N, mu: p.mu, kt: rfK.kt }, HX0 = 12, HX1 = 100, HY0 = 214, HY1 = 188, hxm = (HX0 + HX1) / 2, hym = (HY0 + HY1) / 2;
+      const m0 = mindlinLoop(mp, 0.2), sx = (HX1 - HX0) / 2 / (m0.dMax * 1.2), sy = (HY0 - HY1) / 2 / (m0.Qs * 1.2);
+      let hd = "";
+      for (let i = 0; i <= 100; i++) { const m = mindlinLoop(mp, i / 100); hd += (i ? "L" : "M") + f1(hxm + m.d * sx) + " " + f1(hym - m.Q * sy); }
+      set(R.hax, { d: "M" + HX0 + " " + f1(hym) + "H" + HX1 + "M" + f1(hxm) + " " + HY1 + "V" + HY0 }); set(R.hcv, { d: hd });
+      R.hT.textContent = t("calc.anim.hystcap");
+      const ph = A ? A.s : 0, tang = A && ph > 0.25 ? mindlinLoop(mp, (ph - 0.25) / 0.75) : { Q: 0, d: 0, c: 1 };
+      set(R.hdot, { cx: f1(hxm + tang.d * sx), cy: f1(hym - tang.Q * sy) });
+      const RA = 11;
+      set(R.pcO, { r: RA }); set(R.pcI, { r: f1(Math.max(0.5, RA * tang.c)) });
+      R.pcT.textContent = "";
+      if (A) A.lab = ph <= 0.25 ? "F = " + num(p.F) + " N" : "Q = " + num(tang.Q) + " N · δ = " + num(tang.d * 1e6) + " nm · " + (tang.c < 0.999 ? t("calc.anim.stickslip", { c: num(tang.c * 100) }) : t("calc.anim.stick"));
       R.note.textContent = kel ? t("calc.kelvinformulas.20") + r.gov.label + " · 2a = " + num(2 * r.a * 1000) + " µm · p₀ = " + num(r.p0) + " MPa" : t("calc.kcfig.10") + num(2 * r.a * 1000) + " µm · k_t = " + num(r.kt / 1000) + " N/µm · p₀ = " + num(r.p0) + " MPa";
       R.leg.textContent = t("calc.kcfig.11") + num(r.xSlip * 1e6) + t("calc.kcfig.12") + num(r.kAx / 1000) + " N/µm"; R.leg.style.fill = col;
     },
@@ -1060,37 +1113,60 @@ function msdFig() {
       R.ax = mk("path", { class: "s-axis", d: "M34 131V205H306" }, svg);
       R.band = mk("rect", { class: "s-band" }, svg); R.one = mk("path", { class: "s-ghost" }, svg);
       R.cv = mk("path", { class: "s-curve" }, svg); R.ts = mk("path", { class: "s-ghost" }, svg); R.tsT = txt(svg, "s-small", "start");
+      R.mdot = mk("circle", { class: "s-pivot", r: 3.5 }, svg);
       R.t0 = txt(svg, "s-small", "start"); set(R.t0, { x: 34, y: 217 }); R.t0.textContent = "0";
       R.t1 = txt(svg, "s-small", "end"); set(R.t1, { x: 306, y: 217 }); R.y1 = txt(svg, "s-small", "end"); set(R.y1, { x: 31, y: 0 });
       footLines(svg, R, 228);
       return R;
     },
-    draw(R, p, r, M) {
-      const mw = clamp(18 + 8.5 * (lg(p.m) + 3), 18, 66), mh = clamp(mw, 30, 66), mx = 150, my = 62 - mh / 2 + 22;
-      set(R.mass, { x: mx, y: f1(my), width: f1(mw), height: f1(mh) });
+    draw(R, p, r, M, A) {
+      const mw = clamp(18 + 8.5 * (lg(p.m) + 3), 18, 66), mh = clamp(mw, 30, 66), my = 62 - mh / 2 + 22;
+      const zt = r.zeta, wn = r.wn, ts = r.ts, w = 2 * Math.PI * p.fd;
+      const harm = !!A && A.mode === "harm";
+      // tijdvenster: stap = de getoonde stapresponsie; harmonisch = 6 perioden van de storing (maximaal 60 s lang in de tekening)
+      const tEnd = harm ? Math.max(6 / p.fd, 3 / r.fn) : Math.max(ts * 1.3, 2 / r.fn), ymax = Math.max(1.3, 1 + r.ov + 0.12);
+      let yv = 0, hMax = 1;
+      if (A) {
+        const tt = A.s * tEnd;
+        if (harm) {
+          const key = [zt, wn, w, tEnd].join("|");
+          if (!R.hc || R.hc.key !== key) { let mxh = 1; const NS = 500, ys = []; for (let i = 0; i <= NS; i++) { const v = harmonic(zt, wn, w, tEnd * i / NS); ys.push(v); mxh = Math.max(mxh, Math.abs(v)); } R.hc = { key, hMax: mxh, ys }; }
+          hMax = R.hc.hMax; yv = harmonic(zt, wn, w, tt); A.t = tt; A.T = tEnd;
+        }
+        else { yv = stepResp(zt, wn, tt); A.t = tt; A.T = tEnd; }
+      }
+      const mxr = 150, shift = !A ? 0 : harm ? 14 + yv / hMax * 14 : yv / ymax * 30, mx = mxr + shift;
+      set(R.mass, { x: f1(mx), y: f1(my), width: f1(mw), height: f1(mh) });
       set(R.mT, { x: f1(mx + mw / 2), y: f1(my + mh / 2 + 3.5) }); R.mT.textContent = "m";
       const n = 8, x0 = 22, x1 = mx, ys = 44, amp = 9, seg = (x1 - x0 - 20) / n;
       let d = "M" + x0 + " " + ys + "H" + (x0 + 10);
       for (let i = 0; i < n; i++) d += "L" + f1(x0 + 10 + seg * (i + 0.5)) + " " + (ys + (i % 2 ? amp : -amp));
-      d += "L" + f1(x1 - 10) + " " + ys + "H" + x1;
+      d += "L" + f1(x1 - 10) + " " + ys + "H" + f1(x1);
       set(R.sp, { d, "stroke-width": f1(0.9 + 2.4 * clamp((lg(p.k) + 3) / 7, 0, 1)) });
+      set(R.pst, { d: "M104 82V94M104 88H" + f1(mx) });
       set(R.kT, { x: 86, y: 28 }); R.kT.textContent = "k = " + num(p.k) + " N/mm";
       set(R.cT, { x: 28, y: 110 }); R.cT.textContent = "c = " + num(r.c) + " N·s/m (ζ = " + num(r.zeta * 100) + " %)";
       R.cyl.style.fillOpacity = f1(0.25 + 0.75 * clamp(r.zeta, 0, 1));
-      set(R.fa, { d: arrowPath(mx + mw + 4, my + mh / 2, mx + mw + 44, my + mh / 2) }); set(R.fT, { x: f1(mx + mw + 22), y: f1(my + mh / 2 - 7), "text-anchor": "middle" }); R.fT.textContent = "F";
-      // stapresponsie
-      const zt = r.zeta, wn = r.wn, ts = r.ts;
-      const tEnd = Math.max(ts * 1.3, 2 / r.fn), ymax = Math.max(1.3, 1 + r.ov + 0.12);
+      // kracht: bij een stap constant, bij harmonische aandrijving ± sin(ωt)
+      const sf = harm ? Math.sin(w * A.t) : 1, fa = mx + mw + 24, fl = Math.abs(sf) < 0.04 ? 0.8 * (sf < 0 ? -1 : 1) : 20 * sf;
+      set(R.fa, { d: arrowPath(fa - fl, my + mh / 2, fa + fl, my + mh / 2) }); set(R.fT, { x: f1(fa), y: f1(my + mh / 2 - 9), "text-anchor": "middle" }); R.fT.textContent = harm ? "F·sin(2πft)" : "F";
+      // respons
       const X0 = 34, X1 = 304, Y0 = 205, Y1 = 134, X = t => X0 + t / tEnd * (X1 - X0), Y = v => Y0 - v / ymax * (Y0 - Y1);
+      const Yh = v => (Y0 + Y1) / 2 - v / hMax * (Y0 - Y1) / 2 * 0.9;
       let cd = "";
-      for (let i = 0; i <= 160; i++) { const t = tEnd * i / 160; cd += (i ? "L" : "M") + f1(X(t)) + " " + f1(Y(stepResp(zt, wn, t))); }
-      set(R.cv, { d: cd }); set(R.one, { d: "M" + X0 + " " + f1(Y(1)) + "H" + X1 });
-      set(R.band, { x: X0, y: f1(Y(1.02)), width: X1 - X0, height: f1(Y(0.98) - Y(1.02)) });
-      set(R.ts, { d: "M" + f1(X(ts)) + " " + Y1 + "V" + Y0 });
+      if (harm) { const ys = R.hc.ys; for (let i = 0; i < ys.length; i++) cd += (i ? "L" : "M") + f1(X(tEnd * i / (ys.length - 1))) + " " + f1(Yh(ys[i])); }
+      else for (let i = 0; i <= 160; i++) { const t = tEnd * i / 160; cd += (i ? "L" : "M") + f1(X(t)) + " " + f1(Y(stepResp(zt, wn, t))); }
+      set(R.cv, { d: cd });
+      set(R.one, { d: harm ? "M" + X0 + " " + f1((Y0 + Y1) / 2) + "H" + X1 : "M" + X0 + " " + f1(Y(1)) + "H" + X1 });
+      set(R.band, { x: X0, y: f1(Y(1.02)), width: X1 - X0, height: f1(Y(0.98) - Y(1.02)) }); showEl(R.band, !harm);
+      set(R.ts, { d: "M" + f1(X(ts)) + " " + Y1 + "V" + Y0 }); showEl(R.ts, !harm); showEl(R.tsT, !harm);
       set(R.tsT, { x: f1(Math.min(X(ts) + 4, 230)), y: 143 }); R.tsT.textContent = "t_s = " + tTxt(ts);
-      R.t1.textContent = tTxt(tEnd); set(R.y1, { y: f1(Y(1) + 3) }); R.y1.textContent = "1";
+      R.t1.textContent = tTxt(tEnd); set(R.y1, { y: f1(harm ? (Y0 + Y1) / 2 + 3 : Y(1) + 3) }); R.y1.textContent = harm ? "0" : "1";
+      showEl(R.mdot, !!A); if (A) set(R.mdot, { cx: f1(X(A.t)), cy: f1(harm ? Yh(yv) : Y(yv)) });
+      R.cap.textContent = harm ? t("calc.anim.harmcap") : t("calc.msdfig.3");
       R.note.textContent = "f_n = " + num(r.fn) + t("calc.msdfig.7") + num(r.ov * 100) + " % · Q = " + num(r.Q);
       R.leg.textContent = t("calc.msdfig.8") + num(p.fd) + " Hz: T = " + num(r.T) + t("calc.msdfig.9") + num(r.dyn); R.leg.style.fill = "";
+      if (A) A.lab = "t = " + tTxt(A.t) + " / " + tTxt(tEnd);
     },
   };
 }
@@ -1102,18 +1178,26 @@ function isoFig() {
       const R = {};
       R.zone = mk("rect", { class: "s-zone" }, svg);
       R.av = mkLogAxis(svg, NV, false); R.ah = mkLogAxis(svg, NH, true);
-      R.fr = mk("path", { class: "s-axis", d: "M44 14V190H306" }, svg);
+      R.fr = mk("path", { class: "s-axis", d: "M44 76V190H306" }, svg);
+      // schema: ondergrond, bewegende basis, veer + demper, massa (de amplituden zijn de echte verhouding x_uit/x_in = T)
+      R.gnd = mk("path", { class: "s-axis", d: "M40 68H200" }, svg);
+      R.shk = mk("path", { class: "s-leaf s-thin" }, svg);
+      R.bas = mk("rect", { class: "s-fix", width: 120, height: 5, x: 60 }, svg);
+      R.isp = mk("path", { class: "s-leaf s-spring" }, svg); R.idp = mk("path", { class: "s-leaf s-thin" }, svg); R.icy = mk("rect", { class: "s-fix", width: 12 }, svg);
+      R.mas = mk("rect", { class: "s-ball", width: 70, height: 18, x: 85, rx: 2 }, svg); R.mT = txt(svg, "s-val", "middle");
+      R.envB = mk("path", { class: "s-ghost" }, svg); R.envM = mk("path", { class: "s-ghost" }, svg);
+      R.tB = txt(svg, "s-small", "start"); R.tM = txt(svg, "s-small", "start");
       R.one = mk("path", { class: "s-ghost" }, svg);
       R.cv = mk("path", { class: "s-curve" }, svg);
       R.fnL = mk("path", { class: "s-ghost" }, svg); R.fnT = txt(svg, "s-small", "middle");
       R.fL = mk("path", { class: "s-dim s-thin" }, svg); R.dot = mk("circle", { class: "s-pivot", r: 4 }, svg); R.dT = txt(svg, "s-val", "start");
       R.xl = txt(svg, "s-small", "end"); set(R.xl, { x: 306, y: 213 }); R.xl.textContent = t("calc.isofig.2");
-      R.yl = txt(svg, "s-small", "start"); set(R.yl, { x: 6, y: 10 }); R.yl.textContent = "T";
+      R.yl = txt(svg, "s-small", "start"); set(R.yl, { x: 6, y: 74 }); R.yl.textContent = "T";
       footLines(svg, R, 222);
       return R;
     },
-    draw(R, p, r, M) {
-      const z = r.z, fn = r.fn, X0 = 44, X1 = 306, Y0 = 190, Y1 = 14;
+    draw(R, p, r, M, A) {
+      const z = r.z, fn = r.fn, X0 = 44, X1 = 306, Y0 = 190, Y1 = 78;
       let lx0 = Math.floor(lg(Math.min(fn, p.fd) / 4)), lx1 = Math.ceil(lg(Math.max(fn, p.fd) * 4));
       while (lx1 - lx0 < 2) lx1++;
       lx1 = Math.min(lx1, lx0 + NV - 1);
@@ -1135,6 +1219,25 @@ function isoFig() {
       set(R.fL, { d: "M" + f1(xf) + " " + f1(yf) + "V" + Y0 }); set(R.dot, { cx: f1(xf), cy: f1(yf) });
       const low = yf < Y0 - 30;
       set(R.dT, { x: f1(low ? xf - 5 : xf - 7), y: f1(low ? yf + 17 : yf - 8), "text-anchor": "end" }); R.dT.textContent = "T = " + num(r.T) + " (" + num(r.dB) + " dB)";
+      // schema: de basis beweegt met x_in·sin(θ), de massa met T·x_in·sin(θ + arg); stationair
+      const sc = Math.min(7, 14 / Math.max(r.T, 1e-9)), bA = sc, mA = sc * r.T;
+      const rr = r.r, arg = Math.atan2(2 * z * rr, 1) - Math.atan2(2 * z * rr, 1 - rr * rr), th = A ? 2 * Math.PI * A.s : 0;
+      const xb = A ? bA * Math.sin(th) : 0, xm = A ? mA * Math.sin(th + arg) : 0;      // omhoog positief
+      const yb0 = 56 - xb, ym0 = 34 - xm, xs = 100, xd = 146;
+      set(R.shk, { d: "M120 68V" + f1(yb0 + 5) }); set(R.bas, { y: f1(yb0 - 2.5) });
+      let sp = "M" + xs + " " + f1(yb0 - 2.5);
+      const sn = 7, sa = 7, y0s = yb0 - 2.5, y1s = ym0 - 0.5;
+      for (let i = 0; i < sn; i++) sp += "L" + (xs + (i % 2 ? sa : -sa)) + " " + f1(y0s + (y1s - y0s) * (i + 0.5) / sn);
+      sp += "L" + xs + " " + f1(y1s);
+      set(R.isp, { d: sp });
+      set(R.icy, { x: xd - 6, y: f1(y0s - (y0s - y1s) * 0.5), height: f1(Math.max(2, (y0s - y1s) * 0.5)) });
+      set(R.idp, { d: "M" + xd + " " + f1(y0s) + "V" + f1(y0s - (y0s - y1s) * 0.5 + 3) + "M" + xd + " " + f1(y1s) + "V" + f1(y0s - (y0s - y1s) * 0.3) });
+      set(R.mas, { y: f1(ym0 - 18.5) });
+      set(R.mT, { x: 120, y: f1(ym0 - 6) }); R.mT.textContent = "m";
+      set(R.envB, { d: "M62 " + f1(56 - bA) + "H46M62 " + f1(56 + bA) + "H46" }); set(R.envM, { d: "M83 " + f1(34 - mA) + "H66M83 " + f1(34 + mA) + "H66" });
+      set(R.tB, { x: 190, y: 59 }); R.tB.textContent = "x_in = ±" + num(p.xin) + " µm";
+      set(R.tM, { x: 190, y: 31 }); R.tM.textContent = "x_out = ±" + num(r.xout) + " µm";
+      if (A) A.lab = "f = " + num(p.fd) + " Hz";
       R.note.textContent = t("calc.isofig.3") + num(r.fiso) + t("calc.isofig.4");
       R.leg.textContent = "f = " + num(p.fd) + " Hz: T = " + num(r.T) + t("calc.isofig.5") + num(r.Tmax) + t("calc.isofig.6"); R.leg.style.fill = stressCol(clamp(r.T, 0, 1.2) / 1.2);
     },
@@ -1154,10 +1257,16 @@ function servoFig() {
       R.regT = txt(svg, "s-small", "start");
       R.b1 = mk("rect", { class: "s-fix" }, svg); R.b2 = mk("rect", { class: "s-bar0" }, svg); R.b1T = txt(svg, "s-small", "start"); R.b2T = txt(svg, "s-small", "start");
       R.hd = txt(svg, "s-small s-bold", "start"); set(R.hd, { x: 10, y: 163 }); R.hd.textContent = t("calc.servofig.4");
+      // stapresponsie (alleen in de animatie, in plaats van de foutbalken)
+      R.sh = txt(svg, "s-small s-bold", "start"); set(R.sh, { x: 10, y: 150 });
+      R.sax = mk("path", { class: "s-axis", d: "M34 156V214H304" }, svg); R.s1 = mk("path", { class: "s-ghost" }, svg);
+      R.sin = mk("path", { class: "s-ghost" }, svg); R.scv = mk("path", { class: "s-curve" }, svg);
+      R.sr = mk("path", { class: "s-dim s-thin" }, svg); R.srT = txt(svg, "s-small", "start");
+      R.sdot = mk("circle", { class: "s-pivot", r: 3.5 }, svg); R.s1T = txt(svg, "s-small", "end");
       footLines(svg, R, 226);
       return R;
     },
-    draw(R, p, r, M) {
+    draw(R, p, r, M, A) {
       const X0 = 24, X1 = 300, ya = 124;
       const lo0 = Math.min(r.fbw, r.fbwReq, p.fn), hi0 = Math.max(r.fbw, r.fbwReq, p.fn);
       let lx0 = Math.floor(lg(lo0 / 2)), lx1 = Math.ceil(lg(hi0 * 2)); while (lx1 - lx0 < 2) lx1++; lx1 = Math.min(lx1, lx0 + 8);
@@ -1178,6 +1287,22 @@ function servoFig() {
       set(R.b2, { x: x0, y: 197, width: f1(Math.max(w2, 1)), height: 16 });
       set(R.b1T, { x: f1(Math.min(x0 + w1 + 5, 260)), y: 183 }); R.b1T.textContent = num(r.xum) + " µm (F_d/k_servo)";
       set(R.b2T, { x: f1(Math.min(x0 + w2 + 5, 260)), y: 208 }); R.b2T.textContent = num(p.xmax) + t("calc.servofig.7");
+      // animatie: stapresponsie van de lus met bandbreedte f_bw (eerste orde, stijgtijd 0,35/f_bw), tijdvenster 5 tijdconstanten
+      [R.b1, R.b2, R.b1T, R.b2T, R.hd].forEach(e => showEl(e, !A));
+      [R.sh, R.sax, R.s1, R.sin, R.scv, R.sr, R.srT, R.sdot, R.s1T].forEach(e => showEl(e, !!A));
+      if (A) {
+        const Tw = 5 / (2 * Math.PI * r.fbw), tt = A.s * Tw, Xs0 = 34, Xs1 = 304, Ys0 = 214, Ys1 = 164;
+        const XS = t => Xs0 + t / Tw * (Xs1 - Xs0), YS = v => Ys0 - v * (Ys0 - Ys1);
+        let cd = ""; for (let i = 0; i <= 120; i++) { const t0 = Tw * i / 120; cd += (i ? "L" : "M") + f1(XS(t0)) + " " + f1(YS(servoStep(r.fbw, t0))); }
+        set(R.scv, { d: cd }); set(R.s1, { d: "M" + Xs0 + " " + f1(YS(1)) + "H" + Xs1 }); set(R.sin, { d: "M" + Xs0 + " " + Ys0 + "V" + f1(YS(1)) + "H" + Xs1 });
+        const t10 = Math.log(1 / 0.9) / (2 * Math.PI * r.fbw), t90 = Math.log(10) / (2 * Math.PI * r.fbw);
+        set(R.sr, { d: "M" + f1(XS(t10)) + " " + f1(YS(0.1)) + "V" + f1(YS(0.1) - 6) + "M" + f1(XS(t90)) + " " + f1(YS(0.9)) + "V" + f1(YS(0.9) + 12) + "M" + f1(XS(t10)) + " " + f1(Ys0 + 5) + "H" + f1(XS(t90)) });
+        set(R.srT, { x: f1(XS(t90) + 4), y: f1(Ys0 - 5) }); R.srT.textContent = "t_r = " + tTxt(r.tRise);
+        set(R.sdot, { cx: f1(XS(tt)), cy: f1(YS(servoStep(r.fbw, tt))) });
+        set(R.sh, { x: 10, y: 150 }); R.sh.textContent = t("calc.anim.stepcap", { f: num(r.fbw) });
+        set(R.s1T, { x: 31, y: f1(YS(1) + 3) }); R.s1T.textContent = "1";
+        A.lab = "t = " + tTxt(tt) + " / " + tTxt(Tw);
+      }
       R.note.textContent = "k_servo = m·(2π·f_bw)² = " + num(r.kServo / 1000) + t("calc.servofig.8") + tTxt(r.tRise);
       R.leg.textContent = r.marg >= 1 ? t("calc.servofig.9") + num(r.marg) : t("calc.servofig.10") + num(r.fbwReq) + " Hz, f_n " + num(r.fnReq) + " Hz"; R.leg.style.fill = col;
     },
@@ -1200,10 +1325,12 @@ function expFig() {
       footLines(svg, R, 226);
       return R;
     },
-    draw(R, p, r, M) {
+    draw(R, p, r, M, A) {
       const lneg = Math.max(0, p.L1 - p.L2), span = p.L2 + lneg, W = 230, s = W / span, xA = 32 + lneg * s, y2 = 50, y1 = 84;
       const xB = xA + p.L2 * s, xP = xA + (p.L2 - p.L1) * s;
-      const dmax = Math.max(Math.abs(r.d1), Math.abs(r.d2), 1e-12), ex = Math.max(1, 14 / (dmax / span * W));      // tekening vergroot
+      const rf = A ? A.rf : r;                                                                       // vergroting uit de volledige ΔT
+      const dmaxF = Math.max(Math.abs(rf.d1), Math.abs(rf.d2), 1e-12), ex = Math.max(1, 14 / (dmaxF / span * W));      // tekening vergroot
+      const dmax = A ? dmaxF : Math.max(Math.abs(r.d1), Math.abs(r.d2), 1e-12);
       const e2 = r.d2 / span * W * ex, e1 = r.d1 / span * W * ex;
       set(R.wall, { x: f1(xA - 8) }); set(R.wh, { x: f1(xA - 16), width: 8 });
       set(R.g2, { x: f1(xA), y: y2, width: f1(xB - xA) }); set(R.g1, { x: f1(Math.min(xP, xB)), y: y1, width: f1(Math.abs(xB - xP)) });
@@ -1222,7 +1349,7 @@ function expFig() {
       const mx = dmax, w = 170;
       set(R.cmp1, { y: 176, width: f1(Math.max(Math.abs(r.d1) / mx * w, 1)) }); set(R.cmp2, { y: 192, width: f1(Math.max(Math.abs(r.d2) / mx * w, 1)) });
       set(R.c1T, { x: 6, y: 185 }); R.c1T.textContent = "ΔL₁"; set(R.c2T, { x: 6, y: 201 }); R.c2T.textContent = "ΔL₂";
-      R.note.textContent = (ex > 1.15 ? t("calc.expfig.10") + num(ex, 2) + t("calc.expfig.11") : "") + "ΔL₁ = " + num(r.d1 * 1000) + " µm, ΔL₂ = " + num(r.d2 * 1000) + " µm";
+      R.note.textContent = (A ? "ΔT = " + num(p.dT) + " K · " : "") + (ex > 1.15 ? t("calc.expfig.10") + num(ex, 2) + t("calc.expfig.11") : "") + "ΔL₁ = " + num(r.d1 * 1000) + " µm, ΔL₂ = " + num(r.d2 * 1000) + " µm";
       R.leg.textContent = "ΔP = " + num(r.dP * 1000) + " µm (" + num(r.dP * 1e6 / Math.max(p.dT, 1e-9)) + " nm/K)"; R.leg.style.fill = "";
     },
   };
@@ -1233,6 +1360,7 @@ function tauFig() {
     build(svg) {
       const R = {};
       R.top = mk("path", { class: "s-blk" }, svg); R.side = mk("path", { class: "s-blk" }, svg); R.front = mk("path", { class: "s-blk" }, svg);
+      R.blkT = txt(svg, "s-small s-bold", "middle"); R.blkT.style.fill = "#fff";
       R.dL = txt(svg, "s-small", "middle"); R.dH = txt(svg, "s-small", "end"); R.dB = txt(svg, "s-small", "middle");
       R.ah = []; for (let i = 0; i < 3; i++) R.ah.push(mkArrow(svg));
       R.hT = txt(svg, "s-small", "middle");
@@ -1251,6 +1379,7 @@ function tauFig() {
       set(R.front, { d: "M" + f1(x0) + " " + f1(yT) + "H" + f1(xr) + "V" + f1(yb) + "H" + f1(x0) + "Z" }); R.front.style.fill = mixc(0);
       set(R.top, { d: "M" + f1(x0) + " " + f1(yT) + "l" + f1(dx) + " " + f1(dy) + "H" + f1(xr + dx) + "L" + f1(xr) + " " + f1(yT) + "Z" }); R.top.style.fill = mixc(30);
       set(R.side, { d: "M" + f1(xr) + " " + f1(yT) + "l" + f1(dx) + " " + f1(dy) + "V" + f1(yb + dy) + "L" + f1(xr) + " " + f1(yb) + "Z" }); R.side.style.fill = mixc(-35);
+      set(R.blkT, { x: f1(x0 + W / 2), y: f1(yT + Hh / 2 + 3) }); R.blkT.textContent = "ΔT = " + num(r.dTt) + " K"; showEl(R.blkT, Hh > 14 && W > 60);
       set(R.dL, { x: f1(x0 + W / 2), y: f1(yb + 13) }); R.dL.textContent = "L = " + num(p.L) + " mm";
       set(R.dH, { x: f1(x0 - 4), y: f1((yT + yb) / 2 + 3) }); R.dH.textContent = "H = " + num(p.H);
       set(R.dB, { x: f1(x0 + W / 2 + dx / 2), y: f1(yT + dy - 5) }); R.dB.textContent = "B = " + num(p.B) + " mm";
@@ -1276,10 +1405,13 @@ function tcFig() {
     build(svg) {
       const R = { ln: [], sl: [], ar: [], nm: [] };
       const cp = mk("clipPath", { id: "tcClip" }, svg); mk("rect", { x: 4, y: 6, width: 312, height: 190 }, cp);
-      R.plate = mk("circle", { class: "s-fix" }, svg);
+      R.pg = mk("g", {}, svg);                                    // plaat: beweegt tijdens de animatie ten opzichte van de steunen
+      R.plate = mk("circle", { class: "s-fix" }, R.pg);
+      R.tick = mk("path", { class: "s-dim s-thin" }, R.pg);
       R.g = mk("g", { "clip-path": "url(#tcClip)" }, svg);
       for (let i = 0; i < 3; i++) R.ln.push(mk("path", { class: "s-ghost" }, R.g));
-      R.mid = mk("path", { class: "s-dim s-thin" }, svg);
+      R.pg2 = mk("g", {}, svg);
+      R.mid = mk("path", { class: "s-dim s-thin" }, R.pg2);
       R.pr = mk("path", { class: "s-ghost" }, svg);
       for (let i = 0; i < 3; i++) {
         R.sl.push(mk("rect", { class: "s-ball", width: 24, height: 9, rx: 2 }, svg));
@@ -1287,19 +1419,33 @@ function tcFig() {
         R.nm.push(txt(svg, "s-small s-bold", "middle"));
       }
       R.cr = mk("circle", { class: "s-dim", r: 8 }, svg); R.cd = mk("circle", { class: "s-pivot", r: 3.5 }, svg); R.cT = txt(svg, "s-val s-bold", "start");
-      R.pd = mk("circle", { class: "s-pt", r: 4 }, svg); R.pT = txt(svg, "s-small", "start");
+      R.pd = mk("circle", { class: "s-pt", r: 4 }, R.pg2); R.pT = txt(svg, "s-small", "start");
       R.da = mk("path", { class: "s-dim s-force", "marker-end": "url(#calcArr)" }, svg); R.dT = txt(svg, "s-small s-bold", "start");
       R.no = txt(svg, "s-val s-bold", "middle");
       footLines(svg, R, 214);
       return R;
     },
-    draw(R, p, r, M) {
+    draw(R, p, r, M, A) {
       const O = { x: 160, y: 98 }, c = r.c;
       const ext = Math.max(p.r1, p.r2, p.r3, p.rp, 1), sc = 78 / (ext * 1.2);
       const S = q => ({ x: O.x + sc * q.x, y: O.y - sc * q.y });
-      const Rp = Math.max(p.r1, p.r2, p.r3) * 1.18 * sc;
-      set(R.plate, { cx: O.x, cy: O.y, r: f1(Math.max(Rp, 10)) });
+      const Rp = Math.max(p.r1, p.r2, p.r3) * 1.18 * sc, Rpl = Math.max(Rp, 10);
+      set(R.plate, { cx: O.x, cy: O.y, r: f1(Rpl) });
       set(R.mid, { d: "M" + (O.x - 4) + " " + O.y + "h8M" + O.x + " " + (O.y - 4) + "v8" });
+      set(R.tick, { d: [90, 210, 330].map(a => "M" + f1(O.x + (Rpl - 7) * Math.cos(a * DEG)) + " " + f1(O.y - (Rpl - 7) * Math.sin(a * DEG)) + "L" + f1(O.x + Rpl * Math.cos(a * DEG)) + " " + f1(O.y - Rpl * Math.sin(a * DEG))).join("") });
+      // animatie: de plaat zet uit en draait ten opzichte van de steunen (basis); transformatie = I + k·[[1,θ],[−θ,1]] rond O plus k·sc·(u_x, −u_y)
+      let tf = "", kx = 0, K = 0;
+      if (A && r.ok && A.rf.ok) {
+        const rf = A.rf, cf = rf.c, rm = Rpl / sc;
+        let mx = 0;
+        for (let i = 0; i < 24; i++) { const a = i * Math.PI / 12, d = cf.disp({ x: rm * Math.cos(a), y: rm * Math.sin(a) }); mx = Math.max(mx, Math.hypot(d.x, d.y)); }
+        K = Math.abs(rf.delta) * mx > 0 ? Math.max(1, 14 / (sc * Math.abs(rf.delta) * mx)) : 1;
+        kx = K * r.delta;
+        const th = c.theta, ux = c.u.x, uy = c.u.y;
+        const tx = kx * sc * ux, ty = -kx * sc * uy;
+        tf = "translate(" + O.x + " " + O.y + ") matrix(" + [1 + kx, -kx * th, kx * th, 1 + kx, tx, ty].map(v => +v.toFixed(5)).join(" ") + ") translate(" + (-O.x) + " " + (-O.y) + ")";
+      }
+      set(R.pg, { transform: tf }); set(R.pg2, { transform: tf });
       r.sup.forEach((q, i) => {
         const e = c.lines[i], s0 = S(q), ux = e.dx, uy = -e.dy, L = 190;
         set(R.ln[i], { d: "M" + f1(s0.x - ux * L) + " " + f1(s0.y - uy * L) + "L" + f1(s0.x + ux * L) + " " + f1(s0.y + uy * L) });
@@ -1308,8 +1454,10 @@ function tcFig() {
         const out = Math.hypot(q.x, q.y) > 1e-9 ? { x: q.x / Math.hypot(q.x, q.y), y: q.y / Math.hypot(q.x, q.y) } : { x: 0, y: 1 };
         set(R.nm[i], { x: f1(s0.x + out.x * 26), y: f1(s0.y - out.y * 26 + 3) }); R.nm[i].textContent = String(i + 1);
       });
-      const pr = S(r.probe);
-      set(R.pd, { cx: f1(pr.x), cy: f1(pr.y) });
+      const pr0 = S(r.probe);
+      set(R.pd, { cx: f1(pr0.x), cy: f1(pr0.y) });
+      let pr = pr0;
+      if (kx) { const X = pr0.x - O.x, Y = pr0.y - O.y; pr = { x: O.x + (1 + kx) * X + kx * c.theta * Y + kx * sc * c.u.x, y: O.y - kx * c.theta * X + (1 + kx) * Y - kx * sc * c.u.y }; }
       set(R.pT, { x: f1(pr.x + 7), y: f1(pr.y - 6) }); R.pT.textContent = t("calc.tcfig.5");
       showEl(R.cr, r.ok); showEl(R.cd, r.ok); showEl(R.cT, r.ok); showEl(R.pr, r.ok); showEl(R.da, r.ok); showEl(R.dT, r.ok); showEl(R.no, !r.ok);
       R.no.textContent = t("calc.tc.45"); set(R.no, { x: 160, y: 196 }); R.no.style.fill = stressCol(1.2);
@@ -1323,13 +1471,14 @@ function tcFig() {
         set(R.pr, { d: "M" + f1(cs.x) + " " + f1(cs.y) + "L" + f1(pr.x) + " " + f1(pr.y) });
         // driftpijl (sterk vergroot): lengte vast 30 px
         const m = r.mag * 1000;
-        if (m > 1e-9) {
+        if (kx) { showEl(R.da, false); set(R.dT, { x: f1(pr.x + 8), y: f1(pr.y + 16) }); R.dT.textContent = "Δ = " + num(m) + " µm"; showEl(R.dT, true); }
+        else if (m > 1e-9) {
           const k = 30 / m, ex = pr.x + r.d.x * 1000 * k, ey = pr.y - r.d.y * 1000 * k;
           set(R.da, { d: arrowPath(pr.x, pr.y, ex, ey) });
           set(R.dT, { x: f1(pr.x + 8), y: f1(pr.y + 16) }); R.dT.textContent = "Δ = " + num(m) + " µm";
         } else { showEl(R.da, false); set(R.dT, { x: f1(pr.x + 8), y: f1(pr.y + 16) }); R.dT.textContent = "Δ = 0"; showEl(R.dT, true); }
       }
-      R.note.textContent = r.ok ? t("calc.tcfig.7") + num(c.c.x) + " ; " + num(c.c.y) + ") mm · θ = " + num(r.rot * 1e6) + t("calc.tcfig.8") : t("calc.tcfig.9");
+      R.note.textContent = r.ok ? t("calc.tcfig.7") + num(c.c.x) + " ; " + num(c.c.y) + ") mm · θ = " + num(r.rot * 1e6) + (kx ? " µrad" + t("calc.anim.exagx", { k: num(K, 2) }) : t("calc.tcfig.8")) : t("calc.tcfig.9");
       R.leg.textContent = r.ok ? (c.concurrent ? t("calc.tcfig.10") : t("calc.tcfig.11") + num(c.resid) + t("calc.tcfig.12")) : t("calc.tcfig.13");
       R.leg.style.fill = !r.ok ? stressCol(1.2) : c.concurrent ? "" : stressCol(0.9);
     },
@@ -1337,6 +1486,49 @@ function tcFig() {
 }
 Object.assign(FIGS, { hertz: hertzFig(), kc: kcFig(), msd: msdFig(), iso: isoFig(), servo: servoFig(), exp: expFig(), tau: tauFig(), tc: tcFig() });
 
+
+// ---------- animatie ----------
+// sweep: de hoofdvariabele loopt van 0 tot de huidige waarde en terug; time: s is de tijd of de fase in een vast venster.
+// De tekenfunctie krijgt de gewijzigde invoer (p), de bijbehorende uitkomst (r) en A = {s, mode, pf: volledige invoer, rf: volledige uitkomst, lab}:
+// de vergroting van de vervorming blijft uit de volledige waarde komen, zodat hij tijdens de animatie constant is.
+const SWEEP_U = { kind: "sweep", key: "u", sym: "u", unit: "mm", period: 4 };
+const SWEEP_PHI = { kind: "sweep", key: "phi", sym: "φ", unit: "°", period: 4 };
+const SWEEP_DT = { kind: "sweep", key: "dT", sym: "ΔT", unit: "K", period: 4 };
+const ANIM = {
+  leaf: SWEEP_U, par: SWEEP_U, wire: SWEEP_U, cross: SWEEP_PHI, notch: SWEEP_PHI, exp: SWEEP_DT, tc: SWEEP_DT,
+  hertz: { kind: "sweep", key: "F", sym: "F", unit: "N", min: 1e-3, period: 4 },
+  kc: { kind: "time", key: "F", val: (s, p) => p.F * clamp(s / 0.25, 1e-3, 1), period: 10 },
+  msd: { kind: "time", period: 6, modes: () => [["step", t("calc.anim.step")], ["harm", t("calc.anim.harm")]], mode: "step" },
+  iso: { kind: "time", period: 1.6 },
+  servo: { kind: "time", period: 5 },
+  tau: { kind: "time", key: "t", val: (s, p, r) => s * 5 * r.tau / 60, period: 8 },
+};
+function drawFig(c, p, r, M) {
+  const fig = FIGS[c.id], T = REF.tr, spec = ANIM[c.id];
+  if (!T || !T.on || !spec) { fig.draw(REF.fig, p, r, M); fitFoot(REF.fig); if (T) T.label(""); return; }
+  const A = { s: T.s, mode: T.mode, pf: p, rf: r, lab: "" };
+  let p2 = p, r2 = r;
+  if (spec.key) {
+    let v = spec.val ? spec.val(T.s, p, r) : p[spec.key] * T.s;
+    if (spec.min) v = Math.max(v, p[spec.key] * spec.min);
+    p2 = Object.assign({}, p); p2[spec.key] = v;
+    const keep = nonFin, keepRaw = lastRaw;
+    try { r2 = c.run(p2, M).r; } catch (_) { r2 = r; }
+    nonFin = keep; lastRaw = keepRaw;
+  }
+  fig.draw(REF.fig, p2, r2, M, A);
+  fitFoot(REF.fig);
+  T.label(A.lab || (spec.sym ? spec.sym + " = " + num(p2[spec.key]) + " / " + num(p[spec.key]) + " " + spec.unit : ""));
+}
+// voetregels die breder zijn dan de tekening worden samengedrukt in plaats van afgesneden
+function fitFoot(R) {
+  [R.note, R.leg].forEach(e => {
+    if (!e) return;
+    e.removeAttribute("textLength");
+    try { if (e.getComputedTextLength() > 304) { e.setAttribute("textLength", 300); e.setAttribute("lengthAdjust", "spacingAndGlyphs"); } } catch (_) { /* niet zichtbaar */ }
+  });
+}
+function drawNow() { const L = REF && REF.last; if (L) drawFig(L.c, L.p, L.r, L.M); }
 
 // ---------- sliders: [min, max, logaritmisch] ----------
 const RANGE = {
@@ -1437,7 +1629,7 @@ function render() {
     const e = REF.keys[n]; e.v.firstChild.nodeValue = (nf ? OOR() : k.v) + (k.u && !nf ? " " : ""); e.u.textContent = nf ? "" : k.u;
     e.sub.textContent = k.sub || ""; e.box.setAttribute("data-status", k.status || "");
   });
-  FIGS[c.id].draw(REF.fig, p, r, M);
+  drawFig(c, p, r, M);
   if (state.open.Formules) renderFormulas(c, p, M, r);
 }
 function renderFormulas(c, p, M, r) {
@@ -1485,10 +1677,12 @@ function renderDetail() {
     (c.lim ? '<div class="fld-hint">' + c.lim.hint + "</div>" : "") + "</div>";
   if (!own || matsOf(c).length) body.Materiaal += '<div class="mat-info" id="calcMatInfo"></div><div class="mat-src" id="calcMatSrc"></div>';
   c.inputs.forEach(i => { if (i.type !== "mat") body[grpOf(i)] += inputHtml(c, i, v); });
-  let h = '<div class="calc-head"><div><h2>' + c.name + '</h2><p class="calc-sub">' + c.short + '</p></div><div class="calc-acts"><button type="button" class="calc-reset" id="calcOpt" title="' + t("calc.ui.opt.tip") + '">' + t("calc.ui.opt") + '</button><button type="button" class="calc-reset" id="calcCopy" title="' + t("calc.ui.copy.tip") + '">' + t("calc.ui.copy") + '</button><button type="button" class="calc-reset" id="calcPrint" title="' + t("calc.ui.print.tip") + '">' + t("calc.ui.print") + '</button><button type="button" class="calc-reset" id="calcLink" title="' + t("calc.ui.link.tip") + '">' + t("calc.ui.link") + '</button><button type="button" class="calc-reset" id="calcReset" title="' + t("calc.ui.reset.tip") + '">↺ ' + t("calc.ui.reset") + '</button></div></div><div class="calc-actmsg" id="calcActMsg" role="status" aria-live="polite"></div>';
+  let h = '<div class="calc-head"><div><h2>' + c.name + '</h2><p class="calc-sub">' + c.short + '</p></div><div class="calc-acts">' +
+    (SKETCHABLE[c.id] ? '<button type="button" class="calc-reset calc-tosketch" id="calcSketch" title="' + t("calc.ui.tosketch.tip") + '">' + t("calc.ui.tosketch") + '</button>' : "") + '<button type="button" class="calc-reset" id="calcOpt" title="' + t("calc.ui.opt.tip") + '">' + t("calc.ui.opt") + '</button><button type="button" class="calc-reset" id="calcCopy" title="' + t("calc.ui.copy.tip") + '">' + t("calc.ui.copy") + '</button><button type="button" class="calc-reset" id="calcPrint" title="' + t("calc.ui.print.tip") + '">' + t("calc.ui.print") + '</button><button type="button" class="calc-reset" id="calcLink" title="' + t("calc.ui.link.tip") + '">' + t("calc.ui.link") + '</button><button type="button" class="calc-reset" id="calcReset" title="' + t("calc.ui.reset.tip") + '">↺ ' + t("calc.ui.reset") + '</button></div></div><div class="calc-actmsg" id="calcActMsg" role="status" aria-live="polite"></div>';
   h += '<div class="calc-grid" id="calcGrid"><div class="calc-keys">' +
     [0, 1, 2].map(n => '<div class="calc-key" data-key="' + n + '"><span class="k"></span><b class="v">0<span class="u"></span></b><span class="s"></span></div>').join("") + "</div>";
-  h += '<div class="calc-left"><figure class="calc-fig"><svg id="calcSvg" viewBox="0 0 320 245" role="img" aria-label="' + t("calc.ui.sketch") + '"></svg></figure><div id="calcWarn" class="calc-warnbox"></div><dl class="calc-res" id="calcOut"></dl></div>';
+  const an = ANIM[c.id];
+  h += '<div class="calc-left"><figure class="calc-fig"><svg id="calcSvg" viewBox="0 0 320 245" role="img" aria-label="' + t("calc.ui.sketch") + '"></svg>' + (an ? transportHtml(an.modes ? an.modes() : null, an.mode) : "") + '</figure><div id="calcWarn" class="calc-warnbox"></div><dl class="calc-res" id="calcOut"></dl></div>';
   h += '<div class="calc-right"><div class="calc-inputs">' + secHtml("Geometrie", body.Geometrie) + (body.Materiaal ? secHtml("Materiaal", body.Materiaal) : "") + secHtml("Belasting", body.Belasting) + "</div>";
   h += optSection(c);
   h += '<details class="calc-sec calc-card" data-sec="Formules"' + (state.open.Formules ? " open" : "") + '><summary>' + t("calc.sec.Formules") + '</summary><div class="calc-sec-b calc-formulas" id="calcFormulas"></div></details>';
@@ -1500,11 +1694,16 @@ function renderDetail() {
   $("calcDetail").querySelectorAll("[data-in]").forEach(n => { fields[n.dataset.in] = n; });
   $("calcDetail").querySelectorAll("[data-sl]").forEach(n => { sliders[n.dataset.sl] = n; });
   const svg = $("calcSvg"); svg.innerHTML = SVG_DEFS;
+  const oldTr = REF && REF.tr;
   REF = {
+    oldTr,
     root: $("calcGrid"), warn: $("calcWarn"), warnH: "", cells: [], cellSig: "", fields, sliders, formulas: $("calcFormulas"),
     keys: [0, 1, 2].map(n => { const b = $("calcDetail").querySelector('[data-key="' + n + '"]'); return { box: b, v: b.querySelector(".v"), u: b.querySelector(".v .u"), sub: b.querySelector(".s") }; }),
     fig: FIGS[c.id].build(svg),
   };
+  if (REF.oldTr) REF.oldTr.destroy();
+  if (an) REF.tr = createTransport($("calcTr"), { kind: an.kind, period: an.period, mode: an.mode, visible: () => !$("calcRoot").hidden && !!REF && !!REF.tr,
+    onFrame: () => drawNow() });
   buildCells(o0.out);
   const kl = keysOf(c, o0.r, defaults(c), M0);
   REF.keys.forEach((k, n) => { k.box.querySelector(".k").textContent = kl[n].k; });
@@ -1627,6 +1826,7 @@ export function initCalc() {
     if (e.target.closest("#calcCopy")) { doCopy(); return; }
     if (e.target.closest("#calcPrint")) { doPrint(); return; }
     if (e.target.closest("#calcLink")) { doLink(); return; }
+    if (e.target.closest("#calcSketch")) { toSketch(); return; }
     if (!e.target.closest("#calcReset")) return;
     const c = calcOf(state.cur);
     state.vals[c.id] = defaults(c); state.mats[c.id] = "staal"; state.sigmas[c.id] = null;
@@ -1644,7 +1844,7 @@ export function initCalc() {
   if (applyHash()) { renderList(); setWork("calc"); renderDetail(); }
   onLang(() => {                                        // andere taal: calculators opnieuw opbouwen en tekenen
     buildCalcs(); renderList();
-    if ($("calcRoot").hidden) REF = null; else renderDetail();
+    if ($("calcRoot").hidden) { if (REF && REF.tr) REF.tr.destroy(); REF = null; } else renderDetail();
   });
 }
 
@@ -1778,6 +1978,11 @@ export function openCalcReport() {
   });
 }
 function doPrint() { openCalcReport(); }
+function toSketch() {
+  if (!REF || !REF.last) { msg(t("calc.ui.checkin", { list: "" })); return; }
+  const L = REF.last;
+  openInSketch(L.c.id, L.p, L.r, L.M, { goSketch: () => setWork("sketch"), name: L.c.name, mat: state.mats[L.c.id] });
+}
 function doCopy() {
   const sheet = sheetText();
   if (!sheet) { msg(t("calc.ui.checkfirst")); return; }

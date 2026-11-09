@@ -69,3 +69,36 @@ export function servo({ fn, div, m, Fd, xMax }) {
   return { fbw, kServo, x, kReq, fbwReq, fnReq: fbwReq * div, kStruct: m * (2 * PI * fn) ** 2 / 1000,
     kStructReq: m * (2 * PI * fbwReq * div) ** 2 / 1000, tRise: 0.35 / fbw };
 }
+
+/** Respons x(t)/x_stat vanuit rust op een kracht F·sin(ωt) (exact: stationaire oplossing plus overgangsverschijnsel). zeta, wn [rad/s], w [rad/s], t [s]. */
+export function harmonic(zeta, wn, w, t) {
+  const r = w / wn, Xp = dynAmp(r, zeta), ph = Math.atan2(2 * zeta * r, 1 - r * r);
+  const xp = Xp * Math.sin(w * t - ph);
+  const h0 = Xp * Math.sin(ph), h1 = -Xp * w * Math.cos(ph);              // x_h(0) = −x_p(0), x_h′(0) = −x_p′(0)
+  let xh;
+  if (zeta < 1) { const a = zeta * wn, wd = wn * Math.sqrt(1 - zeta * zeta); xh = Math.exp(-a * t) * (h0 * Math.cos(wd * t) + (h1 + a * h0) / wd * Math.sin(wd * t)); }
+  else if (Math.abs(zeta - 1) < 1e-9) xh = Math.exp(-wn * t) * (h0 + (h1 + wn * h0) * t);
+  else {
+    const q = wn * Math.sqrt(zeta * zeta - 1), s1 = -zeta * wn + q, s2 = -zeta * wn - q, A1 = (h1 - s2 * h0) / (s1 - s2);
+    xh = A1 * Math.exp(s1 * t) + (h0 - A1) * Math.exp(s2 * t);
+  }
+  return xp + xh;
+}
+/** Eerste-orde stapresponsie van een regellus met bandbreedte fbw [Hz]: 1 − e^(−2π·fbw·t); stijgtijd 10–90 % = 0,35/fbw. */
+export const servoStep = (fbw, t) => 1 - Math.exp(-2 * PI * fbw * t);
+/**
+ * Mindlin-Deresiewicz: tangentiële verplaatsing δ(Q) van een Hertz-contact bij constante normaalkracht N en wrijving μ, in een lus
+ * 0 → +Q* → −Q* → +Q*. s ∈ [0, 1] loopt over de drie delen (lengte 1 : 2 : 2). Eenheden: kt = 8·G*·a [N/mm], N [N]; δ in mm.
+ * Belast: δ = (3μN/(16G*a))·(1 − (1 − Q/μN)^(2/3)); ontlasten/herbelasten: dezelfde vorm met 2μN en Q* − Q.
+ */
+export function mindlinLoop({ N, mu, kt, qAmp = 0.8 }, s) {
+  const Qs = qAmp * mu * N, d0 = 1.5 * mu * N / kt;                         // 3μN/(16G*a) = 1,5·μN/k_t
+  const up = q => d0 * (1 - Math.pow(Math.max(0, 1 - q / (mu * N)), 2 / 3));
+  const dMax = up(Qs);
+  const sub = q => 2 * d0 * (1 - Math.pow(Math.max(0, 1 - q / (2 * mu * N)), 2 / 3));
+  let Q, d, c;
+  if (s <= 0.2) { Q = Qs * s / 0.2; d = up(Q); c = Math.pow(Math.max(0, 1 - Q / (mu * N)), 1 / 3); }
+  else if (s <= 0.6) { Q = Qs - 2 * Qs * (s - 0.2) / 0.4; d = dMax - sub(Qs - Q); c = Math.pow(Math.max(0, 1 - (Qs - Q) / (2 * mu * N)), 1 / 3); }
+  else { Q = -Qs + 2 * Qs * (s - 0.6) / 0.4; d = -dMax + sub(Q + Qs); c = Math.pow(Math.max(0, 1 - (Q + Qs) / (2 * mu * N)), 1 / 3); }
+  return { Q, d, c, Qs, dMax };                                              // c = straal van de plakzone / a
+}
