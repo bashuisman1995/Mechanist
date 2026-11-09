@@ -79,6 +79,7 @@ export function syncResult() {
         (sw ? (eq && sw.settled ? t("insp.res.rest") : "") + fmtTime(sw.dur) + (eq && sw.settled ? "" : " " + t("insp.res.calc")) : t("insp.res.notyet"));
     } else txt = t("insp.res.kin") + " \u00b7 " + (sim.solveOK === false ? t("insp.res.noasm") : st);
   }
+  if (ui.sel && model.nodes.length) { const ss = document.getElementById("stSel"); if (ss && ss.textContent) txt += " \u00b7 " + ss.textContent; }
   el.textContent = txt;
   renderThermal();
 }
@@ -175,8 +176,11 @@ function stiffDof(el, of, note) {
     el.textContent = fmtStress(R.sigMax.val); el.className = "big " + (r > 1 ? "bad" : r > 0.7 ? "warn" : "ok");
     of.textContent = t("insp.sd.max", { d: fmtLen(R.maxDisp) });
   } else { el.textContent = fmtLen(R.maxDisp); el.className = "big ok"; of.textContent = t("insp.sd.maxd"); }
-  note.innerHTML = free ? "<b style=\"color:var(--bad)\">" + R.mech.text + "</b>"
-    : t("insp.sd.ok", { n: R.nfree });
+  const f1 = !free && R.ok ? (R.modes && R.modes.length
+    ? '<br><span class="fn1" style="font-size:1.25em;font-weight:600">' + t("sf.f1") + ": " + fmtHz(R.modes[0].f) + "</span> <span class=\"unit\">(" + t("sf.f1n", { n: R.modes.length }) + ")</span>"
+    : '<br><span class="unit">' + (R.modes ? (R.modesMsg || t("sf.nomodes")) : t("sf.f1wait")) + "</span>") : "";
+  note.innerHTML = (free ? "<b style=\"color:var(--bad)\">" + R.mech.text + "</b>"
+    : t("insp.sd.ok", { n: R.nfree })) + f1;
   const rowk = (k, v) => "<span>" + k + "</span><b>" + v + "</b>";
   tally.innerHTML = rowk(t("insp.tally.pts"), model.nodes.length) + rowk(t("insp.tally.beams"), R.sys.mem.filter(x => x.kind === "beam").length) +
     rowk(t("insp.tally.rigidl"), R.sys.mem.filter(x => x.kind === "rigid").length) + rowk(t("insp.tally.bars"), R.sys.spr.length) +
@@ -191,6 +195,7 @@ const props = document.getElementById("props");
 export function syncInspector() {
   stiffSelect();
   buildInspector();
+  syncResult();                           // de statusregel is een live-regio: meldt de selectie
   renderHowNow();
   if (!ui.sel || model.mode === "stiff") return;
   // snelknoppen: grootheden van dit onderdeel direct in de grafiek zetten

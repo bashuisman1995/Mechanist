@@ -1,4 +1,5 @@
 // Aanwijzen, slepen en pannen op het canvas.
+import { solveStiffness } from "../core/stiffness.js";
 import { frame } from "../core/contact.js";
 import { drivers, N } from "../core/elements.js";
 import { relax } from "../core/kinematics.js";
@@ -88,7 +89,69 @@ function endDrag(ev) {
   }
 }
 
+// a new force in Stiffness mode: 1 N scaled so the peak stress is about 20 % of the allowable stress
+function stiffForceDefault(e) {
+  try {
+    e.mag = 1;
+    const r = solveStiffness();
+    if (r.ok && r.sigMax && r.sigMax.ratio > 0 && isFinite(r.sigMax.ratio)) {
+      const raw = 0.2 / r.sigMax.ratio, p = Math.pow(10, Math.floor(Math.log10(raw)));
+      return Math.max(1e-3, Math.round(raw / p) * p);
+    }
+  } catch (err) { /* keep 1 N */ }
+  return 1;
+}
+
+// keyboard on the canvas: arrows select, Alt+arrows nudge, Enter opens the properties
+function selPos() {
+  if (!ui.sel) return null;
+  if (ui.sel.kind === "node") return N(ui.sel.id);
+  const e = model.elems.find(x => x.id === ui.sel.id); if (!e) return null;
+  if (e.node) return N(e.node);
+  const a = N(e.a), b = N(e.b); return a && b ? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } : null;
+}
+function cvKey(ev) {
+  const dirs = { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
+  const d = dirs[ev.key];
+  if (ev.key === "Enter") {
+    const f = document.querySelector("#props input, #props select, #props button");
+    if (ui.sel && f) { f.focus(); ev.preventDefault(); }
+    return;
+  }
+  if (!d && ev.key !== "PageDown" && ev.key !== "PageUp") return;
+  if (ev.ctrlKey || ev.metaKey) return;
+  ev.preventDefault();
+  if (d && ev.altKey) {
+    if (!ui.sel || ui.sel.kind !== "node") return;
+    if (!atT0()) { lockNudge(); return; }
+    const n = N(ui.sel.id), st = ev.shiftKey ? 10 : 1; if (!n) return;
+    cancelJob(); n.x += d[0] * st; n.y += d[1] * st; anchorHere(n); reharvest(n.id);
+    changed(); return;
+  }
+  const items = model.nodes.map(n => ({ kind: "node", id: n.id })).concat(model.elems.map(e => ({ kind: "elem", id: e.id })));
+  if (!items.length) return;
+  let pick1 = null;
+  const cur = selPos();
+  if (!d || !cur) {
+    const i = ui.sel ? items.findIndex(x => x.kind === ui.sel.kind && x.id === ui.sel.id) : -1;
+    const step = ev.key === "ArrowUp" || ev.key === "PageUp" || ev.key === "ArrowLeft" ? -1 : 1;
+    pick1 = items[(i < 0 ? (step > 0 ? 0 : items.length - 1) : i + step + items.length) % items.length];
+  } else {
+    let best = Infinity;
+    for (const n of model.nodes) {
+      if (ui.sel && ui.sel.kind === "node" && ui.sel.id === n.id) continue;
+      const dx = n.x - cur.x, dy = n.y - cur.y, along = dx * d[0] + dy * d[1], L = Math.hypot(dx, dy);
+      if (along <= 0 || along < 0.5 * L) continue;                      // within about 60 degrees of the arrow
+      const sc = L + 2 * Math.abs(dx * d[1] - dy * d[0]);
+      if (sc < best) { best = sc; pick1 = { kind: "node", id: n.id }; }
+    }
+  }
+  if (!pick1) return;
+  ui.sel = pick1; syncInspector(); draw();
+}
+
 export function initInteract() {
+  cv.addEventListener("keydown", cvKey);
 
   cv.addEventListener("pointerdown", ev => {
     cv.setPointerCapture(ev.pointerId);
@@ -171,9 +234,22 @@ export function initInteract() {
         } else flash(t("int.existing"));
         break;
 
+      case "clamp": {
+        const n = hitN || addNode(snapPt(wp));
+        const on = n.support === "pin" && n.clamp;
+        n.support = on ? "free" : "pin"; n.clamp = !on;
+        anchorHere(n);
+        ui.sel = { kind: "node", id: n.id };
+        edited = true;
+        break;
+      }
+
       case "pin": {
         const n = hitN || addNode(snapPt(wp));
-        n.support = n.support === "pin" ? "free" : "pin";
+        if (model.mode === "stiff" && n.support === "free" && model.elems.some(x => isBeam(x) && (x.a === n.id || x.b === n.id))) {
+          n.support = "pin"; n.clamp = true;       // beam end in Stiffness: clamp first, a second click gives a plain hinge, a third frees it
+        } else if (n.support === "pin" && n.clamp && model.mode === "stiff") n.clamp = false;
+        else { n.support = n.support === "pin" ? "free" : "pin"; n.clamp = false; }
         anchorHere(n);
         ui.sel = { kind: "node", id: n.id };
         edited = true;
@@ -207,7 +283,8 @@ export function initInteract() {
       case "force":
         if (hitN) {
           const e = { id: eid(), type: "force", node: hitN.id, mag: 100, ang: -90 };
-          model.elems.push(e); ui.sel = { kind: "elem", id: e.id };
+          model.elems.push(e);
+          if (model.mode === "stiff") e.mag = stiffForceDefault(e); ui.sel = { kind: "elem", id: e.id };
           edited = true;
         }
         break;

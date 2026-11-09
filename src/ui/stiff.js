@@ -9,6 +9,7 @@ import { save } from "./persist.js";
 import { touched } from "./solver.js";
 import { drawPathPlot, pathSelect, renderPathCtl } from "./stiffpath.js";
 import { t } from "./i18n.js";
+import { syncDof } from "./inspector.js";
 
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 const fscale = v => "×" + sg(v, v >= 100 ? 3 : 2);
@@ -29,7 +30,7 @@ export function solveStiff() {
         res.modes = r.modes; res.modesMsg = r.msg;
         res.analytic = analyticChecks(res, r.modes);
       } catch (err) { console.error(err); res.modes = []; res.modesMsg = t("sf.modesfail"); }
-      renderStiffUI(); draw();
+      renderStiffUI(); syncDof(); draw();
     }, 60);
   }
   renderStiffUI();
