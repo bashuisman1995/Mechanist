@@ -10,6 +10,7 @@ import { NUM_ATTR } from "./numinput.js";
 import { showReport } from "./report.js";
 import { initCalcOpt, optCancel, optMount, optOpen, optSection } from "./calcopt.js";
 import { createTransport, transportHtml } from "./calcanim.js";
+import { fitInk, placeLabels, setRedraw, stableScale, wrapFit } from "./calcfit.js";
 import { SKETCHABLE, openInSketch } from "./calc2sketch.js";
 
 const $ = id => document.getElementById(id);
@@ -760,13 +761,20 @@ function mkInset(svg, R, wire) {
   else R.inR = mk("rect", { class: "s-sec", x: 247, y: 126, width: 56 }, svg);
   R.in1 = txt(svg, "s-val"); R.in2 = txt(svg, "s-val");
 }
-function setInset(R, p, wire) {
-  if (wire) { set(R.in1, { x: 275, y: 170 }); R.in1.textContent = "d = " + num(p.d) + " mm"; R.in2.textContent = ""; return 1; }
-  const real = p.t / p.b * 56, bh = Math.min(Math.max(real, 3), 28);
-  set(R.inR, { height: f1(bh) });
-  set(R.in1, { x: 275, y: f1(126 + bh + 14) }); R.in1.textContent = "b = " + num(p.b) + " mm";
-  set(R.in2, { x: 275, y: f1(126 + bh + 27) }); R.in2.textContent = "t = " + num(p.t) + " mm";
-  return bh / real;
+function setInset(R, p, wire, A) {
+  const pf = A ? A.pf : p;
+  if (wire) {
+    const sc = stableScale(R, "sec", pf.d, 44), d0 = p.d * sc, d = clamp(d0, 4, 44);
+    set(R.inC, { cx: 275, cy: 140, r: f1(d / 2) });
+    set(R.in1, { x: 275, y: f1(140 + d / 2 + 13) }); R.in1.textContent = "d = " + num(p.d) + " mm"; R.in2.textContent = "";
+    return Math.max(1, d / d0);
+  }
+  const mx = Math.max(pf.b, pf.t), sc = stableScale(R, "sec", mx, 56), w0 = p.b * sc, h0 = p.t * sc;
+  const w = clamp(w0, 3, 56), h = clamp(h0, 3, 36);
+  set(R.inR, { x: f1(275 - w / 2), y: 126, width: f1(w), height: f1(h) });
+  set(R.in1, { x: 275, y: f1(126 + h + 13) }); R.in1.textContent = "b = " + num(p.b) + " mm";
+  set(R.in2, { x: 275, y: f1(126 + h + 26) }); R.in2.textContent = "t = " + num(p.t) + " mm";
+  return Math.max(w / w0, h / h0);
 }
 
 // kleurverloop langs een lijn: stops = [[offset 0..1, σ/σ_toel], ...]
@@ -798,7 +806,7 @@ function beamFig(kind) {
     },
     draw(R, p, r, M, A) {
       const pf = A ? A.pf : p;
-      const guided = !wire || p.bc === "guided", Lp = 150, s = Lp / p.L, yb = 200, yt = yb - Lp;
+      const guided = !wire || p.bc === "guided", s = stableScale(R, "L", pf.L, 140), Lp = Math.min(p.L * s, 148), yb = 200, yt = yb - Lp;
       const th = wire ? p.d : p.t, tp = Math.max(th * s, wire ? 1.8 : 3), tFac = tp / (th * s);
       // vergroting uit de volledige uitwijking: tijdens de animatie blijft de factor constant
       const upF = pf.u * s;
@@ -824,7 +832,7 @@ function beamFig(kind) {
       showEl(R.dU.p, on); showEl(R.dU.t, on); showEl(R.ext, on);
       setDim(R.dU, xs[0], yu, xs[0] + up, yu, xs[0] + up / 2 + (up < 30 ? 20 : 0), yu - 6, "u = " + num(p.u) + " mm", up < 30 ? "start" : "middle");
       set(R.ext, { d: "M" + xs[0] + " " + (yt - 14) + "V" + (yu - 4) + "M" + f1(xs[0] + up) + " " + (yt - 14) + "V" + (yu - 4) });
-      const insF = setInset(R, p, wire);
+      const insF = setInset(R, p, wire, A);
       setFoot(R, r, M, [[wire ? t("calc.beamfig.5") : t("calc.beamfig.6"), tFac], [t("calc.beamfig.7"), uFac], [t("calc.mkinset.1"), insF]]);
     },
   };
@@ -845,8 +853,9 @@ function crossFig() {
       return R;
     },
     draw(R, p, r, M, A) {
-      const C = { x: 150, y: 120 }, Ls = 140, al = 35 * DEG, h = Ls / 2 * Math.sin(al), v = Ls / 2 * Math.cos(al);
-      const s = Ls / p.L, tp = Math.max(p.t * s, 3), tFac = tp / (p.t * s);
+      const C = { x: 150, y: 120 }, al = 35 * DEG, s = stableScale(R, "L", (A ? A.pf : p).L, 160), Ls = Math.min(p.L * s, 168), h = Ls / 2 * Math.sin(al), v = Ls / 2 * Math.cos(al);
+      const tw = Math.max(80, Math.min(Ls * 1.1, 190));
+      const tp = Math.max(p.t * s, 3), tFac = tp / (p.t * s);
       const phF = A ? A.pf.phi : p.phi;                      // vergroting uit de volledige draaiing, constant tijdens de animatie
       let kf = 1, pf = 1;
       if (phF > 0 && phF < 7) { pf = kf = 7 / phF; }
@@ -862,16 +871,16 @@ function crossFig() {
       };
       leaf(R.la, C.x - h, 1); leaf(R.lb, C.x + h, -1);
       set(R.gA, { d: "M" + f1(C.x - h) + " " + f1(C.y + v) + "L" + f1(C.x + h) + " " + f1(C.y - v) + "M" + f1(C.x + h) + " " + f1(C.y + v) + "L" + f1(C.x - h) + " " + f1(C.y - v) });
-      setBlock(R.base, C.x - 75, C.y + v, 150, 12, true);
-      set(R.table, { x: C.x - 75, y: f1(C.y - v - 12), width: 150, height: 12 });
+      setBlock(R.base, C.x - tw / 2, C.y + v, tw, 12, true);
+      set(R.table, { x: f1(C.x - tw / 2), y: f1(C.y - v - 12), width: f1(tw), height: 12 });
       set(R.tg, { transform: "rotate(" + f1(pd) + " " + C.x + " " + C.y + ")" });
       set(R.dot, { cx: C.x, cy: C.y });
-      const ra = 100, t0 = -60 * DEG, t1 = t0 + a;
+      const ra = Math.min(104, Math.max(60, Ls * 0.7)), t0 = -60 * DEG, t1 = t0 + a;
       set(R.arc, { d: "M" + f1(C.x + ra * Math.cos(t0)) + " " + f1(C.y + ra * Math.sin(t0)) + "A" + ra + " " + ra + " 0 0 1 " + f1(C.x + ra * Math.cos(t1)) + " " + f1(C.y + ra * Math.sin(t1)) });
       const tm = t0 + a / 2; set(R.phiT, { x: f1(C.x + (ra + 8) * Math.cos(tm)), y: f1(C.y + (ra + 8) * Math.sin(tm) + 4) });
       R.phiT.textContent = "φ = " + num(p.phi) + "°";
       set(R.lT, { x: f1(C.x - h - 12), y: f1(C.y + v - 6) }); R.lT.textContent = "L = " + num(p.L) + " mm";
-      const insF = setInset(R, p, false);
+      const insF = setInset(R, p, false, A);
       setFoot(R, r, M, [[t("calc.beamfig.6"), tFac], [t("calc.crossfig.3"), pf], [t("calc.mkinset.1"), insF]]);
     },
   };
@@ -891,8 +900,8 @@ function notchFig() {
       return R;
     },
     draw(R, p, r, M, A) {
-      const cx = 150, cy = 112, s = 80 / (p.t + 2 * p.R);
-      const Rp = p.R * s, tp = Math.max(p.t * s, 3), tFac = tp / (p.t * s), H = tp + 2 * Rp, Lb = 50;
+      const cx = 150, cy = 112, s = stableScale(R, "w", (A ? A.pf : p).t + 2 * (A ? A.pf : p).R, 110);
+      const Rp = Math.min(p.R * s, 60), tp = Math.max(p.t * s, 3), tFac = tp / (p.t * s), H = tp + 2 * Rp, Lb = clamp(H * 0.7, 36, 56);
       const phF = A ? A.pf.phi : p.phi;
       let kf = 1, pf = 1;
       if (phF > 0 && phF < 6) { pf = kf = 6 / phF; }
@@ -924,6 +933,17 @@ const FIGS = { leaf: beamFig("leaf"), par: beamFig("par"), cross: crossFig(), no
 // ---------- tekeningen voor de nieuwe calculators ----------
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const lg = Math.log10;
+// lijnstuk afgeknipt op een rechthoek (Liang-Barsky); lege tekenreeks als het buiten valt
+function clipSeg(x1, y1, x2, y2, xa, ya, xb, yb) {
+  let t0 = 0, t1 = 1;
+  const dx = x2 - x1, dy = y2 - y1;
+  const pq = [[-dx, x1 - xa], [dx, xb - x1], [-dy, y1 - ya], [dy, yb - y1]];
+  for (let i = 0; i < 4; i++) {
+    const p = pq[i][0], q = pq[i][1];
+    if (p === 0) { if (q < 0) return ""; } else { const r = q / p; if (p < 0) { if (r > t1) return ""; if (r > t0) t0 = r; } else { if (r < t0) return ""; if (r < t1) t1 = r; } }
+  }
+  return "M" + f1(x1 + t0 * dx) + " " + f1(y1 + t0 * dy) + "L" + f1(x1 + t1 * dx) + " " + f1(y1 + t1 * dy);
+}
 const arrowPath = (x1, y1, x2, y2) => "M" + f1(x1) + " " + f1(y1) + "L" + f1(x2) + " " + f1(y2);
 function mkArrow(parent) { return mk("path", { class: "s-dim s-force", "marker-end": "url(#calcArr)" }, parent); }
 function footLines(svg, R, y) { R.note = txt(svg, "s-small", "start"); R.leg = txt(svg, "s-small s-bold", "start"); set(R.note, { x: 10, y: y }); set(R.leg, { x: 10, y: y + 13 }); }
@@ -951,8 +971,8 @@ function hertzFig() {
     build(svg) {
       const R = {};
       R.g = mk("g", {}, svg);
-      R.body = mk("rect", { class: "s-fix", x: -80, y: 150, width: 480, height: 200 }, R.g);
-      R.b2 = mk("circle", { class: "s-fix" }, R.g);
+      R.body = mk("path", { class: "s-fix" }, R.g);
+      R.b2 = mk("path", { class: "s-fix" }, R.g);
       R.b1 = mk("circle", { class: "s-ball" }, R.g);
       R.press = mk("path", { class: "s-press" }, R.g);
       R.patch = mk("path", { class: "s-patch" }, R.g);
@@ -965,8 +985,8 @@ function hertzFig() {
       return R;
     },
     draw(R, p, r, M, A) {
-      const C = { x: 160, y: 150 }, conc = p.geom === "concave", conv = p.geom === "convex", n = +p.n;
-      const R1 = clamp(24 + 14 * lg(Math.max(p.R1, 0.5) / 0.5) / 2, 24, 52), s = R1 / p.R1;         // px per mm
+      const C = { x: 160, y: 140 }, conc = p.geom === "concave", conv = p.geom === "convex", n = +p.n;
+      const R1 = Math.min(p.R1 * stableScale(R, "R", 2 * (A ? A.pf : p).R1, 100), 50), s = R1 / p.R1;         // px per mm, evenredig met R1
       const ok = r.Re > 0 && isFinite(r.a);
       const rf = A ? A.rf : r, okF = rf.Re > 0 && isFinite(rf.a);
       const apF0 = okF ? rf.a * s : 1, apF = clamp(apF0, 11, 54), ex = apF / apF0;               // vergroting van de contactvlek (volledige F)
@@ -978,9 +998,18 @@ function hertzFig() {
       const th = clamp(p.theta, 0, 75), tr = th * DEG;
       set(R.g, { transform: "rotate(" + f1(th) + " " + C.x + " " + C.y + ")" });
       showEl(R.body, p.geom === "flat");
-      const R2 = clamp(R1 * p.R2 / p.R1, conc ? R1 * 1.25 : 14, conc ? R1 * 3.2 : 90);
+      // tegenstuk binnen een cirkel om het contactpunt (blijft ook gedraaid in het kader); halve schijf, bolsegment of holte
+      const RHO = 56, WIN = 46, cx0 = C.x, cy0 = C.y, ar = (rr, sw, lg) => "A" + f1(rr) + " " + f1(rr) + " 0 " + lg + " " + sw + " ";
+      set(R.body, { d: "M" + f1(cx0 - RHO) + " " + cy0 + ar(RHO, 0, 0) + f1(cx0 + RHO) + " " + cy0 + "Z" });
+      const R2 = clamp(p.R2 * s, conc ? R1 * 1.1 : 6, 1e4);
       showEl(R.b2, conv || conc);
-      set(R.b2, conc ? { cx: C.x, cy: C.y - R2, r: f1(R2) } : { cx: C.x, cy: C.y + R2, r: f1(R2) });
+      if (conv) {
+        if (R2 <= WIN) set(R.b2, { d: "M" + f1(cx0 - R2) + " " + f1(cy0 + R2) + ar(R2, 1, 1) + f1(cx0 + R2) + " " + f1(cy0 + R2) + ar(R2, 1, 1) + f1(cx0 - R2) + " " + f1(cy0 + R2) + "Z" });
+        else { const yw = cy0 + R2 - Math.sqrt(R2 * R2 - WIN * WIN); set(R.b2, { d: "M" + f1(cx0 - WIN) + " " + f1(yw) + ar(R2, 1, 0) + f1(cx0 + WIN) + " " + f1(yw) + "V" + (cy0 + 48) + "H" + f1(cx0 - WIN) + "Z" }); }
+      } else if (conc) {
+        const W = Math.min(WIN, R2 * 0.97), yw = cy0 - R2 + Math.sqrt(R2 * R2 - W * W);
+        set(R.b2, { d: "M" + f1(cx0 - W) + " " + f1(yw) + ar(R2, 0, 0) + f1(cx0 + W) + " " + f1(yw) + "V" + (cy0 + 48) + "H" + f1(cx0 - W) + "Z" });
+      }
       set(R.b1, { cx: C.x, cy: f1(C.y - R1 + ind), r: f1(R1) });
       const col = stressCol(ok && r.margin > 0 ? 1 / r.margin : 0);
       set(R.press, { d: "M" + f1(C.x - ap) + " " + C.y + "A" + f1(ap) + " " + hp + " 0 0 0 " + f1(C.x + ap) + " " + C.y + "Z" }); R.press.style.fill = col;
@@ -1120,7 +1149,7 @@ function msdFig() {
       return R;
     },
     draw(R, p, r, M, A) {
-      const mw = clamp(18 + 8.5 * (lg(p.m) + 3), 18, 66), mh = clamp(mw, 30, 66), my = 62 - mh / 2 + 22;
+      const mw = clamp(Math.cbrt(p.m) * stableScale(R, "m", Math.cbrt((A ? A.pf : p).m), 52), 14, 66), mh = clamp(mw, 22, 66), my = 62 - mh / 2 + 22;   // massa-afmeting ~ m^(1/3) (gelijke dichtheid)
       const zt = r.zeta, wn = r.wn, ts = r.ts, w = 2 * Math.PI * p.fd;
       const harm = !!A && A.mode === "harm";
       // tijdvenster: stap = de getoonde stapresponsie; harmonisch = 6 perioden van de storing (maximaal 60 s lang in de tekening)
@@ -1373,7 +1402,8 @@ function tauFig() {
       return R;
     },
     draw(R, p, r, M) {
-      const mx = Math.max(p.L, p.B, p.H), sc = 82 / mx, W = sc * p.L, Hh = sc * p.H, D = sc * p.B * 0.45;
+      const mx = Math.max(p.L, p.B, p.H), sc = stableScale(R, "blk", mx, 110), W = Math.min(sc * p.L, 112), Hh = Math.max(Math.min(sc * p.H, 112), 4), D = Math.max(Math.min(sc * p.B * 0.45, 50), 4);
+      const fH = Math.max(1, Hh / (sc * p.H));
       const x0 = 22, dx = D * 0.9, dy = -D * 0.6, yb = 120 + Hh / 2, yT = yb - Hh, xr = x0 + W;
       const fr0 = clamp(r.frac, 0, 1), mixc = (a, k) => "rgb(" + [59 + fr0 * 165, 111 - fr0 * 22, 208 - fr0 * 166].map(v => Math.round(clamp(v + a, 0, 255))).join(",") + ")";
       set(R.front, { d: "M" + f1(x0) + " " + f1(yT) + "H" + f1(xr) + "V" + f1(yb) + "H" + f1(x0) + "Z" }); R.front.style.fill = mixc(0);
@@ -1381,7 +1411,7 @@ function tauFig() {
       set(R.side, { d: "M" + f1(xr) + " " + f1(yT) + "l" + f1(dx) + " " + f1(dy) + "V" + f1(yb + dy) + "L" + f1(xr) + " " + f1(yb) + "Z" }); R.side.style.fill = mixc(-35);
       set(R.blkT, { x: f1(x0 + W / 2), y: f1(yT + Hh / 2 + 3) }); R.blkT.textContent = "ΔT = " + num(r.dTt) + " K"; showEl(R.blkT, Hh > 14 && W > 60);
       set(R.dL, { x: f1(x0 + W / 2), y: f1(yb + 13) }); R.dL.textContent = "L = " + num(p.L) + " mm";
-      set(R.dH, { x: f1(x0 - 4), y: f1((yT + yb) / 2 + 3) }); R.dH.textContent = "H = " + num(p.H);
+      set(R.dH, { x: f1(x0 - 4), y: f1((yT + yb) / 2 + 3) }); R.dH.textContent = "H = " + num(p.H) + (fH > 1.15 ? " (×" + num(fH, 2) + ")" : "");
       set(R.dB, { x: f1(x0 + W / 2 + dx / 2), y: f1(yT + dy - 5) }); R.dB.textContent = "B = " + num(p.B) + " mm";
       R.ah.forEach((a, i) => { const yy = yT + dy / 2 + (i + 0.5) * Hh / 3; set(a, { d: arrowPath(xr + dx + 30, yy, xr + dx + 6, yy) }); });
       set(R.hT, { x: f1(xr + dx + 22), y: f1(yb + 13) }); R.hT.textContent = "h";
@@ -1427,7 +1457,7 @@ function tcFig() {
     },
     draw(R, p, r, M, A) {
       const O = { x: 160, y: 98 }, c = r.c;
-      const ext = Math.max(p.r1, p.r2, p.r3, p.rp, 1), sc = 78 / (ext * 1.2);
+      const ext = Math.max(p.r1, p.r2, p.r3, p.rp, 1), sc = stableScale(R, "tc", ext * 1.2, 150);
       const S = q => ({ x: O.x + sc * q.x, y: O.y - sc * q.y });
       const Rp = Math.max(p.r1, p.r2, p.r3) * 1.18 * sc, Rpl = Math.max(Rp, 10);
       set(R.plate, { cx: O.x, cy: O.y, r: f1(Rpl) });
@@ -1448,7 +1478,7 @@ function tcFig() {
       set(R.pg, { transform: tf }); set(R.pg2, { transform: tf });
       r.sup.forEach((q, i) => {
         const e = c.lines[i], s0 = S(q), ux = e.dx, uy = -e.dy, L = 190;
-        set(R.ln[i], { d: "M" + f1(s0.x - ux * L) + " " + f1(s0.y - uy * L) + "L" + f1(s0.x + ux * L) + " " + f1(s0.y + uy * L) });
+        set(R.ln[i], { d: clipSeg(s0.x - ux * L, s0.y - uy * L, s0.x + ux * L, s0.y + uy * L, 8, 8, 312, 190) });
         set(R.sl[i], { x: f1(s0.x - 12), y: f1(s0.y - 4.5), transform: "rotate(" + f1(Math.atan2(uy, ux) / DEG) + " " + f1(s0.x) + " " + f1(s0.y) + ")" });
         set(R.ar[i], { d: "M" + f1(s0.x - ux * 20) + " " + f1(s0.y - uy * 20) + "L" + f1(s0.x + ux * 20) + " " + f1(s0.y + uy * 20) });
         const out = Math.hypot(q.x, q.y) > 1e-9 ? { x: q.x / Math.hypot(q.x, q.y), y: q.y / Math.hypot(q.x, q.y) } : { x: 0, y: 1 };
@@ -1505,7 +1535,7 @@ const ANIM = {
 };
 function drawFig(c, p, r, M) {
   const fig = FIGS[c.id], T = REF.tr, spec = ANIM[c.id];
-  if (!T || !T.on || !spec) { fig.draw(REF.fig, p, r, M); fitFoot(REF.fig); if (T) T.label(""); return; }
+  if (!T || !T.on || !spec) { fig.draw(REF.fig, p, r, M); fitFoot(REF.fig); fitInk($("calcSvg"), 282, 214); placeLabels($("calcSvg"), [REF.fig.note, REF.fig.leg]); if (T) T.label(""); return; }
   const A = { s: T.s, mode: T.mode, pf: p, rf: r, lab: "" };
   let p2 = p, r2 = r;
   if (spec.key) {
@@ -1518,6 +1548,8 @@ function drawFig(c, p, r, M) {
   }
   fig.draw(REF.fig, p2, r2, M, A);
   fitFoot(REF.fig);
+  fitInk($("calcSvg"), 282, 214);
+  placeLabels($("calcSvg"), [REF.fig.note, REF.fig.leg]);
   T.label(A.lab || (spec.sym ? spec.sym + " = " + num(p2[spec.key]) + " / " + num(p[spec.key]) + " " + spec.unit : ""));
 }
 // voetregels die breder zijn dan de tekening worden samengedrukt in plaats van afgesneden
@@ -1528,6 +1560,7 @@ function fitFoot(R) {
     try { if (e.getComputedTextLength() > 304) { e.setAttribute("textLength", 300); e.setAttribute("lengthAdjust", "spacingAndGlyphs"); } } catch (_) { /* niet zichtbaar */ }
   });
 }
+setRedraw(() => drawNow());
 function drawNow() { const L = REF && REF.last; if (L) drawFig(L.c, L.p, L.r, L.M); }
 
 // ---------- sliders: [min, max, logaritmisch] ----------
@@ -1595,6 +1628,7 @@ const matsOf = c => c.inputs.filter(i => i.type === "mat");
 const fmtv = v => String(+Number(v).toPrecision(3));
 
 // ---------- weergave ----------
+let svgRO = null;
 let REF = null;   // verwijzingen naar de huidige DOM
 function render() {
   state.raf = 0;
@@ -1693,7 +1727,7 @@ function renderDetail() {
   const fields = {}, sliders = {};
   $("calcDetail").querySelectorAll("[data-in]").forEach(n => { fields[n.dataset.in] = n; });
   $("calcDetail").querySelectorAll("[data-sl]").forEach(n => { sliders[n.dataset.sl] = n; });
-  const svg = $("calcSvg"); svg.innerHTML = SVG_DEFS;
+  const svg = $("calcSvg"); svg.innerHTML = SVG_DEFS; svg.__fit = svg.__leaders = null;
   const oldTr = REF && REF.tr;
   REF = {
     oldTr,
@@ -1701,6 +1735,8 @@ function renderDetail() {
     keys: [0, 1, 2].map(n => { const b = $("calcDetail").querySelector('[data-key="' + n + '"]'); return { box: b, v: b.querySelector(".v"), u: b.querySelector(".v .u"), sub: b.querySelector(".s") }; }),
     fig: FIGS[c.id].build(svg),
   };
+  wrapFit(svg, [REF.fig.note, REF.fig.leg]);
+  if (!svgRO && window.ResizeObserver) { let w0 = 0; svgRO = new ResizeObserver(() => { const w = svg.clientWidth; if (Math.abs(w - w0) > 1) { w0 = w; requestAnimationFrame(drawNow); } }); svgRO.observe(svg); }   // tekstgrootte volgt de breedte (clamp met cqw)
   if (REF.oldTr) REF.oldTr.destroy();
   if (an) REF.tr = createTransport($("calcTr"), { kind: an.kind, period: an.period, mode: an.mode, visible: () => !$("calcRoot").hidden && !!REF && !!REF.tr,
     onFrame: () => drawNow() });

@@ -103,7 +103,9 @@ export default async ({ browser, url, check }) => {
   await p.click('#calcCopy');
   const sheet = await p.$eval('#calcCopy', e => e.dataset.sheet || '');
   check('Kopieer: rekenblad met invoer, uitkomsten, formules, bronnen, versie', /INPUT/.test(sheet) && /RESULTS/.test(sheet) && /FORMULAS/.test(sheet) && /SOURCES/.test(sheet) && /Soemers/.test(sheet) && /L = 20 mm/.test(sheet) && /Stiffness c_x = 2.1 N\/mm/.test(sheet) && /v0\.\d/.test(sheet) && /20\d\d-\d\d-\d\d/.test(sheet) && !/<[a-z]+>/.test(sheet), sheet.slice(0, 200));
-  check('Kopieer: melding getoond', /copied|denied/i.test(await p.$eval('#calcActMsg', e => e.textContent)));
+  // de melding komt pas na de asynchrone klembord-belofte (en is "refused" als de headless browser het klembord weigert)
+  await p.waitForFunction(() => document.getElementById('calcActMsg').textContent.length > 0, null, { timeout: 3000 }).catch(() => {});
+  check('Kopieer: melding getoond', /copied|refused/i.test(await p.$eval('#calcActMsg', e => e.textContent)));
 
   // Link: invoer in hash, nieuwe pagina herstelt waarden
   await p.fill('[data-in="L"]', '33'); await p.fill('[data-in="t"]', '0.15'); await p.selectOption('[data-in="drive"]', 'soft');
