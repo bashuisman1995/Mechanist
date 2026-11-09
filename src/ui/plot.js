@@ -183,11 +183,11 @@ export function drawPlot() {
   plotCache = null;
   pctx.setTransform(ui.DPR, 0, 0, ui.DPR, 0, 0);
   pctx.clearRect(0, 0, w, h);
-  pctx.font = '400 10px "IBM Plex Mono", ui-monospace, monospace';
+  pctx.font = "400 10px " + ui.C.mono;
   pctx.fillStyle = ui.C.ink3;
   if (!live.length || w < 90) {
     pctx.textAlign = "center"; pctx.textBaseline = "middle";
-    pctx.font = '400 12px "IBM Plex Sans", ui-sans-serif, sans-serif';
+    pctx.font = "400 12px " + ui.C.sans;
     pctx.fillText(sim.job ? t("plot.calc") : !sim.sweep ? (ui.dynStale ? t("plot.press") : t("plot.nosol"))
       : t("plot.nomeas"), w / 2, Math.min(h, innerH) / 2);
     return;
@@ -224,7 +224,7 @@ export function drawPlot() {
   buf.width = bw; buf.height = bh;
   pctx = buf.getContext("2d");
   pctx.setTransform(ui.DPR, 0, 0, ui.DPR, 0, 0);
-  pctx.font = '400 10px "IBM Plex Mono", ui-monospace, monospace';
+  pctx.font = "400 10px " + ui.C.mono;
   const geom = [];
   try {
 
@@ -236,10 +236,10 @@ export function drawPlot() {
     // kopregel: eenheid, dan de metingen in hun kleur
     pctx.textBaseline = "middle"; pctx.textAlign = "left";
     let hx = PAD.L;
-    pctx.font = '600 10px "IBM Plex Mono", ui-monospace, monospace';
+    pctx.font = "600 10px " + ui.C.mono;
     pctx.fillStyle = ui.C.ink2; pctx.fillText("[" + (sb.u || "\u2013") + "]", hx, top + 9);
     hx += pctx.measureText("[" + (sb.u || "\u2013") + "]").width + 10;
-    pctx.font = '400 10.5px "IBM Plex Sans", ui-sans-serif, sans-serif';
+    pctx.font = "400 10.5px " + ui.C.sans;
     for (const s of sb.set) {
       const nm = serieLab(model.series[s.si]);
       const nw = pctx.measureText(nm).width;
@@ -250,7 +250,7 @@ export function drawPlot() {
     }
 
     // raster en y-as
-    pctx.font = '400 10px "IBM Plex Mono", ui-monospace, monospace';
+    pctx.font = "400 10px " + ui.C.mono;
     pctx.strokeStyle = ui.C.line; pctx.lineWidth = 1;
     pctx.textAlign = "right"; pctx.textBaseline = "middle";
     const drawn = [];                               // y van de getekende labels: nooit dichter dan 14 px bij elkaar
@@ -306,7 +306,7 @@ export function drawPlot() {
 
   // x-as: één eenheid, en nooit twee getallen over elkaar
   xUnit = (model.xAxis || "time") === "time" && xhi < 1 ? "ms" : "s";
-  pctx.font = '400 10px "IBM Plex Mono", ui-monospace, monospace';
+  pctx.font = "400 10px " + ui.C.mono;
   pctx.textBaseline = "top"; pctx.fillStyle = ui.C.ink3;
   const axU = ui.pdata.frf ? "Hz" : (model.xAxis || "time") === "time" ? xUnit
     : (model.xAxis.slice(0, 4) === "ang|" ? "°" : chU(model.xAxis.slice(3)));

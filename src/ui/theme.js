@@ -1,8 +1,9 @@
-// Themakleuren van de meetreeksen.
-export const SERIES_LIGHT = ["#2B6CA3", "#D95F02", "#2F7D4F", "#8E44C7", "#A6861F", "#C2185B"];
-const SERIES_DARK  = ["#6FA8DC", "#D0701C", "#7CC395", "#A06CD6", "#A88C1E", "#E4527F"];
-const isDark = () => {
-  const a = document.documentElement.getAttribute("data-theme");
-  return a ? a === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+// Themakleuren van de meetreeksen: de tokens --series-1..6 in src/style.css (via readColors in draw.js, één keer per themawissel).
+import { ui } from "../core/state.js";
+import { readColors } from "./draw.js";
+
+export const SERIES_LIGHT = ["#2B6CA3", "#D95F02", "#2F7D4F", "#8E44C7", "#A6861F", "#C2185B"];   // altijd licht: rapportafbeeldingen
+export const serieColor = i => {
+  readColors();
+  return (ui.C.series && ui.C.series[i % 6]) || SERIES_LIGHT[i % 6];
 };
-export const serieColor = i => (isDark() ? SERIES_DARK : SERIES_LIGHT)[i % 6];

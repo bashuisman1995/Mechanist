@@ -22,6 +22,7 @@ html,body{height:100%}body{margin:0}img{max-width:100%}[hidden]{display:none!imp
   --grid: #DDEADF;
   --grid-major: #BFD6C4;
   --hatch: #8A948C;
+  --series-1: #2B6CA3; --series-2: #D95F02; --series-3: #2F7D4F; --series-4: #8E44C7; --series-5: #A6861F; --series-6: #C2185B;
   --brand: #27352A;
   --brand-ink: #E9EBEA;
   --brand-ink-2: #A7ACA8;
@@ -51,6 +52,7 @@ html,body{height:100%}body{margin:0}img{max-width:100%}[hidden]{display:none!imp
     --grid: #212C24;
     --grid-major: #2C392F;
     --hatch: #6E786F;
+  --series-1: #6FA8DC; --series-2: #F5903C; --series-3: #7CC395; --series-4: #B58BE0; --series-5: #D2B04A; --series-6: #F06292;
     --brand: #27352A;
     --brand-ink: #E9EBEA;
     --brand-ink-2: #A7ACA8;
@@ -80,6 +82,7 @@ html,body{height:100%}body{margin:0}img{max-width:100%}[hidden]{display:none!imp
   --grid: #212C24;
   --grid-major: #2C392F;
   --hatch: #6E786F;
+  --series-1: #6FA8DC; --series-2: #F5903C; --series-3: #7CC395; --series-4: #B58BE0; --series-5: #D2B04A; --series-6: #F06292;
   --brand: #27352A;
   --brand-ink: #E9EBEA;
   --brand-ink-2: #A7ACA8;
