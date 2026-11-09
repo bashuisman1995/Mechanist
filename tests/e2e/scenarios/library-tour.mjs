@@ -6,9 +6,9 @@ export default async ({ browser, url, check }) => {
   await p.click('#libBtn');
   check('bibliotheek opent', await open());
   const n = await p.$$eval('#libGrid [data-ex]:not([hidden])', x => x.length);
-  await p.click('[data-c="frf"]');
+  await p.click('[data-c="cont"]');
   const nf = await p.$$eval('#libGrid [data-ex]:not([hidden])', x => x.length);
-  check('filter FRF toont 2 kaarten', nf === 2 && n > nf, n + '/' + nf);
+  check('filter Contacts & couplings toont 6 kaarten', nf === 6 && n > nf, n + '/' + nf);
   await p.keyboard.press('Escape');
   check('Esc sluit bibliotheek', !(await open()));
   await p.click('#libBtn'); await p.mouse.click(3, 300);

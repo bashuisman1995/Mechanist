@@ -31,6 +31,10 @@ const damper = (a, b, c, d) => {
 const box = (x, y) => `<rect class="m" x="${x - 4.5}" y="${y - 3.5}" width="9" height="7" rx="1"/>`;
 const arrow = (a, b, c, d) => `<path class="f" d="M${a} ${b}L${c} ${d}M${c - 4} ${d - 2.5}L${c} ${d}L${c - 4} ${d + 2.5}"/>`;
 
+const leaf = (a, b, c, d) => `<path class="k" style="stroke-width:1.1" d="M${a} ${b}L${c} ${d}"/>`;
+function leafGuide() {          // twee bladen op de grond met een tafel erboven
+  return ln(4, 46, 56, 46, "g") + leaf(18, 46, 18, 14) + leaf(54, 46, 54, 14) + `<path class="dr" style="stroke-width:3" d="M16 12H56"/>`;
+}
 const THUMB = {
   fourbar: () => ln(14, 40, 20, 22, "dr") + pl([[20, 22], [52, 16], [58, 40]]) + pl([[20, 22], [36, 6], [52, 16]]) + pin(14, 40) + pin(58, 40) + dot(20, 22) + dot(52, 16) + dot(36, 6),
   slidercrank: () => ln(4, 41, 76, 41, "g") + ln(14, 34, 28, 14, "dr") + ln(28, 14, 60, 34) + box(60, 36) + pin(14, 34) + dot(28, 14),
@@ -72,6 +76,52 @@ const THUMB = {
   stiffportal: () => `<path class="g" d="M10 44h12M58 44h12"/>` + `<path class="k" style="stroke-width:3.2" d="M16 44V14H64V44"/>` + `<rect class="m" x="12" y="10" width="7" height="7"/>` + `<rect class="m" x="60" y="10" width="7" height="7"/>` + arrow(2, 14, 14, 14),
   stiffmixed: () => `<path class="g" d="M10 6V30M10 10l-3 3M10 16l-3 3M10 22l-3 3"/>` + `<path class="s" d="M10 20q-5 0-5 5t5 5"/>` + `<path class="k" style="stroke-width:2.2" d="M10 28L46 28"/>` + `<path class="dr" style="stroke-width:3.4" d="M46 28V8"/>` + `<rect class="m" x="43" y="25" width="6" height="6"/>` + arrow(54, 8, 66, 8),
   pendfrf: () => ln(30, 8, 30, 38) + pin(30, 8) + mass(30, 38) + arrow(38, 38, 70, 38),
+  /* flexures */
+  leafguide: () => leafGuide() + spring(58, 12, 70, 12) + `<path class="g" d="M72 6v12M72 8l3-3M72 13l3-3M72 18l3-3"/>`,
+  compoundguide: () => ln(4, 46, 76, 46, "g") + leaf(14, 46, 14, 18) + leaf(66, 46, 66, 18) + `<path class="dr" style="stroke-width:3" d="M14 16H66"/>` +
+    leaf(30, 18, 30, 40) + leaf(50, 18, 50, 40) + `<path class="dr" style="stroke-width:3" d="M30 42H50"/>` + arrow(2, 42, 26, 42),
+  foldedleaf: () => ln(4, 46, 76, 46, "g") + leaf(26, 46, 26, 12) + `<path class="dr" style="stroke-width:3" d="M26 10H48"/>` + leaf(48, 12, 48, 44) +
+    box(48, 44) + arrow(54, 44, 72, 44),
+  crosspivot: () => ln(12, 44, 30, 44, "g") + `<path class="k" style="stroke-width:1.2" d="M20 44L40 26M40 44L20 26"/>` + `<path class="dr" style="stroke-width:3" d="M30 36L56 8"/>` +
+    dot(30, 36, 2.4) + arrow(70, 6, 60, 6) + mass(58, 10),
+  notchlever: () => `<path class="dr" style="stroke-width:3" d="M8 34L72 34"/>` + `<path class="k" d="M8 34L16 12"/>` + pin(8, 34) + dot(8, 34, 2.6) + dot(16, 12) + dot(72, 34) +
+    arrow(2, 12, 14, 12) + arrow(72, 24, 72, 8),
+  fourbarflex: () => ln(4, 46, 76, 46, "g") + ln(16, 44, 16, 14) + ln(64, 44, 64, 14) + ln(16, 12, 64, 12, "dr") + dot(16, 44, 1.8) + dot(64, 44, 1.8) + dot(16, 12, 1.8) + dot(64, 12, 1.8) +
+    arrow(70, 6, 78, 6),
+  roberts: () => ln(10, 14, 30, 14, "g") + pl([[18, 14], [26, 4]]) + `<path class="k" d="M18 14L26 36M62 14L54 36"/>` + `<path class="k" d="M26 36L54 36L40 8Z" transform="translate(0 4)"/>` +
+    `<path class="t" d="M18 48H62"/>` + dot(18, 14, 2) + dot(62, 14, 2) + dot(40, 12, 2.4),
+  xystage: () => ln(8, 46, 72, 46, "g") + leaf(14, 46, 14, 30) + leaf(66, 46, 66, 30) + `<path class="k" style="stroke-width:3" d="M12 28H68"/>` +
+    leaf(24, 22, 44, 22) + leaf(24, 10, 44, 10) + `<path class="k" style="stroke-width:2.2" d="M22 28V8"/>` + `<rect class="m" x="44" y="8" width="8" height="16"/>` + arrow(60, 16, 74, 16),
+  wirepair: () => ln(8, 46, 72, 46, "g") + ln(24, 44, 24, 18, "k") + ln(56, 44, 56, 18, "k") + `<path class="dr" style="stroke-width:3.4" d="M18 16H62"/>` + arrow(2, 16, 14, 16) + arrow(40, 4, 40, 12),
+  /* contacten en koppelingen */
+  hertzseries: () => `<path class="g" d="M10 44H70"/>` + `<circle class="m" cx="40" cy="38" r="6"/>` + spring(40, 8, 40, 31) + ln(32, 6, 48, 6, "g") + arrow(62, 14, 62, 30),
+  bearingpair: () => `<path class="g" d="M12 46H68M12 6H68"/>` + `<circle class="m" cx="40" cy="26" r="9"/>` + arrow(40, 44, 40, 36) + arrow(40, 8, 40, 16) + arrow(62, 32, 62, 18),
+  hardstop: () => `<path class="g" d="M8 44H72"/>` + `<path class="g" d="M14 46l-3 3M24 46l-3 3M34 46l-3 3M44 46l-3 3M54 46l-3 3M64 46l-3 3"/>` +
+    `<circle class="t" cx="40" cy="12" r="6"/>` + `<circle class="m" cx="40" cy="38" r="6"/>` + arrow(40, 18, 40, 28),
+  /* dynamica en FRF */
+  tmd: () => wall(8, 14, 38) + spring(8, 26, 34, 26) + box(38, 26) + spring(42.5, 26, 58, 26) + box(62, 26) + `<path class="g" d="M4 35H76"/>` +
+    `<path class="f" d="M10 8Q22 8 28 6Q32 0 36 6Q40 8 50 8" transform="translate(12 -2)"/>`,
+  isolator: () => wall(6, 18, 40) + `<path class="dr" style="stroke-width:3.4" d="M6 29H16"/>` + box(20, 29) + spring(24.5, 26, 40, 26) + damper(24.5, 32, 40, 32) + box(46, 29) + spring(50.5, 29, 62, 29) + box(66, 29) +
+    `<path class="g" d="M4 38H76"/>`,
+  voicecoil: () => wall(6, 14, 38) + spring(6, 24, 38, 24) + damper(6, 30, 38, 30) + box(42, 27) + `<path class="dr" style="stroke-width:3.4" d="M47 27H62"/>` + `<path class="dr" d="M62 20v14M66 20v14M70 20v14"/>`,
+  pendfriction: () => ln(40, 8, 24, 38) + pin(40, 8) + `<circle class="g" cx="40" cy="8" r="5"/>` + mass(24, 38) + `<path class="t" d="M40 46L40 12"/>` + `<path class="t" d="M20 40Q10 36 14 28"/>`,
+  /* stijfheid */
+  cframe: () => `<path class="k" style="stroke-width:3.2" d="M58 10H20V40H58"/>` + arrow(66, 4, 66, 10) + arrow(66, 46, 66, 40) + `<path class="g" d="M14 6v38M14 10l-3 3M14 20l-3 3M14 30l-3 3"/>`,
+  portalbrace: () => `<path class="g" d="M10 44h12M58 44h12"/>` + `<path class="k" style="stroke-width:3.2" d="M16 44V14H64V44"/>` + `<path class="dr" style="stroke-width:1.4" d="M16 44L64 14"/>` + arrow(2, 14, 14, 14),
+  probe: () => wall(8, 10, 40) + `<path class="k" style="stroke-width:2.4" d="M8 26H56"/>` + `<circle class="m" cx="60" cy="26" r="5"/>` + arrow(60, 6, 60, 19) + `<path class="t" d="M64 33Q70 26 64 19"/>`,
+  threesupport: () => `<path class="k" style="stroke-width:3" d="M10 24H70"/>` + `<path class="n" d="M10 24l-4 8h8zM40 24l-4 8h8zM70 24l-4 8h8z"/>` + `<path class="g" d="M4 33h12M34 33h12M64 33h12"/>` + arrow(25, 6, 25, 22),
+  bolted: () => wall(8, 8, 42) + `<path class="dr" style="stroke-width:3.4" d="M12 14V38"/>` + `<path class="k" style="stroke-width:3" d="M12 14H66"/>` + spring(8, 14, 12, 14) + pin(12, 38) + arrow(66, 20, 66, 36) + dot(12, 14),
+  /* thermisch */
+  athermalpair: () => wall(8, 8, 42) + ln(8, 14, 62, 24, "k") + ln(8, 38, 62, 24, "dr") + pin(8, 14) + pin(8, 38) + dot(62, 24, 2.6) + arrow(70, 24, 78, 24) + `<path class="g" d="M62 14v20"/>`,
+  bimetal: () => wall(8, 14, 38) + ln(8, 22, 46, 22, "k") + ln(8, 30, 46, 30, "dr") + `<path class="k" style="stroke-width:2.4" d="M46 22V30L70 20Z"/>` + arrow(76, 10, 76, 20) + dot(70, 20, 2.2),
+  thermslot: () => wall(6, 14, 38) + ln(6, 26, 50, 26, "k") + box(52, 26) + spring(57, 26, 70, 26) + wall(72, 14, 38) + `<path class="f" d="M12 18h8M36 18h8M16 16l-4 2 4 2M40 16l4 2-4 2"/>`,
+  /* sensoren */
+  loadcellflex: () => leafGuide() + `<rect class="m" x="58" y="7.5" width="12" height="9" rx="1.5"/><path class="k" d="M60 9.5l3 5 3-5"/>` + ln(70, 12, 74, 12, "k"),
+  capsensor: () => wall(8, 14, 38) + spring(8, 22, 34, 22) + damper(8, 30, 34, 30) + box(38, 26) + `<path class="g" d="M44 14v24M50 14v24"/>` + `<path class="g" d="M60 18v16"/>` + arrow(70, 26, 76, 26),
+  accelmass: () => wall(8, 14, 38) + spring(8, 26, 36, 26) + box(40, 26) + `<rect class="m" x="46" y="20" width="9" height="12" rx="1.5"/>` + `<path class="f" d="M60 26H74M70 23l4 3-4 3"/>` + `<path class="f" d="M44 36q8 6 16 0" style="stroke-dasharray:2 2"/>`,
+  /* optimalisatie */
+  maxfreq: () => wall(8, 14, 38) + `<path class="k" style="stroke-width:2.2" d="M8 26C26 26 30 22 40 22S54 20 62 20"/>` + `<rect class="m" x="58" y="14" width="10" height="12"/>` +
+    `<path class="f" d="M12 44Q28 44 34 36T58 38T72 44" />` + `<path class="g" d="M12 46H72"/>`,
   empty: () => `<rect class="dd" x="10" y="8" width="60" height="34" rx="4"/><path class="k" d="M40 20v10M35 25h10"/>`
 };
 function shakerBase(dy) {

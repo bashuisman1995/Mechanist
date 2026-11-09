@@ -1,8 +1,9 @@
 // Voorbeelden.
 import { contactDefaults, deltaFor } from "../core/contact.js";
 import { asyncMode, N } from "../core/elements.js";
-import { eid, model, sim, ui } from "../core/state.js";
+import { eid, model, nid, sim, ui } from "../core/state.js";
 import { addDsens, addNode, addTwoNode, crankAngle } from "./edit.js";
+import { SPECS, materialize } from "./example-specs.js";
 import { setModeUI } from "./options.js";
 import { togglePlay } from "./playback.js";
 import { cancelJob, changed, solveNow } from "./solver.js";
@@ -343,6 +344,17 @@ export const EXAMPLES = {
   steamL: () => steam(1),
   empty: () => build([], [])
 };
+// de voorbeelden uit src/ui/example-specs.js: gegevens in plaats van code (de unit-tests rekenen ze in Node na)
+function fromSpec(id) {
+  build([], [], () => {
+    const M = materialize(SPECS[id], { node: () => nid(), elem: () => eid() });
+    model.nodes = M.nodes; model.elems = M.elems; model.series = M.series;
+    Object.assign(model, M.props);
+    document.getElementById("gravChk").checked = !!model.gravity;
+    setModeUI(model.mode);
+  });
+}
+Object.keys(SPECS).forEach(id => { EXAMPLES[id] = () => fromSpec(id); });
 function steam(s) {
   build(
     [["A", 0, 0, "pin"], ["B", -5.21, 29.54 * s], ["C", 90.31, 0, "slider", 0],
@@ -363,10 +375,10 @@ function steam(s) {
    cat: mech | dyn | frf | fric | empty;  modes: kin | dyn | equil | frf
    ============================================================ */
 export const CATEGORIES = [
-  { id: "all" }, { id: "mech" }, { id: "dyn" }, { id: "frf" }, { id: "fric" }, { id: "flex" },
-  { id: "sens" }, { id: "therm" }, { id: "stiff" }, { id: "opt" }, { id: "empty" }
+  { id: "all" }, { id: "mech" }, { id: "flex" }, { id: "cont" }, { id: "dyn" }, { id: "stiff" }, { id: "therm" },
+  { id: "sens" }, { id: "opt" }, { id: "empty" }
 ];
-// Titel, beschrijving en uitleg staan in lang/examples.js onder ex.<id>.title / .desc / .text
+// Titel, beschrijving en uitleg staan in lang/examples.js (en examples-more.js) onder ex.<id>.title / .desc / .text
 export const EXAMPLE_META = {
   fourbar: { cat: "mech", modes: ["kin"] },
   slidercrank: { cat: "mech", modes: ["kin"] },
@@ -375,25 +387,60 @@ export const EXAMPLE_META = {
   hoeken: { cat: "mech", modes: ["kin"] },
   jansen: { cat: "mech", modes: ["kin"] },
   liftarm: { cat: "mech", modes: ["kin"] },
+  // flexures
+  parallelguide: { cat: "flex", modes: ["frf", "dyn"] },
+  leafguide: { cat: "flex", modes: ["stiff"] },
+  compoundguide: { cat: "flex", modes: ["stiff"] },
+  foldedleaf: { cat: "flex", modes: ["stiff"] },
+  crosspivot: { cat: "flex", modes: ["stiff"] },
+  notchlever: { cat: "flex", modes: ["stiff"] },
+  fourbarflex: { cat: "flex", modes: ["stiff"] },
+  roberts: { cat: "flex", modes: ["kin"] },
+  xystage: { cat: "flex", modes: ["stiff"] },
+  wirepair: { cat: "flex", modes: ["stiff"] },
+  // contacten en koppelingen
+  virtualplay: { cat: "cont", modes: ["dyn"] },
+  preload: { cat: "cont", modes: ["dyn"] },
+  gaplimit: { cat: "cont", modes: ["dyn"] },
+  hertzseries: { cat: "cont", modes: ["stiff"] },
+  bearingpair: { cat: "cont", modes: ["stiff"] },
+  hardstop: { cat: "cont", modes: ["dyn"] },
+  // dynamica en FRF
   springload: { cat: "dyn", modes: ["dyn"] },
   doublependulum: { cat: "dyn", modes: ["dyn"] },
   settle: { cat: "dyn", modes: ["dyn", "equil"] },
   shaker: { cat: "dyn", modes: ["dyn"] },
   steamL: { cat: "dyn", modes: ["dyn"] },
-  frictionslide: { cat: "fric", modes: ["dyn"] },
-  gaplimit: { cat: "fric", modes: ["dyn"] },
-  shakerfrf: { cat: "frf", modes: ["frf"] },
-  pendfrf: { cat: "frf", modes: ["frf"] },
-  virtualplay: { cat: "fric", modes: ["dyn"] },
-  preload: { cat: "fric", modes: ["dyn"] },
-  parallelguide: { cat: "flex", modes: ["frf", "dyn"] },
-  loadcell: { cat: "sens", modes: ["frf", "dyn"] },
-  thermarm: { cat: "therm", modes: ["kin"] },
-  athermarm: { cat: "opt", modes: ["kin"] },
-  thermclamp: { cat: "therm", modes: ["dyn", "equil"] },
+  frictionslide: { cat: "dyn", modes: ["dyn"] },
+  pendfriction: { cat: "dyn", modes: ["dyn", "equil"] },
+  shakerfrf: { cat: "dyn", modes: ["frf"] },
+  pendfrf: { cat: "dyn", modes: ["frf"] },
+  voicecoil: { cat: "dyn", modes: ["frf"] },
+  tmd: { cat: "dyn", modes: ["frf"] },
+  isolator: { cat: "dyn", modes: ["frf"] },
+  // stijfheid
   stiffcant: { cat: "stiff", modes: ["stiff"] },
   stiffleaf: { cat: "stiff", modes: ["stiff"] },
   stiffportal: { cat: "stiff", modes: ["stiff"] },
   stiffmixed: { cat: "stiff", modes: ["stiff"] },
+  portalbrace: { cat: "stiff", modes: ["stiff"] },
+  cframe: { cat: "stiff", modes: ["stiff"] },
+  probe: { cat: "stiff", modes: ["stiff"] },
+  threesupport: { cat: "stiff", modes: ["stiff"] },
+  bolted: { cat: "stiff", modes: ["stiff"] },
+  // thermisch
+  thermarm: { cat: "therm", modes: ["kin"] },
+  thermclamp: { cat: "therm", modes: ["dyn", "equil"] },
+  athermalpair: { cat: "therm", modes: ["kin"] },
+  bimetal: { cat: "therm", modes: ["kin"] },
+  thermslot: { cat: "therm", modes: ["dyn", "equil"] },
+  // sensoren
+  loadcell: { cat: "sens", modes: ["frf", "dyn"] },
+  loadcellflex: { cat: "sens", modes: ["stiff"] },
+  capsensor: { cat: "sens", modes: ["dyn", "equil"] },
+  accelmass: { cat: "sens", modes: ["frf"] },
+  // optimalisatie
+  athermarm: { cat: "opt", modes: ["kin"] },
+  maxfreq: { cat: "opt", modes: ["stiff"] },
   empty: { cat: "empty", modes: ["kin"] }
 };
