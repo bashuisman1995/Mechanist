@@ -1,5 +1,6 @@
 import { newPage, loadExample } from '../lib.mjs';
-const EX = ['fourbar', 'slidercrank', 'fivebar', 'jansen', 'hoeken', 'compressor', 'doublependulum', 'settle', 'liftarm', 'shaker', 'springload', 'gaplimit', 'frictionslide', 'shakerfrf', 'pendfrf', 'steamL', 'virtualplay', 'preload', 'parallelguide', 'loadcell', 'thermarm', 'athermarm', 'thermclamp', 'stiffcant', 'stiffleaf', 'stiffportal', 'stiffmixed'];
+import { SPECS } from '../../../src/ui/example-specs.js';
+const EX = ['fourbar', 'slidercrank', 'fivebar', 'jansen', 'hoeken', 'compressor', 'doublependulum', 'settle', 'liftarm', 'shaker', 'springload', 'gaplimit', 'frictionslide', 'shakerfrf', 'pendfrf', 'steamL', 'virtualplay', 'preload', 'parallelguide', 'loadcell', 'thermarm', 'athermarm', 'thermclamp', 'stiffcant', 'stiffleaf', 'stiffportal', 'stiffmixed', ...Object.keys(SPECS)];
 export default async ({ browser, url, check }) => {
   const p = await newPage(browser, url);
   // controle dat de lijst volledig is

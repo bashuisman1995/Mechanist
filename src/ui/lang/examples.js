@@ -1,3 +1,4 @@
+import MORE from "./examples-more.js";
 // Vertaaltabel (examples): sleutel -> [Engels, Nederlands]. Parameters staan als {naam}.
 export default {
   "ex.fourbar.title": ["Four-bar linkage", "Vierstangenmechanisme"],
@@ -86,13 +87,13 @@ export default {
   "ex.empty.text": ["Pick a tool on the left and draw points and links. Fix a point with Hinge and turn a link into a crank with Crank drive. Choose at the top the mode you want to calculate with.", "Kies links een gereedschap en teken punten en schakels. Zet een punt vast met Scharnier en maak een schakel tot kruk met Aandrijving. Kies bovenin de modus waarmee je wilt rekenen."],
   "cat.all": ["All", "Alles"],
   "cat.mech": ["Mechanisms", "Mechanismen"],
-  "cat.dyn": ["Dynamics", "Dynamica"],
-  "cat.frf": ["Frequency (FRF)", "Frequentie (FRF)"],
-  "cat.fric": ["Friction & clearance", "Wrijving & speling"],
   "cat.flex": ["Flexures", "Flexures"],
+  "cat.cont": ["Contacts & couplings", "Contacten & koppelingen"],
+  "cat.dyn": ["Dynamics & FRF", "Dynamica & FRF"],
   "cat.sens": ["Sensors", "Sensoren"],
   "cat.therm": ["Thermal", "Thermisch"],
   "cat.stiff": ["Stiffness", "Stijfheid"],
   "cat.opt": ["Optimization", "Optimalisatie"],
   "cat.empty": ["Empty", "Leeg"],
+  ...MORE
 };
