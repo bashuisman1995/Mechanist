@@ -263,7 +263,7 @@ function initMenu() {
    ============================================================ */
 const GROUPS = [
   ["geometry", "Geometry", ["select", "node", "link", "split"]],
-  ["supports", "Supports", ["pin", "slider", "driver", "actuator"]],
+  ["supports", "Supports", ["clamp", "pin", "slider", "driver", "actuator"]],
   ["elements", "Elements", ["spring", "damper", "gap", "flexure", "contact", "trace"]],
   ["loads", "Loads", ["force", "mass"]],
   ["sensors", "Sensors", ["loadcell", "dsens", "encoder", "accel"]]

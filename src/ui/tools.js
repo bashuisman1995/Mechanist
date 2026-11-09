@@ -17,6 +17,7 @@ const ICON = {
   node:   '<circle cx="10" cy="10" r="4.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M10 1.5v3.2M10 15.3v3.2M1.5 10h3.2M15.3 10h3.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
   link:   '<path d="M5 14L15 6" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/><circle cx="5" cy="14" r="2.6" fill="var(--panel)" stroke="currentColor" stroke-width="1.5"/><circle cx="15" cy="6" r="2.6" fill="var(--panel)" stroke="currentColor" stroke-width="1.5"/>',
   pin:    '<circle cx="10" cy="6.2" r="2.6" fill="var(--panel)" stroke="currentColor" stroke-width="1.5"/><path d="M10 8.8L4.6 15.4h10.8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 17.2h14M4.4 17.2l-1.6 2M8 17.2l-1.6 2M11.6 17.2L10 19.2M15.2 17.2l-1.6 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>',
+  clamp:  '<path d="M10 3v14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M10 6h8M10 10h8M10 14h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6.4 3.6L3 7M6.4 8L3 11.4M6.4 12.4L3 15.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>',
   slider: '<circle cx="10" cy="7" r="2.4" fill="var(--panel)" stroke="currentColor" stroke-width="1.5"/><rect x="5.6" y="4.4" width="8.8" height="5.2" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2.6 12.6h14.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3.4 14.6l-1.4 2M7 14.6l-1.4 2M10.6 14.6l-1.4 2M14.2 14.6l-1.4 2M17.8 14.6l-1.4 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>',
   driver: '<circle cx="7" cy="13" r="2.4" fill="var(--panel)" stroke="currentColor" stroke-width="1.5"/><path d="M7 13L14 7" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M3.4 9.4a5 5 0 016-3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M9.8 4.6l0 3.2-3-1.1z" fill="currentColor"/>',
   actuator: '<path d="M2.5 13.8L9.6 8.2" stroke="currentColor" stroke-width="4.2" stroke-linecap="round"/><path d="M9 8.6l8-6.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M12.8 14.8l3.6-2.8M14.4 17l3.6-2.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>',
@@ -43,6 +44,7 @@ const TOOLS = [
   { id: "link",    kb: "L", ic: "link", },
   { id: "split", kb: "O", ic: "split", },
   { g: "tool.g.supports" },
+  { id: "clamp", kb: "E", ic: "clamp", },
   { id: "pin",  kb: "P", ic: "pin", },
   { id: "slider",    kb: "S", ic: "slider", },
   { id: "driver", kb: "D", ic: "driver", },
@@ -66,6 +68,13 @@ const TOOLS = [
 ];
 
 export const rail = document.getElementById("rail");
+// tooltip: name (shortcut) and the first sentence of the translated hint as one-line purpose
+function toolTip(tl) {
+  const nm = t("tool." + tl.id + ".nm"), tmp = document.createElement("div");
+  tmp.innerHTML = t("tool." + tl.id + ".hint");
+  const m = (tmp.textContent || "").trim().match(/^.*?[.!?](?=\s+[A-Z]|$)/), pur = m ? m[0].trim() : (tmp.textContent || "").trim();
+  return nm + (pur ? " \u2014 " + pur : "") + " (" + tl.kb + ")";   // ends in "(K)": the custom tooltip shows it as a key cap
+}
 const railTop = document.createElement("div");
 
 let hintT = 0;
@@ -137,7 +146,7 @@ function buildRail() {
     const b = document.createElement("button");
     b.className = "tool"; b.type = "button"; b.dataset.tool = tl.id;
     b.setAttribute("aria-pressed", String(tl.id === ui.tool));
-    b.title = nm + " (" + tl.kb + ")";
+    b.title = toolTip(tl);
     b.innerHTML = '<svg viewBox="0 0 20 20" aria-hidden="true">' + ICON[tl.ic] + '</svg>' +
                   '<span class="nm">' + nm + '</span><span class="kb">' + tl.kb + '</span>';
     b.addEventListener("click", () => setTool(tl.id));
@@ -153,7 +162,7 @@ function relabelRail() {
     if (tl.g) return;
     const b = rail.querySelector('.tool[data-tool="' + tl.id + '"]'); if (!b) return;
     const nm = t("tool." + tl.id + ".nm");
-    b.title = nm + " (" + tl.kb + ")";
+    b.title = toolTip(tl);
     const n = b.querySelector(".nm"); if (n) n.textContent = nm;
   });
 }
@@ -163,20 +172,25 @@ export function initTools() {
   cv.addEventListener("pointerdown", () => { clearTimeout(hintT); document.getElementById("hint").classList.add("dim"); }, true);
   document.getElementById("helpBtn").addEventListener("click", showHelp);
   buildRail();
-  onLang(() => { relabelRail(); setTool(ui.tool); });
+  const setCvAria = () => cv.setAttribute("aria-label", t("cv.aria"));
+  cv.tabIndex = 0; cv.setAttribute("role", "application"); setCvAria();
+  onLang(() => { relabelRail(); setCvAria(); setTool(ui.tool); });
 
   document.addEventListener("keydown", e => {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
     const k = e.key.toLowerCase();
     if (e.key === "?") { showHelp(); e.preventDefault(); return; }
-    const map = { v: "select", n: "node", l: "link", p: "pin", s: "slider", d: "driver", a: "actuator", r: "spring", c: "damper", g: "gap", k: "contact", b: "flexure", q: "loadcell", w: "dsens", h: "encoder", j: "accel", o: "split", f: "force", m: "mass", t: "trace", x: "del" };
+    const map = { v: "select", n: "node", l: "link", p: "pin", e: "clamp", s: "slider", d: "driver", a: "actuator", r: "spring", c: "damper", g: "gap", k: "contact", b: "flexure", q: "loadcell", w: "dsens", h: "encoder", j: "accel", o: "split", f: "force", m: "mass", t: "trace", x: "del" };
     if (map[k]) { setTool(map[k]); e.preventDefault(); return; }
     if (e.key === " ") {
       // een knop met focus zou anders zelf nog eens "klikken" en het afspelen meteen weer stoppen
       if (e.target.tagName === "BUTTON") e.target.blur();
       togglePlay(); e.preventDefault(); return;
     }
-    if (e.key === "Escape") { ui.pending = null; ui.sel = null; syncInspector(); draw(); }
+    if (e.key === "Escape") {                 // eerst de lopende handeling, dan de selectie, dan het gereedschap
+      if (ui.pending) ui.pending = null; else if (ui.sel) ui.sel = null; else if (ui.tool !== "select") { setTool("select"); return; }
+      syncInspector(); draw();
+    }
     if (e.key === "Home") { toT0(); e.preventDefault(); return; }
     if (e.key === "Delete" || e.key === "Backspace") {
       if (ui.sel) { e.preventDefault(); if (atT0()) { cancelJob(); removeSel(); } else lockNudge(); }

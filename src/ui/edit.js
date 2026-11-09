@@ -43,7 +43,10 @@ export function addTwoNode(type, a, b) {
   if (dup) return dup;
   const L = dist(N(a), N(b));
   const e = { id: eid(), type, a, b };
-  if (type === "link") { e.len = round2(L); e.driver = false; }
+  if (type === "link") {
+    e.len = round2(L); e.driver = false;
+    if (model.mode === "stiff") { e.beam = true; e.prof = "rect"; e.mat = "staal"; }    // Stiffness: a drawn link is a beam, not a rigid rod
+  }
   if (type === "spring") { e.k = 1.0; e.L0 = round2(L); }
   if (type === "damper") { e.c = 0.05; }
   if (type === "gap") { e.min = round2(L - 2); e.max = round2(L + 2); e.kc = 50; e.cc = 0.05; }
