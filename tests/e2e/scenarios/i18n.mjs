@@ -1,7 +1,7 @@
 // Language switch EN -> NL -> EN: no raw translation keys, no console errors, no Dutch left in EN, decimal comma in NL.
 import { newPage, loadExample, dismissAsk } from '../lib.mjs';
 
-export const timeout = 600000;
+export const timeout = 900000;  // the English pass visits every library example (~10 min)
 const KEY_RE = /\b[a-z]{2,}(\.[a-z0-9]+){2,}\b/;
 // common Dutch words that must not appear in the English UI (whole words, case-insensitive)
 const NL_RE = /\b(het|een|niet|stijfheid|veren|klik|selecteer|kies|instellingen|schakel|staaf|staven|waarde|kracht|lengte|uitkomst|opslaan|sluiten|annuleren|bereken|doorgerekend|toelaatbare|geen|voor|zonder|alleen|onder|boven|tussen|belasting|eigenschappen|metingen|gereedschap|bibliotheek|rekenblad|aandrijving|snelheid|frequentie|demper|speling|glijder|scharnier|kruk)\b/i;
@@ -48,7 +48,9 @@ export default async ({ browser, url, check }) => {
     for (const ex of (light || process.env.I18N_LIGHT ? ['fourbar', 'stiffportal'] : exs)) {
       if (ex === 'empty') { await p.click('#libBtn'); await p.click('[data-ex="empty"]'); await dismissAsk(p); await p.waitForTimeout(300); } else await loadExample(p, ex);
       await scan(`${lang} ${ex}`, lang);
-      for (const tb of ['how', 'opt', 'set', 'props']) { await p.click(`#tabs [data-t="${tb}"]`); await scan(`${lang} ${ex} tab ${tb}`, lang); }
+      // Optimize/Settings are model-independent text: scan them on two examples only, so the scenario stays within its timeout
+      const tabs = ex === 'fourbar' || ex === 'stiffportal' ? ['how', 'opt', 'set', 'props'] : ['how', 'props'];
+      for (const tb of tabs) { await p.click(`#tabs [data-t="${tb}"]`); await scan(`${lang} ${ex} tab ${tb}`, lang); }
     }
     // every mode on a mechanism example and on a stiffness example
     for (const ex of ['fourbar', 'stiffportal']) {
@@ -100,7 +102,7 @@ export default async ({ browser, url, check }) => {
   await setLang('nl');
   check('NL: menu is Dutch and document lang is nl', /Bestand/.test(await p.$eval('#menuBtn', e => e.textContent)) && (await p.evaluate(() => document.documentElement.lang)) === 'nl');
   const k0 = bad.key.length;
-  await pass('nl');
+  await pass('nl', true);  // light: completeness of every Dutch text is checked in tests/unit/i18n-dict.test.mjs
   check('NL: no raw keys', bad.key.length === k0, bad.key.slice(k0, k0 + 5).join(' | '));
   check('NL: decimal comma, no decimal point', bad.nlComma.length === 0, bad.nlComma.slice(0, 5).join(' | '));
 
