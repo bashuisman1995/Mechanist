@@ -17,11 +17,11 @@ export default async ({ browser, url, check }) => {
   const vis = sel => p.$eval(sel, e => !e.hidden && getComputedStyle(e).display !== 'none');
 
   // vijfde modus: de knop bestaat en schakelt om
-  check('knop Stijfheid in de modusbalk', (await p.$$eval('#modeSeg button', b => b.map(x => x.textContent))).includes('Stijfheid'));
+  check('knop Stijfheid in de modusbalk', (await p.$$eval('#modeSeg button', b => b.map(x => x.textContent))).includes('Stiffness'));
   await p.click('#modeSeg [data-v="stiff"]'); await p.waitForTimeout(250);
   check('Stijfheid: balk en uitleesblok zichtbaar', await vis('#stiffBox') && (await p.$eval('#modeSeg [data-v="stiff"]', e => e.getAttribute('aria-pressed'))) === 'true');
   const t0 = await p.$eval('#stiffBox', e => e.innerText);
-  check('vierstang is een mechanisme, in gewone taal', /Mechanisme/.test(t0) && /vrij/.test(t0), t0.slice(0, 160));
+  check('vierstang is een mechanisme, in gewone taal', /Mechanism/.test(t0) && /freely/.test(t0), t0.slice(0, 160));
   check('mechanisme: afspelen uit', await p.$eval('#playBtn', e => e.disabled));
   await p.click('#modeSeg [data-v="kin"]'); await p.waitForTimeout(300);
   check('terug naar Kinematisch: stijfheidsbalk weg, afspelen weer actief', !(await vis('#stiffBox')) && !(await p.$eval('#playBtn', e => e.disabled)));
@@ -41,7 +41,7 @@ export default async ({ browser, url, check }) => {
   const kExact = 3 * 210000 * (20 * 27 / 12) / 200 ** 3;
   check('stijfheid in punt C = 3EI/L³ = 3,544 N/mm', near(k, kExact, 0.006), `k=${k} verwacht ${kExact}`);
   const ana = await p.$eval('#stiffBox', e => e.innerText);
-  check('analytische controle naast de FE-waarde (uitkraging, f₁)', /Uitkragende balk \(Roark\)/.test(ana) && /Eerste buigfrequentie/.test(ana), ana.slice(-300));
+  check('analytische controle naast de FE-waarde (uitkraging, f₁)', /Cantilever beam \(Roark\)/.test(ana) && /First bending frequency/.test(ana), ana.slice(-300));
   // richting en punt kiezen
   await p.fill('#skAng', '0'); await p.keyboard.press('Enter'); await p.waitForTimeout(150);
   const kx = kNmm(await p.$eval('#skVal', e => e.textContent));
@@ -51,7 +51,7 @@ export default async ({ browser, url, check }) => {
   // eigenvormen en vergroting
   await p.waitForFunction(() => document.querySelectorAll('#stiffChips .chip').length >= 5, null, { timeout: 8000 });
   const chips = await p.$$eval('#stiffChips .chip', c => c.map(x => x.textContent));
-  check('chips: statisch + eigenmodes met frequentie', chips[0] === 'Statisch' && /Mode 1 · \d/.test(chips[1]) && /Hz/.test(chips[1]), chips.join(' | '));
+  check('chips: statisch + eigenmodes met frequentie', chips[0] === 'Static' && /Mode 1 · \d/.test(chips[1]) && /Hz/.test(chips[1]), chips.join(' | '));
   const mag0 = await p.$eval('#stiffMag', e => e.textContent);
   check('vergroting automatisch (×N)', /^×\d/.test(mag0), mag0);
   await p.$eval('#stiffSc', e => { e.value = 3; e.dispatchEvent(new Event('input')); });
@@ -62,19 +62,19 @@ export default async ({ browser, url, check }) => {
   await p.click('#stiffChips .chip[data-m="0"]'); await p.waitForTimeout(150);
   check('mode 1 gekozen', await p.$eval('#stiffChips .chip[data-m="0"]', e => e.classList.contains('on')));
   await p.click('#playBtn'); await p.waitForTimeout(300);
-  check('afspelen animeert (pauzeknop)', /Pauzeren/.test(await p.$eval('#playBtn', e => e.getAttribute('data-tip') || e.title)));
+  check('afspelen animeert (pauzeknop)', /Pause/.test(await p.$eval('#playBtn', e => e.getAttribute('data-tip') || e.title)));
   await p.click('#playBtn');
   await p.click('#stiffChips .chip[data-m="-1"]');
 
   // Hoe rekent dit? bevat de formules, de bronnen en de analytische waarden
   await p.click('#tabs [data-t="how"]'); await p.waitForTimeout(400);
   const how = await p.$eval('#howPanel', e => e.innerText);
-  check('Hoe rekent dit?: Przemieniecki, Roark, Soemers, FL³/3EI', /Przemieniecki/.test(how) && /Roark/.test(how) && /Soemers/.test(how) && /3EI/.test(how) && /analytisch/.test(how), how.slice(0, 120));
+  check('Hoe rekent dit?: Przemieniecki, Roark, Soemers, FL³/3EI', /Przemieniecki/.test(how) && /Roark/.test(how) && /Soemers/.test(how) && /3EI/.test(how) && /analytical/.test(how), how.slice(0, 120));
   await p.click('#tabs [data-t="props"]');
 
   // gereedschap Knoop op balk
   await p.keyboard.press('o');
-  check('gereedschap Knoop op balk (toets O)', (await p.$eval('#stTool', e => e.textContent)) === 'Knoop op balk');
+  check('gereedschap Knoop op balk (toets O)', (await p.$eval('#stTool', e => e.textContent)) === 'Node on beam');
   await p.keyboard.press('v');
   await p.close();
 
@@ -84,7 +84,7 @@ export default async ({ browser, url, check }) => {
   const kLeaf = kNmm(await q.$eval('#skVal', e => e.textContent));
   check('bladveer: k = 12EI/L³ = 0,886 N/mm', near(kLeaf, 0.8859, 0.001), String(kLeaf));
   const leafText = await q.$eval('#stiffBox', e => e.innerText);
-  check('bladveer: analytische controle geleid, verschil 0,00 %', /Geleide uitkraging/.test(leafText) && /verschil 0,00 %/.test(leafText), leafText.slice(-200));
+  check('bladveer: analytische controle geleid, verschil 0,00 %', /Guided cantilever/.test(leafText) && /difference 0\.00 %/.test(leafText), leafText.slice(-200));
   check('geen page errors', q.errs.length === 0, q.errs.join('|'));
   await q.context().close();
 
@@ -111,15 +111,15 @@ export default async ({ browser, url, check }) => {
   if (pt) {
     await r.mouse.click(pt.x, pt.y); await r.waitForTimeout(200);
     const props = await r.$eval('#props', e => e.innerText);
-    check('balk geselecteerd: Balk (EA + EI), Volledig, profiel', /Balk \(EA \+ EI\)/.test(props) && /Profiel/.test(props) && /Knoop op balk/.test(props), props.slice(0, 200));
+    check('balk geselecteerd: Balk (EA + EI), Volledig, profiel', /Beam \(EA \+ EI\)/.test(props) && /Profile/.test(props) && /Node on beam/.test(props), props.slice(0, 200));
     const nBefore = await r.$$eval('#stiffTab > div:first-child table tr', t => t.length);
     await r.click('#splitBtn'); await r.waitForTimeout(300);
     const nAfter = await r.$$eval('#stiffTab > div:first-child table tr', t => t.length);
     check('Knoop op balk: een punt erbij', nAfter === nBefore + 1, nBefore + ' -> ' + nAfter);
     const k2 = await r.$eval('#skVal', e => e.textContent);
-    check('na splitsen blijft de stijfheid gelijk (9,45 N/mm)', /9,4\d/.test(k2), k2);
+    check('na splitsen blijft de stijfheid gelijk (9,45 N/mm)', /9\.4\d/.test(k2), k2);
     const props2 = await r.$eval('#props', e => e.innerText);
-    check('nieuw punt geselecteerd met verbinding Star (automatisch)', /Star/.test(props2) && /automatisch/.test(props2), props2.slice(0, 200));
+    check('nieuw punt geselecteerd met verbinding Star (automatisch)', /Rigid/.test(props2) && /auto/i.test(props2), props2.slice(0, 200));
   }
   check('geen page errors (inspector)', r.errs.length === 0, r.errs.join('|'));
   await r.context().close();
@@ -132,8 +132,8 @@ export default async ({ browser, url, check }) => {
     elems: [{ id: 'e1', type: 'link', a: 'n1', b: 'n2', len: 100, driver: false, beam: true, prof: 'rect', pb: 10, ph: 2 }, { id: 'e2', type: 'force', node: 'n2', mag: 1, ang: 90 }] }));
   await s.click('#modalOk'); await s.waitForTimeout(500);
   const mt = await s.$eval('#stiffBox', e => e.innerText);
-  check('mechanisme in gewone taal (punt B kan vrij draaien)', /Mechanisme: punt [AB] kan vrij draaien/.test(mt), mt.slice(0, 200));
-  check('mechanisme: Resultaat toont vrije bewegingen', /^\+1/.test(await s.$eval('#dofVal', e => e.textContent)) && /mechanisme/.test(await s.$eval('#dofOf', e => e.textContent)));
+  check('mechanisme in gewone taal (punt B kan vrij draaien)', /Mechanism: point [AB] can rotate freely/.test(mt), mt.slice(0, 200));
+  check('mechanisme: Resultaat toont vrije bewegingen', /^\+1/.test(await s.$eval('#dofVal', e => e.textContent)) && /mechanism/.test(await s.$eval('#dofOf', e => e.textContent)));
   check('geen page errors (mechanisme)', s.errs.length === 0, s.errs.join('|'));
   await s.context().close();
 

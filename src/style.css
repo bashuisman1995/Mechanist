@@ -1233,3 +1233,4 @@ input[type="checkbox"]:checked::after { opacity: 1; }
   .calc-sel { min-height: 44px; }
   .joint-seg button { min-height: 40px; }
 }
+.langtop button { min-width: 40px; }

@@ -43,7 +43,7 @@ export function applyStatic(root) {
   if (typeof document === "undefined") return;
   const r = root || document;
   r.querySelectorAll("[data-i18n]").forEach(e => { e.innerHTML = t(e.getAttribute("data-i18n")); });
-  r.querySelectorAll("[data-i18n-title]").forEach(e => { e.title = t(e.getAttribute("data-i18n-title")); });
+  r.querySelectorAll("[data-i18n-title]").forEach(e => { e.removeAttribute("data-tip"); e.title = t(e.getAttribute("data-i18n-title")); });
   r.querySelectorAll("[data-i18n-aria]").forEach(e => { e.setAttribute("aria-label", t(e.getAttribute("data-i18n-aria"))); });
   r.querySelectorAll("[data-i18n-ph]").forEach(e => { e.setAttribute("placeholder", t(e.getAttribute("data-i18n-ph"))); });
   if (!root) {

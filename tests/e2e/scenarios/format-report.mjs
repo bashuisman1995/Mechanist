@@ -24,6 +24,7 @@ async function openExample(p, ex) {
 }
 const scan = (p, sel) => p.evaluate(s => document.querySelector(s).innerText, sel);
 
+export const timeout = 400000; // heavy: loops over all examples and modes
 export default async ({ browser, url, check }) => {
   const p = await newPage(browser, url);
   await p.click('#libBtn');

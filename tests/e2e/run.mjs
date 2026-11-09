@@ -47,9 +47,12 @@ for (const f of files) {
   const ts = Date.now();
   try {
     const mod = await import(pathToFileURL(path.join(here, 'scenarios', f)).href);
-    await mod.default({ browser, url, check });
+    const limit = +(process.env.SCENARIO_TIMEOUT || mod.timeout || 90000);
+    let timer;
+    const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('scenario timeout after ' + limit / 1000 + ' s')), limit); });
+    try { await Promise.race([mod.default({ browser, url, check }), timeout]); } finally { clearTimeout(timer); }
   } catch (e) {
-    check('scenario zonder uitzondering', false, process.env.VERBOSE ? e.message : e.message.split('\n')[0]);
+    check('scenario runs without exception', false, process.env.VERBOSE ? e.message : e.message.split('\n')[0]);
   }
   console.log(`      (${current}: ${((Date.now() - ts) / 1000).toFixed(1)} s)`);
 }

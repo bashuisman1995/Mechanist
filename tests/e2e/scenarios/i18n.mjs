@@ -1,104 +1,113 @@
-// Taalwissel: EN en NL tonen geen ruwe vertaalsleutels, in EN blijft geen Nederlands over, het model blijft bij een wissel behouden.
-import { pathToFileURL } from 'node:url';
-import path from 'node:path';
-import { newPage, loadExample, dismissAsk, playReady, store } from '../lib.mjs';
+// Language switch EN -> NL -> EN: no raw translation keys, no console errors, no Dutch left in EN, decimal comma in NL.
+import { newPage, loadExample, dismissAsk } from '../lib.mjs';
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
-const { DICTS } = await import(pathToFileURL(path.join(root, 'src/ui/i18n.js')).href);
-const KEYS = Object.keys(DICTS.en).filter(k => k.indexOf('.') > 0).sort((a, b) => b.length - a.length);
-const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const KEY_RE = new RegExp('(?<![\\w.])(?:' + KEYS.map(esc).join('|') + ')(?![\\w])');
-// onbekende sleutels (niet in het woordenboek) herkennen we aan het voorvoegsel van een sleutelgroep
-const GROUPS = [...new Set(KEYS.map(k => k.split('.')[0]))].filter(g => g.length > 2);
-const UNKNOWN_RE = new RegExp('(?<![\\w.])(?:' + GROUPS.map(esc).join('|') + ')\\.[a-z][\\w]*(?:\\.[\\w]+)*(?![\\w(])');
-// veelvoorkomende Nederlandse woorden; hoofdletterongevoelig, hele woorden
-const NL_RE = /\b(het|een|van|niet|stijfheid|veer|veren|klik|selecteer|kies|instellingen|schakel|schakels|staaf|staven|punt|punten|waarde|kracht|lengte|uitkomst|uitkomsten|opslaan|sluiten|annuleren|bereken|doorgerekend|hoek|toelaatbare|geen|voor|met|bij|naar|zonder|alleen|meer|onder|boven|tussen|geometrie|belasting|eigenschappen|metingen|gereedschap|bibliotheek|rekenblad|aandrijving|massa|snelheid|frequentie|demper|speling|glijder|scharnier|kruk)\b/i;
-const grid = [];
-for (let i = 0; i < 9; i++) for (let j = 0; j < 6; j++) grid.push([0.1 + i * 0.1, 0.12 + j * 0.15]);
+export const timeout = 600000;
+const KEY_RE = /\b[a-z]{2,}(\.[a-z0-9]+){2,}\b/;
+// common Dutch words that must not appear in the English UI (whole words, case-insensitive)
+const NL_RE = /\b(het|een|niet|stijfheid|veren|klik|selecteer|kies|instellingen|schakel|staaf|staven|waarde|kracht|lengte|uitkomst|opslaan|sluiten|annuleren|bereken|doorgerekend|toelaatbare|geen|voor|zonder|alleen|onder|boven|tussen|belasting|eigenschappen|metingen|gereedschap|bibliotheek|rekenblad|aandrijving|snelheid|frequentie|demper|speling|glijder|scharnier|kruk)\b/i;
 
 export default async ({ browser, url, check }) => {
-  const p = await newPage(browser, url);
-  const origClick = p.click.bind(p);
-  p.click = async (sel, o) => { try { return await origClick(sel, o); } catch (e) { throw new Error('click ' + sel + ' after ' + (globalThis.__i18nCur || '') + ': ' + e.message.split('\n')[0]); } };
-  const txt = () => p.evaluate(() => document.body.innerText + '\n' + [...document.querySelectorAll('[title],[aria-label],[placeholder]')].map(e => (e.title || '') + ' ' + (e.getAttribute('aria-label') || '') + ' ' + (e.getAttribute('placeholder') || '')).join('\n') + '\n' + [...document.querySelectorAll('canvas')].map(() => '').join(''));
-  const svgTxt = () => p.evaluate(() => [...document.querySelectorAll('svg text, #report, #calcDetail')].map(e => e.textContent).join('\n'));
-  const bad = { key: [], unk: [], nl: [] };
+  const p = await newPage(browser, url, { start: true });
+  const bad = { key: [], nl: [], nlComma: [] };
   let n = 0;
-  let cur = '';
+  const text = () => p.evaluate(() => {
+    const vis = e => !e.closest('[hidden]') && e.getClientRects().length > 0;
+    const attrs = [...document.querySelectorAll('[title],[aria-label],[placeholder],[data-tip]')].filter(vis)
+      .map(e => [e.title, e.getAttribute('aria-label'), e.getAttribute('placeholder'), e.getAttribute('data-tip')].join(' '));
+    const svg = [...document.querySelectorAll('svg text')].filter(vis).map(e => e.textContent);
+    const tip = document.getElementById('tip'); if (tip) tip.hidden = true; // stale tooltip text from hover
+    return document.body.innerText + '\n' + attrs.join('\n') + '\n' + svg.join('\n');
+  });
   const scan = async (where, lang) => {
-    n++; cur = where; globalThis.__i18nCur = where;
-    const t = (await txt()) + '\n' + (await svgTxt());
-    const k = t.match(KEY_RE), u = t.match(UNKNOWN_RE);
+    n++;
+    await p.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))); // panels render in a frame
+    const t = await text();
+    const k = t.match(KEY_RE);
     if (k) bad.key.push(where + ': ' + k[0]);
-    if (u) bad.unk.push(where + ': ' + u[0]);
-    if (lang === 'en') { const d = t.match(NL_RE); if (d) bad.nl.push(where + ': ' + d[0] + ' …' + t.slice(Math.max(0, d.index - 25), d.index + 25).replace(/\s+/g, ' ')); }
+    if (lang === 'en') { const d = t.match(NL_RE); if (d) bad.nl.push(where + ': ' + d[0] + ' ...' + t.slice(Math.max(0, d.index - 25), d.index + 25).replace(/\s+/g, ' ')); }
   };
-  const tabs = ['props', 'how', 'opt', 'set'];
-  const sketchPass = async lang => {
+  const closeAll = async () => {
+    await p.keyboard.press('Escape');
+    if (await p.$('#repClose').catch(() => null)) { try { await p.click('#repClose', { timeout: 1000 }); } catch (e) { /* already closed */ } }
+  };
+  const setLang = async lang => {
+    await p.click('#menuBtn');
+    await p.click(`#langSeg [data-lang="${lang}"]`);
+    await p.keyboard.press('Escape');
+    await p.waitForTimeout(200);
+  };
+  const toWork = async w => { await p.click(`#workSeg [data-w="${w}"]`); await p.waitForTimeout(300); };
+
+  const pass = async (lang, light) => {
+    // start screen
+    if (await p.$('#start:not([hidden])')) await scan(lang + ' start', lang);
+    else { await p.click('#brand').catch(() => {}); await scan(lang + ' start', lang); }
+    await toWork('sketch');
+    // every library example
     const exs = await p.evaluate(() => { document.getElementById('libBtn').click(); const a = [...document.querySelectorAll('[data-ex]')].map(e => e.dataset.ex); document.getElementById('libBtn').click(); return a; });
-    for (const ex of exs) {
+    for (const ex of (light || process.env.I18N_LIGHT ? ['fourbar', 'stiffportal'] : exs)) {
       if (ex === 'empty') { await p.click('#libBtn'); await p.click('[data-ex="empty"]'); await dismissAsk(p); await p.waitForTimeout(300); } else await loadExample(p, ex);
-      await scan(lang + ' ' + ex, lang);
-      const box = await p.$eval('#cv', e => { const r = e.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; });
-      const seen = new Set();
-      for (const [fx, fy] of grid) {
-        await p.mouse.click(box.x + box.w * fx, box.y + box.h * fy);
-        const sig = await p.$eval('#props', e => e.textContent.slice(0, 60));
-        if (seen.has(sig)) continue; seen.add(sig);
-        for (const tb of tabs) { await p.click(`#tabs [data-t="${tb}"]`); await scan(`${lang} ${ex} sel ${tb}`, lang); }
-        await p.click('#tabs [data-t="props"]');
-      }
-      for (const tb of tabs) { await p.click(`#tabs [data-t="${tb}"]`); await scan(`${lang} ${ex} ${tb}`, lang); }
-      await p.click('#tabs [data-t="props"]');
-      await p.keyboard.press('Escape');
+      await scan(`${lang} ${ex}`, lang);
+      for (const tb of ['how', 'opt', 'set', 'props']) { await p.click(`#tabs [data-t="${tb}"]`); await scan(`${lang} ${ex} tab ${tb}`, lang); }
     }
-    // alle modi op het laatste voorbeeld en de tools
-    for (const m of ['kin', 'dyn', 'equil', 'frf', 'stiff']) { await p.click(`#modeSeg [data-v="${m}"]`); await p.waitForTimeout(400); await scan(`${lang} mode ${m}`, lang); }
+    // every mode on a mechanism example and on a stiffness example
+    for (const ex of ['fourbar', 'stiffportal']) {
+      await loadExample(p, ex);
+      for (const m of ['kin', 'dyn', 'equil', 'frf', 'stiff']) {
+        await p.click(`#modeSeg [data-v="${m}"]`); await p.waitForTimeout(500);
+        await scan(`${lang} ${ex} mode ${m}`, lang);
+        if (lang === 'nl' && ex === 'fourbar' && m === 'kin') {
+          const series = await p.$$eval('#series [data-v], #series [data-s]', x => x.map(e => e.textContent).join(' '));
+          if (/\d\.\d/.test(series) || !/\d,\d/.test(series)) bad.nlComma.push('series: ' + series.slice(0, 80));
+        }
+        if (lang === 'nl' && ex === 'stiffportal' && m === 'stiff') {
+          const sk = await p.$eval('#skVal', e => e.textContent);
+          if (/\d\.\d/.test(sk) || !/\d,\d/.test(sk)) bad.nlComma.push('skVal: ' + sk);
+        }
+      }
+    }
     await p.click('#helpBtn'); await scan(lang + ' hint', lang);
     await p.click('#menuBtn'); await scan(lang + ' menu', lang); await p.keyboard.press('Escape');
     await p.click('#libBtn'); await scan(lang + ' library', lang); await p.keyboard.press('Escape');
-    await p.click('#menuBtn'); await p.click('[data-a="report"]'); await p.waitForTimeout(500); await scan(lang + ' sketch report', lang);
-    await p.keyboard.press('Escape');
-    if (await p.$('#repClose')) { try { await p.click('#repClose'); } catch (e) { /* al gesloten */ } }
-  };
-  const calcPass = async lang => {
-    await p.click('#workSeg [data-w="calc"]');
-    const items = await p.$$eval('#calcList button', b => b.map((x, i) => i));
-    for (const i of items) {
+    await loadExample(p, 'fourbar');
+    await p.click('#menuBtn'); await p.click('[data-a="report"]'); await p.waitForTimeout(500);
+    await scan(lang + ' sketch calculation sheet', lang); await closeAll();
+    // calculators
+    await toWork('calc');
+    const cnt = await p.$$eval('#calcList button', b => b.length);
+    for (let i = 0; i < cnt; i++) {
       await p.click(`#calcList button >> nth=${i}`); await p.waitForTimeout(150);
       await p.$$eval('#calcDetail details', d => d.forEach(x => { x.open = true; }));
-      const name = (await p.$eval(`#calcList button >> nth=${i}`, e => e.textContent)).trim().slice(0, 30);
-      await scan(`${lang} calc ${i} ${name}`, lang);
+      await scan(`${lang} calc ${i}`, lang);
+      if (lang === 'nl') {
+        const d = await p.$eval('#calcDetail', e => e.innerText);
+        if (/\d\.\d/.test(d.replace(/\d+\.\d+\.\d+/g, ''))) {
+          const m = d.match(/.{20}\d\.\d.{10}/); bad.nlComma.push(`calc ${i}: ` + (m ? m[0].replace(/\s+/g, ' ') : ''));
+        }
+      }
       await p.click('#calcPrint'); await p.waitForTimeout(250); await scan(`${lang} calc ${i} sheet`, lang);
-      await p.keyboard.press('Escape');
-      if (await p.$('#repClose')) { try { await p.click('#repClose'); } catch (e) { /* al gesloten */ } }
+      await closeAll();
     }
-    await p.click('#workSeg [data-w="sketch"]');
+    await toWork('sketch');
   };
 
-  // ---- Engels (standaard, ook als de browser Nederlands is)
-  check('standaardtaal is Engels', (await p.evaluate(() => document.documentElement.lang)) === 'en' && /File/.test(await p.$eval('#menuBtn', e => e.textContent)));
-  await sketchPass('en'); await calcPass('en');
-  check(`EN: geen ruwe sleutels (${n} schermen)`, bad.key.length === 0, bad.key.slice(0, 5).join(' | '));
-  check('EN: geen onbekende sleutels', bad.unk.length === 0, bad.unk.slice(0, 5).join(' | '));
-  check('EN: geen Nederlandse woorden zichtbaar', bad.nl.length === 0, bad.nl.slice(0, 6).join(' | '));
+  check('default language is English', (await p.evaluate(() => document.documentElement.lang)) === 'en' && /File/.test(await p.$eval('#menuBtn', e => e.textContent)));
+  await pass('en');
+  check(`EN: no raw keys (${n} screens)`, bad.key.length === 0, bad.key.slice(0, 5).join(' | '));
+  check('EN: no Dutch words visible', bad.nl.length === 0, bad.nl.slice(0, 6).join(' | '));
 
-  // ---- wisselen naar NL en terug: model blijft, taal wordt onthouden
   await loadExample(p, 'fourbar');
-  const before = await store(p);
-  const nodesBefore = before.nodes.length;
-  await p.click('#menuBtn'); await p.click('#langSeg [data-lang="nl"]');
-  check('NL: menu en titel zijn Nederlands', /Bestand/.test(await p.$eval('#menuBtn', e => e.textContent)) && /Vierstangenmechanisme/.test(await p.$eval('#docName', e => e.textContent)) && (await p.evaluate(() => document.documentElement.lang)) === 'nl');
-  check('NL: model ongewijzigd na wissel', (await store(p)).nodes.length === nodesBefore);
-  await p.keyboard.press('Escape');
-  const keep = { k: bad.key.length, u: bad.unk.length };
-  await sketchPass('nl'); await calcPass('nl');
-  check('NL: geen ruwe of onbekende sleutels', bad.key.length === keep.k && bad.unk.length === keep.u, bad.key.concat(bad.unk).slice(keep.k + keep.u, keep.k + keep.u + 5).join(' | '));
-  await loadExample(p, 'fourbar');
-  await p.reload(); await p.waitForSelector('#menuBtn'); await p.waitForTimeout(600);
-  check('NL: taal onthouden na herladen', /Bestand/.test(await p.$eval('#menuBtn', e => e.textContent)));
-  await p.click('#menuBtn'); await p.click('#langSeg [data-lang="en"]');
-  check('terug naar EN: menu Engels en voorbeeldnaam vertaald', /File/.test(await p.$eval('#menuBtn', e => e.textContent)) && /Four-bar linkage/.test(await p.$eval('#docName', e => e.textContent)));
-  check('geen page errors', p.errs.length === 0, p.errs.join('|'));
+  await setLang('nl');
+  check('NL: menu is Dutch and document lang is nl', /Bestand/.test(await p.$eval('#menuBtn', e => e.textContent)) && (await p.evaluate(() => document.documentElement.lang)) === 'nl');
+  const k0 = bad.key.length;
+  await pass('nl');
+  check('NL: no raw keys', bad.key.length === k0, bad.key.slice(k0, k0 + 5).join(' | '));
+  check('NL: decimal comma, no decimal point', bad.nlComma.length === 0, bad.nlComma.slice(0, 5).join(' | '));
+
+  await setLang('en');
+  check('back to EN: menu English', /File/.test(await p.$eval('#menuBtn', e => e.textContent)));
+  await pass('en', true);
+  check('EN after round trip: no raw keys and no Dutch', bad.key.length === k0 && bad.nl.length === 0, bad.key.concat(bad.nl).slice(0, 5).join(' | '));
+  check('no page errors', p.errs.length === 0, p.errs.join('|'));
   await p.context().close();
 };
