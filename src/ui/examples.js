@@ -18,7 +18,7 @@ function addContact(nodeId, ax, ay, ang, c0) {
   model.elems.push(e);
   return e;
 }
-function build(nodes, elems, after) {
+export function build(nodes, elems, after) {
   if (ui.playing) togglePlay();
   cancelJob(); sim.solved = null;
   model.nodes = []; model.elems = []; model.series = []; model.stiffPath = []; model.stiffQ = ["ux", "uy"]; sim.uid = 1; ui.nameCounter = 0;
