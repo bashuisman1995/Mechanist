@@ -13,18 +13,27 @@ import { t as tr } from "./i18n.js";
 /* ============================================================
    Drawing — engineering symbols
    ============================================================ */
-function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
-// kleuren alleen opnieuw uitlezen als het thema verandert, niet bij elk beeld
+// kleuren en lettertypen komen uit de CSS-tokens (src/style.css); alleen opnieuw uitlezen als het thema verandert, niet bij elk beeld
 export function readColors() {
   if (!ui.colorsDirty) return;
   ui.colorsDirty = false; ui.colorGen++;
+  const cs = getComputedStyle(document.documentElement), css = v => cs.getPropertyValue(v).trim();
+  const font = (v, fb) => { const f = css(v); return f || fb; };
   ui.C = {
     ink: css("--ink"), ink2: css("--ink-2"), ink3: css("--ink-3"),
     line: css("--line"), grid: css("--grid"), gridM: css("--grid-major"),
     accent: css("--accent"), driver: css("--driver"), driverSoft: css("--driver-soft"), spring: css("--spring"),
     force: css("--force"), panel: css("--panel"), ground: css("--ground"),
-    hatch: css("--hatch"), bad: css("--bad")
+    hatch: css("--hatch"), bad: css("--bad"), accentSoft: css("--accent-soft"),
+    series: [1, 2, 3, 4, 5, 6].map(i => css("--series-" + i)),
+    mono: font("--mono", 'ui-monospace, Menlo, monospace'),
+    sans: font("--font", 'system-ui, sans-serif')
   };
+  // tint van een afwijkend materiaal: een van de reeks-tokens of een neutrale tint
+  const S = ui.C.series;
+  ui.C.mat = { alu: S[0], rvs: ui.C.hatch, titaan: S[3], cube: S[1], fbrons: S[4], invar: S[2], alumina: S[5], wc: ui.C.ink3, zerodur: ui.C.accent };
+  widthCache.clear();
+  staticSig = NaN;
 }
 
 // FRF: de meetfrequentie-vorm wordt alleen tijdens het tekenen aangebracht (ui.drawPre/drawPost)
@@ -32,12 +41,45 @@ export function draw() {
   if (ui.drawPre) ui.drawPre();
   try { drawNow(); } finally { if (ui.drawPost) ui.drawPost(); }
 }
+
+/* ---- statische laag ----
+   Raster, oorsprong en opleggingen veranderen niet tijdens het afspelen. Ze staan in een
+   buffer-canvas dat alleen opnieuw wordt opgebouwd als beeld, model of thema verandert;
+   per beeld hoeft dan alleen de dynamische laag nog getekend te worden. */
+const layer = document.createElement("canvas"), lctx = layer.getContext("2d");
+let staticSig = NaN, layerW = 0, layerH = 0, layerDPR = 0;
+const widthCache = new Map();
+function isFixedSupport(n) {
+  return n.support === "slider" || (n.support === "pin" && !(n.clamp && model.elems.some(e => isBeam(e) && (e.a === n.id || e.b === n.id))));
+}
+function staticSignature() {
+  let h = view.s * 1e3 + view.ox * 7 + view.oy * 13 + ui.W * 17 + ui.H * 19 + ui.DPR * 23 + ui.colorGen * 29 + (model.grid || 10) * 31;
+  const mod = 1000000007;
+  for (const n of model.nodes) {
+    if (!isFixedSupport(n)) continue;
+    h = (h * 31 + n.x * 100 + n.y * 100 + (n.support === "slider" ? 1 + (n.dir || 0) * 0.01 : 0.5)) % mod;
+  }
+  return h;
+}
+function paintStatic() {
+  const g = lctx;
+  if (layerW !== ui.W || layerH !== ui.H || layerDPR !== ui.DPR) {
+    layerW = ui.W; layerH = ui.H; layerDPR = ui.DPR;
+    layer.width = Math.round(ui.W * ui.DPR); layer.height = Math.round(ui.H * ui.DPR);
+  }
+  g.setTransform(ui.DPR, 0, 0, ui.DPR, 0, 0);
+  g.clearRect(0, 0, ui.W, ui.H);
+  g.fillStyle = ui.C.ground; g.fillRect(0, 0, ui.W, ui.H);
+  drawGrid(g);
+  for (const n of model.nodes) if (isFixedSupport(n)) drawSupport(g, n);
+}
+
 function drawNow() {
   if (!ui.W) return;
   readColors();
-  ctx.clearRect(0, 0, ui.W, ui.H);
-  ctx.fillStyle = ui.C.ground; ctx.fillRect(0, 0, ui.W, ui.H);
-  drawGrid();
+  const sig = staticSignature();
+  if (sig !== staticSig) { staticSig = sig; paintStatic(); }
+  ctx.drawImage(layer, 0, 0, ui.W, ui.H);
   drawTraces();
 
   // Stijfheid: de getekende (onbelaste) stand wordt vervaagd, de vervormde vorm komt erbovenop
@@ -54,7 +96,7 @@ function drawNow() {
   for (const e of model.elems) if (e.type === "flexure") drawFlexure(e);
   for (const e of model.elems) if (SENSORS[e.type]) drawSensor(e);
   if (fade) ctx.globalAlpha = 1;
-  for (const n of model.nodes) drawSupport(n);
+  for (const n of model.nodes) if (n.m > 0) drawMassDot(n);
   for (const e of model.elems) if (e.type === "force") drawForce(e);
   for (const n of model.nodes) drawNode(n);
   drawJoints();
@@ -71,10 +113,12 @@ function drawNow() {
    1 = krachten en momenten, 2 = maten en veerwaarden, 3 = bijzaken).
    Een label dat een eerder label raakt valt weg, en hoe verder je
    uitzoomt hoe minder soorten er getekend worden. */
-let LBL = [];
+let LBL = [], LN = 0;
+const placed = [];                                  // hergebruikte rechthoeken: geen toewijzingen per beeld
+const LDET = [];
 function labelDetail() {
   // typische schermlengte van een schakel; zonder schakels de zoomfactor
-  const L = [];
+  const L = LDET; L.length = 0;
   for (const e of model.elems) {
     if (e.type !== "link" && e.type !== "spring" && e.type !== "damper" && e.type !== "flexure") continue;
     const A = N(e.a), B = N(e.b);
@@ -86,63 +130,69 @@ function labelDetail() {
   return m < 22 ? -1 : m < 45 ? 0 : m < 80 ? 1 : 3;
 }
 // zolang de metingenkeuze open is, blijven de puntnamen altijd leesbaar
-const pickOpen = () => !document.getElementById("pick").hidden;
+const pickEl = document.getElementById("pick");
+const pickOpen = () => !pickEl.hidden;
+const byPri = (a, b) => a.pri - b.pri || a.i - b.i;
 function flushLabels() {
+  const n = LN; LN = 0;
+  if (!n) return;
   const maxPri = labelDetail();
-  const placed = [];
-  ctx.font = '500 11px "IBM Plex Mono", ui-monospace, monospace';
-  ctx.textBaseline = "middle";
-  const list = LBL.map((l, i) => Object.assign(l, { i })).sort((a, b) => a.pri - b.pri || a.i - b.i);
-  LBL = [];
-  for (const l of list) {
-    if (l.pri > maxPri && !(l.pri === 0 && pickOpen())) continue;
-    const w = ctx.measureText(l.text).width;
-    const r = { x0: l.left ? l.x - 2 : l.x - w / 2 - 3, y0: l.y - 7 };
-    r.x1 = r.x0 + w + 6; r.y1 = r.y0 + 14;
-    if (placed.some(q => r.x0 < q.x1 + 2 && r.x1 > q.x0 - 2 && r.y0 < q.y1 + 1 && r.y1 > q.y0 - 1)) continue;
-    placed.push(r);
+  const font = "500 11px " + ui.C.mono;
+  ctx.font = font; ctx.textBaseline = "middle";
+  const list = LBL.slice(0, n).sort(byPri);
+  let np = 0;
+  const open = pickOpen();
+  ctx.lineJoin = "round"; ctx.lineWidth = 3.5; ctx.strokeStyle = ui.C.ground;
+  for (let k = 0; k < list.length; k++) {
+    const l = list[k];
+    if (l.pri > maxPri && !(l.pri === 0 && open)) continue;
+    let w = widthCache.get(l.text);
+    if (w === undefined) { w = ctx.measureText(l.text).width; if (widthCache.size > 600) widthCache.clear(); widthCache.set(l.text, w); }
+    const x0 = l.left ? l.x - 2 : l.x - w / 2 - 3, y0 = l.y - 7, x1 = x0 + w + 6, y1 = y0 + 14;
+    let hit = false;
+    for (let j = 0; j < np; j++) { const q = placed[j]; if (x0 < q.x1 + 2 && x1 > q.x0 - 2 && y0 < q.y1 + 1 && y1 > q.y0 - 1) { hit = true; break; } }
+    if (hit) continue;
+    let q = placed[np]; if (!q) q = placed[np] = {};
+    q.x0 = x0; q.y0 = y0; q.x1 = x1; q.y1 = y1; np++;
     ctx.textAlign = l.left ? "left" : "center";
-    ctx.fillStyle = ui.C.ground;
-    ctx.globalAlpha = .85;
-    ctx.fillRect(r.x0, r.y0, r.x1 - r.x0, 14);
-    ctx.globalAlpha = 1;
+    ctx.strokeText(l.text, l.x, l.y);               // lichte rand in de achtergrondkleur: leesbaar over lijnen en raster
     ctx.fillStyle = l.color;
     ctx.fillText(l.text, l.x, l.y);
   }
 }
 
-function drawGrid() {
-  const g = model.grid || 10;
-  let step = g * view.s;
+function drawGrid(g) {
+  const gs = model.grid || 10;
+  let step = gs * view.s;
   let mult = 1;
-  while (step < 9) { mult *= 5; step = g * mult * view.s; }
+  while (step < 9) { mult *= 5; step = gs * mult * view.s; }
   const tl = toWld({ x: 0, y: 0 }), br = toWld({ x: ui.W, y: ui.H });
-  const gx = g * mult;
+  const gx = gs * mult;
   const x0 = Math.floor(tl.x / gx) * gx, x1 = Math.ceil(br.x / gx) * gx;
   const y0 = Math.floor(br.y / gx) * gx, y1 = Math.ceil(tl.y / gx) * gx;
 
   // alle lijnen in twee paden (dun en dik) in plaats van honderden losse streken
-  ctx.lineWidth = 1;
+  g.lineWidth = 1; g.lineCap = "butt";
   const minor = new Path2D(), majorP = new Path2D();
   for (let x = x0; x <= x1 + 1e-6; x += gx) {
-    const s = toScr({ x, y: 0 }), X = Math.round(s.x) + .5;
+    const X = Math.round(x * view.s + view.ox) + .5;
     const p = Math.abs(x / (gx * 5) - Math.round(x / (gx * 5))) < 1e-6 ? majorP : minor;
     p.moveTo(X, 0); p.lineTo(X, ui.H);
   }
   for (let y = y0; y <= y1 + 1e-6; y += gx) {
-    const s = toScr({ x: 0, y }), Y = Math.round(s.y) + .5;
+    const Y = Math.round(-y * view.s + view.oy) + .5;
     const p = Math.abs(y / (gx * 5) - Math.round(y / (gx * 5))) < 1e-6 ? majorP : minor;
     p.moveTo(0, Y); p.lineTo(ui.W, Y);
   }
-  ctx.strokeStyle = ui.C.grid; ctx.stroke(minor);
-  ctx.strokeStyle = ui.C.gridM; ctx.stroke(majorP);
-  // origin cross
-  const o = toScr({ x: 0, y: 0 });
-  ctx.strokeStyle = ui.C.line; ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.moveTo(o.x - 9, o.y); ctx.lineTo(o.x + 9, o.y);
-  ctx.moveTo(o.x, o.y - 9); ctx.lineTo(o.x, o.y + 9);
-  ctx.stroke();
+  g.strokeStyle = ui.C.grid; g.stroke(minor);
+  g.strokeStyle = ui.C.gridM; g.stroke(majorP);
+  // oorsprong: kruisje
+  const ox = view.ox, oy = view.oy;
+  g.strokeStyle = ui.C.ink3; g.lineWidth = 1; g.lineCap = "round";
+  g.beginPath();
+  g.moveTo(ox - 8, oy); g.lineTo(ox + 8, oy);
+  g.moveTo(ox, oy - 8); g.lineTo(ox, oy + 8);
+  g.stroke();
 }
 
 function drawTraces() {
@@ -151,13 +201,13 @@ function drawTraces() {
     if (!n.trace) continue;
     const path = sim.sweep.pos[n.id];
     if (!path) continue;
-    ctx.strokeStyle = ui.C.spring; ctx.lineWidth = 1.6;
+    ctx.strokeStyle = ui.C.spring; ctx.lineWidth = 1.5; ctx.lineJoin = "round"; ctx.lineCap = "round";
     ctx.setLineDash([]); ctx.beginPath();
     let pen = false;
     for (let i = 0; i <= 360; i++) {
       if (!sim.sweep.ok[i]) { pen = false; continue; }
-      const s = toScr(path[i]);
-      if (!pen) { ctx.moveTo(s.x, s.y); pen = true; } else ctx.lineTo(s.x, s.y);
+      const sx = path[i].x * view.s + view.ox, sy = -path[i].y * view.s + view.oy;
+      if (!pen) { ctx.moveTo(sx, sy); pen = true; } else ctx.lineTo(sx, sy);
     }
     ctx.stroke();
   }
@@ -178,17 +228,8 @@ function drawLiveForces() {
     const s = toScr(n);
     const len = 22 + 46 * (mag / Rs);
     const ux = R.x / mag, uy = -R.y / mag;
-    const tip = { x: s.x + ux * len, y: s.y + uy * len };
-    ctx.strokeStyle = ui.C.accent; ctx.lineWidth = 2.6; ctx.lineCap = "round";
-    ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(tip.x, tip.y); ctx.stroke();
-    const px = -uy, py = ux;
-    ctx.fillStyle = ui.C.accent;
-    ctx.beginPath();
-    ctx.moveTo(tip.x + ux * 3, tip.y + uy * 3);
-    ctx.lineTo(tip.x - ux * 9 + px * 4.8, tip.y - uy * 9 + py * 4.8);
-    ctx.lineTo(tip.x - ux * 9 - px * 4.8, tip.y - uy * 9 - py * 4.8);
-    ctx.closePath(); ctx.fill();
-    label(tip.x + ux * 14, tip.y + uy * 14, fmtForce(mag), ui.C.accent, false, 1);
+    drawLoadArrow(s.x, s.y, ux, uy, len, ui.C.accent, 2.4);
+    label(s.x - ux * (len + 24), s.y - uy * (len + 24), fmtForce(mag), ui.C.accent, false, 1);
   }
 
   for (const e of model.elems) {
@@ -213,7 +254,7 @@ function isHov(id) { return ui.hover === id; }
 
 // materiaal zichtbaar op de staaf: korte naam en tint (alleen als het ertoe doet: ΔT ≠ 0 of Stijfheid, en er is een afwijkend materiaal)
 const MAT_TAG = { staal: "St", rvs: "RVS", alu: "Al", titaan: "Ti", cube: "CuBe", fbrons: "CuSn", invar: "Inv", alumina: "Al\u2082O\u2083", wc: "WC", zerodur: "Zer" };
-const MAT_TINT = { alu: "#3b82c4", rvs: "#7a8a96", titaan: "#8a63c7", cube: "#c4762e", fbrons: "#b8862e", invar: "#2e9d6a", alumina: "#c4547a", wc: "#555e8a", zerodur: "#2e9da0" };
+const matTint = id => ui.C.mat[id]
 function matTagOn(e) {
   if (!isThermal(e) || e.driver) return false;
   if (model.mode !== "stiff" && !model.elems.some(x => isThermal(x) && dTOf(x) !== 0)) return false;
@@ -236,12 +277,12 @@ function drawLink(e) {
   ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
 
   const tag = matTagOn(e);
-  if (tag && MAT_TINT[e.mat]) {
-    ctx.strokeStyle = MAT_TINT[e.mat]; ctx.lineWidth = ax ? 1.8 : 2.4;
+  if (tag && matTint(e.mat)) {
+    ctx.strokeStyle = matTint(e.mat); ctx.lineWidth = ax ? 1.8 : 2.4;
     ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
   }
-  if (tag) label((A.x + B.x) / 2, (A.y + B.y) / 2 + 12, MAT_TAG[matOf(e).id] || matOf(e).id, MAT_TINT[e.mat] || ui.C.ink2, false, 2);
-  if (e.driver) drawCrankArrow(A, B);
+  if (tag) label((A.x + B.x) / 2, (A.y + B.y) / 2 + 12, MAT_TAG[matOf(e).id] || matOf(e).id, matTint(e.mat) || ui.C.ink2, false, 2);
+  if (e.driver) drawCrankArrow(A, B, !!e.cw);
   if (bm) label((A.x + B.x) / 2, (A.y + B.y) / 2 + 26, "EA\u00b7EI", ui.C.spring, false, 2);
   if (ax) {                                                       // klein "EA"-label; oranje als de tijdstap te groot is voor de stijfheid
     const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2, bad = model.mode === "dyn" && (model.dtStep || 0.2) / 1000 > loadcellDt(e, model.defMass);
@@ -429,23 +470,16 @@ function drawActuator(e) {
     fmt(Math.min(e.min, e.max)) + "\u2013" + fmt(Math.max(e.min, e.max)) + " mm \u00b7 " + fmt(e.freq) + " Hz", ui.C.driver, false, 2);
 }
 
-function drawCrankArrow(pivot, tip) {
-  const r = 26;
+// draairichting van de aandrijving: linksom (positief) of rechtsom (cw); de boog loopt vóór de kruk uit
+function drawCrankArrow(pivot, tip, cw) {
+  const r = 26, sg = cw ? 1 : -1;                          // schermhoek neemt toe bij rechtsom (y wijst omlaag)
   const a0 = Math.atan2(tip.y - pivot.y, tip.x - pivot.x);
-  ctx.strokeStyle = ui.C.driver; ctx.lineWidth = 1.8;
-  ctx.beginPath();
-  ctx.arc(pivot.x, pivot.y, r, a0 - 1.15, a0 - 0.12);
-  ctx.stroke();
-  const ae = a0 - 0.12;
+  const aS = a0 + sg * 0.14, ae = a0 + sg * 1.15;
+  ctx.strokeStyle = ui.C.driver; ctx.lineWidth = 1.6; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.arc(pivot.x, pivot.y, r, aS, ae, !cw); ctx.stroke();
   const px = pivot.x + Math.cos(ae) * r, py = pivot.y + Math.sin(ae) * r;
-  const tx = Math.cos(ae + Math.PI / 2), ty = Math.sin(ae + Math.PI / 2);
-  ctx.fillStyle = ui.C.driver;
-  ctx.beginPath();
-  ctx.moveTo(px + tx * 6.5, py + ty * 6.5);
-  ctx.lineTo(px - tx * 2.5 + Math.cos(ae) * 2, py - ty * 2.5 + Math.sin(ae) * 2);
-  ctx.lineTo(px - tx * 2.5 - Math.cos(ae) * 5, py - ty * 2.5 - Math.sin(ae) * 5);
-  ctx.closePath(); ctx.fill();
-  label(pivot.x + Math.cos(a0 - .65) * (r + 13), pivot.y + Math.sin(a0 - .65) * (r + 13), "ω", ui.C.driver, true, 3);
+  arrowHead(px + Math.cos(ae + sg * Math.PI / 2) * 3, py + Math.sin(ae + sg * Math.PI / 2) * 3, Math.cos(ae + sg * Math.PI / 2), Math.sin(ae + sg * Math.PI / 2), 9, ui.C.driver);
+  label(pivot.x + Math.cos(a0 + sg * .65) * (r + 13), pivot.y + Math.sin(a0 + sg * .65) * (r + 13), "\u03c9", ui.C.driver, true, 3);
 }
 
 function drawSpring(e) {
@@ -573,91 +607,97 @@ function drawContact(e) {
     "contact" + (st && !st.open ? " " + fmtForce(st.Fn) + (slip ? " " + tr("draw.slip") : " " + tr("draw.stick")) : ""), col, false, 2);
 }
 
+// Pijl in de richting van de kracht (e.ang, teken van e.mag), met de punt op het knooppunt: belasting die op het punt aangrijpt.
+// Dezelfde conventie voor krachten, reacties (arrow) en de momentenboog (arc).
+function arrowHead(x, y, ux, uy, size, color) {
+  const px = -uy, py = ux, w = size * .42;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x - ux * size + px * w, y - uy * size + py * w);
+  ctx.lineTo(x - ux * size * .78, y - uy * size * .78);
+  ctx.lineTo(x - ux * size - px * w, y - uy * size - py * w);
+  ctx.closePath(); ctx.fill();
+}
+// vector (ux,uy: eenheidsrichting op het scherm) die op het punt (x,y) aangrijpt; de lengte is len pixels vóór het punt
+function drawLoadArrow(x, y, ux, uy, len, color, lw) {
+  const gap = 7, head = 11;                             // kleine tussenruimte met de rand van het scharnier
+  const tx = x - ux * gap, ty = y - uy * gap;
+  ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(x - ux * (gap + len), y - uy * (gap + len)); ctx.lineTo(tx - ux * head * .7, ty - uy * head * .7); ctx.stroke();
+  arrowHead(tx, ty, ux, uy, head, color);
+}
 function drawForce(e) {
   const n = N(e.node); if (!n) return;
   const s = toScr(n);
-  const th = e.ang * Math.PI / 180;
-  const ux = Math.cos(th), uy = -Math.sin(th);
-  const len = 56;
-  const tip = { x: s.x + ux * len, y: s.y + uy * len };
-  const tail = { x: s.x + ux * 9, y: s.y + uy * 9 };
-  const hl = (isSel(e.id) || isHov(e.id));
-  ctx.strokeStyle = ui.C.force; ctx.lineWidth = hl ? 3.4 : 2.4; ctx.lineCap = "round";
-  ctx.beginPath(); ctx.moveTo(tip.x, tip.y); ctx.lineTo(tail.x, tail.y); ctx.stroke();
-  // arrowhead points AT the node (load applied to the point)
-  const pxv = -uy, pyv = ux;
-  ctx.fillStyle = ui.C.force;
-  ctx.beginPath();
-  ctx.moveTo(tail.x - ux * 1, tail.y - uy * 1);
-  ctx.lineTo(tail.x + ux * 11 + pxv * 4.6, tail.y + uy * 11 + pyv * 4.6);
-  ctx.lineTo(tail.x + ux * 11 - pxv * 4.6, tail.y + uy * 11 - pyv * 4.6);
-  ctx.closePath(); ctx.fill();
-  label(tip.x + ux * 12, tip.y + uy * 12, fmtForce(e.mag), ui.C.force, false, 1);
+  const th = e.ang * Math.PI / 180, sg = e.mag < 0 ? -1 : 1;
+  const ux = Math.cos(th) * sg, uy = -Math.sin(th) * sg;     // schermrichting van de werkelijke kracht
+  const len = 56, hl = (isSel(e.id) || isHov(e.id));
+  drawLoadArrow(s.x, s.y, ux, uy, len, ui.C.force, hl ? 3.2 : 2.2);
+  label(s.x - ux * (len + 22), s.y - uy * (len + 22), fmtForce(e.mag), ui.C.force, false, 1);
 }
 
-function drawSupport(n) {
+// Opleggingen staan in de statische laag (g = buffer-canvas). Scharnier: driehoek op een gearceerde grondlijn;
+// glijder: twee rails met arcering en een blok.
+function drawSupport(g, n) {
   const s = toScr(n);
-  // een inklemming heeft geen scharnierdriehoek maar een wand (zie stiffdraw.js)
-  if (n.support === "pin" && !(n.clamp && model.elems.some(e => isBeam(e) && (e.a === n.id || e.b === n.id)))) {
+  g.lineJoin = "round"; g.lineCap = "round";
+  if (n.support === "pin") {
     const w = 11, h = 15;
-    ctx.strokeStyle = ui.C.ink; ctx.lineWidth = 1.8; ctx.lineJoin = "round";
-    ctx.fillStyle = ui.C.ground;
-    ctx.beginPath();
-    ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - w, s.y + h); ctx.lineTo(s.x + w, s.y + h);
-    ctx.closePath(); ctx.fill(); ctx.stroke();
-    hatchLine(s.x - w - 3, s.y + h, s.x + w + 3, s.y + h);
+    g.strokeStyle = ui.C.ink; g.lineWidth = 1.6;
+    g.fillStyle = ui.C.panel;
+    g.beginPath();
+    g.moveTo(s.x, s.y); g.lineTo(s.x - w, s.y + h); g.lineTo(s.x + w, s.y + h);
+    g.closePath(); g.fill(); g.stroke();
+    hatchLine(g, s.x - w - 4, s.y + h, s.x + w + 4);
   } else if (n.support === "slider") {
     const th = n.dir * Math.PI / 180;
     const ux = Math.cos(th), uy = -Math.sin(th);
     const px = -uy, py = ux;
     const R = 46, h = 9;
-    // rail
-    ctx.strokeStyle = ui.C.ink2; ctx.lineWidth = 1.6;
-    ctx.setLineDash([]);
-    ctx.beginPath();
-    ctx.moveTo(s.x - ux * R + px * h, s.y - uy * R + py * h);
-    ctx.lineTo(s.x + ux * R + px * h, s.y + uy * R + py * h);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(s.x - ux * R - px * h, s.y - uy * R - py * h);
-    ctx.lineTo(s.x + ux * R - px * h, s.y + uy * R - py * h);
-    ctx.stroke();
-    // hatching outside both rails
-    hatchAlong(s, ux, uy, px, py, R, h + 0.5, 1);
-    hatchAlong(s, ux, uy, px, py, R, -h - 0.5, -1);
-    // block
+    g.strokeStyle = ui.C.ink2; g.lineWidth = 1.5;
+    g.beginPath();
+    g.moveTo(s.x - ux * R + px * h, s.y - uy * R + py * h);
+    g.lineTo(s.x + ux * R + px * h, s.y + uy * R + py * h);
+    g.moveTo(s.x - ux * R - px * h, s.y - uy * R - py * h);
+    g.lineTo(s.x + ux * R - px * h, s.y + uy * R - py * h);
+    g.stroke();
+    hatchAlong(g, s, ux, uy, px, py, R, h + 0.5, 1);
+    hatchAlong(g, s, ux, uy, px, py, R, -h - 0.5, -1);
     const bw = 15, bh = 8;
-    ctx.fillStyle = ui.C.ground; ctx.strokeStyle = ui.C.ink; ctx.lineWidth = 1.8;
-    ctx.beginPath();
-    ctx.moveTo(s.x - ux * bw + px * bh, s.y - uy * bw + py * bh);
-    ctx.lineTo(s.x + ux * bw + px * bh, s.y + uy * bw + py * bh);
-    ctx.lineTo(s.x + ux * bw - px * bh, s.y + uy * bw - py * bh);
-    ctx.lineTo(s.x - ux * bw - px * bh, s.y - uy * bw - py * bh);
-    ctx.closePath(); ctx.fill(); ctx.stroke();
-  }
-  if (n.m > 0) {
-    ctx.fillStyle = ui.C.ink2;
-    ctx.beginPath(); ctx.arc(s.x, s.y, 8.5, 0, Math.PI * 2); ctx.fill();
+    g.fillStyle = ui.C.panel; g.strokeStyle = ui.C.ink; g.lineWidth = 1.6;
+    g.beginPath();
+    g.moveTo(s.x - ux * bw + px * bh, s.y - uy * bw + py * bh);
+    g.lineTo(s.x + ux * bw + px * bh, s.y + uy * bw + py * bh);
+    g.lineTo(s.x + ux * bw - px * bh, s.y + uy * bw - py * bh);
+    g.lineTo(s.x - ux * bw - px * bh, s.y - uy * bw - py * bh);
+    g.closePath(); g.fill(); g.stroke();
   }
 }
 
-function hatchAlong(s, ux, uy, px, py, R, off, side) {
-  ctx.strokeStyle = ui.C.hatch; ctx.lineWidth = 1;
+function hatchAlong(g, s, ux, uy, px, py, R, off, side) {
+  g.strokeStyle = ui.C.hatch; g.lineWidth = 1;
+  g.beginPath();
   for (let t = -R; t <= R; t += 9) {
     const bx = s.x + ux * t + px * off, by = s.y + uy * t + py * off;
-    ctx.beginPath();
-    ctx.moveTo(bx, by);
-    ctx.lineTo(bx + (ux * -5 + px * side * 6), by + (uy * -5 + py * side * 6));
-    ctx.stroke();
+    g.moveTo(bx, by);
+    g.lineTo(bx + (ux * -5 + px * side * 6), by + (uy * -5 + py * side * 6));
   }
+  g.stroke();
 }
 
-function hatchLine(x0, y, x1, yy) {
-  ctx.strokeStyle = ui.C.hatch; ctx.lineWidth = 1.1;
-  ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
-  for (let x = x0 + 2; x < x1; x += 6) {
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 5, y + 6); ctx.stroke();
-  }
+function hatchLine(g, x0, y, x1) {
+  g.strokeStyle = ui.C.hatch; g.lineWidth = 1.1;
+  g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y);
+  for (let x = x0 + 2; x < x1; x += 6) { g.moveTo(x, y); g.lineTo(x - 5, y + 6); }
+  g.stroke();
+}
+
+// puntmassa: gevulde schijf onder het scharnier
+function drawMassDot(n) {
+  const s = toScr(n);
+  ctx.fillStyle = ui.C.ink2;
+  ctx.beginPath(); ctx.arc(s.x, s.y, 8.5, 0, Math.PI * 2); ctx.fill();
 }
 
 function drawNode(n) {
@@ -684,7 +724,8 @@ function drawNodeLabel(n) {
 const ZERO_LBL = /^[+\u2212-]?0(?:[.,]0*)?\s*(?:N|mm|\u00b5m|N\u00b7mm|N\/mm|N\/\u00b5m|Nm|kg|rad|\u00b0)?$/;
 function label(x, y, text, color, left, pri) {
   if (ZERO_LBL.test(String(text).trim())) return;           // nulwaarden niet op het canvas
-  LBL.push({ x, y, text, color, left: !!left, pri: pri === undefined ? 2 : pri });
+  let l = LBL[LN]; if (!l) l = LBL[LN] = {};
+  l.x = x; l.y = y; l.text = text; l.color = color; l.left = !!left; l.pri = pri === undefined ? 2 : pri; l.i = LN++;
 }
 
 function drawRubber() {

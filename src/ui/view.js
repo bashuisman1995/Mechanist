@@ -10,12 +10,14 @@ export const ctx = cv.getContext("2d");
 export const toScr = p => ({ x: p.x * view.s + view.ox, y: -p.y * view.s + view.oy });
 export const toWld = p => ({ x: (p.x - view.ox) / view.s, y: -(p.y - view.oy) / view.s });
 
+// Geeft true als het canvas een andere maat kreeg (dan zijn tekening en grafiek al opnieuw getekend).
 export function resize() {
-  ui.DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
   const r = cv.getBoundingClientRect();
+  const W = Math.max(1, Math.round(r.width)), H = Math.max(1, Math.round(r.height));
+  if (W === ui.W && H === ui.H && dpr === ui.DPR) return false;
   const W0 = ui.W, H0 = ui.H;
-  ui.W = Math.max(1, Math.round(r.width));
-  ui.H = Math.max(1, Math.round(r.height));
+  ui.DPR = dpr; ui.W = W; ui.H = H;
   // bij groter of kleiner worden blijft het midden van het beeld op zijn plaats
   if (W0 > 1 && H0 > 1) { view.ox += (ui.W - W0) / 2; view.oy += (ui.H - H0) / 2; }
   cv.width = Math.round(ui.W * ui.DPR);
@@ -23,6 +25,18 @@ export function resize() {
   ctx.setTransform(ui.DPR, 0, 0, ui.DPR, 0, 0);
   draw();
   if (typeof drawPlot === "function") drawPlot();
+  return true;
+}
+
+// Eén herindeling per beeld, wat er ook gebeurt (ResizeObserver, venster, lade, rail): meten, tekenen, grafiek één keer.
+let relayoutRaf = 0;
+export function scheduleResize() {
+  if (relayoutRaf) return;
+  relayoutRaf = requestAnimationFrame(() => {
+    relayoutRaf = 0;
+    ui.plotBox = null;
+    if (!resize()) drawPlot();
+  });
 }
 
 export function fit() {

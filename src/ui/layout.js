@@ -5,7 +5,7 @@ import { save } from "./persist.js";
 import { renderHowNow } from "./howhook.js";
 import { drawPlot, plotCv } from "./plot.js";
 import { rail } from "./tools.js";
-import { cv, resize } from "./view.js";
+import { cv, scheduleResize } from "./view.js";
 
 /* ============================================================
    Indeling: tabbladen, lade, smalle balk, mobiel
@@ -42,7 +42,7 @@ function relayout() {
     measTab.hidden = true;
     if (model.tab === "meas") setTab("props");
   }
-  requestAnimationFrame(() => { resize(); drawPlot(); });
+  scheduleResize();
 }
 
 export function applyLayout() {
@@ -58,8 +58,7 @@ export function applyLayout() {
 /* ============================================================
    Boot
    ============================================================ */
-const ro = new ResizeObserver(resize);
-let plotRaf = 0;
+const ro = new ResizeObserver(scheduleResize);
 
 export function initLayout() {
   tabs.addEventListener("click", ev => {
@@ -77,7 +76,7 @@ export function initLayout() {
   document.getElementById("drawerBtn").addEventListener("click", () => {
     drawer.classList.toggle("closed");
     model.drawerOpen = !drawer.classList.contains("closed");
-    requestAnimationFrame(() => { resize(); drawPlot(); });
+    scheduleResize();
     save();
   });
 
@@ -96,23 +95,22 @@ export function initLayout() {
       const h = Math.max(120, Math.min(window.innerHeight * 0.6, g.h - (ev.clientY - g.y)));
       model.drawerH = Math.round(h); model.drawerAuto = false;
       drawer.style.setProperty("--drawerH", h + "px");
-      resize(); drawPlot();
+      scheduleResize();
     });
     const stop = () => { if (g) { g = null; save(); } };
     grip.addEventListener("pointerup", stop);
-    grip.addEventListener("dblclick", () => { model.drawerAuto = true; drawPlot(); requestAnimationFrame(resize); save(); });
+    grip.addEventListener("dblclick", () => { model.drawerAuto = true; drawPlot(); scheduleResize(); save(); });
     grip.addEventListener("pointercancel", stop);
   })();
 
   document.getElementById("railBtn").addEventListener("click", () => {
     rail.classList.toggle("slim");
     model.railSlim = rail.classList.contains("slim");
-    requestAnimationFrame(resize);
+    scheduleResize();
     save();
   });
   ro.observe(cv.parentElement);
-  new ResizeObserver(() => { ui.plotBox = null; cancelAnimationFrame(plotRaf); plotRaf = requestAnimationFrame(drawPlot); })
-    .observe(plotCv.parentElement);
-  window.addEventListener("resize", resize);
+  new ResizeObserver(scheduleResize).observe(plotCv.parentElement);
+  window.addEventListener("resize", scheduleResize);
   onMedia(window.matchMedia("(prefers-color-scheme: dark)"), () => { ui.colorsDirty = true; draw(); drawPlot(); });
 }

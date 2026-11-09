@@ -93,7 +93,7 @@ export function drawStiff(label) {
     legend(res);
   } else {
     const m = sh.mode;
-    ctx.fillStyle = ui.C.ink2; ctx.font = '500 12px "IBM Plex Sans", system-ui, sans-serif'; ctx.textAlign = "left"; ctx.textBaseline = "top";
+    ctx.fillStyle = ui.C.ink2; ctx.font = "500 12px " + ui.C.sans; ctx.textAlign = "left"; ctx.textBaseline = "top";
     ctx.fillText(t("sd.mode") + " " + (ui.stiffMode + 1) + " · " + fmtHz(m.f), 14, 12);
   }
 }
@@ -106,12 +106,14 @@ function drawReactions(res, label) {
     const mag = Math.hypot(r.Rx, r.Ry);
     if (mag < mx * 0.004) continue;
     const n = N(r.id), s = toScr(n), len = 24 + 40 * mag / mx, ux = r.Rx / mag, uy = -r.Ry / mag;
-    const tip = { x: s.x + ux * len, y: s.y + uy * len };
-    ctx.strokeStyle = ui.C.accent; ctx.lineWidth = 2.2; ctx.setLineDash([]);
-    ctx.beginPath(); ctx.moveTo(s.x + ux * 8, s.y + uy * 8); ctx.lineTo(tip.x, tip.y); ctx.stroke();
-    ctx.fillStyle = ui.C.accent; const px = -uy, py = ux;
-    ctx.beginPath(); ctx.moveTo(tip.x + ux * 3, tip.y + uy * 3); ctx.lineTo(tip.x - ux * 8 + px * 4.4, tip.y - uy * 8 + py * 4.4); ctx.lineTo(tip.x - ux * 8 - px * 4.4, tip.y - uy * 8 - py * 4.4); ctx.closePath(); ctx.fill();
-    label(tip.x + ux * 14, tip.y + uy * 14, fmtForce(mag, 3, mx * REL_FE / 1e-9) + (r.clamp && Math.abs(r.Mz / 1000) > 1e-9 * mx ? " · " + fmtMoment(r.Mz / 1000) : ""), ui.C.accent, false, 1);
+    // reactie = kracht van de oplegging op de constructie: pijl in die richting, punt op het knooppunt
+    const gap = 7, head = 10, hx = s.x - ux * gap, hy = s.y - uy * gap, px = -uy, py = ux;
+    ctx.strokeStyle = ui.C.accent; ctx.lineWidth = 2.2; ctx.setLineDash([]); ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(s.x - ux * (gap + len), s.y - uy * (gap + len)); ctx.lineTo(hx - ux * head * .7, hy - uy * head * .7); ctx.stroke();
+    ctx.fillStyle = ui.C.accent;
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx - ux * head + px * 4.2, hy - uy * head + py * 4.2); ctx.lineTo(hx - ux * head * .78, hy - uy * head * .78); ctx.lineTo(hx - ux * head - px * 4.2, hy - uy * head - py * 4.2); ctx.closePath(); ctx.fill();
+    const tip = { x: s.x - ux * (gap + len), y: s.y - uy * (gap + len) };
+    label(tip.x - ux * 14, tip.y - uy * 14, fmtForce(mag, 3, mx * REL_FE / 1e-9) + (r.clamp && Math.abs(r.Mz / 1000) > 1e-9 * mx ? " · " + fmtMoment(r.Mz / 1000) : ""), ui.C.accent, false, 1);
   }
 }
 
@@ -121,7 +123,7 @@ function legend(res) {
   STOPS.forEach(st => g.addColorStop(st[0], "rgb(" + st[1].join(",") + ")"));
   ctx.fillStyle = g; ctx.fillRect(x, y + 14, w, 8);
   ctx.strokeStyle = ui.C.line; ctx.lineWidth = 1; ctx.strokeRect(x + .5, y + 14.5, w - 1, 7);
-  ctx.fillStyle = ui.C.ink2; ctx.font = '500 11px "IBM Plex Mono", ui-monospace, monospace'; ctx.textBaseline = "top";
+  ctx.fillStyle = ui.C.ink2; ctx.font = "500 11px " + ui.C.mono; ctx.textBaseline = "top";
   ctx.textAlign = "left"; ctx.fillText("0", x, y + 25);
   ctx.textAlign = "right"; ctx.fillText(t("sd.allow"), x + w, y + 25);
   ctx.textAlign = "left"; ctx.fillText(t("sd.ratio"), x, y);
